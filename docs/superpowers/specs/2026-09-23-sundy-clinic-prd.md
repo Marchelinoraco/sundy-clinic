@@ -182,6 +182,8 @@ Karena itu setiap layanan membawa penanda **`requiresDoctor`**. Penanda inilah y
 
 Dasar usulan: tindakan yang menembus kulit (injeksi, infus, PRP, mesoterapi), membakar jaringan (elektrocauter), atau memakai energi terarah (HIFU, laser) ditempatkan pada dokter; perawatan permukaan kulit ditempatkan pada terapis. Ini penilaian dari sisi keamanan prosedur, bukan dari cara klinik Anda benar-benar membagi pekerjaan — mohon dikoreksi.
 
+**Tanpa jeda antar treatment.** Booking berikutnya boleh dimulai tepat pada menit treatment sebelumnya selesai. Treatment 15.00–16.00 membuat slot 16.00 langsung tersedia, bukan 16.15. Ini menyederhanakan perhitungan slot: rentang waktu booking sama persis dengan durasi layanan, tanpa penambahan tersembunyi.
+
 **Pasien baru vs pasien lama.** Pasien baru hanya dapat memesan **konsultasi dokter**; treatment ditentukan dokter setelah pemeriksaan. Pasien yang sudah pernah datang boleh langsung memilih treatment beserta durasinya.
 
 Situs publik **tidak** memeriksa status pasien dari nomor WhatsApp yang dimasukkan. Pemeriksaan semacam itu memungkinkan siapa pun menebak nomor untuk mengetahui apakah seseorang pernah berobat di sini — kebocoran privasi yang tidak sebanding dengan manfaatnya. Sebagai gantinya, form menawarkan kedua pilihan kepada semua orang, disertai keterangan bahwa treatment hanya untuk pasien yang sudah pernah konsultasi. Admin memverifikasinya pada langkah konfirmasi WhatsApp yang memang sudah ada, sehingga tidak menambah pekerjaan baru.
@@ -535,7 +537,7 @@ Aplikasi dirancang portabel (Docker + PostgreSQL standar) sehingga perpindahan i
 | D9 | **Pasien aesthetic** | Belum masuk daftar pengingat. | Model data sudah mendukung; tinggal melonggarkan penyaringan bila nanti treatment aesthetic berseri juga ingin diingatkan. |
 | D10 | **Layanan mana yang harus dokter** | Usulan tabel pada F4a. | **Perlu dikonfirmasi pemilik.** Salah menandai membuat layanan tampak tersedia padahal dokternya sedang menangani pasien lain. |
 | D11 | **Jumlah terapis per cabang** | Asumsi sementara: satu terapis di Mahakeret. | Model `Staff` mendukung berapa pun; ini hanya data awal. Menambah terapis kedua langsung menggandakan kapasitas treatment tanpa perubahan kode. |
-| D12 | **Durasi treatment di jadwal** | Memakai `durationMin` tiap layanan (20–90 menit), dibulatkan ke kelipatan 30 menit. | Contoh: HIFU Wajah 90 menit mengunci tiga slot berurutan. Perlu dikonfirmasi apakah klinik membutuhkan jeda bersih-bersih antar treatment. |
+| D12 | ~~Durasi treatment di jadwal~~ | **Selesai.** Memakai `durationMin` tiap layanan (20–90 menit), dibulatkan ke kelipatan 30 menit. **Tanpa jeda bersih-bersih antar treatment** — booking berikutnya boleh dimulai tepat saat yang sebelumnya selesai. | Dikonfirmasi pemilik, 24 Sep 2026. Contoh: HIFU Wajah 90 menit mengunci tiga slot berurutan, dan slot berikutnya langsung tersedia. |
 
 ---
 
