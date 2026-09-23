@@ -10,7 +10,7 @@ describe("skema katalog", () => {
     await prisma.serviceCategory.deleteMany();
     await prisma.product.deleteMany();
     await prisma.branch.deleteMany();
-    await prisma.doctor.deleteMany();
+    await prisma.staff.deleteMany();
   });
 
   afterAll(async () => {

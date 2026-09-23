@@ -32,18 +32,32 @@ model Branch {
   @@index([status, sortOrder])
 }
 
-model Doctor {
-  id        String   @id @default(cuid())
-  slug      String   @unique
+enum StaffRole {
+  SUPER_ADMIN
+  DOKTER
+  TERAPIS
+  RESEPSIONIS
+}
+
+model Staff {
+  id        String    @id @default(cuid())
+  slug      String    @unique
   name      String
+  role      StaffRole
   sipNumber String?
   specialty String?
   photoUrl  String?
   bio       String?
-  isActive  Boolean  @default(true)
-  sortOrder Int      @default(0)
+  /// Ditampilkan di halaman "Tim Dokter" pada situs publik.
+  /// Bawaannya false agar staf baru tidak pernah tidak sengaja terpublikasi.
+  showOnWebsite Boolean @default(false)
+  isActive      Boolean @default(true)
+  sortOrder     Int     @default(0)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([role, isActive])
 }
 
 model ServiceCategory {

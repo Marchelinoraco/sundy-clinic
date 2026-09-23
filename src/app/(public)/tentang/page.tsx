@@ -6,7 +6,7 @@ import {
   CLOSED_NOTE,
   OPENING_HOURS,
 } from "@/lib/clinic";
-import { getActiveDoctors } from "@/server/catalog";
+import { getPublicStaff } from "@/server/catalog";
 
 export const metadata: Metadata = {
   title: "Tentang Kami",
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 };
 
 export default async function AboutPage() {
-  const doctors = await getActiveDoctors();
+  const team = await getPublicStaff();
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-14">
@@ -39,11 +39,11 @@ export default async function AboutPage() {
         </h2>
 
         <div className="mt-6 grid gap-5">
-          {doctors.map((doctor) => (
-            <article key={doctor.id} className="rounded-2xl border border-cream-300 bg-white p-6">
-              <h3 className="font-display text-xl text-brown-900">{doctor.name}</h3>
-              {doctor.specialty && <p className="mt-1 text-sm text-gold-600">{doctor.specialty}</p>}
-              {doctor.bio && <p className="mt-3 text-sm text-brown-600">{doctor.bio}</p>}
+          {team.map((person) => (
+            <article key={person.id} className="rounded-2xl border border-cream-300 bg-white p-6">
+              <h3 className="font-display text-xl text-brown-900">{person.name}</h3>
+              {person.specialty && <p className="mt-1 text-sm text-gold-600">{person.specialty}</p>}
+              {person.bio && <p className="mt-3 text-sm text-brown-600">{person.bio}</p>}
             </article>
           ))}
         </div>

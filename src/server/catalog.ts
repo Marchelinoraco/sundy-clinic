@@ -1,4 +1,4 @@
-import type { Branch, Doctor, Package, PackageItem, Product, Service } from "@prisma/client";
+import type { Branch, Package, PackageItem, Product, Service, Staff } from "@prisma/client";
 import { prisma } from "@/lib/db";
 
 /** Urutan kelompok paket sebagaimana ditampilkan ke pengunjung. */
@@ -83,9 +83,10 @@ export async function getBranchBySlug(slug: string): Promise<Branch | null> {
   return prisma.branch.findUnique({ where: { slug } });
 }
 
-export async function getActiveDoctors(): Promise<Doctor[]> {
-  return prisma.doctor.findMany({
-    where: { isActive: true },
+/** Staf yang tampil di halaman "Tim Dokter". Resepsionis dan admin tidak termasuk. */
+export async function getPublicStaff(): Promise<Staff[]> {
+  return prisma.staff.findMany({
+    where: { isActive: true, showOnWebsite: true, role: { in: ["DOKTER", "TERAPIS"] } },
     orderBy: { sortOrder: "asc" },
   });
 }

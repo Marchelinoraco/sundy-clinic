@@ -48,14 +48,27 @@ const branches = [
   },
 ];
 
-const doctors = [
+const staff = [
   {
     slug: "diane-paparang",
     name: "Dr. Diane Paparang, Sp.GK, AIFO-K",
+    role: "DOKTER" as const,
     specialty: "Spesialis Gizi Klinik",
     bio: "Dokter penanggung jawab SunDY Clinic Manado untuk program slimming, nutrisi, dan perawatan estetika.",
+    showOnWebsite: true,
     isActive: true,
     sortOrder: 1,
+  },
+  {
+    // Jumlah terapis belum dikonfirmasi pemilik (keputusan D11 pada PRD).
+    // Satu terapis dipakai sebagai data awal agar jalur jadwal terapis
+    // dapat diuji sejak sekarang.
+    slug: "terapis-mahakeret",
+    name: "Terapis SunDY Mahakeret",
+    role: "TERAPIS" as const,
+    showOnWebsite: false,
+    isActive: true,
+    sortOrder: 2,
   },
 ];
 
@@ -607,37 +620,46 @@ const products = [
 export async function seed(): Promise<void> {
   const prisma = createSeedClient();
 
+  // Batas transaksi Prisma bawaan (5 detik) sudah cukup ketat untuk basis data
+  // lokal, tetapi terlampaui saat menulis puluhan baris ke Neon Singapura dari
+  // koneksi dingin. Setiap transaksi di seed ini diberi batas eksplisit yang
+  // lebih longgar.
+  const TRANSACTION_OPTIONS = { timeout: 20_000 };
+
   try {
-    await prisma.$transaction([
-      ...branches.map((branch) =>
-        prisma.branch.upsert({
-          where: { slug: branch.slug },
-          update: branch,
-          create: branch,
-        }),
-      ),
-      ...doctors.map((doctor) =>
-        prisma.doctor.upsert({
-          where: { slug: doctor.slug },
-          update: doctor,
-          create: doctor,
-        }),
-      ),
-      ...categories.map((category) =>
-        prisma.serviceCategory.upsert({
-          where: { slug: category.slug },
-          update: category,
-          create: category,
-        }),
-      ),
-      ...products.map((product) =>
-        prisma.product.upsert({
-          where: { slug: product.slug },
-          update: product,
-          create: product,
-        }),
-      ),
-    ]);
+    await prisma.$transaction(
+      [
+        ...branches.map((branch) =>
+          prisma.branch.upsert({
+            where: { slug: branch.slug },
+            update: branch,
+            create: branch,
+          }),
+        ),
+        ...staff.map((person) =>
+          prisma.staff.upsert({
+            where: { slug: person.slug },
+            update: person,
+            create: person,
+          }),
+        ),
+        ...categories.map((category) =>
+          prisma.serviceCategory.upsert({
+            where: { slug: category.slug },
+            update: category,
+            create: category,
+          }),
+        ),
+        ...products.map((product) =>
+          prisma.product.upsert({
+            where: { slug: product.slug },
+            update: product,
+            create: product,
+          }),
+        ),
+      ],
+      TRANSACTION_OPTIONS,
+    );
 
     const categoryRows = await prisma.serviceCategory.findMany({
       select: { id: true, slug: true },
@@ -661,6 +683,7 @@ export async function seed(): Promise<void> {
           create: data,
         });
       }),
+      TRANSACTION_OPTIONS,
     );
 
     await prisma.$transaction(
@@ -672,6 +695,7 @@ export async function seed(): Promise<void> {
           create: { slug, name, groupName, monthlyPrice, sortOrder },
         }),
       ),
+      TRANSACTION_OPTIONS,
     );
 
     const packageRows = await prisma.package.findMany({
@@ -683,24 +707,27 @@ export async function seed(): Promise<void> {
 
     // Isi paket ditulis ulang seluruhnya agar perubahan susunan tercermin tanpa
     // menggandakan baris.
-    await prisma.$transaction([
-      prisma.packageItem.deleteMany({
-        where: { packageId: { in: [...packageIdBySlug.values()] } },
-      }),
-      prisma.packageItem.createMany({
-        data: packages.flatMap((pkg) => {
-          const packageId = packageIdBySlug.get(pkg.slug);
-          if (!packageId) {
-            throw new Error(`Paket "${pkg.slug}" gagal dibuat`);
-          }
-          return pkg.items.map((label, index) => ({
-            packageId,
-            label,
-            sortOrder: index + 1,
-          }));
+    await prisma.$transaction(
+      [
+        prisma.packageItem.deleteMany({
+          where: { packageId: { in: [...packageIdBySlug.values()] } },
         }),
-      }),
-    ]);
+        prisma.packageItem.createMany({
+          data: packages.flatMap((pkg) => {
+            const packageId = packageIdBySlug.get(pkg.slug);
+            if (!packageId) {
+              throw new Error(`Paket "${pkg.slug}" gagal dibuat`);
+            }
+            return pkg.items.map((label, index) => ({
+              packageId,
+              label,
+              sortOrder: index + 1,
+            }));
+          }),
+        }),
+      ],
+      TRANSACTION_OPTIONS,
+    );
   } finally {
     await prisma.$disconnect();
   }
