@@ -61,3 +61,6 @@ uploads/
 public/uploads/
 *.csv
 !docs/**/*.csv
+
+# Playwright
+/test-results/
