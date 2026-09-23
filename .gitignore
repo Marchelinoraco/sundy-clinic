@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js
+.next/
+out/
+build/
+dist/
+next-env.d.ts
+
+# Environment — JANGAN PERNAH di-commit.
+# Berisi kredensial basis data rekam medis.
+.env
+.env.*
+!.env.example
+
+# Prisma
+prisma/*.db
+prisma/*.db-journal
+prisma/migrations/dev.db*
+
+# Testing
+coverage/
+playwright-report/
+test-results/
+.playwright/
+
+# Log & cache
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.eslintcache
+.turbo/
+.vercel/
+
+# Sistem operasi & editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Berkas pasien / unggahan lokal — tidak boleh masuk repositori
+uploads/
+public/uploads/
+*.csv
+!docs/**/*.csv
