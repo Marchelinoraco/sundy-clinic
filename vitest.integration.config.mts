@@ -26,6 +26,11 @@ export default defineConfig({
     // Seluruh berkas memakai satu basis data dan sebagian mengosongkan tabel.
     // Berjalan paralel membuat satu berkas menghapus data berkas lain.
     fileParallelism: false,
+    // Basis datanya di Singapura, jadi setiap kueri menempuh jaringan dan
+    // batas bawaan 5 detik terlalu ketat. Neon juga menidurkan basis data yang
+    // menganggur; kueri pertama setelah itu perlu waktu membangunkannya.
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
     env: {
       DATABASE_URL: required("TEST_DATABASE_URL"),
       DATABASE_URL_UNPOOLED: required("TEST_DATABASE_URL_UNPOOLED"),
