@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
 @theme {
   --color-cream-50: #fffdf7;
@@ -23,8 +25,43 @@
 }
 
 :root {
-  /* Situs ini hanya mode terang — identitas krem-emas SunDY tidak punya padanan gelap. */
+  /* Situs ini hanya mode terang — identitas krem-emas SunDY tidak punya padanan
+     gelap. Seluruh token shadcn di bawah dipetakan ke palet cream/gold/brown
+     yang sudah ada di atas, bukan abu-abu bawaan, supaya panel admin dan
+     situs publik terasa satu sistem yang sama. */
   color-scheme: light;
+  --background: var(--color-cream-50);
+  --foreground: var(--color-brown-900);
+  --card: oklch(1 0 0);
+  --card-foreground: var(--color-brown-900);
+  --popover: oklch(1 0 0);
+  --popover-foreground: var(--color-brown-900);
+  --primary: var(--color-gold-500);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: var(--color-cream-200);
+  --secondary-foreground: var(--color-brown-900);
+  --muted: var(--color-cream-100);
+  --muted-foreground: var(--color-brown-600);
+  --accent: var(--color-cream-200);
+  --accent-foreground: var(--color-brown-900);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: var(--color-cream-300);
+  --input: var(--color-cream-300);
+  --ring: var(--color-gold-500);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.625rem;
+  --sidebar: var(--color-cream-100);
+  --sidebar-foreground: var(--color-brown-900);
+  --sidebar-primary: var(--color-gold-500);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: var(--color-cream-200);
+  --sidebar-accent-foreground: var(--color-brown-900);
+  --sidebar-border: var(--color-cream-300);
+  --sidebar-ring: var(--color-gold-500);
 }
 
 body {
@@ -38,4 +75,61 @@ h2,
 h3 {
   font-family: var(--font-display);
   color: var(--color-brown-900);
+}
+
+@theme inline {
+  /* --font-sans dan --font-display sudah ditetapkan di blok @theme di atas
+     lewat next/font — tidak diredefinisikan di sini agar tidak melingkar. */
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* Tidak ada blok .dark — situs ini hanya mode terang, lihat komentar di :root. */
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
 }

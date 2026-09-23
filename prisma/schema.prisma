@@ -32,18 +32,34 @@ model Branch {
   @@index([status, sortOrder])
 }
 
-model Doctor {
-  id        String   @id @default(cuid())
-  slug      String   @unique
-  name      String
-  sipNumber String?
-  specialty String?
-  photoUrl  String?
-  bio       String?
-  isActive  Boolean  @default(true)
-  sortOrder Int      @default(0)
+enum StaffRole {
+  SUPER_ADMIN
+  DOKTER
+  TERAPIS
+  RESEPSIONIS
+}
+
+model Staff {
+  id            String    @id @default(cuid())
+  slug          String    @unique
+  name          String
+  role          StaffRole
+  sipNumber     String?
+  specialty     String?
+  photoUrl      String?
+  bio           String?
+  /// Ditampilkan di halaman "Tim Dokter" pada situs publik.
+  /// Bawaannya false agar staf baru tidak pernah tidak sengaja terpublikasi.
+  showOnWebsite Boolean   @default(false)
+  isActive      Boolean   @default(true)
+  sortOrder     Int       @default(0)
+
+  user User?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([role, isActive])
 }
 
 model ServiceCategory {
@@ -125,4 +141,92 @@ model Product {
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model User {
+  id            String    @id
+  name          String
+  email         String
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  staffId       String?   @unique
+  staff         Staff?    @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  sessions      Session[]
+  accounts      Account[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+/// Hanya-tambah. Tidak ada jalur di panel yang menyunting atau menghapus
+/// baris di tabel ini — lihat Permenkes 24/2022 pada PRD bagian 10.
+model AuditLog {
+  id String @id @default(cuid())
+
+  /// Identitas pelaku disalin, bukan sekadar dirujuk: bila staf dihapus,
+  /// catatan audit harus tetap terbaca.
+  actorStaffId String
+  actorName    String
+  actorRole    String
+
+  action   String
+  entity   String
+  entityId String
+  summary  String?
+
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([actorStaffId, createdAt])
+  @@index([createdAt])
 }

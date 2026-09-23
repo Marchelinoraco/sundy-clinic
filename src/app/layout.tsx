@@ -1,8 +1,5 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, Plus_Jakarta_Sans } from "next/font/google";
-import { SiteFooter } from "@/components/layout/site-footer";
-import { SiteHeader } from "@/components/layout/site-header";
-import { WhatsAppFab } from "@/components/layout/whatsapp-fab";
 import { CLINIC_BEAUTY_TAGLINE, CLINIC_FULL_NAME, CLINIC_NAME } from "@/lib/clinic";
 import "./globals.css";
 
@@ -27,15 +24,18 @@ export const metadata: Metadata = {
   description: `${CLINIC_BEAUTY_TAGLINE}. Klinik nutrisi, slimming, dan perawatan estetika di Manado.`,
 };
 
+// Root layout hanya memegang <html>, font, dan metadata dasar. Header dan
+// footer publik pindah ke (public)/layout.tsx agar panel admin tidak
+// mewarisinya.
+//
+// Font tetap Cormorant + Plus Jakarta Sans, bukan Geist bawaan shadcn init:
+// identitas SunDY sudah ditetapkan di Plan 1, dan panel admin memakai palet
+// warna yang sama (lihat globals.css) agar terasa satu sistem dengan situs
+// publik, bukan tampilan admin generik yang ditempel di atasnya.
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="id">
-      <body className={`${display.variable} ${sans.variable}`}>
-        <SiteHeader />
-        <main>{children}</main>
-        <SiteFooter />
-        <WhatsAppFab />
-      </body>
+      <body className={`${display.variable} ${sans.variable}`}>{children}</body>
     </html>
   );
 }

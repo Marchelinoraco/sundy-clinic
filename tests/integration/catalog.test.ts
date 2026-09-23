@@ -2,12 +2,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
 import {
-  getActiveDoctors,
   getActiveProducts,
   getAllServiceSlugs,
   getBranchBySlug,
   getBranches,
   getPackagesByGroup,
+  getPublicStaff,
   getServiceBySlug,
   getServiceCategoriesWithServices,
   getSignatureServices,
@@ -117,8 +117,9 @@ describe("lapisan query katalog", () => {
     expect(branch?.status).toBe("SEGERA_HADIR");
   });
 
-  it("mengembalikan dokter aktif", async () => {
-    const doctors = await getActiveDoctors();
-    expect(doctors.map((d) => d.name)).toContain("Dr. Diane Paparang, Sp.GK, AIFO-K");
+  it("menampilkan dokter di situs publik, tetapi tidak menampilkan terapis internal", async () => {
+    const team = await getPublicStaff();
+    expect(team.map((s) => s.name)).toContain("Dr. Diane Paparang, Sp.GK, AIFO-K");
+    expect(team.map((s) => s.slug)).not.toContain("terapis-mahakeret");
   });
 });
