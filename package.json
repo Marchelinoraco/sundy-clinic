@@ -9,7 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "db:migrate": "prisma migrate dev",
+    "db:migrate": "prisma migrate dev && prisma generate",
     "db:migrate:test": "PRISMA_TARGET=test prisma migrate deploy",
     "db:seed": "prisma db seed",
     "db:studio": "prisma studio",
