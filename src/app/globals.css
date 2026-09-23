@@ -1,26 +1,41 @@
 @import "tailwindcss";
 
+@theme {
+  --color-cream-50: #fffdf7;
+  --color-cream-100: #fdf6e3;
+  --color-cream-200: #f7edd4;
+  --color-cream-300: #f0e2bd;
+
+  --color-gold-300: #efd08c;
+  --color-gold-400: #e8b84b;
+  --color-gold-500: #d4a017;
+  --color-gold-600: #b8860b;
+
+  --color-brown-600: #8a7047;
+  --color-brown-700: #6b5535;
+  --color-brown-800: #4a3c28;
+  --color-brown-900: #2e2517;
+
+  /* Nilai --font-cormorant dan --font-jakarta disuntikkan next/font di src/app/layout.tsx.
+     Cadangan di belakangnya dipakai bila font gagal dimuat. */
+  --font-display: var(--font-cormorant), Georgia, serif;
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Situs ini hanya mode terang — identitas krem-emas SunDY tidak punya padanan gelap. */
+  color-scheme: light;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-cream-50);
+  color: var(--color-brown-800);
+  font-family: var(--font-sans);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  color: var(--color-brown-900);
 }
