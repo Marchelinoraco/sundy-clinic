@@ -1,6 +1,6 @@
 # PRD — Sistem Klinik SunDY (Situs Publik + Admin & Rekam Medis)
 
-- **Versi:** 1.2
+- **Versi:** 1.3
 - **Tanggal:** 23 September 2026
 - **Status:** Menunggu review pemilik
 - **Klinik:** SunDY — Nutrition, Slimming & Wellness Clinic, Manado
@@ -21,6 +21,8 @@
 **Perubahan dari versi 1.0:** dukungan multi-cabang dinaikkan dari Fase 3 ke MVP; jam operasional, hari libur nasional, dan data dokter dikonfirmasi pemilik.
 
 **Perubahan dari versi 1.1:** ditambahkan **Pengingat Kontrol Mingguan** (F17) — daftar kerja harian bagi admin untuk mengingatkan pasien program slimming lewat WhatsApp; keputusan hosting Vercel + Neon dicatat.
+
+**Perubahan dari versi 1.2:** ditambahkan **batasan unik (dokter, waktu mulai)** pada Appointment dan SlotHold. Tanpa itu, pencegahan bentrok jadwal hanya berjalan di aplikasi dan masih dapat tertembus dua permintaan yang tiba bersamaan; nama lengkap dan gelar dokter dilengkapi.
 
 ---
 
@@ -139,6 +141,7 @@ Halaman yang menampilkan kalender per dokter **pada cabang yang dipilih**. Pasie
 - Durasi slot default: **30 menit** untuk konsultasi (dapat diatur per dokter per cabang).
 - Ketersediaan dihitung per kombinasi **dokter × cabang**: seorang dokter tidak dapat memiliki dua slot bersamaan di cabang berbeda, sehingga booking di satu cabang otomatis menutup jam yang sama di cabang lain.
 - Saat pasien memilih slot, slot ditahan sementara (**hold 10 menit**) agar tidak direbut pasien lain selama pengisian form. Hold yang kedaluwarsa otomatis dilepas.
+- **Jaminan akhir ada di basis data,** bukan di aplikasi: batasan unik pada (dokter, waktu mulai) membuat dua booking pada jam yang sama secara teknis tidak dapat tersimpan. Perhitungan slot dan penahanan di atas menjaga pengalaman pasien tetap wajar; batasan unik yang menjaga datanya tetap benar. Lihat **Catatan integritas slot** pada bagian 9.
 
 **Data awal:** Dr. Diane Paparang, Sp.GK, AIFO-K — SunDY Mahakeret, Senin–Sabtu 11.00–19.00. SunDY Citraland belum memiliki jadwal dokter sehingga tidak dapat dipilih saat booking.
 
@@ -345,6 +348,7 @@ Bila pasien tidak datang, pengingat tetap berstatus `SUDAH_DIINGATKAN` dan muncu
 | Kasus | Perilaku sistem |
 |---|---|
 | Dua pasien memilih slot sama bersamaan | Slot pertama yang menahan (hold) menang; pasien kedua melihat pesan "slot baru saja terisi" dan kalender dimuat ulang. |
+| Dua permintaan tiba pada milidetik yang sama | Penahanan slot berjalan di aplikasi dan punya celah baca-tulis. Batasan unik pada (dokter, waktu) di basis data menolak permintaan kedua; aplikasi menangkap penolakan itu dan menampilkan pesan yang sama seperti baris di atas, bukan galat mentah. |
 | Pasien tidak konfirmasi dalam 24 jam | Booking `KEDALUWARSA`, slot kembali tersedia. |
 | Dokter mendadak berhalangan | Admin menandai pengecualian tanggal; sistem menampilkan daftar booking terdampak untuk dijadwal ulang satu per satu. |
 | Pasien lama booking lagi | Sistem mengenali nomor WhatsApp dan menautkan ke rekam medis yang sudah ada, bukan membuat pasien baru. |
@@ -372,8 +376,18 @@ Entitas inti dan hubungannya:
 | `Doctor` | nama, no. SIP, spesialisasi, foto, bio, aktif | punya ScheduleTemplate, ScheduleException, Appointment |
 | `ScheduleTemplate` | **cabang**, dokter, hari dalam minggu, jam mulai, jam selesai, durasi slot, jeda | milik Doctor × Branch |
 | `ScheduleException` | dokter, opsional cabang, tanggal, jenis (libur / jam tambahan / blokir sebagian), rentang jam | milik Doctor |
-| `Appointment` | kode booking, **cabang**, pasien, dokter, waktu mulai & selesai (UTC), tujuan, layanan diminati, status, catatan, sumber (online/walk-in) | milik Patient, Doctor & Branch; menghasilkan satu Encounter |
-| `SlotHold` | cabang, dokter, waktu, kedaluwarsa, token sesi | sementara, dibersihkan otomatis |
+| `Appointment` | kode booking, **cabang**, pasien, dokter, waktu mulai & selesai (UTC), tujuan, layanan diminati, status, catatan, sumber (online/walk-in) | milik Patient, Doctor & Branch; menghasilkan satu Encounter. **Batasan unik pada (dokter, waktu mulai)** — lihat catatan di bawah |
+| `SlotHold` | cabang, dokter, waktu, kedaluwarsa, token sesi | sementara, dibersihkan otomatis. **Batasan unik pada (dokter, waktu)** |
+
+**Catatan integritas slot.** Kedua batasan unik di atas bukan detail teknis yang bisa ditunda — keduanya adalah satu-satunya hal yang membuat bentrok jadwal *mustahil*, bukan sekadar tidak mungkin.
+
+Perhitungan slot, penahanan 10 menit, dan pemeriksaan "apakah jam ini masih kosong?" semuanya berjalan di aplikasi. Pemeriksaan di aplikasi selalu punya celah waktu antara membaca dan menulis: dua permintaan yang tiba dalam milidetik yang sama sama-sama membaca "kosong", lalu sama-sama menulis. Pasien tidak melihat ada yang salah sampai keduanya datang ke klinik pada jam yang sama.
+
+Batasan unik memindahkan jaminannya ke basis data, yang menyerialkan penulisan. Permintaan kedua ditolak, aplikasi menangkap penolakan itu dan menampilkan "slot baru saja terisi". Tanpa ini, target "double-booking: 0 kejadian" pada bagian 3 tidak dapat dijanjikan.
+
+Batasan diterapkan pada **dokter × waktu mulai**, bukan dokter × cabang × waktu, justru agar satu dokter tidak dapat dipesan di dua cabang pada jam yang sama.
+
+Booking walk-in di luar slot dicatat dengan penanda tersendiri dan tetap tunduk pada batasan yang sama; bila admin memasukkan walk-in pada jam yang sudah terisi, sistem menolak dan meminta admin memilih jam lain.
 | `IntakeForm` | jawaban skrining & food recall (JSON terstruktur), tertaut appointment | milik Appointment |
 | `Encounter` | tanggal, **cabang**, dokter, S, O, A, P, status (draf/final), **tanggal kontrol berikutnya** | milik Patient & Branch; punya banyak TreatmentRecord, Prescription, Measurement; memicu satu Reminder |
 | `EncounterAddendum` | isi koreksi, penulis, waktu | milik Encounter |
