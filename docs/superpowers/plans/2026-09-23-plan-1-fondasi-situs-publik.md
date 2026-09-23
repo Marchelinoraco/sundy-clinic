@@ -12,6 +12,35 @@
 
 **Plan berikutnya (di luar lingkup dokumen ini):** Plan 2 autentikasi & panel admin · Plan 3 mesin jadwal & booking · Plan 4 rekam medis, grafik progres & pengingat kontrol mingguan.
 
+## Status Eksekusi
+
+Terakhir diperbarui 23 September 2026. Dikerjakan di branch `plan-1-fondasi-situs-publik`.
+
+| Task | Status | Catatan |
+|---|---|---|
+| 1. Inisialisasi proyek | ✅ Selesai | Next 15.5.26, React 19, Tailwind v4, Vitest 4 |
+| 2. Basis data Neon | ⛔ **Terblokir** | Menunggu connection string dari pemilik |
+| 3. Skema katalog | ⛔ Terblokir | Menunggu Task 2 |
+| 4. Data awal katalog | ⛔ Terblokir | Menunggu Task 2 |
+| 5. Utilitas format & WhatsApp | ✅ Selesai | Dikerjakan lebih awal, tidak butuh basis data |
+| 6. Lapisan query katalog | ⛔ Terblokir | Menunggu Task 2 |
+| 7. Tema & tata letak | ✅ Selesai | Logo masih wordmark teks di `src/components/layout/logo.tsx` |
+| 8. Komponen katalog | ✅ Selesai | Dikerjakan lebih awal setelah `PackageCard` dilepas dari tipe Prisma |
+| 9–16 | ⛔ Terblokir | Menunggu Task 2 |
+
+**Capaian saat ini:** 29 uji lulus, typecheck dan lint bersih, build produksi berhasil.
+
+**Penyimpangan dari rencana semula, semuanya disengaja:**
+
+1. Konfigurasi Vitest memakai `vitest.config.mts` dan `resolve.tsconfigPaths` bawaan Vite; paket `vite-tsconfig-paths` dihapus karena Vite melaporkannya sudah tidak diperlukan.
+2. Wordmark dipisah ke komponen `Logo` sendiri karena berkas logo resmi belum ada. Mengganti ke gambar nanti cukup menyentuh satu berkas.
+3. `PackageCard` memakai tipe prop struktural, bukan `PackageWithItems` dari lapisan query, agar seluruh komponen katalog tidak bergantung pada Prisma.
+4. Task 5, 7, dan 8 dikerjakan mendahului Task 2–4 karena tidak menyentuh basis data. Tidak ada task lain yang bergantung padanya, jadi urutannya tetap sah.
+
+**Catatan keamanan:** `npm audit` melaporkan kerentanan PostCSS yang dibawa Next 15. Seluruh advisory-nya menyangkut pemrosesan CSS dari sumber yang tidak tepercaya pada saat build — di proyek ini CSS hanya ditulis sendiri dan PostCSS tidak pernah menyentuh masukan pengguna, jadi tidak ada paparan nyata. Perbaikannya menuntut lompatan ke Next 16; ditunda agar tidak mengubah fondasi di tengah pengerjaan plan.
+
+---
+
 ## Global Constraints
 
 - **Bahasa kode:** seluruh pengenal, nama berkas, nama model, dan nama fungsi memakai **bahasa Inggris**. Bahasa Indonesia hanya untuk **teks yang dilihat pengguna** dan **segmen URL**. Contoh benar: berkas `src/server/catalog.ts` berisi fungsi `getActiveServices()` yang dipakai rute `/layanan`.
