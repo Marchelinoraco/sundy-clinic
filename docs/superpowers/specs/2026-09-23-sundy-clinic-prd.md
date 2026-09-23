@@ -1,6 +1,6 @@
 # PRD — Sistem Klinik SunDY (Situs Publik + Admin & Rekam Medis)
 
-- **Versi:** 1.1
+- **Versi:** 1.2
 - **Tanggal:** 23 September 2026
 - **Status:** Menunggu review pemilik
 - **Klinik:** SunDY — Nutrition, Slimming & Wellness Clinic, Manado
@@ -19,6 +19,8 @@
 **Dokter:** dr. Diane Paparang (praktik di SunDY Mahakeret). Sistem dirancang multi-dokter; untuk saat ini hanya satu dokter yang ditampilkan.
 
 **Perubahan dari versi 1.0:** dukungan multi-cabang dinaikkan dari Fase 3 ke MVP; jam operasional, hari libur nasional, dan data dokter dikonfirmasi pemilik.
+
+**Perubahan dari versi 1.1:** ditambahkan **Pengingat Kontrol Mingguan** (F17) — daftar kerja harian bagi admin untuk mengingatkan pasien program slimming lewat WhatsApp; keputusan hosting Vercel + Neon dicatat.
 
 ---
 
@@ -45,6 +47,7 @@ Produk ini menyatukan tiga hal dalam satu sistem:
 | Riwayat klinis tersebar di catatan kertas / chat | Saat pasien kontrol bulan ke-3, dokter sulit membandingkan dengan kondisi bulan ke-1. Program slimming kehilangan bukti keberhasilan. |
 | Harga & layanan hanya ada di gambar promosi | Calon pasien harus bertanya dulu ("berapa harga HIFU?"), menambah beban admin dan memperlambat keputusan. |
 | Hasil Timbang BIA tidak terakumulasi | Nilai jual terbesar program (penurunan lemak, kenaikan massa otot) tidak bisa ditunjukkan sebagai grafik ke pasien. |
+| Tidak ada yang melacak kapan pasien slimming harus kembali | Program slimming menuntut pasien datang **setiap minggu** untuk kontrol, Timbang BIA, inject, atau mengambil obat. Saat ini tidak ada daftar siapa yang jatuh tempo minggu ini, sehingga pasien yang lupa akan terus lupa. Setiap pasien yang berhenti di tengah jalan adalah pendapatan berulang yang hilang sekaligus program yang gagal. |
 
 ---
 
@@ -55,6 +58,7 @@ Produk ini menyatukan tiga hal dalam satu sistem:
 2. Seluruh kunjungan pasien tercatat di satu rekam medis yang dapat ditelusuri dokter.
 3. Katalog layanan & harga dapat diperbarui admin sendiri tanpa bantuan developer.
 4. Progres pasien program slimming dapat ditampilkan sebagai grafik saat konsultasi.
+5. Admin memiliki daftar kerja harian berisi pasien slimming yang jatuh tempo kontrol, lengkap dengan tombol untuk mengingatkan lewat WhatsApp.
 
 ### Ukuran keberhasilan (dievaluasi 3 bulan setelah rilis)
 | Metrik | Target |
@@ -64,6 +68,8 @@ Produk ini menyatukan tiga hal dalam satu sistem:
 | Kunjungan yang punya catatan rekam medis lengkap | ≥ 90% |
 | Double-booking slot dokter | 0 kejadian |
 | Pasien slimming dengan minimal 2 kali pengukuran BIA di sistem | ≥ 70% |
+| Pasien slimming jatuh tempo yang benar-benar diingatkan | ≥ 90% |
+| Pasien slimming yang kembali dalam 10 hari sejak kunjungan terakhir | ≥ 70% |
 
 ### Bukan sasaran rilis ini (Non-Goals)
 - Keranjang belanja, checkout, dan pengiriman produk (fase berikutnya).
@@ -80,7 +86,7 @@ Produk ini menyatukan tiga hal dalam satu sistem:
 | Peran | Siapa | Kebutuhan utama | Akses |
 |---|---|---|---|
 | **Calon pasien / pasien** | Publik, mayoritas dari Instagram, hampir semua lewat HP | Lihat layanan & harga, lihat slot kosong, daftar konsultasi, cek status booking | Situs publik saja. Tidak punya akun. |
-| **Resepsionis / Admin Klinik** | Staf front office | Verifikasi booking masuk, atur ulang jadwal, daftarkan pasien walk-in, catat kehadiran | Panel admin — data booking & demografi pasien **di cabang tempatnya ditempatkan**. **Tidak bisa membuka isi catatan klinis SOAP.** |
+| **Resepsionis / Admin Klinik** | Staf front office | Verifikasi booking masuk, atur ulang jadwal, daftarkan pasien walk-in, catat kehadiran, **menjalankan daftar pengingat kontrol mingguan** | Panel admin — data booking & demografi pasien **di cabang tempatnya ditempatkan**. **Tidak bisa membuka isi catatan klinis SOAP.** Pada daftar pengingat, resepsionis melihat *jenis* pengingat (mis. "Ambil obat") dan tanggal, tetapi bukan isi catatan dokter. |
 | **Dokter** | Dokter klinik | Lihat jadwal hari ini, buka rekam medis pasien, isi SOAP, input hasil BIA, catat treatment & resep, lihat grafik progres | Panel admin — penuh atas rekam medis pasiennya. |
 | **Super Admin / Pemilik** | Pemilik klinik | Kelola akun staf, kelola katalog & harga, atur jadwal dokter, lihat laporan | Seluruh panel admin + manajemen pengguna + audit log. |
 
@@ -97,6 +103,7 @@ Disepakati masuk MVP:
 - ✅ Rekam medis pasien: riwayat kunjungan, SOAP, treatment, resep
 - ✅ Grafik progres pasien (berat badan, % lemak tubuh, massa otot dari hasil BIA)
 - ✅ **Dukungan multi-cabang** — dua lokasi, jadwal dokter per cabang, kunjungan tercatat per cabang
+- ✅ **Pengingat kontrol mingguan** — daftar kerja harian admin + tombol WhatsApp per pasien slimming
 
 **Catatan multi-cabang.** Satu katalog layanan & harga berlaku di seluruh cabang. **Rekam medis pasien menyatu lintas cabang** — pasien yang pernah datang ke Mahakeret dan kemudian ke Citraland tetap memakai satu nomor rekam medis dan satu timeline, karena dokternya sama dan kontinuitas perawatan adalah inti program slimming. Setiap kunjungan mencatat cabang tempat ia terjadi, sehingga laporan per cabang tetap bisa dibuat.
 
@@ -217,6 +224,64 @@ Jumlah kunjungan per periode, layanan terpopuler, tingkat ketidakhadiran (no-sho
 
 ---
 
+### F17. Pengingat Kontrol Mingguan
+
+Program slimming hanya berhasil bila pasien datang setiap minggu. Fitur ini mengubah "semoga pasien ingat" menjadi daftar kerja yang jelas: admin membuka satu halaman, melihat siapa yang jatuh tempo, dan menekan tombol.
+
+**Siapa yang masuk daftar.** Hanya pasien yang sedang menjalani **program slimming** (paket MAX / LUX / ACTIVE). Pasien aesthetic tidak diingatkan otomatis di rilis ini.
+
+**Kapan pengingat muncul.** Setiap kunjungan pasien slimming yang difinalisasi otomatis menjadwalkan kontrol berikutnya **7 hari** kemudian. Pengingat muncul di daftar kerja **H-1**, yaitu sehari sebelum tanggal kontrol.
+
+**Aturan hari libur.** Klinik tutup Minggu dan tanggal merah. Bila H-1 jatuh pada hari tutup, pengingat **dimajukan ke hari kerja terakhir sebelumnya**. Contoh: pasien kontrol Senin 28 Sep, jatuh tempo Senin 5 Okt, H-1 adalah Minggu 4 Okt — klinik tutup, maka pengingat muncul **Sabtu 3 Okt**. Tanpa aturan ini, setiap pasien yang kontrol hari Senin akan terlewat setiap minggu.
+
+**Halaman daftar kerja** (`Pengingat`) berisi empat kelompok:
+
+| Kelompok | Isi |
+|---|---|
+| **Hari ini** | Pengingat yang jatuh tempo hari ini dan belum dikirim |
+| **Terlambat** | Sudah lewat tanggalnya tetapi belum pernah dikirim — ditampilkan paling atas dengan penanda merah |
+| **Sudah diingatkan** | Sudah dikirim, menunggu pasien datang |
+| **Minggu ini** | Pratinjau 7 hari ke depan, agar admin dapat mencicil |
+
+Setiap baris menampilkan: nama pasien, nomor WhatsApp, tanggal & jenis kunjungan terakhir, paket yang dijalani, tanggal kontrol, status pengingat, dan tombol **"Ingatkan via WhatsApp"**.
+
+**Tombol pengingat.** Menekan tombol membuka chat WhatsApp ke nomor pasien dengan pesan yang sudah terisi, lalu mengubah status menjadi *Sudah Diingatkan* beserta catatan waktu dan siapa yang mengirim. Admin tidak perlu mengetik ulang nomor maupun pesan.
+
+**Status pengingat:**
+
+| Status | Arti |
+|---|---|
+| `BELUM_DIINGATKAN` | Dibuat otomatis saat kunjungan difinalisasi |
+| `SUDAH_DIINGATKAN` | Admin sudah menekan tombol WhatsApp |
+| `DIKONFIRMASI` | Pasien membalas dan menyatakan akan datang |
+| `DITUNDA` | Pasien minta diingatkan lagi nanti; admin mengisi tanggal baru |
+| `TIDAK_MERESPONS` | Sudah diingatkan, pasien tidak membalas |
+| `SELESAI` | Pasien sudah datang — ditutup otomatis oleh kunjungan baru |
+| `DIBATALKAN` | Program pasien selesai atau pasien dinyatakan tidak aktif |
+
+**Template pesan per jenis kunjungan.** Sistem memilih template berdasarkan isi kunjungan terakhir, dan admin dapat menggantinya sebelum mengirim:
+
+| Jenis | Dipilih bila kunjungan terakhir berisi | Isi pesan |
+|---|---|---|
+| Ambil obat | Resep kapsul / Fat Blocker / Fat Burner | Mengingatkan obat akan habis dan waktunya mengambil kembali |
+| Kontrol & Timbang BIA | Pengukuran BIA | Mengajak kontrol dan menimbang ulang untuk melihat progres |
+| Inject | Inject S / Inject T | Mengingatkan jadwal inject berikutnya |
+| Treatment lanjutan | Treatment aesthetic yang bersambung | Mengingatkan sesi lanjutan |
+
+Contoh pesan terisi otomatis:
+
+> *Halo Ibu Siti, ini dari SunDY Clinic. Obat program slimming Ibu diperkirakan habis minggu ini. Kami tunggu kedatangannya untuk kontrol dan pengambilan obat berikutnya ya. Klinik buka Senin–Sabtu 11.00–19.00.*
+
+**Kapan pasien berhenti diingatkan:**
+
+1. **Pasien datang kembali** — kunjungan baru menutup pengingat lama dan membuat pengingat baru untuk minggu berikutnya.
+2. **Dokter menandai program selesai** — status pasien menjadi tidak aktif, seluruh pengingat terbuka dibatalkan.
+3. **Otomatis setelah 60 hari** tanpa kunjungan — pasien dianggap tidak aktif agar daftar tidak menumpuk pasien lama yang sudah berhenti. Pasien tetap dapat diaktifkan kembali secara manual.
+
+**Biaya.** Nol. Pengingat dikirim manual oleh admin lewat aplikasi WhatsApp biasa, bukan lewat API berbayar. Pengiriman otomatis terjadwal dibahas di Fase 2.
+
+---
+
 ## 8. Alur Utama
 
 ### Alur booking (jalur normal)
@@ -250,6 +315,32 @@ Hari H
 
 Cabang: `DIBATALKAN` (oleh pasien atau admin) · `TIDAK_HADIR` (lewat jadwal tanpa kedatangan) · `KEDALUWARSA` (tidak dikonfirmasi dalam 24 jam, slot dilepas otomatis).
 
+### Alur pengingat kontrol mingguan
+
+```
+Dokter finalisasi kunjungan pasien slimming (Senin 28 Sep)
+  → sistem set tanggal kontrol = Senin 5 Okt (+7 hari)
+  → sistem hitung tanggal pengingat = Minggu 4 Okt (H-1)
+  → Minggu tutup, dimajukan ke Sabtu 3 Okt
+  → pengingat dibuat, status: BELUM_DIINGATKAN
+
+Sabtu 3 Okt — admin buka halaman Pengingat
+  → pasien muncul di kelompok "Hari ini"
+  → admin klik "Ingatkan via WhatsApp"
+  → WhatsApp terbuka, pesan sudah terisi sesuai jenis kunjungan terakhir
+  → status: SUDAH_DIINGATKAN (tercatat waktu & nama admin)
+
+Pasien membalas "iya saya datang Senin"
+  → admin ubah status: DIKONFIRMASI
+
+Senin 5 Okt — pasien datang
+  → kunjungan baru dicatat
+  → pengingat lama: SELESAI
+  → pengingat baru dibuat untuk minggu berikutnya
+```
+
+Bila pasien tidak datang, pengingat tetap berstatus `SUDAH_DIINGATKAN` dan muncul di kelompok **Terlambat** hari berikutnya, sehingga tidak hilang begitu saja dari pandangan admin.
+
 ### Penanganan kasus khusus
 | Kasus | Perilaku sistem |
 |---|---|
@@ -261,6 +352,10 @@ Cabang: `DIBATALKAN` (oleh pasien atau admin) · `TIDAK_HADIR` (lewat jadwal tan
 | Pasien membuka kalender di tanggal merah | Tanggal ditampilkan nonaktif dengan keterangan nama hari liburnya (contoh: "Libur — Hari Natal"), bukan sekadar kosong tanpa penjelasan. |
 | Pasien mencoba booking di cabang Citraland | Cabang tidak dapat dipilih; muncul ajakan "Segera Hadir — beri tahu saya saat buka" yang mengarah ke WhatsApp klinik. |
 | Pasien Mahakeret pindah ke Citraland nanti | Rekam medis dan nomor RM tetap sama; kunjungan baru tercatat dengan cabang Citraland. Tidak ada data yang perlu dipindahkan. |
+| Tanggal pengingat jatuh di Minggu atau tanggal merah | Pengingat dimajukan ke hari kerja terakhir sebelumnya. Bila beberapa hari libur berurutan (misal cuti bersama), sistem terus mundur sampai menemukan hari klinik buka. |
+| Pasien datang lebih cepat dari jadwal | Kunjungan baru langsung menutup pengingat yang masih terbuka dan menjadwalkan ulang dari tanggal kunjungan yang baru, bukan dari jadwal lama. |
+| Pasien punya dua pengingat terbuka | Tidak mungkin terjadi — membuat pengingat baru selalu menutup pengingat pasien yang masih terbuka lebih dulu. |
+| Admin menekan tombol WhatsApp tapi batal mengirim | Status tetap berubah menjadi `SUDAH_DIINGATKAN` karena sistem tidak dapat mengetahui isi aplikasi WhatsApp. Admin dapat mengembalikannya ke `BELUM_DIINGATKAN` secara manual. |
 
 ---
 
@@ -272,14 +367,15 @@ Entitas inti dan hubungannya:
 |---|---|---|
 | `Branch` | nama, alamat, koordinat peta, no. WhatsApp, jam operasional, status (`AKTIF` / `SEGERA_HADIR`), urutan tampil | punya ScheduleTemplate, Appointment, Encounter |
 | `Holiday` | tanggal, nama hari libur, jenis (libur nasional / cuti bersama / libur klinik), tahun | berlaku global lintas cabang |
-| `Patient` | no. rekam medis, nama, no. WhatsApp, tanggal lahir, jenis kelamin, pekerjaan, alamat, alergi, riwayat penyakit | punya banyak Appointment, Encounter, Measurement — **tidak terikat cabang** |
+| `Patient` | no. rekam medis, nama, no. WhatsApp, tanggal lahir, jenis kelamin, pekerjaan, alamat, alergi, riwayat penyakit, **status program** (`AKTIF` / `SELESAI` / `TIDAK_AKTIF`), **paket berjalan**, **tanggal kunjungan terakhir** | punya banyak Appointment, Encounter, Measurement, Reminder — **tidak terikat cabang** |
+| `Reminder` | pasien, kunjungan pemicu, jenis pengingat (`AMBIL_OBAT` / `KONTROL_BIA` / `INJECT` / `TREATMENT_LANJUTAN`), tanggal kontrol, tanggal tampil (H-1 setelah penyesuaian hari libur), status, waktu dikirim, admin pengirim, catatan | milik Patient & Encounter; **maksimal satu pengingat terbuka per pasien** |
 | `Doctor` | nama, no. SIP, spesialisasi, foto, bio, aktif | punya ScheduleTemplate, ScheduleException, Appointment |
 | `ScheduleTemplate` | **cabang**, dokter, hari dalam minggu, jam mulai, jam selesai, durasi slot, jeda | milik Doctor × Branch |
 | `ScheduleException` | dokter, opsional cabang, tanggal, jenis (libur / jam tambahan / blokir sebagian), rentang jam | milik Doctor |
 | `Appointment` | kode booking, **cabang**, pasien, dokter, waktu mulai & selesai (UTC), tujuan, layanan diminati, status, catatan, sumber (online/walk-in) | milik Patient, Doctor & Branch; menghasilkan satu Encounter |
 | `SlotHold` | cabang, dokter, waktu, kedaluwarsa, token sesi | sementara, dibersihkan otomatis |
 | `IntakeForm` | jawaban skrining & food recall (JSON terstruktur), tertaut appointment | milik Appointment |
-| `Encounter` | tanggal, **cabang**, dokter, S, O, A, P, status (draf/final) | milik Patient & Branch; punya banyak TreatmentRecord, Prescription, Measurement |
+| `Encounter` | tanggal, **cabang**, dokter, S, O, A, P, status (draf/final), **tanggal kontrol berikutnya** | milik Patient & Branch; punya banyak TreatmentRecord, Prescription, Measurement; memicu satu Reminder |
 | `EncounterAddendum` | isi koreksi, penulis, waktu | milik Encounter |
 | `Measurement` | tanggal, berat, tinggi, BMI, % lemak, massa otot, lemak visceral, % air, BMR | milik Patient, opsional tertaut Encounter |
 | `TreatmentRecord` | layanan, area, dosis, pelaksana, catatan | milik Encounter |
@@ -359,6 +455,9 @@ Aplikasi dirancang portabel (Docker + PostgreSQL standar) sehingga perpindahan i
 | D4 | **Ketikan pada paket LUX T ACTIVE** | Diperbaiki menjadi "Kapsul **L**-Fat Burner". | Materi promosi menulis "Kapsul M-Fat Burner-Inject T" padahal paket LUX lain memakai Kapsul L. Kemungkinan salah ketik di desain. |
 | D5 | **Biaya konsultasi & DP** | Konsultasi Dokter Rp 200.000 ditampilkan; besaran DP untuk mengunci slot belum ditentukan. | Perlu keputusan: apakah pasien membayar penuh di muka, DP sebagian, atau bayar di klinik dengan bukti transfer hanya untuk booking berbayar. |
 | D6 | **Domain & email klinik** | Belum ada. | Diperlukan sebelum go-live (contoh: `sundyclinic.com`). |
+| D7 | **Jeda pengingat** | Kontrol setiap **7 hari**, pengingat tampil **H-1**, dimajukan bila jatuh di hari tutup. | Dikonfirmasi pemilik, 23 Sep 2026. Angka 7 hari disimpan sebagai pengaturan, bukan ditulis keras di kode, agar dapat diubah tanpa developer. |
+| D8 | **Pengingat otomatis terjadwal** | Tidak di MVP — admin menekan tombol secara manual. | Pengiriman otomatis memerlukan WhatsApp API berbayar. Ditinjau ulang di Fase 2 bila jumlah pasien slimming membuat pengiriman manual terlalu memberatkan. |
+| D9 | **Pasien aesthetic** | Belum masuk daftar pengingat. | Model data sudah mendukung; tinggal melonggarkan penyaringan bila nanti treatment aesthetic berseri juga ingin diingatkan. |
 
 ---
 
@@ -371,7 +470,7 @@ Situs publik + katalog + pendaftaran konsultasi + panel admin + rekam medis + gr
 Tanpa pekerjaan developer: pemilik mengubah status cabang menjadi `AKTIF` dan mengisi jadwal dokternya lewat panel admin. Cabang langsung dapat menerima booking.
 
 **Fase 1.5 — Penyempurnaan pasca-rilis**
-OTP WhatsApp otomatis dan pengingat H-1 lewat gateway WhatsApp lokal, bila data menunjukkan ketidakhadiran tinggi.
+OTP WhatsApp otomatis, pengingat janji temu H-1, dan **pengiriman pengingat kontrol mingguan secara otomatis** lewat gateway WhatsApp lokal — bila data menunjukkan ketidakhadiran tinggi atau pengiriman manual sudah terlalu memberatkan admin.
 
 **Fase 2 — Perluasan**
 Toko online penuh (keranjang, stok, ongkir, pesanan), pembayaran online (Midtrans/Xendit), akun pasien dengan riwayat mandiri, program loyalitas & paket kunjungan.
