@@ -1,103 +1,99 @@
-import Image from "next/image";
+import Link from "next/link";
+import { BranchCard } from "@/components/catalog/branch-card";
+import { ServiceCard } from "@/components/catalog/service-card";
+import {
+  CLINIC_BEAUTY_TAGLINE,
+  CLINIC_FULL_NAME,
+  CLINIC_TAGLINE,
+  CLOSED_NOTE,
+  OPENING_HOURS,
+} from "@/lib/clinic";
+import { getBranches, getSignatureServices } from "@/server/catalog";
 
-export default function Home() {
+/** Empat nilai jual dari materi promosi klinik. */
+const VALUE_PROPS = [
+  { title: "Professional Treatment", body: "Ditangani dokter dan terapis berpengalaman." },
+  { title: "Premium Technology", body: "Peralatan modern untuk hasil yang optimal." },
+  { title: "Safe & Hygienic", body: "Prosedur dan alat yang steril serta terkontrol." },
+  { title: "Beauty For You", body: "Perawatan yang disesuaikan dengan kondisi Anda." },
+];
+
+export default async function HomePage() {
+  const [signatureServices, branches] = await Promise.all([
+    getSignatureServices(),
+    getBranches(),
+  ]);
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <>
+      <section className="bg-gradient-to-b from-cream-100 to-cream-50 px-4 py-20">
+        <div className="mx-auto max-w-3xl text-center">
+          <h1 className="font-display text-5xl text-brown-900">{CLINIC_FULL_NAME}</h1>
+          <p className="mt-4 text-lg text-brown-700">{CLINIC_TAGLINE}</p>
+          <p className="mt-1 text-lg text-brown-700">{CLINIC_BEAUTY_TAGLINE}</p>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+          <div className="mt-10 flex flex-wrap justify-center gap-3">
+            <Link
+              href="/layanan"
+              className="rounded-full bg-gold-500 px-7 py-3 font-medium text-white hover:bg-gold-600"
+            >
+              Lihat Layanan & Harga
+            </Link>
+            <Link
+              href="/program-slimming"
+              className="rounded-full border border-gold-500 px-7 py-3 font-medium text-gold-600 hover:bg-cream-100"
+            >
+              Program Slimming
+            </Link>
+          </div>
+
+          <p className="mt-8 text-sm text-brown-600">
+            {OPENING_HOURS} · {CLOSED_NOTE}
+          </p>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4 py-16" aria-labelledby="keunggulan">
+        <h2 id="keunggulan" className="sr-only">
+          Keunggulan klinik
+        </h2>
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {VALUE_PROPS.map((prop) => (
+            <div key={prop.title} className="rounded-2xl border border-cream-300 bg-white p-6">
+              <h3 className="font-display text-xl text-brown-900">{prop.title}</h3>
+              <p className="mt-2 text-sm text-brown-600">{prop.body}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-6xl px-4 pb-16" aria-labelledby="signature">
+        <h2 id="signature" className="font-display text-3xl text-brown-900">
+          Our Signature Treatment
+        </h2>
+        <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          {signatureServices.map((service) => (
+            <ServiceCard key={service.id} service={service} />
+          ))}
+        </div>
+        <Link
+          href="/layanan"
+          className="mt-6 inline-block text-sm text-gold-600 underline-offset-4 hover:underline"
         >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+          Lihat seluruh layanan
+        </Link>
+      </section>
+
+      <section className="mx-auto max-w-4xl px-4 pb-20" aria-labelledby="lokasi">
+        <h2 id="lokasi" className="font-display text-3xl text-brown-900">
+          Lokasi Kami
+        </h2>
+        <div className="mt-6 grid gap-6">
+          {branches.map((branch) => (
+            <BranchCard key={branch.id} branch={branch} />
+          ))}
+        </div>
+      </section>
+    </>
   );
 }
