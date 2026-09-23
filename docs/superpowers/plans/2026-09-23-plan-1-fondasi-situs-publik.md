@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-23-sundy-clinic-prd.md` (PRD v1.1)
 
-**Plan berikutnya (di luar lingkup dokumen ini):** Plan 2 autentikasi & panel admin · Plan 3 mesin jadwal & booking · Plan 4 rekam medis & grafik progres.
+**Plan berikutnya (di luar lingkup dokumen ini):** Plan 2 autentikasi & panel admin · Plan 3 mesin jadwal & booking · Plan 4 rekam medis, grafik progres & pengingat kontrol mingguan.
 
 ## Global Constraints
 
@@ -3542,7 +3542,7 @@ Hal-hal berikut disebut PRD tetapi bukan bagian plan ini — jangan kerjakan leb
 
 - Pendaftaran konsultasi, kalender slot, penahanan slot → **Plan 3**
 - Panel admin, autentikasi, manajemen konten → **Plan 2**
-- Rekam medis, SOAP, BIA, grafik progres, audit log → **Plan 4**
+- Rekam medis, SOAP, BIA, grafik progres, audit log, pengingat kontrol mingguan (F17) → **Plan 4**
 - Unggah gambar ke Cloudinary — kolom `imageUrl` sudah ada di skema tetapi belum diisi; kartu layanan tampil tanpa foto di Plan 1
 - Isi FAQ masih ditulis langsung di dalam kode. FAQ yang dapat disunting pemilik dibangun bersama manajemen konten di **Plan 2**
 - Pemisahan basis data produksi dari basis data pengembangan → wajib sebelum **Plan 3** tayang
