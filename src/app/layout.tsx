@@ -27,6 +27,11 @@ export const metadata: Metadata = {
 // Root layout hanya memegang <html>, font, dan metadata dasar. Header dan
 // footer publik pindah ke (public)/layout.tsx agar panel admin tidak
 // mewarisinya.
+//
+// Font tetap Cormorant + Plus Jakarta Sans, bukan Geist bawaan shadcn init:
+// identitas SunDY sudah ditetapkan di Plan 1, dan panel admin memakai palet
+// warna yang sama (lihat globals.css) agar terasa satu sistem dengan situs
+// publik, bukan tampilan admin generik yang ditempel di atasnya.
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="id">
