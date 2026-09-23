@@ -50,7 +50,7 @@ Terakhir diperbarui 23 September 2026. Dikerjakan di branch `plan-1-fondasi-situ
 - **Instagram:** `sundyclinic`.
 - **Jam operasional:** Senin–Sabtu 11.00–19.00 WITA. Minggu dan hari libur nasional tutup.
 - **Cabang:** `SunDY Mahakeret` (Jl. Garuda No. 10, Mahakeret Barat, Manado) berstatus `AKTIF`; `SunDY Citraland` (Citraland — Cluster The Manhattan, Manado) berstatus `SEGERA_HADIR`.
-- **Dokter:** `dr. Diane Paparang`.
+- **Dokter:** `Dr. Diane Paparang, Sp.GK, AIFO-K`.
 - **Tema warna:** hanya mode terang. Situs menetapkan `color-scheme: light` dan tidak menyediakan mode gelap — identitas SunDY bertumpu pada krem-emas yang tidak punya padanan gelap yang masuk akal.
 - **Basis data:** Neon (PostgreSQL terkelola), wilayah **Singapore `ap-southeast-1`** — terdekat dari Manado. Dua basis data dalam satu proyek Neon: `sundy_dev` untuk pengembangan dan `sundy_test` untuk pengujian integrasi.
 - **Koneksi Prisma:** `url` memakai endpoint **pooled** (`-pooler`) untuk aplikasi; `directUrl` memakai endpoint **langsung** untuk migrasi. Keduanya wajib ada — `prisma migrate` tidak dapat berjalan lewat connection pooler.
@@ -87,7 +87,7 @@ src/app/program-slimming/page.tsx  Paket MAX / LUX / ACTIVE + layanan satuan
 src/app/produk/page.tsx         Katalog produk (pesan via WhatsApp)
 src/app/lokasi/page.tsx         Kedua cabang
 src/app/lokasi/[slug]/page.tsx  Detail satu cabang
-src/app/tentang/page.tsx        Tentang klinik & dr. Diane Paparang
+src/app/tentang/page.tsx        Tentang klinik & Dr. Diane Paparang, Sp.GK, AIFO-K
 src/app/faq/page.tsx            Tanya jawab
 src/app/kebijakan-privasi/page.tsx  Kebijakan privasi (UU PDP 27/2022)
 src/app/syarat-ketentuan/page.tsx   Syarat & ketentuan
@@ -718,9 +718,9 @@ describe("data awal katalog", () => {
     expect(branches[1].status).toBe("SEGERA_HADIR");
   });
 
-  it("membuat dr. Diane Paparang", async () => {
+  it("membuat Dr. Diane Paparang, Sp.GK, AIFO-K", async () => {
     const doctor = await prisma.doctor.findUnique({ where: { slug: "diane-paparang" } });
-    expect(doctor?.name).toBe("dr. Diane Paparang");
+    expect(doctor?.name).toBe("Dr. Diane Paparang, Sp.GK, AIFO-K");
     expect(doctor?.isActive).toBe(true);
   });
 
@@ -819,7 +819,7 @@ const branches = [
 const doctors = [
   {
     slug: "diane-paparang",
-    name: "dr. Diane Paparang",
+    name: "Dr. Diane Paparang, Sp.GK, AIFO-K",
     specialty: "Nutrition, Slimming & Aesthetic",
     bio: "Dokter penanggung jawab SunDY Clinic Manado untuk program slimming dan perawatan estetika.",
     isActive: true,
@@ -1429,7 +1429,7 @@ describe("lapisan query katalog", () => {
 
   it("mengembalikan dokter aktif", async () => {
     const doctors = await getActiveDoctors();
-    expect(doctors.map((d) => d.name)).toContain("dr. Diane Paparang");
+    expect(doctors.map((d) => d.name)).toContain("Dr. Diane Paparang, Sp.GK, AIFO-K");
   });
 });
 ```

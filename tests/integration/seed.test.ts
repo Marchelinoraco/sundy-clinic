@@ -21,9 +21,12 @@ describe("data awal katalog", () => {
     expect(branches[1].status).toBe("SEGERA_HADIR");
   });
 
-  it("membuat dr. Diane Paparang", async () => {
+  it("membuat dokter penanggung jawab lengkap dengan gelarnya", async () => {
     const doctor = await prisma.doctor.findUnique({ where: { slug: "diane-paparang" } });
-    expect(doctor?.name).toBe("dr. Diane Paparang");
+    // Gelar ikut disimpan di nama: ini tampil di halaman publik klinik
+    // kesehatan, jadi kredensialnya harus tertulis utuh.
+    expect(doctor?.name).toBe("Dr. Diane Paparang, Sp.GK, AIFO-K");
+    expect(doctor?.specialty).toBe("Spesialis Gizi Klinik");
     expect(doctor?.isActive).toBe(true);
   });
 

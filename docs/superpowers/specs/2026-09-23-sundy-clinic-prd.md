@@ -16,7 +16,7 @@
 
 **Jam operasional (kedua cabang):** Senin–Sabtu, 11.00–19.00 WITA. Minggu dan hari libur nasional tutup.
 
-**Dokter:** dr. Diane Paparang (praktik di SunDY Mahakeret). Sistem dirancang multi-dokter; untuk saat ini hanya satu dokter yang ditampilkan.
+**Dokter:** Dr. Diane Paparang, Sp.GK, AIFO-K (praktik di SunDY Mahakeret). Sistem dirancang multi-dokter; untuk saat ini hanya satu dokter yang ditampilkan.
 
 **Perubahan dari versi 1.0:** dukungan multi-cabang dinaikkan dari Fase 3 ke MVP; jam operasional, hari libur nasional, dan data dokter dikonfirmasi pemilik.
 
@@ -140,7 +140,7 @@ Halaman yang menampilkan kalender per dokter **pada cabang yang dipilih**. Pasie
 - Ketersediaan dihitung per kombinasi **dokter × cabang**: seorang dokter tidak dapat memiliki dua slot bersamaan di cabang berbeda, sehingga booking di satu cabang otomatis menutup jam yang sama di cabang lain.
 - Saat pasien memilih slot, slot ditahan sementara (**hold 10 menit**) agar tidak direbut pasien lain selama pengisian form. Hold yang kedaluwarsa otomatis dilepas.
 
-**Data awal:** dr. Diane Paparang — SunDY Mahakeret, Senin–Sabtu 11.00–19.00. SunDY Citraland belum memiliki jadwal dokter sehingga tidak dapat dipilih saat booking.
+**Data awal:** Dr. Diane Paparang, Sp.GK, AIFO-K — SunDY Mahakeret, Senin–Sabtu 11.00–19.00. SunDY Citraland belum memiliki jadwal dokter sehingga tidak dapat dipilih saat booking.
 
 ### F5. Pendaftaran Konsultasi
 Alur 4 langkah, mobile-first:
@@ -152,7 +152,7 @@ Alur 4 langkah, mobile-first:
 
 Setelah submit, pasien diarahkan ke halaman sukses berisi kode booking, detail jadwal, instruksi pembayaran, dan tombol besar **"Konfirmasi via WhatsApp"**. Tombol ini membuka chat ke 0851-7222-8900 dengan pesan terisi otomatis:
 
-> *Halo SunDY Clinic, saya sudah booking konsultasi. Kode: SDY-8F3K, atas nama Siti Rahayu, dengan dr. Diane Paparang di cabang Mahakeret, Kamis 25 Sep 2026 pukul 15.00. Berikut bukti transfernya.*
+> *Halo SunDY Clinic, saya sudah booking konsultasi. Kode: SDY-8F3K, atas nama Siti Rahayu, dengan Dr. Diane Paparang, Sp.GK, AIFO-K di cabang Mahakeret, Kamis 25 Sep 2026 pukul 15.00. Berikut bukti transfernya.*
 
 Pasien mengirim bukti transfer di chat tersebut, admin memverifikasi di panel.
 
@@ -168,7 +168,7 @@ Halaman publik: masukkan **kode booking + 4 digit terakhir nomor WhatsApp** untu
 
 Setiap cabang memiliki URL sendiri agar dapat dioptimalkan untuk pencarian lokal ("klinik kecantikan Mahakeret", "klinik slimming Citraland Manado").
 
-**Halaman pendukung** — Tentang klinik & tim dokter (dr. Diane Paparang), jam operasional, FAQ, Kebijakan Privasi, dan Syarat & Ketentuan.
+**Halaman pendukung** — Tentang klinik & tim dokter (Dr. Diane Paparang, Sp.GK, AIFO-K), jam operasional, FAQ, Kebijakan Privasi, dan Syarat & Ketentuan.
 
 ---
 
@@ -181,7 +181,7 @@ Booking hari ini, booking yang menunggu verifikasi, jadwal per dokter hari ini, 
 Daftar booking dengan filter (tanggal, **cabang**, dokter, status). Aksi: **verifikasi** (Menunggu → Terkonfirmasi), **jadwal ulang**, **batalkan**, **tandai hadir**, **tandai tidak hadir**. Admin juga dapat membuat booking manual untuk pasien walk-in atau yang menelepon. Setiap booking terkonfirmasi menyediakan teks konfirmasi siap-salin untuk dikirim admin lewat WhatsApp.
 
 ### F10. Manajemen Jadwal Dokter
-- **Template mingguan** per **dokter per cabang**: data awal — dr. Diane Paparang, SunDY Mahakeret, Senin–Sabtu 11.00–19.00, slot 30 menit. Admin dapat menambah baris untuk cabang atau dokter baru tanpa bantuan developer.
+- **Template mingguan** per **dokter per cabang**: data awal — Dr. Diane Paparang, Sp.GK, AIFO-K, SunDY Mahakeret, Senin–Sabtu 11.00–19.00, slot 30 menit. Admin dapat menambah baris untuk cabang atau dokter baru tanpa bantuan developer.
 - **Pengecualian tanggal**: cuti dokter, jam tambahan, atau blokir sebagian jam.
 - **Kalender hari libur**: daftar hari libur nasional & cuti bersama per tahun yang dapat disunting admin. Tanggal libur menutup slot di seluruh cabang sekaligus, sesuai kebijakan klinik ("tanggal merah tutup").
 - Sistem menolak template yang membuat satu dokter berada di dua cabang pada jam yang sama.
@@ -448,8 +448,8 @@ Aplikasi dirancang portabel (Docker + PostgreSQL standar) sehingga perpindahan i
 | # | Keputusan | Yang saya usulkan | Catatan |
 |---|---|---|---|
 | D1 | **Verifikasi nomor pasien** | MVP: tanpa OTP. Verifikasi terjadi alami saat pasien mengirim bukti transfer lewat WhatsApp. | Anda sempat memilih OTP WhatsApp, namun tidak ada layanan OTP WhatsApp yang gratis (Meta Cloud API menagih per pesan; gateway lokal seperti Fonnte ±Rp 100.000/bulan). Bila tingkat ketidakhadiran ternyata tinggi, OTP dapat ditambahkan di Fase 1.5 tanpa mengubah alur. |
-| D2 | ~~Jam operasional & jumlah dokter~~ | **Selesai.** Senin–Sabtu 11.00–19.00, tanggal merah tutup. Satu dokter tampil: dr. Diane Paparang di SunDY Mahakeret. Sistem tetap multi-dokter & multi-cabang. | Dikonfirmasi pemilik, 23 Sep 2026. |
-| D2b | **Jadwal dr. Diane bila Citraland buka** | Belum ditentukan. | Saat Citraland siap, perlu keputusan pembagian hari (misal Senin–Rabu Mahakeret, Kamis–Sabtu Citraland) atau penambahan dokter kedua. Cukup diisi lewat panel admin, tanpa perubahan kode. |
+| D2 | ~~Jam operasional & jumlah dokter~~ | **Selesai.** Senin–Sabtu 11.00–19.00, tanggal merah tutup. Satu dokter tampil: Dr. Diane Paparang, Sp.GK, AIFO-K di SunDY Mahakeret. Sistem tetap multi-dokter & multi-cabang. | Dikonfirmasi pemilik, 23 Sep 2026. |
+| D2b | **Jadwal Dr. Diane bila Citraland buka** | Belum ditentukan. | Saat Citraland siap, perlu keputusan pembagian hari (misal Senin–Rabu Mahakeret, Kamis–Sabtu Citraland) atau penambahan dokter kedua. Cukup diisi lewat panel admin, tanpa perubahan kode. |
 | D2c | **Nomor WhatsApp cabang Citraland** | Sementara memakai nomor yang sama, 0851-7222-8900. | Bila nanti Citraland punya nomor sendiri, tinggal diisi di data cabang. |
 | D3 | **Harga Vitamin C** | Ditranskrip apa adanya dari materi promosi. | Materi menulis "1.299 JT" untuk Injek Vit C 2000mg. Bila maksudnya Rp 1.299.000 sudah benar; bila seharusnya Rp 299.000, mohon dikoreksi sebelum tayang. |
 | D4 | **Ketikan pada paket LUX T ACTIVE** | Diperbaiki menjadi "Kapsul **L**-Fat Burner". | Materi promosi menulis "Kapsul M-Fat Burner-Inject T" padahal paket LUX lain memakai Kapsul L. Kemungkinan salah ketik di desain. |

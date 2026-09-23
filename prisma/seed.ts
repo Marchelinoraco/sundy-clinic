@@ -51,9 +51,9 @@ const branches = [
 const doctors = [
   {
     slug: "diane-paparang",
-    name: "dr. Diane Paparang",
-    specialty: "Nutrition, Slimming & Aesthetic",
-    bio: "Dokter penanggung jawab SunDY Clinic Manado untuk program slimming dan perawatan estetika.",
+    name: "Dr. Diane Paparang, Sp.GK, AIFO-K",
+    specialty: "Spesialis Gizi Klinik",
+    bio: "Dokter penanggung jawab SunDY Clinic Manado untuk program slimming, nutrisi, dan perawatan estetika.",
     isActive: true,
     sortOrder: 1,
   },

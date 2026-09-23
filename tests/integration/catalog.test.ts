@@ -119,6 +119,6 @@ describe("lapisan query katalog", () => {
 
   it("mengembalikan dokter aktif", async () => {
     const doctors = await getActiveDoctors();
-    expect(doctors.map((d) => d.name)).toContain("dr. Diane Paparang");
+    expect(doctors.map((d) => d.name)).toContain("Dr. Diane Paparang, Sp.GK, AIFO-K");
   });
 });
