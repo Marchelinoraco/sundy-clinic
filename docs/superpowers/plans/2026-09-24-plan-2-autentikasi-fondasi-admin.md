@@ -12,7 +12,7 @@
 
 **Acuan rancangan:** `/Users/marchelinoraco/Documents/2026/Saas_MUA/frontend` — proyek MUA milik pemilik. Dipakai sebagai contoh susunan navigasi, pola data-table, dan alur form. **Bukan** untuk disalin mentah: proyek itu Vite + TanStack Router, sedangkan ini Next.js App Router.
 
-**Plan berikutnya:** Plan 2b CRUD konten sisanya (paket, produk, cabang, FAQ) · Plan 3 mesin jadwal & booking · Plan 4 rekam medis, grafik progres & pengingat.
+**Plan berikutnya:** Plan 2b CRUD konten sisanya (paket, produk, cabang, FAQ) · **Plan 3a** mesin jadwal, data pasien & pencatatan janji temu oleh admin · **Plan 3b** pendaftaran mandiri di situs publik · Plan 4 rekam medis, grafik progres & pengingat.
 
 ## Global Constraints
 

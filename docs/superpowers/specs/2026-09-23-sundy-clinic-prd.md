@@ -1,6 +1,6 @@
 # PRD — Sistem Klinik SunDY (Situs Publik + Admin & Rekam Medis)
 
-- **Versi:** 1.4
+- **Versi:** 1.5
 - **Tanggal:** 23 September 2026
 - **Status:** Menunggu review pemilik
 - **Klinik:** SunDY — Nutrition, Slimming & Wellness Clinic, Manado
@@ -25,6 +25,8 @@
 **Perubahan dari versi 1.2:** ditambahkan **batasan unik (dokter, waktu mulai)** pada Appointment dan SlotHold. Tanpa itu, pencegahan bentrok jadwal hanya berjalan di aplikasi dan masih dapat tertembus dua permintaan yang tiba bersamaan; nama lengkap dan gelar dokter dilengkapi.
 
 **Perubahan dari versi 1.3:** jadwal beralih dari "milik klinik" menjadi **milik tenaga** (F4a). Dua jenis booking dengan durasi berbeda, layanan ditandai `requiresDoctor`, dan `Doctor` digantikan `Staff` berperan DOKTER/TERAPIS. **Batasan unik (dokter, waktu mulai) dari v1.3 dicabut** — batasan itu meloloskan treatment 15.00–16.00 yang bertindihan dengan konsultasi 15.30, dan digantikan *exclusion constraint* atas rentang waktu.
+
+**Perubahan dari versi 1.4:** F9 diperluas — admin **membuat** janji temu sendiri, bukan hanya memverifikasi, karena mayoritas pasien akan tetap memesan lewat WhatsApp. Sumber booking dicatat (`SITUS` / `WHATSAPP` / `TELEPON` / `WALK_IN`), pasien baru dapat dibuat langsung dari form booking, dan ditegaskan bahwa booking **tidak pernah dihapus** — pembatalan adalah perubahan status.
 
 ---
 
@@ -224,7 +226,29 @@ Setiap cabang memiliki URL sendiri agar dapat dioptimalkan untuk pencarian lokal
 Booking hari ini, booking yang menunggu verifikasi, jadwal per dokter hari ini, dan ringkasan angka minggu berjalan.
 
 ### F9. Manajemen Booking
-Daftar booking dengan filter (tanggal, **cabang**, dokter, status). Aksi: **verifikasi** (Menunggu → Terkonfirmasi), **jadwal ulang**, **batalkan**, **tandai hadir**, **tandai tidak hadir**. Admin juga dapat membuat booking manual untuk pasien walk-in atau yang menelepon. Setiap booking terkonfirmasi menyediakan teks konfirmasi siap-salin untuk dikirim admin lewat WhatsApp.
+
+Daftar booking dengan filter (tanggal, **cabang**, tenaga, status), tersedia sebagai tabel maupun tampilan kalender harian.
+
+**Admin membuat booking sendiri, bukan hanya memverifikasi.** Mayoritas pasien akan tetap memesan lewat WhatsApp atau menelepon, apa pun yang tersedia di situs. Pendaftaran mandiri di situs publik adalah tambahan, bukan pengganti. Karena itu panel admin harus dapat mencatat janji temu dari nol secepat menulis di buku — kalau tidak, admin akan kembali ke buku.
+
+**Aksi yang tersedia:**
+
+| Aksi | Keterangan |
+|---|---|
+| **Buat** | Pilih pasien (atau buat pasien baru saat itu juga), cabang, tenaga, layanan, tanggal & jam. Sistem menolak jam yang bentrok. |
+| **Ubah** | Ganti layanan, tenaga, atau catatan. Perubahan layanan ikut menyesuaikan durasi. |
+| **Jadwal ulang** | Pindah ke jam lain, tetap melewati pemeriksaan bentrok pada jam tujuan. |
+| **Verifikasi** | Menunggu Konfirmasi → Terkonfirmasi, setelah bukti transfer diterima. |
+| **Tandai hadir / tidak hadir** | Mengubah status pada hari kunjungan. |
+| **Batalkan** | Mengubah status menjadi Dibatalkan dan melepas slotnya. |
+
+**Booking tidak pernah dihapus.** Pembatalan adalah perubahan status, bukan penghapusan baris. Janji temu adalah catatan kegiatan klinik: menghapusnya menghilangkan riwayat siapa pernah dijadwalkan kapan, memutus tautan ke rekam medis yang mungkin sudah dibuat, dan membuat jejak audit menunjuk ke baris yang tidak ada lagi. Yang tampak sebagai "hapus" di antarmuka selalu berarti "batalkan".
+
+**Sumber booking dicatat** sebagai `SITUS`, `WHATSAPP`, `TELEPON`, atau `WALK_IN`. Tanpa pembedaan ini, sasaran "≥ 40% booking masuk lewat situs" pada bagian 3 tidak dapat diukur — dan pemilik tidak akan tahu apakah situs benar-benar mengurangi beban admin atau hanya memindahkannya.
+
+**Pasien baru dibuat langsung dari form booking.** Admin yang sedang menerima telepon tidak boleh dipaksa membuka halaman lain untuk mendaftarkan pasien dulu. Cukup nama dan nomor WhatsApp; sisanya dilengkapi saat pasien datang.
+
+Setiap booking terkonfirmasi menyediakan teks konfirmasi siap-salin untuk dikirim admin lewat WhatsApp.
 
 ### F10. Manajemen Jadwal Dokter
 - **Template mingguan** per **dokter per cabang**: data awal — Dr. Diane Paparang, Sp.GK, AIFO-K, SunDY Mahakeret, Senin–Sabtu 11.00–19.00, slot 30 menit. Admin dapat menambah baris untuk cabang atau dokter baru tanpa bantuan developer.
@@ -419,7 +443,7 @@ Entitas inti dan hubungannya:
 | `Staff` | nama, **peran (`DOKTER` / `TERAPIS`)**, no. SIP, spesialisasi, foto, bio, aktif | punya ScheduleTemplate, ScheduleException, Appointment. Menggantikan `Doctor`: satu dokter adalah Staff berperan `DOKTER`, sehingga jadwal terapis memakai mekanisme yang sama persis alih-alih jalur terpisah |
 | `ScheduleTemplate` | **cabang**, **staff**, hari dalam minggu, jam mulai, jam selesai, durasi slot, jeda | milik Staff × Branch |
 | `ScheduleException` | **staff**, opsional cabang, tanggal, jenis (libur / jam tambahan / blokir sebagian), rentang jam | milik Staff |
-| `Appointment` | kode booking, **cabang**, pasien, **staff**, **jenis (`KONSULTASI` / `TREATMENT`)**, waktu mulai & **selesai** (UTC), layanan diminati, status, catatan, sumber (online/walk-in) | milik Patient, Staff & Branch; menghasilkan satu Encounter. **Exclusion constraint pada (staff, rentang waktu)** — lihat catatan di bawah |
+| `Appointment` | kode booking, **cabang**, pasien, **staff**, **jenis (`KONSULTASI` / `TREATMENT`)**, waktu mulai & **selesai** (UTC), layanan diminati, status, catatan, **sumber (`SITUS` / `WHATSAPP` / `TELEPON` / `WALK_IN`)** | milik Patient, Staff & Branch; menghasilkan satu Encounter. **Exclusion constraint pada (staff, rentang waktu)** — lihat catatan di bawah |
 | `SlotHold` | cabang, **staff**, waktu mulai & selesai, kedaluwarsa, token sesi | sementara, dibersihkan otomatis. **Exclusion constraint pada (staff, rentang waktu)** |
 
 **Catatan integritas slot.** Batasan di atas bukan detail teknis yang bisa ditunda — itulah satu-satunya hal yang membuat bentrok jadwal *mustahil*, bukan sekadar tidak mungkin.
@@ -542,6 +566,8 @@ Aplikasi dirancang portabel (Docker + PostgreSQL standar) sehingga perpindahan i
 ---
 
 ## 13. Rencana Bertahap
+
+**Catatan urutan pembangunan.** Pencatatan janji temu oleh admin dibangun **sebelum** pendaftaran mandiri di situs publik. Admin yang dapat mencatat janji temu sudah menggantikan buku jadwal dan mencegah bentrok sejak hari pertama, sementara pendaftaran mandiri hanya berguna bila sisi admin-nya sudah ada untuk memverifikasi. Membangunnya terbalik berarti mesin anti-bentrok pertama kali diuji oleh pasien sungguhan, bukan oleh staf sendiri.
 
 **Fase 1 — MVP (lingkup dokumen ini)**
 Situs publik + katalog + pendaftaran konsultasi + panel admin + rekam medis + grafik progres, dengan dukungan multi-cabang sejak awal (Mahakeret aktif, Citraland "Segera Hadir").
