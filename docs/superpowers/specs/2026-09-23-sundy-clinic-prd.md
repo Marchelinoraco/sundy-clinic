@@ -334,10 +334,14 @@ Keputusan: **Next.js**, dengan biaya awal nol.
 | Hosting tahap awal | **Vercel (paket Hobby)** | Gratis, deploy langsung dari repositori. |
 
 ### Catatan penting soal hosting produksi
-Paket **Vercel Hobby gratis hanya untuk penggunaan non-komersial**; situs klinik yang menerima pasien termasuk komersial. Rencana yang saya sarankan:
+**Keputusan pemilik (23 Sep 2026):** memakai **Vercel + Neon** sejak awal agar proses deploy sederhana dan biayanya nol. Basis data Neon ditempatkan di region **Singapore (`ap-southeast-1`)**, yang terdekat dari Manado.
 
-- **Tahap pengembangan & uji coba:** Vercel Hobby + Neon gratis — biaya Rp 0.
-- **Saat go-live:** pindah ke **VPS Indonesia** (Biznet/IDCloudHost/Rumahweb, kisaran Rp 80.000–150.000/bulan) menjalankan Next.js + PostgreSQL dengan Docker. Tiga keuntungan sekaligus: sesuai ketentuan lisensi, latensi lebih rendah untuk pengguna Manado, dan **data rekam medis berada di dalam negeri** — pertimbangan nyata untuk data kesehatan. Alternatif: Vercel Pro (USD 20/bulan) bila ingin tetap tanpa mengelola server.
+Dua hal yang perlu ditinjau ulang menjelang go-live komersial:
+
+- Paket **Vercel Hobby gratis hanya untuk penggunaan non-komersial**; situs klinik yang menerima pasien termasuk komersial. Saat mulai menerima booking sungguhan, naik ke **Vercel Pro** (USD 20/bulan) atau pindah ke **VPS Indonesia** (Biznet/IDCloudHost/Rumahweb, kisaran Rp 80.000–150.000/bulan).
+- Pilihan VPS Indonesia punya keuntungan tambahan: latensi lebih rendah untuk pengguna Manado dan **data rekam medis berada di dalam negeri** — pertimbangan nyata untuk data kesehatan. Pemindahan ini tidak memerlukan penulisan ulang karena aplikasi memakai Next.js + PostgreSQL standar.
+
+Selama situs publik belum menerima data pasien (Plan 1 & 2), Vercel Hobby aman dipakai.
 
 Aplikasi dirancang portabel (Docker + PostgreSQL standar) sehingga perpindahan ini tidak memerlukan penulisan ulang.
 
