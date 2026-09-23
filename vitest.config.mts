@@ -10,6 +10,9 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./tests/setup.ts"],
     include: ["tests/**/*.test.{ts,tsx}"],
-    exclude: ["tests/e2e/**"],
+    // Uji integrasi punya konfigurasinya sendiri (vitest.integration.config.mts)
+    // yang mengarahkannya ke branch "test" di Neon. Kalau ikut terjaring di sini,
+    // ia akan berjalan tanpa pemetaan itu dan bisa menyentuh basis data yang salah.
+    exclude: ["tests/e2e/**", "tests/integration/**"],
   },
 });
