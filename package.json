@@ -22,6 +22,7 @@
     "@neon/env": "^1.4.3",
     "@prisma/adapter-neon": "^7.10.0",
     "@prisma/client": "^7.10.0",
+    "better-auth": "^1.7.5",
     "dotenv": "^18.0.3",
     "next": "15.5.26",
     "react": "19.1.0",
