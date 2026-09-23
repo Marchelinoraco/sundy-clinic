@@ -207,3 +207,26 @@ model Verification {
   @@index([identifier])
   @@map("verification")
 }
+
+/// Hanya-tambah. Tidak ada jalur di panel yang menyunting atau menghapus
+/// baris di tabel ini — lihat Permenkes 24/2022 pada PRD bagian 10.
+model AuditLog {
+  id String @id @default(cuid())
+
+  /// Identitas pelaku disalin, bukan sekadar dirujuk: bila staf dihapus,
+  /// catatan audit harus tetap terbaca.
+  actorStaffId String
+  actorName    String
+  actorRole    String
+
+  action   String
+  entity   String
+  entityId String
+  summary  String?
+
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([actorStaffId, createdAt])
+  @@index([createdAt])
+}
