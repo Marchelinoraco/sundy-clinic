@@ -53,6 +53,21 @@ export function minutesToTimeLabel(minutes: number): string {
   return `${String(hours).padStart(2, "0")}.${String(mins).padStart(2, "0")}`;
 }
 
+/** Nilai `<input type="time">` ("HH:MM") menjadi menit sejak tengah malam, atau null bila tidak sah. */
+export function timeInputToMinutes(value: string): number | null {
+  const match = /^(\d{2}):(\d{2})$/.exec(value);
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) return null;
+  return hours * 60 + minutes;
+}
+
+/** Menit sejak tengah malam menjadi nilai `<input type="time">` ("HH:MM"). */
+export function minutesToTimeInput(minutes: number): string {
+  return minutesToTimeLabel(minutes).replace(".", ":");
+}
+
 const witaTimePartsFormatter = new Intl.DateTimeFormat("en-GB", {
   timeZone: CLINIC_TIMEZONE,
   hour: "2-digit",

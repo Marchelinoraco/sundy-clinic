@@ -30,6 +30,10 @@ export async function upsertScheduleTemplate(input: {
 }): Promise<ScheduleTemplate> {
   const actor = await requireCapability("schedule:manage");
 
+  if (input.endMinute <= input.startMinute) {
+    throw new Error("Jam selesai harus setelah jam mulai.");
+  }
+
   // Tidak ada pemeriksaan "staf ini sudah di cabang lain hari ini" di sini
   // dengan sengaja. @@unique([staffId, weekday]) pada skema sudah membuat
   // satu hari-dalam-minggu hanya bisa menunjuk satu cabang — upsert ke
@@ -84,6 +88,15 @@ export async function createScheduleException(input: {
   endMinute: number | null;
 }): Promise<ScheduleException> {
   const actor = await requireCapability("schedule:manage");
+
+  if (input.kind !== "LIBUR") {
+    if (input.startMinute === null || input.endMinute === null) {
+      throw new Error("Jam tambahan dan blokir sebagian wajib punya jam mulai dan selesai.");
+    }
+    if (input.endMinute <= input.startMinute) {
+      throw new Error("Jam selesai harus setelah jam mulai.");
+    }
+  }
 
   const created = await prisma.scheduleException.create({
     data: {

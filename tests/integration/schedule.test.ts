@@ -153,6 +153,34 @@ describe("template & pengecualian jadwal", () => {
     expect(list).toHaveLength(1);
     expect(list[0].kind).toBe("LIBUR");
   });
+
+  it("menolak jam tambahan tanpa jam mulai/selesai", async () => {
+    // Tanpa jam, mesin slot mengabaikan pengecualian ini diam-diam — admin
+    // mengira sudah menambah jam padahal tidak ada efeknya.
+    await expect(
+      createScheduleException({
+        staffId,
+        branchId: null,
+        date: "2026-10-05",
+        kind: "JAM_TAMBAHAN",
+        startMinute: null,
+        endMinute: null,
+      }),
+    ).rejects.toThrow(/jam mulai dan selesai/i);
+  });
+
+  it("menolak template dengan jam selesai tidak setelah jam mulai", async () => {
+    await expect(
+      upsertScheduleTemplate({
+        staffId,
+        branchId,
+        weekday: 4,
+        startMinute: 1140,
+        endMinute: 660,
+        slotMinutes: 30,
+      }),
+    ).rejects.toThrow(/jam selesai/i);
+  });
 });
 
 describe("getStaffAvailability — melawan basis data sungguhan", () => {

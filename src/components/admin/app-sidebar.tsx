@@ -1,5 +1,12 @@
 import Link from "next/link";
-import { CalendarClock, LayoutDashboard, Scissors, ShieldCheck, Users } from "lucide-react";
+import {
+  CalendarClock,
+  CalendarDays,
+  LayoutDashboard,
+  Scissors,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -25,6 +32,7 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
     items: [
       { title: "Dasbor", url: "/admin", icon: LayoutDashboard },
       { title: "Booking", url: "/admin/booking", icon: CalendarClock, needs: "booking:manage" },
+      { title: "Jadwal", url: "/admin/jadwal", icon: CalendarDays, needs: "schedule:manage" },
     ],
   },
   {

@@ -1,11 +1,31 @@
 import { describe, expect, it } from "vitest";
 import {
   combineWitaDateAndMinutes,
+  minutesToTimeInput,
   minutesToTimeLabel,
+  timeInputToMinutes,
   witaDateString,
   witaMinutesOfDay,
   witaWeekday,
 } from "@/lib/time";
+
+describe("konversi nilai <input type=time>", () => {
+  it("mengubah 'HH:MM' menjadi menit sejak tengah malam", () => {
+    expect(timeInputToMinutes("11:00")).toBe(660);
+    expect(timeInputToMinutes("15:30")).toBe(930);
+  });
+
+  it("mengembalikan null untuk nilai kosong atau tidak sah", () => {
+    expect(timeInputToMinutes("")).toBeNull();
+    expect(timeInputToMinutes("25:00")).toBeNull();
+    expect(timeInputToMinutes("abc")).toBeNull();
+  });
+
+  it("mengubah menit menjadi 'HH:MM' untuk nilai awal input", () => {
+    expect(minutesToTimeInput(660)).toBe("11:00");
+    expect(minutesToTimeInput(1140)).toBe("19:00");
+  });
+});
 
 describe("witaDateString", () => {
   it("mengembalikan tanggal WITA, bukan tanggal UTC", () => {
