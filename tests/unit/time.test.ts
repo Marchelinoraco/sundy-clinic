@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  addDaysToDateString,
   combineWitaDateAndMinutes,
   minutesToTimeInput,
   minutesToTimeLabel,
@@ -75,5 +76,12 @@ describe("witaMinutesOfDay", () => {
   it("menangani lewat tengah malam WITA dengan benar", () => {
     const instant = combineWitaDateAndMinutes("2026-09-25", 30); // 00.30 WITA
     expect(witaMinutesOfDay(instant)).toBe(30);
+  });
+});
+
+describe("addDaysToDateString", () => {
+  it("menggeser tanggal melewati batas bulan dan tahun", () => {
+    expect(addDaysToDateString("2026-09-30", 1)).toBe("2026-10-01");
+    expect(addDaysToDateString("2026-01-01", -1)).toBe("2025-12-31");
   });
 });

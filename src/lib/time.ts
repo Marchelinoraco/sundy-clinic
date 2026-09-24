@@ -46,6 +46,12 @@ export function combineWitaDateAndMinutes(dateStr: string, minutes: number): Dat
   return new Date(Date.UTC(year, month - 1, day, hours - 8, mins));
 }
 
+/** Menggeser tanggal kalender "YYYY-MM-DD" sebanyak `days` hari. */
+export function addDaysToDateString(dateStr: string, days: number): string {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
 /** Menit sejak tengah malam menjadi label "HH.MM", misal 930 -> "15.30". */
 export function minutesToTimeLabel(minutes: number): string {
   const hours = Math.floor(minutes / 60);

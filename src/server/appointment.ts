@@ -11,6 +11,7 @@ import { runAction, UserFacingError, type ActionResult } from "@/lib/action-resu
 import { generateBookingCode } from "@/lib/booking-code";
 import { prisma } from "@/lib/db";
 import { safeRevalidatePath } from "@/lib/revalidate";
+import { combineWitaDateAndMinutes } from "@/lib/time";
 import { recordAudit } from "@/server/audit";
 import { requireCapability } from "@/server/session";
 
@@ -112,6 +113,29 @@ export async function createAppointment(input: {
   });
 }
 
+/** Status yang masih bisa dijadwal ulang, diverifikasi, dihadiri, atau dibatalkan. */
+const ACTIVE_STATUSES: AppointmentStatus[] = ["MENUNGGU_KONFIRMASI", "TERKONFIRMASI"];
+
+const STATUS_WORD: Record<AppointmentStatus, string> = {
+  MENUNGGU_KONFIRMASI: "menunggu konfirmasi",
+  TERKONFIRMASI: "terkonfirmasi",
+  HADIR: "hadir",
+  SELESAI: "selesai",
+  DIBATALKAN: "dibatalkan",
+  TIDAK_HADIR: "tidak hadir",
+  KEDALUWARSA: "kedaluwarsa",
+};
+
+async function staleStatusError(id: string): Promise<UserFacingError> {
+  const current = await prisma.appointment.findUniqueOrThrow({
+    where: { id },
+    select: { status: true },
+  });
+  return new UserFacingError(
+    `Booking ini sudah berstatus ${STATUS_WORD[current.status]}. Muat ulang halaman.`,
+  );
+}
+
 export async function rescheduleAppointment(
   id: string,
   input: { startAt: Date; endAt: Date },
@@ -121,12 +145,13 @@ export async function rescheduleAppointment(
 
     assertTimeRange(input.startAt, input.endAt);
 
-    const updated = await createWithSlotGuard(() =>
-      prisma.appointment.update({
-        where: { id },
+    const { count } = await createWithSlotGuard(() =>
+      prisma.appointment.updateMany({
+        where: { id, status: { in: ACTIVE_STATUSES } },
         data: { startAt: input.startAt, endAt: input.endAt },
       }),
     );
+    if (count === 0) throw await staleStatusError(id);
 
     await recordAudit({
       actor,
@@ -137,38 +162,51 @@ export async function rescheduleAppointment(
     });
 
     safeRevalidatePath("/admin/booking");
-    return updated;
+    return prisma.appointment.findUniqueOrThrow({ where: { id } });
   });
 }
 
+/**
+ * Pembaruan bersyarat: baris hanya berubah bila statusnya saat ini masih
+ * salah satu dari `from`. Satu pernyataan UPDATE ... WHERE status IN (...)
+ * bersifat atomik, sehingga dua admin yang mengklik bersamaan tidak saling
+ * menimpa, dan booking yang sudah dibatalkan tidak bisa "hidup lagi" lewat
+ * tombol Hadir — yang juga akan menabrak exclusion constraint bila slotnya
+ * sudah diisi orang lain.
+ */
 async function setStatus(
   id: string,
-  status: AppointmentStatus,
+  from: AppointmentStatus[],
+  to: AppointmentStatus,
   action: string,
   summary?: string,
 ): Promise<ActionResult<Appointment>> {
   return runAction(async () => {
     const actor = await requireCapability("booking:manage");
 
-    const updated = await prisma.appointment.update({ where: { id }, data: { status } });
+    const { count } = await prisma.appointment.updateMany({
+      where: { id, status: { in: from } },
+      data: { status: to },
+    });
+    if (count === 0) throw await staleStatusError(id);
 
     await recordAudit({ actor, action, entity: "Appointment", entityId: id, summary });
 
     safeRevalidatePath("/admin/booking");
-    return updated;
+    return prisma.appointment.findUniqueOrThrow({ where: { id } });
   });
 }
 
 export async function verifyAppointment(id: string): Promise<ActionResult<Appointment>> {
-  return setStatus(id, "TERKONFIRMASI", "appointment.verify");
+  return setStatus(id, ["MENUNGGU_KONFIRMASI"], "TERKONFIRMASI", "appointment.verify");
 }
 
 export async function markAttended(id: string): Promise<ActionResult<Appointment>> {
-  return setStatus(id, "HADIR", "appointment.mark-attended");
+  return setStatus(id, ACTIVE_STATUSES, "HADIR", "appointment.mark-attended");
 }
 
 export async function markNoShow(id: string): Promise<ActionResult<Appointment>> {
-  return setStatus(id, "TIDAK_HADIR", "appointment.mark-no-show");
+  return setStatus(id, ACTIVE_STATUSES, "TIDAK_HADIR", "appointment.mark-no-show");
 }
 
 /**
@@ -180,7 +218,13 @@ export async function cancelAppointment(
   id: string,
   reason?: string,
 ): Promise<ActionResult<Appointment>> {
-  return setStatus(id, "DIBATALKAN", "appointment.cancel", reason);
+  return setStatus(
+    id,
+    ACTIVE_STATUSES,
+    "DIBATALKAN",
+    "appointment.cancel",
+    reason?.trim() || undefined,
+  );
 }
 
 export async function listAppointments(filter: {
@@ -199,8 +243,8 @@ export async function listAppointments(filter: {
       ...(filter.date
         ? {
             startAt: {
-              gte: new Date(`${filter.date}T00:00:00Z`),
-              lte: new Date(`${filter.date}T23:59:59Z`),
+              gte: combineWitaDateAndMinutes(filter.date, 0),
+              lt: combineWitaDateAndMinutes(filter.date, 24 * 60),
             },
           }
         : {}),

@@ -7,6 +7,7 @@ import {
   createAppointment,
   listAppointments,
   markAttended,
+  markNoShow,
   rescheduleAppointment,
   verifyAppointment,
 } from "@/server/appointment";
@@ -318,5 +319,85 @@ describe("server action appointment", () => {
       source: "TELEPON",
     });
     expect(result).toEqual({ ok: false, error: expect.stringMatching(/jam selesai/i) });
+  });
+
+  async function book(startAt: string, endAt: string) {
+    return unwrap(
+      createAppointment({
+        patientId,
+        branchId,
+        staffId,
+        serviceId: null,
+        type: "KONSULTASI",
+        startAt: new Date(startAt),
+        endAt: new Date(endAt),
+        source: "TELEPON",
+      }),
+    );
+  }
+
+  it("tidak menghidupkan kembali booking yang sudah dibatalkan", async () => {
+    const appt = await book("2026-10-05T07:00:00Z", "2026-10-05T07:30:00Z");
+    await unwrap(cancelAppointment(appt.id));
+
+    const result = await markAttended(appt.id);
+    expect(result).toEqual({ ok: false, error: expect.stringMatching(/dibatalkan/i) });
+    const row = await prisma.appointment.findUniqueOrThrow({ where: { id: appt.id } });
+    expect(row.status).toBe("DIBATALKAN");
+  });
+
+  it("menolak verifikasi ganda, misal dua admin mengklik bersamaan", async () => {
+    const appt = await book("2026-10-05T07:00:00Z", "2026-10-05T07:30:00Z");
+    const [first, second] = await Promise.all([
+      verifyAppointment(appt.id),
+      verifyAppointment(appt.id),
+    ]);
+    const outcomes = [first.ok, second.ok].sort();
+    expect(outcomes).toEqual([false, true]);
+    expect(await prisma.auditLog.count({ where: { action: "appointment.verify" } })).toBe(1);
+  });
+
+  it("tidak membatalkan pasien yang sudah hadir", async () => {
+    const appt = await book("2026-10-05T07:00:00Z", "2026-10-05T07:30:00Z");
+    await unwrap(markAttended(appt.id));
+    const result = await cancelAppointment(appt.id);
+    expect(result).toEqual({ ok: false, error: expect.stringMatching(/hadir/i) });
+  });
+
+  it("menandai tidak hadir hanya dari status aktif", async () => {
+    const appt = await book("2026-10-05T07:00:00Z", "2026-10-05T07:30:00Z");
+    expect((await unwrap(markNoShow(appt.id))).status).toBe("TIDAK_HADIR");
+    const again = await markAttended(appt.id);
+    expect(again.ok).toBe(false);
+  });
+
+  it("tidak menjadwal ulang booking yang sudah dibatalkan", async () => {
+    const appt = await book("2026-10-05T07:00:00Z", "2026-10-05T07:30:00Z");
+    await unwrap(cancelAppointment(appt.id));
+    const result = await rescheduleAppointment(appt.id, {
+      startAt: new Date("2026-10-05T08:00:00Z"),
+      endAt: new Date("2026-10-05T08:30:00Z"),
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it("memfilter per tanggal WITA, bukan tanggal UTC", async () => {
+    // 07.00 WITA tanggal 5 = 23.00 UTC tanggal 4 → termasuk tanggal 5.
+    await book("2026-10-04T23:00:00Z", "2026-10-04T23:30:00Z");
+    // 01.00 WITA tanggal 6 = 17.00 UTC tanggal 5 → BUKAN tanggal 5.
+    await book("2026-10-05T17:00:00Z", "2026-10-05T17:30:00Z");
+
+    const list = await listAppointments({ date: "2026-10-05" });
+    expect(list.map((a) => a.startAt.toISOString())).toEqual(["2026-10-04T23:00:00.000Z"]);
+  });
+
+  it("menolak jadwal ulang ke jam yang sudah terisi dengan pesan yang dapat dipahami", async () => {
+    await book("2026-10-05T08:00:00Z", "2026-10-05T08:30:00Z");
+    const appt = await book("2026-10-05T07:00:00Z", "2026-10-05T07:30:00Z");
+    const result = await rescheduleAppointment(appt.id, {
+      startAt: new Date("2026-10-05T08:00:00Z"),
+      endAt: new Date("2026-10-05T08:30:00Z"),
+    });
+    expect(result).toEqual({ ok: false, error: expect.stringMatching(/slot baru saja terisi/i) });
   });
 });
