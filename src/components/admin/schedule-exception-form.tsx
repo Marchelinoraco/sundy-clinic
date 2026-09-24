@@ -40,7 +40,7 @@ export function ScheduleExceptionForm({ staffId }: { staffId: string }) {
 
     startTransition(async () => {
       try {
-        await createScheduleException({
+        const result = await createScheduleException({
           staffId,
           branchId: null,
           date,
@@ -48,12 +48,16 @@ export function ScheduleExceptionForm({ staffId }: { staffId: string }) {
           startMinute,
           endMinute,
         });
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
         toast.success("Pengecualian tersimpan.");
         setDate("");
         setStart("");
         setEnd("");
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Gagal menyimpan.");
+      } catch {
+        toast.error("Gagal menyimpan pengecualian. Coba lagi.");
       }
     });
   }

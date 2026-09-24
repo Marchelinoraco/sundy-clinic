@@ -1,7 +1,13 @@
 "use server";
 
 import { Prisma } from "@prisma/client";
-import type { Appointment, AppointmentStatus, AppointmentType, BookingSource } from "@prisma/client";
+import type {
+  Appointment,
+  AppointmentStatus,
+  AppointmentType,
+  BookingSource,
+} from "@prisma/client";
+import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
 import { generateBookingCode } from "@/lib/booking-code";
 import { prisma } from "@/lib/db";
 import { safeRevalidatePath } from "@/lib/revalidate";
@@ -29,7 +35,7 @@ async function createWithSlotGuard<T>(fn: () => Promise<T>): Promise<T> {
     return await fn();
   } catch (error) {
     if (isExclusionViolation(error)) {
-      throw new Error("Slot baru saja terisi. Pilih jam lain.");
+      throw new UserFacingError("Slot baru saja terisi. Pilih jam lain.");
     }
     throw error;
   }
@@ -45,61 +51,65 @@ export async function createAppointment(input: {
   endAt: Date;
   source: BookingSource;
   notes?: string;
-}): Promise<Appointment> {
-  const actor = await requireCapability("booking:manage");
+}): Promise<ActionResult<Appointment>> {
+  return runAction(async () => {
+    const actor = await requireCapability("booking:manage");
 
-  const created = await createWithSlotGuard(() =>
-    prisma.appointment.create({
-      data: {
-        code: generateBookingCode(),
-        branchId: input.branchId,
-        staffId: input.staffId,
-        patientId: input.patientId,
-        serviceId: input.serviceId,
-        type: input.type,
-        startAt: input.startAt,
-        endAt: input.endAt,
-        source: input.source,
-        notes: input.notes,
-      },
-    }),
-  );
+    const created = await createWithSlotGuard(() =>
+      prisma.appointment.create({
+        data: {
+          code: generateBookingCode(),
+          branchId: input.branchId,
+          staffId: input.staffId,
+          patientId: input.patientId,
+          serviceId: input.serviceId,
+          type: input.type,
+          startAt: input.startAt,
+          endAt: input.endAt,
+          source: input.source,
+          notes: input.notes,
+        },
+      }),
+    );
 
-  await recordAudit({
-    actor,
-    action: "appointment.create",
-    entity: "Appointment",
-    entityId: created.id,
-    summary: `${created.code} — ${input.startAt.toISOString()}`,
+    await recordAudit({
+      actor,
+      action: "appointment.create",
+      entity: "Appointment",
+      entityId: created.id,
+      summary: `${created.code} — ${input.startAt.toISOString()}`,
+    });
+
+    safeRevalidatePath("/admin/booking");
+    return created;
   });
-
-  safeRevalidatePath("/admin/booking");
-  return created;
 }
 
 export async function rescheduleAppointment(
   id: string,
   input: { startAt: Date; endAt: Date },
-): Promise<Appointment> {
-  const actor = await requireCapability("booking:manage");
+): Promise<ActionResult<Appointment>> {
+  return runAction(async () => {
+    const actor = await requireCapability("booking:manage");
 
-  const updated = await createWithSlotGuard(() =>
-    prisma.appointment.update({
-      where: { id },
-      data: { startAt: input.startAt, endAt: input.endAt },
-    }),
-  );
+    const updated = await createWithSlotGuard(() =>
+      prisma.appointment.update({
+        where: { id },
+        data: { startAt: input.startAt, endAt: input.endAt },
+      }),
+    );
 
-  await recordAudit({
-    actor,
-    action: "appointment.reschedule",
-    entity: "Appointment",
-    entityId: id,
-    summary: `pindah ke ${input.startAt.toISOString()}`,
+    await recordAudit({
+      actor,
+      action: "appointment.reschedule",
+      entity: "Appointment",
+      entityId: id,
+      summary: `pindah ke ${input.startAt.toISOString()}`,
+    });
+
+    safeRevalidatePath("/admin/booking");
+    return updated;
   });
-
-  safeRevalidatePath("/admin/booking");
-  return updated;
 }
 
 async function setStatus(
@@ -107,26 +117,28 @@ async function setStatus(
   status: AppointmentStatus,
   action: string,
   summary?: string,
-): Promise<Appointment> {
-  const actor = await requireCapability("booking:manage");
+): Promise<ActionResult<Appointment>> {
+  return runAction(async () => {
+    const actor = await requireCapability("booking:manage");
 
-  const updated = await prisma.appointment.update({ where: { id }, data: { status } });
+    const updated = await prisma.appointment.update({ where: { id }, data: { status } });
 
-  await recordAudit({ actor, action, entity: "Appointment", entityId: id, summary });
+    await recordAudit({ actor, action, entity: "Appointment", entityId: id, summary });
 
-  safeRevalidatePath("/admin/booking");
-  return updated;
+    safeRevalidatePath("/admin/booking");
+    return updated;
+  });
 }
 
-export async function verifyAppointment(id: string): Promise<Appointment> {
+export async function verifyAppointment(id: string): Promise<ActionResult<Appointment>> {
   return setStatus(id, "TERKONFIRMASI", "appointment.verify");
 }
 
-export async function markAttended(id: string): Promise<Appointment> {
+export async function markAttended(id: string): Promise<ActionResult<Appointment>> {
   return setStatus(id, "HADIR", "appointment.mark-attended");
 }
 
-export async function markNoShow(id: string): Promise<Appointment> {
+export async function markNoShow(id: string): Promise<ActionResult<Appointment>> {
   return setStatus(id, "TIDAK_HADIR", "appointment.mark-no-show");
 }
 
@@ -135,7 +147,10 @@ export async function markNoShow(id: string): Promise<Appointment> {
  * lihat PRD F9: janji temu adalah catatan kegiatan klinik, dan
  * menghapusnya memutus jejak audit serta riwayat pasien.
  */
-export async function cancelAppointment(id: string, reason?: string): Promise<Appointment> {
+export async function cancelAppointment(
+  id: string,
+  reason?: string,
+): Promise<ActionResult<Appointment>> {
   return setStatus(id, "DIBATALKAN", "appointment.cancel", reason);
 }
 

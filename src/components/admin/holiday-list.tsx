@@ -20,10 +20,14 @@ export function HolidayList({ holidays }: { holidays: Holiday[] }) {
   function handleDelete(id: string) {
     startTransition(async () => {
       try {
-        await deleteHoliday(id);
+        const result = await deleteHoliday(id);
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
         toast.success("Hari libur dihapus.");
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Gagal menghapus.");
+      } catch {
+        toast.error("Gagal menghapus hari libur. Coba lagi.");
       }
     });
   }

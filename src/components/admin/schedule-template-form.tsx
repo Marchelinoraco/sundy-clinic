@@ -33,7 +33,7 @@ export function ScheduleTemplateForm({ staffId, branchId, weekday, existing }: P
 
     startTransition(async () => {
       try {
-        await upsertScheduleTemplate({
+        const result = await upsertScheduleTemplate({
           staffId,
           branchId,
           weekday,
@@ -41,9 +41,13 @@ export function ScheduleTemplateForm({ staffId, branchId, weekday, existing }: P
           endMinute,
           slotMinutes: 30,
         });
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
         toast.success(`Jadwal ${WEEKDAY_LABEL[weekday]} tersimpan.`);
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Gagal menyimpan jadwal.");
+      } catch {
+        toast.error("Gagal menyimpan jadwal. Coba lagi.");
       }
     });
   }

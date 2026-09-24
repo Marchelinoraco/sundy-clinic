@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
+import { unwrap } from "./unwrap";
 import {
   cancelAppointment,
   createAppointment,
@@ -35,7 +36,11 @@ describe("server action appointment", () => {
     await prisma.branch.deleteMany({ where: { slug: "cabang-appointment-uji" } });
 
     const patient = await prisma.patient.create({
-      data: { medicalRecordNumber: "SDY-2026-7777", name: "Pasien Appointment", whatsapp: "627777" },
+      data: {
+        medicalRecordNumber: "SDY-2026-7777",
+        name: "Pasien Appointment",
+        whatsapp: "627777",
+      },
     });
     const staff = await prisma.staff.create({
       data: { slug: "staf-appointment-uji", name: "Staf Appointment", role: "DOKTER" },
@@ -68,16 +73,18 @@ describe("server action appointment", () => {
   });
 
   it("membuat janji temu dengan kode booking dan status awal MENUNGGU_KONFIRMASI", async () => {
-    const appt = await createAppointment({
-      patientId,
-      branchId,
-      staffId,
-      serviceId: null,
-      type: "KONSULTASI",
-      startAt: new Date("2026-10-05T07:00:00Z"),
-      endAt: new Date("2026-10-05T07:30:00Z"),
-      source: "TELEPON",
-    });
+    const appt = await unwrap(
+      createAppointment({
+        patientId,
+        branchId,
+        staffId,
+        serviceId: null,
+        type: "KONSULTASI",
+        startAt: new Date("2026-10-05T07:00:00Z"),
+        endAt: new Date("2026-10-05T07:30:00Z"),
+        source: "TELEPON",
+      }),
+    );
 
     expect(appt.code).toMatch(/^SDY-/);
     expect(appt.status).toBe("MENUNGGU_KONFIRMASI");
@@ -85,16 +92,18 @@ describe("server action appointment", () => {
   });
 
   it("menolak janji temu kedua yang bertindihan dengan pesan yang dapat dipahami", async () => {
-    await createAppointment({
-      patientId,
-      branchId,
-      staffId,
-      serviceId: null,
-      type: "KONSULTASI",
-      startAt: new Date("2026-10-05T07:00:00Z"),
-      endAt: new Date("2026-10-05T07:30:00Z"),
-      source: "TELEPON",
-    });
+    await unwrap(
+      createAppointment({
+        patientId,
+        branchId,
+        staffId,
+        serviceId: null,
+        type: "KONSULTASI",
+        startAt: new Date("2026-10-05T07:00:00Z"),
+        endAt: new Date("2026-10-05T07:30:00Z"),
+        source: "TELEPON",
+      }),
+    );
 
     // Bukan galat SQL mentah — pesan yang admin bisa mengerti.
     await expect(
@@ -108,107 +117,121 @@ describe("server action appointment", () => {
         endAt: new Date("2026-10-05T07:30:00Z"),
         source: "TELEPON",
       }),
-    ).rejects.toThrow(/slot baru saja terisi/i);
+    ).resolves.toEqual({ ok: false, error: expect.stringMatching(/slot baru saja terisi/i) });
   });
 
   it("mencatat jejak audit saat janji temu dibuat", async () => {
-    const appt = await createAppointment({
-      patientId,
-      branchId,
-      staffId,
-      serviceId: null,
-      type: "KONSULTASI",
-      startAt: new Date("2026-10-05T07:00:00Z"),
-      endAt: new Date("2026-10-05T07:30:00Z"),
-      source: "WALK_IN",
-    });
+    const appt = await unwrap(
+      createAppointment({
+        patientId,
+        branchId,
+        staffId,
+        serviceId: null,
+        type: "KONSULTASI",
+        startAt: new Date("2026-10-05T07:00:00Z"),
+        endAt: new Date("2026-10-05T07:30:00Z"),
+        source: "WALK_IN",
+      }),
+    );
 
     const audit = await prisma.auditLog.findFirst({ where: { entityId: appt.id } });
     expect(audit?.action).toBe("appointment.create");
   });
 
   it("memindahkan jadwal tanpa membatalkan booking lama", async () => {
-    const appt = await createAppointment({
-      patientId,
-      branchId,
-      staffId,
-      serviceId: null,
-      type: "KONSULTASI",
-      startAt: new Date("2026-10-05T07:00:00Z"),
-      endAt: new Date("2026-10-05T07:30:00Z"),
-      source: "WALK_IN",
-    });
+    const appt = await unwrap(
+      createAppointment({
+        patientId,
+        branchId,
+        staffId,
+        serviceId: null,
+        type: "KONSULTASI",
+        startAt: new Date("2026-10-05T07:00:00Z"),
+        endAt: new Date("2026-10-05T07:30:00Z"),
+        source: "WALK_IN",
+      }),
+    );
 
-    const moved = await rescheduleAppointment(appt.id, {
-      startAt: new Date("2026-10-05T08:00:00Z"),
-      endAt: new Date("2026-10-05T08:30:00Z"),
-    });
+    const moved = await unwrap(
+      rescheduleAppointment(appt.id, {
+        startAt: new Date("2026-10-05T08:00:00Z"),
+        endAt: new Date("2026-10-05T08:30:00Z"),
+      }),
+    );
 
     expect(moved.id).toBe(appt.id);
     expect(moved.startAt.toISOString()).toBe("2026-10-05T08:00:00.000Z");
   });
 
   it("menjalankan alur status: verifikasi -> hadir", async () => {
-    const appt = await createAppointment({
-      patientId,
-      branchId,
-      staffId,
-      serviceId: null,
-      type: "KONSULTASI",
-      startAt: new Date("2026-10-05T07:00:00Z"),
-      endAt: new Date("2026-10-05T07:30:00Z"),
-      source: "WALK_IN",
-    });
+    const appt = await unwrap(
+      createAppointment({
+        patientId,
+        branchId,
+        staffId,
+        serviceId: null,
+        type: "KONSULTASI",
+        startAt: new Date("2026-10-05T07:00:00Z"),
+        endAt: new Date("2026-10-05T07:30:00Z"),
+        source: "WALK_IN",
+      }),
+    );
 
-    const verified = await verifyAppointment(appt.id);
+    const verified = await unwrap(verifyAppointment(appt.id));
     expect(verified.status).toBe("TERKONFIRMASI");
 
-    const attended = await markAttended(appt.id);
+    const attended = await unwrap(markAttended(appt.id));
     expect(attended.status).toBe("HADIR");
   });
 
   it("membatalkan janji temu tanpa menghapus baris, dan membuka kembali slotnya", async () => {
-    const appt = await createAppointment({
-      patientId,
-      branchId,
-      staffId,
-      serviceId: null,
-      type: "KONSULTASI",
-      startAt: new Date("2026-10-05T07:00:00Z"),
-      endAt: new Date("2026-10-05T07:30:00Z"),
-      source: "WALK_IN",
-    });
+    const appt = await unwrap(
+      createAppointment({
+        patientId,
+        branchId,
+        staffId,
+        serviceId: null,
+        type: "KONSULTASI",
+        startAt: new Date("2026-10-05T07:00:00Z"),
+        endAt: new Date("2026-10-05T07:30:00Z"),
+        source: "WALK_IN",
+      }),
+    );
 
-    const cancelled = await cancelAppointment(appt.id, "Pasien membatalkan");
+    const cancelled = await unwrap(cancelAppointment(appt.id, "Pasien membatalkan"));
     expect(cancelled.status).toBe("DIBATALKAN");
     expect(await prisma.appointment.count({ where: { id: appt.id } })).toBe(1);
 
     // Slot yang sama sekarang bisa dipakai booking lain — membuktikan
     // pembatalan benar-benar melepas kuncinya di exclusion constraint.
-    const rebooked = await createAppointment({
-      patientId,
-      branchId,
-      staffId,
-      serviceId: null,
-      type: "KONSULTASI",
-      startAt: new Date("2026-10-05T07:00:00Z"),
-      endAt: new Date("2026-10-05T07:30:00Z"),
-      source: "WALK_IN",
-    });
+    const rebooked = await unwrap(
+      createAppointment({
+        patientId,
+        branchId,
+        staffId,
+        serviceId: null,
+        type: "KONSULTASI",
+        startAt: new Date("2026-10-05T07:00:00Z"),
+        endAt: new Date("2026-10-05T07:30:00Z"),
+        source: "WALK_IN",
+      }),
+    );
     expect(rebooked.status).toBe("MENUNGGU_KONFIRMASI");
   });
 
   it("mendaftar janji temu dengan filter cabang dan status", async () => {
-    await createAppointment({
-      patientId,
-      branchId,
-      staffId,
-      serviceId: null,
-      type: "KONSULTASI",
-      startAt: new Date("2026-10-05T07:00:00Z"),
-      endAt: new Date("2026-10-05T07:30:00Z"),
-      source: "WALK_IN",
-    });
+    await unwrap(
+      createAppointment({
+        patientId,
+        branchId,
+        staffId,
+        serviceId: null,
+        type: "KONSULTASI",
+        startAt: new Date("2026-10-05T07:00:00Z"),
+        endAt: new Date("2026-10-05T07:30:00Z"),
+        source: "WALK_IN",
+      }),
+    );
 
     const list = await listAppointments({ branchId, status: "MENUNGGU_KONFIRMASI" });
     expect(list).toHaveLength(1);

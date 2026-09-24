@@ -2,6 +2,7 @@
 
 import { safeRevalidatePath } from "@/lib/revalidate";
 import type { Holiday, HolidayKind } from "@prisma/client";
+import { runAction, type ActionResult } from "@/lib/action-result";
 import { prisma } from "@/lib/db";
 import { recordAudit } from "@/server/audit";
 import { requireCapability } from "@/server/session";
@@ -23,37 +24,41 @@ export async function createHoliday(input: {
   date: string;
   name: string;
   kind: HolidayKind;
-}): Promise<Holiday> {
-  const actor = await requireCapability("schedule:manage");
+}): Promise<ActionResult<Holiday>> {
+  return runAction(async () => {
+    const actor = await requireCapability("schedule:manage");
 
-  const created = await prisma.holiday.create({
-    data: { date: new Date(`${input.date}T00:00:00Z`), name: input.name, kind: input.kind },
+    const created = await prisma.holiday.create({
+      data: { date: new Date(`${input.date}T00:00:00Z`), name: input.name, kind: input.kind },
+    });
+
+    await recordAudit({
+      actor,
+      action: "holiday.create",
+      entity: "Holiday",
+      entityId: created.id,
+      summary: `${input.date}: ${input.name}`,
+    });
+
+    safeRevalidatePath("/admin/jadwal");
+    return created;
   });
-
-  await recordAudit({
-    actor,
-    action: "holiday.create",
-    entity: "Holiday",
-    entityId: created.id,
-    summary: `${input.date}: ${input.name}`,
-  });
-
-  safeRevalidatePath("/admin/jadwal");
-  return created;
 }
 
-export async function deleteHoliday(id: string): Promise<void> {
-  const actor = await requireCapability("schedule:manage");
+export async function deleteHoliday(id: string): Promise<ActionResult> {
+  return runAction(async () => {
+    const actor = await requireCapability("schedule:manage");
 
-  const deleted = await prisma.holiday.delete({ where: { id } });
+    const deleted = await prisma.holiday.delete({ where: { id } });
 
-  await recordAudit({
-    actor,
-    action: "holiday.delete",
-    entity: "Holiday",
-    entityId: id,
-    summary: `${deleted.date.toISOString().slice(0, 10)}: ${deleted.name}`,
+    await recordAudit({
+      actor,
+      action: "holiday.delete",
+      entity: "Holiday",
+      entityId: id,
+      summary: `${deleted.date.toISOString().slice(0, 10)}: ${deleted.name}`,
+    });
+
+    safeRevalidatePath("/admin/jadwal");
   });
-
-  safeRevalidatePath("/admin/jadwal");
 }

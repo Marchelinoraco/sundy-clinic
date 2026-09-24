@@ -19,14 +19,18 @@ export function ServicePriceForm({ service }: ServicePriceFormProps) {
   function handleSave() {
     startTransition(async () => {
       try {
-        await updateServicePrice({
+        const result = await updateServicePrice({
           id: service.id,
           normalPrice: normalPrice === "" ? null : Number(normalPrice),
           promoPrice: Number(promoPrice),
         });
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
         toast.success(`Harga ${service.name} tersimpan.`);
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Harga gagal disimpan.");
+      } catch {
+        toast.error("Harga gagal disimpan. Coba lagi.");
       }
     });
   }

@@ -1,16 +1,19 @@
 import Link from "next/link";
-import type { ExceptionKind } from "@prisma/client";
 import { AdminHeader } from "@/components/admin/admin-header";
 import { HolidayList } from "@/components/admin/holiday-list";
 import { ScheduleExceptionForm } from "@/components/admin/schedule-exception-form";
 import { ScheduleTemplateForm } from "@/components/admin/schedule-template-form";
 import { Button } from "@/components/ui/button";
-import { prisma } from "@/lib/db";
 import { formatIndonesianDate } from "@/lib/format";
+import type { ExceptionKind } from "@/lib/slot";
 import { minutesToTimeLabel, witaDateString } from "@/lib/time";
 import { getBranches } from "@/server/catalog";
 import { listHolidays } from "@/server/holiday";
-import { listScheduleExceptions, listScheduleTemplates } from "@/server/schedule";
+import {
+  listSchedulableStaff,
+  listScheduleExceptions,
+  listScheduleTemplates,
+} from "@/server/schedule";
 import { requireCapability } from "@/server/session";
 
 const WEEKDAYS = [1, 2, 3, 4, 5, 6]; // Senin–Sabtu — klinik tutup Minggu
@@ -33,10 +36,7 @@ export default async function SchedulePage({
   const [branches, holidays, staffList] = await Promise.all([
     getBranches(),
     listHolidays(year),
-    prisma.staff.findMany({
-      where: { role: { in: ["DOKTER", "TERAPIS"] }, isActive: true },
-      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-    }),
+    listSchedulableStaff(),
   ]);
 
   const primaryBranch = branches.find((b) => b.status === "AKTIF") ?? branches[0];

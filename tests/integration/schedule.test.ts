@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
+import { unwrap } from "./unwrap";
 import {
   createScheduleException,
   getStaffAvailability,
@@ -59,14 +60,16 @@ describe("template & pengecualian jadwal", () => {
   });
 
   it("membuat template jadwal untuk satu hari dalam minggu", async () => {
-    const template = await upsertScheduleTemplate({
-      staffId,
-      branchId,
-      weekday: 4, // Kamis
-      startMinute: 660,
-      endMinute: 1140,
-      slotMinutes: 30,
-    });
+    const template = await unwrap(
+      upsertScheduleTemplate({
+        staffId,
+        branchId,
+        weekday: 4, // Kamis
+        startMinute: 660,
+        endMinute: 1140,
+        slotMinutes: 30,
+      }),
+    );
     expect(template.weekday).toBe(4);
 
     const list = await listScheduleTemplates(staffId);
@@ -74,22 +77,26 @@ describe("template & pengecualian jadwal", () => {
   });
 
   it("menimpa template yang sama tanpa menggandakan baris", async () => {
-    await upsertScheduleTemplate({
-      staffId,
-      branchId,
-      weekday: 4,
-      startMinute: 660,
-      endMinute: 1140,
-      slotMinutes: 30,
-    });
-    await upsertScheduleTemplate({
-      staffId,
-      branchId,
-      weekday: 4,
-      startMinute: 660,
-      endMinute: 1080, // jam tutup dimajukan
-      slotMinutes: 30,
-    });
+    await unwrap(
+      upsertScheduleTemplate({
+        staffId,
+        branchId,
+        weekday: 4,
+        startMinute: 660,
+        endMinute: 1140,
+        slotMinutes: 30,
+      }),
+    );
+    await unwrap(
+      upsertScheduleTemplate({
+        staffId,
+        branchId,
+        weekday: 4,
+        startMinute: 660,
+        endMinute: 1080, // jam tutup dimajukan
+        slotMinutes: 30,
+      }),
+    );
 
     const list = await listScheduleTemplates(staffId);
     expect(list).toHaveLength(1);
@@ -115,22 +122,26 @@ describe("template & pengecualian jadwal", () => {
       },
     });
 
-    await upsertScheduleTemplate({
-      staffId,
-      branchId,
-      weekday: 4,
-      startMinute: 660,
-      endMinute: 1140,
-      slotMinutes: 30,
-    });
-    await upsertScheduleTemplate({
-      staffId,
-      branchId: otherBranch.id,
-      weekday: 4,
-      startMinute: 660,
-      endMinute: 1140,
-      slotMinutes: 30,
-    });
+    await unwrap(
+      upsertScheduleTemplate({
+        staffId,
+        branchId,
+        weekday: 4,
+        startMinute: 660,
+        endMinute: 1140,
+        slotMinutes: 30,
+      }),
+    );
+    await unwrap(
+      upsertScheduleTemplate({
+        staffId,
+        branchId: otherBranch.id,
+        weekday: 4,
+        startMinute: 660,
+        endMinute: 1140,
+        slotMinutes: 30,
+      }),
+    );
 
     const list = await listScheduleTemplates(staffId);
     expect(list).toHaveLength(1);
@@ -140,14 +151,16 @@ describe("template & pengecualian jadwal", () => {
   });
 
   it("membuat pengecualian tanggal dan mendaftarnya dalam rentang", async () => {
-    await createScheduleException({
-      staffId,
-      branchId: null,
-      date: "2026-10-05",
-      kind: "LIBUR",
-      startMinute: null,
-      endMinute: null,
-    });
+    await unwrap(
+      createScheduleException({
+        staffId,
+        branchId: null,
+        date: "2026-10-05",
+        kind: "LIBUR",
+        startMinute: null,
+        endMinute: null,
+      }),
+    );
 
     const list = await listScheduleExceptions(staffId, "2026-10-01", "2026-10-31");
     expect(list).toHaveLength(1);
@@ -166,7 +179,7 @@ describe("template & pengecualian jadwal", () => {
         startMinute: null,
         endMinute: null,
       }),
-    ).rejects.toThrow(/jam mulai dan selesai/i);
+    ).resolves.toEqual({ ok: false, error: expect.stringMatching(/jam mulai dan selesai/i) });
   });
 
   it("menolak template dengan jam selesai tidak setelah jam mulai", async () => {
@@ -179,7 +192,7 @@ describe("template & pengecualian jadwal", () => {
         endMinute: 660,
         slotMinutes: 30,
       }),
-    ).rejects.toThrow(/jam selesai/i);
+    ).resolves.toEqual({ ok: false, error: expect.stringMatching(/jam selesai/i) });
   });
 });
 
@@ -215,14 +228,16 @@ describe("getStaffAvailability — melawan basis data sungguhan", () => {
     branchId = branch.id;
 
     // 2026-10-05 adalah hari Senin (weekday 1).
-    await upsertScheduleTemplate({
-      staffId,
-      branchId,
-      weekday: 1,
-      startMinute: 660,
-      endMinute: 1140,
-      slotMinutes: 30,
-    });
+    await unwrap(
+      upsertScheduleTemplate({
+        staffId,
+        branchId,
+        weekday: 1,
+        startMinute: 660,
+        endMinute: 1140,
+        slotMinutes: 30,
+      }),
+    );
   });
 
   afterAll(async () => {

@@ -1,6 +1,7 @@
 "use server";
 
 import type { Patient } from "@prisma/client";
+import { runAction, type ActionResult } from "@/lib/action-result";
 import { prisma } from "@/lib/db";
 import { formatMedicalRecordNumber } from "@/lib/medical-record-number";
 import { safeRevalidatePath } from "@/lib/revalidate";
@@ -33,35 +34,37 @@ export async function createPatient(input: {
   gender?: "L" | "P";
   occupation?: string;
   address?: string;
-}): Promise<Patient> {
-  const actor = await requireCapability("booking:manage");
+}): Promise<ActionResult<Patient>> {
+  return runAction(async () => {
+    const actor = await requireCapability("booking:manage");
 
-  const year = new Date().getFullYear();
-  const sequence = await nextMedicalRecordSequence(year);
-  const medicalRecordNumber = formatMedicalRecordNumber(year, sequence);
+    const year = new Date().getFullYear();
+    const sequence = await nextMedicalRecordSequence(year);
+    const medicalRecordNumber = formatMedicalRecordNumber(year, sequence);
 
-  const patient = await prisma.patient.create({
-    data: {
-      medicalRecordNumber,
-      name: input.name,
-      whatsapp: input.whatsapp,
-      birthDate: input.birthDate ? new Date(`${input.birthDate}T00:00:00Z`) : null,
-      gender: input.gender,
-      occupation: input.occupation,
-      address: input.address,
-    },
+    const patient = await prisma.patient.create({
+      data: {
+        medicalRecordNumber,
+        name: input.name,
+        whatsapp: input.whatsapp,
+        birthDate: input.birthDate ? new Date(`${input.birthDate}T00:00:00Z`) : null,
+        gender: input.gender,
+        occupation: input.occupation,
+        address: input.address,
+      },
+    });
+
+    await recordAudit({
+      actor,
+      action: "patient.create",
+      entity: "Patient",
+      entityId: patient.id,
+      summary: `${patient.name} (${patient.medicalRecordNumber})`,
+    });
+
+    safeRevalidatePath("/admin/pasien");
+    return patient;
   });
-
-  await recordAudit({
-    actor,
-    action: "patient.create",
-    entity: "Patient",
-    entityId: patient.id,
-    summary: `${patient.name} (${patient.medicalRecordNumber})`,
-  });
-
-  safeRevalidatePath("/admin/pasien");
-  return patient;
 }
 
 export async function getPatientById(id: string): Promise<Patient | null> {
