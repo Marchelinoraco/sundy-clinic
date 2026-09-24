@@ -1,3 +1,5 @@
+import { CLINIC_TIMEZONE } from "./clinic";
+
 const rupiahFormatter = new Intl.NumberFormat("id-ID", {
   style: "currency",
   currency: "IDR",
@@ -18,4 +20,17 @@ export function formatRupiah(amount: number): string {
 export function formatPrice(promoPrice: number, priceNote?: string | null): string {
   const price = formatRupiah(promoPrice);
   return priceNote ? `${price} ${priceNote}` : price;
+}
+
+const indonesianDateFormatter = new Intl.DateTimeFormat("id-ID", {
+  timeZone: CLINIC_TIMEZONE,
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+});
+
+/** Menulis tanggal dalam zona waktu klinik (WITA), misal "Jumat, 25 September 2026". */
+export function formatIndonesianDate(date: Date): string {
+  return indonesianDateFormatter.format(date);
 }
