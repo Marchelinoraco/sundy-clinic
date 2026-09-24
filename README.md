@@ -69,6 +69,12 @@ npm run create-admin -- <email> <kata-sandi> "<nama lengkap>"
 
 Kata sandi minimal 12 karakter. Sesi berlaku 8 jam.
 
+Lupa kata sandi? Ganti dari baris perintah (semua sesi login akun itu ikut dihapus):
+
+```bash
+npm run reset-password -- <email> "<kata-sandi-baru>"
+```
+
 ## Pengujian
 
 ```bash
