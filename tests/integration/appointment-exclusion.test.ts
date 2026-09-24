@@ -10,7 +10,7 @@ describe("exclusion constraint Appointment", () => {
   beforeEach(async () => {
     await prisma.appointment.deleteMany();
     await prisma.patient.deleteMany({ where: { medicalRecordNumber: "SDY-2026-8888" } });
-    await prisma.staff.deleteMany({ where: { slug: "staf-exclusion-uji" } });
+    await prisma.staff.deleteMany({ where: { slug: { startsWith: "staf-exclusion-uji" } } });
     await prisma.branch.deleteMany({ where: { slug: "cabang-exclusion-uji" } });
 
     const patient = await prisma.patient.create({
@@ -40,7 +40,7 @@ describe("exclusion constraint Appointment", () => {
     // "cabang-exclusion-uji" bocor ke berkas lain yang berjalan sesudahnya.
     await prisma.appointment.deleteMany();
     await prisma.patient.deleteMany({ where: { medicalRecordNumber: "SDY-2026-8888" } });
-    await prisma.staff.deleteMany({ where: { slug: "staf-exclusion-uji" } });
+    await prisma.staff.deleteMany({ where: { slug: { startsWith: "staf-exclusion-uji" } } });
     await prisma.branch.deleteMany({ where: { slug: "cabang-exclusion-uji" } });
     await prisma.$disconnect();
   });
@@ -124,5 +124,29 @@ describe("exclusion constraint Appointment", () => {
     ).rejects.toThrow();
 
     await prisma.branch.delete({ where: { id: otherBranch.id } });
+  });
+
+  it("mengizinkan dokter dan terapis memakai jam yang sama — jadwal milik tenaga, bukan klinik", async () => {
+    // PRD F4a: konsultasi dr. Diane 15.00 dan facial terapis 15.00–16.00
+    // berjalan paralel. Exclusion constraint dikunci per staffId, bukan per
+    // cabang atau per klinik.
+    const therapist = await prisma.staff.create({
+      data: { slug: "staf-exclusion-uji-terapis", name: "Terapis Exclusion", role: "TERAPIS" },
+    });
+
+    await insertAppointment("SDY-EEE1", "2026-10-05T07:00:00Z", "2026-10-05T07:30:00Z");
+    await prisma.$executeRawUnsafe(
+      `INSERT INTO "Appointment"
+        (id, code, "branchId", "staffId", "patientId", type, "startAt", "endAt", status, source, "createdAt", "updatedAt")
+       VALUES (gen_random_uuid()::text, $1, $2, $3, $4, 'TREATMENT', $5::timestamptz, $6::timestamptz, 'TERKONFIRMASI', 'WALK_IN', now(), now())`,
+      "SDY-EEE2",
+      branchId,
+      therapist.id,
+      patientId,
+      "2026-10-05T07:00:00Z",
+      "2026-10-05T08:00:00Z",
+    );
+
+    expect(await prisma.appointment.count({ where: { branchId } })).toBe(2);
   });
 });
