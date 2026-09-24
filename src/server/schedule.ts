@@ -1,10 +1,17 @@
 "use server";
 
 import type { ExceptionKind, ScheduleException, ScheduleTemplate } from "@prisma/client";
+import { getAvailableSlots, type SlotOption } from "@/lib/slot";
+import { witaWeekday } from "@/lib/time";
 import { prisma } from "@/lib/db";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { recordAudit } from "@/server/audit";
+import { isHoliday } from "@/server/holiday";
 import { requireCapability } from "@/server/session";
+
+// Status Appointment yang benar-benar memblokir slot — sejalan dengan
+// klausa WHERE pada exclusion constraint di migrasi Task 9.
+const BLOCKING_STATUSES = ["MENUNGGU_KONFIRMASI", "TERKONFIRMASI", "HADIR"] as const;
 
 export async function listScheduleTemplates(staffId: string): Promise<ScheduleTemplate[]> {
   return prisma.scheduleTemplate.findMany({
@@ -112,5 +119,58 @@ export async function listScheduleExceptions(
       date: { gte: new Date(`${from}T00:00:00Z`), lte: new Date(`${to}T00:00:00Z`) },
     },
     orderBy: { date: "asc" },
+  });
+}
+
+/**
+ * Menyambungkan mesin murni getAvailableSlots ke data nyata: template hari
+ * itu, pengecualian, status libur, dan rentang sibuk (Appointment berstatus
+ * memblokir) milik staf tersebut. SlotHold belum ikut dihitung di sini —
+ * Plan 3b yang menambahkannya, karena penahanan sementara hanya relevan
+ * untuk alur pendaftaran mandiri publik.
+ */
+export async function getStaffAvailability(input: {
+  staffId: string;
+  branchId: string;
+  date: string;
+  durationMinutes: number;
+}): Promise<SlotOption[]> {
+  const weekday = witaWeekday(new Date(`${input.date}T12:00:00Z`));
+
+  const [template, exceptions, holiday, busyAppointments] = await Promise.all([
+    prisma.scheduleTemplate.findUnique({
+      where: { staffId_weekday: { staffId: input.staffId, weekday } },
+    }),
+    prisma.scheduleException.findMany({
+      where: { staffId: input.staffId, date: new Date(`${input.date}T00:00:00Z`) },
+    }),
+    isHoliday(input.date),
+    prisma.appointment.findMany({
+      where: {
+        staffId: input.staffId,
+        status: { in: [...BLOCKING_STATUSES] },
+        startAt: { gte: new Date(`${input.date}T00:00:00Z`) },
+        endAt: { lte: new Date(`${input.date}T23:59:59Z`) },
+      },
+      select: { startAt: true, endAt: true },
+    }),
+  ]);
+
+  return getAvailableSlots({
+    date: input.date,
+    durationMinutes: input.durationMinutes,
+    template:
+      template && template.branchId === input.branchId
+        ? { startMinute: template.startMinute, endMinute: template.endMinute }
+        : null,
+    exceptions: exceptions.map((e) => ({
+      kind: e.kind,
+      startMinute: e.startMinute,
+      endMinute: e.endMinute,
+    })),
+    isHoliday: holiday,
+    busy: busyAppointments,
+    now: new Date(),
+    minLeadMinutes: 120,
   });
 }

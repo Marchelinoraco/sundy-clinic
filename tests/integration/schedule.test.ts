@@ -3,6 +3,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
 import {
   createScheduleException,
+  getStaffAvailability,
   listScheduleExceptions,
   listScheduleTemplates,
   upsertScheduleTemplate,
@@ -151,5 +152,139 @@ describe("template & pengecualian jadwal", () => {
     const list = await listScheduleExceptions(staffId, "2026-10-01", "2026-10-31");
     expect(list).toHaveLength(1);
     expect(list[0].kind).toBe("LIBUR");
+  });
+});
+
+describe("getStaffAvailability — melawan basis data sungguhan", () => {
+  let staffId: string;
+  let branchId: string;
+
+  beforeEach(async () => {
+    await prisma.appointment.deleteMany();
+    await prisma.patient.deleteMany({
+      where: { medicalRecordNumber: { in: ["SDY-2026-9999", "SDY-2026-9998"] } },
+    });
+    await prisma.scheduleException.deleteMany();
+    await prisma.scheduleTemplate.deleteMany();
+    await prisma.staff.deleteMany({ where: { slug: "staf-ketersediaan-uji" } });
+    await prisma.branch.deleteMany({ where: { slug: "cabang-ketersediaan-uji" } });
+    await prisma.holiday.deleteMany({ where: { date: new Date("2026-10-05T00:00:00Z") } });
+
+    const staff = await prisma.staff.create({
+      data: { slug: "staf-ketersediaan-uji", name: "Staf Ketersediaan", role: "DOKTER" },
+    });
+    const branch = await prisma.branch.create({
+      data: {
+        slug: "cabang-ketersediaan-uji",
+        name: "Cabang Uji",
+        address: "Alamat",
+        whatsapp: "6285172228900",
+        openingHours: "Senin–Sabtu, 11.00–19.00",
+        status: "AKTIF",
+      },
+    });
+    staffId = staff.id;
+    branchId = branch.id;
+
+    // 2026-10-05 adalah hari Senin (weekday 1).
+    await upsertScheduleTemplate({
+      staffId,
+      branchId,
+      weekday: 1,
+      startMinute: 660,
+      endMinute: 1140,
+      slotMinutes: 30,
+    });
+  });
+
+  afterAll(async () => {
+    await prisma.appointment.deleteMany();
+    await prisma.patient.deleteMany({
+      where: { medicalRecordNumber: { in: ["SDY-2026-9999", "SDY-2026-9998"] } },
+    });
+    await prisma.scheduleException.deleteMany();
+    await prisma.scheduleTemplate.deleteMany();
+    await prisma.staff.deleteMany({ where: { slug: "staf-ketersediaan-uji" } });
+    await prisma.branch.deleteMany({ where: { slug: "cabang-ketersediaan-uji" } });
+    await prisma.holiday.deleteMany({ where: { date: new Date("2026-10-05T00:00:00Z") } });
+    await prisma.$disconnect();
+  });
+
+  it("mengembalikan slot kosong dari template yang tersimpan", async () => {
+    const slots = await getStaffAvailability({
+      staffId,
+      branchId,
+      date: "2026-10-05",
+      durationMinutes: 30,
+    });
+    expect(slots.length).toBeGreaterThan(0);
+    expect(slots[0].label).toBe("11.00");
+  });
+
+  it("mengosongkan hasil pada hari libur nasional yang tersimpan", async () => {
+    await prisma.holiday.create({
+      data: { date: new Date("2026-10-05T00:00:00Z"), name: "Uji Libur", kind: "LIBUR_KLINIK" },
+    });
+    const slots = await getStaffAvailability({
+      staffId,
+      branchId,
+      date: "2026-10-05",
+      durationMinutes: 30,
+    });
+    expect(slots).toEqual([]);
+  });
+
+  it("mengecualikan slot yang sudah terisi booking sungguhan", async () => {
+    const patient = await prisma.patient.create({
+      data: { medicalRecordNumber: "SDY-2026-9999", name: "Pasien Uji", whatsapp: "628999" },
+    });
+    await prisma.appointment.create({
+      data: {
+        code: "SDY-TEST",
+        branchId,
+        staffId,
+        patientId: patient.id,
+        type: "KONSULTASI",
+        startAt: new Date("2026-10-05T07:00:00Z"), // 15.00 WITA
+        endAt: new Date("2026-10-05T07:30:00Z"),
+        status: "TERKONFIRMASI",
+        source: "WALK_IN",
+      },
+    });
+
+    const slots = await getStaffAvailability({
+      staffId,
+      branchId,
+      date: "2026-10-05",
+      durationMinutes: 30,
+    });
+    expect(slots.map((s) => s.label)).not.toContain("15.00");
+  });
+
+  it("tidak mengecualikan slot dari booking yang sudah dibatalkan", async () => {
+    const patient = await prisma.patient.create({
+      data: { medicalRecordNumber: "SDY-2026-9998", name: "Pasien Uji 2", whatsapp: "628998" },
+    });
+    await prisma.appointment.create({
+      data: {
+        code: "SDY-TES2",
+        branchId,
+        staffId,
+        patientId: patient.id,
+        type: "KONSULTASI",
+        startAt: new Date("2026-10-05T07:00:00Z"),
+        endAt: new Date("2026-10-05T07:30:00Z"),
+        status: "DIBATALKAN",
+        source: "WALK_IN",
+      },
+    });
+
+    const slots = await getStaffAvailability({
+      staffId,
+      branchId,
+      date: "2026-10-05",
+      durationMinutes: 30,
+    });
+    expect(slots.map((s) => s.label)).toContain("15.00");
   });
 });
