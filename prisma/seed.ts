@@ -110,6 +110,8 @@ type SeedService = {
   priceNote?: string;
   durationMin?: number;
   isSignature?: boolean;
+  /// Lihat keputusan D10 pada PRD — usulan awal, perlu dikonfirmasi pemilik.
+  requiresDoctor?: boolean;
   categorySlug: string;
   sortOrder: number;
 };
@@ -232,6 +234,7 @@ const services: SeedService[] = [
   // HIFU
   {
     slug: "hifu-wajah",
+    requiresDoctor: true,
     name: "HIFU Wajah",
     description: "Mengencangkan kulit dan mengurangi garis halus.",
     normalPrice: 749000,
@@ -243,6 +246,7 @@ const services: SeedService[] = [
   },
   {
     slug: "hifu-miss-v",
+    requiresDoctor: true,
     name: "HIFU Miss V",
     normalPrice: 649000,
     promoPrice: 489000,
@@ -252,6 +256,7 @@ const services: SeedService[] = [
   },
   {
     slug: "hifu-perut",
+    requiresDoctor: true,
     name: "HIFU Perut",
     normalPrice: 1000000,
     promoPrice: 699000,
@@ -263,6 +268,7 @@ const services: SeedService[] = [
   // Botox
   {
     slug: "botox",
+    requiresDoctor: true,
     name: "Botox",
     promoPrice: 50000,
     priceNote: "/ unit",
@@ -274,6 +280,7 @@ const services: SeedService[] = [
   // Laser
   {
     slug: "laser-rejuve-fleck",
+    requiresDoctor: true,
     name: "Laser Rejuve / Fleck",
     description:
       "Merangsang regenerasi kulit, memudarkan flek hitam, bekas jerawat, dan membuat kulit tampak lebih cerah dan merata.",
@@ -285,6 +292,7 @@ const services: SeedService[] = [
   },
   {
     slug: "laser-2-in-1",
+    requiresDoctor: true,
     name: "Laser 2 in 1",
     description:
       "Perawatan laser kombinasi untuk mengatasi berbagai masalah kulit seperti pori-pori besar, bekas jerawat, dan tekstur kulit tidak merata.",
@@ -296,6 +304,7 @@ const services: SeedService[] = [
   },
   {
     slug: "lip-laser",
+    requiresDoctor: true,
     name: "Lip Laser",
     description:
       "Mencerahkan warna bibir, mengurangi bibir gelap, dan membuat bibir tampak lebih sehat, cerah, dan merona alami.",
@@ -309,6 +318,7 @@ const services: SeedService[] = [
   // Dermapen
   {
     slug: "dermapen",
+    requiresDoctor: true,
     name: "Dermapen",
     description:
       "Merangsang produksi kolagen alami, memperbaiki tekstur kulit, mengurangi bekas jerawat, dan membantu penyerapan skincare lebih optimal.",
@@ -320,6 +330,7 @@ const services: SeedService[] = [
   },
   {
     slug: "dermapen-prp",
+    requiresDoctor: true,
     name: "Dermapen PRP",
     description:
       "Kombinasi dermapen dengan PRP (Platelet Rich Plasma) untuk regenerasi kulit lebih cepat, kulit tampak lebih cerah, sehat, dan awet muda.",
@@ -333,6 +344,7 @@ const services: SeedService[] = [
   // Elektrocauter
   {
     slug: "elektrocauter",
+    requiresDoctor: true,
     name: "Elektrocauter",
     description:
       "Menghilangkan skin tag, milia, kutil, atau verruca dengan teknologi elektrocauter yang aman, cepat, dan minim rasa sakit dengan hasil optimal.",
@@ -346,6 +358,7 @@ const services: SeedService[] = [
   // Skin Booster
   {
     slug: "skin-booster-ha",
+    requiresDoctor: true,
     name: "Skin Booster HA",
     description:
       "Melembapkan kulit secara intens, meningkatkan elastisitas dan membuat kulit lebih kenyal dan sehat.",
@@ -357,6 +370,7 @@ const services: SeedService[] = [
   },
   {
     slug: "skin-booster-dna-salmon",
+    requiresDoctor: true,
     name: "Skin Booster DNA Salmon",
     description:
       "Membantu regenerasi sel kulit, memperbaiki tekstur kulit, mencerahkan, dan mengurangi tanda-tanda penuaan.",
@@ -369,6 +383,7 @@ const services: SeedService[] = [
   },
   {
     slug: "eyebooster",
+    requiresDoctor: true,
     name: "Eyebooster",
     description:
       "Perawatan khusus area mata untuk mengurangi kerutan, mata panda, dan membuat tampilan mata lebih segar dan bercahaya.",
@@ -382,6 +397,7 @@ const services: SeedService[] = [
   // Vitamin C — lihat keputusan D3 pada PRD, angka ini perlu konfirmasi pemilik.
   {
     slug: "injek-vitamin-c-2000mg",
+    requiresDoctor: true,
     name: "Injek Vit. C 2000mg",
     description:
       "Membantu mencerahkan kulit, meningkatkan produksi kolagen, dan melindungi kulit dari radikal bebas.",
@@ -393,6 +409,7 @@ const services: SeedService[] = [
   },
   {
     slug: "injek-vitamin-c-1100mg",
+    requiresDoctor: true,
     name: "Injek Vit. C 1100mg",
     description:
       "Membantu menjaga kesehatan kulit, membuat kulit tampak lebih cerah, segar, dan bercahaya.",
@@ -404,6 +421,7 @@ const services: SeedService[] = [
   },
   {
     slug: "infus-vitamin-c-1100mg",
+    requiresDoctor: true,
     name: "Infus Vit. C 1100mg",
     description:
       "Membantu meningkatkan daya tahan tubuh, meredakan kelelahan, dan membuat kulit tampak lebih sehat.",
@@ -415,6 +433,7 @@ const services: SeedService[] = [
   },
   {
     slug: "infus-vitamin-c-2000mg",
+    requiresDoctor: true,
     name: "Infus Vit. C 2000mg",
     description:
       "Dosis tinggi untuk hasil maksimal dalam mencerahkan kulit, meningkatkan imunitas, dan melawan radikal bebas.",
@@ -428,6 +447,7 @@ const services: SeedService[] = [
   // Slimming & Wellness
   {
     slug: "meso-treatment",
+    requiresDoctor: true,
     name: "Meso Treatment",
     description: "Signature treatment untuk slimming.",
     promoPrice: 550000,
@@ -438,6 +458,7 @@ const services: SeedService[] = [
   },
   {
     slug: "konsultasi-dokter",
+    requiresDoctor: true,
     name: "Konsultasi Dokter",
     description: "Analisa kondisi dan rekomendasi program terbaik untuk Anda.",
     promoPrice: 200000,
@@ -457,6 +478,7 @@ const services: SeedService[] = [
   },
   {
     slug: "meal-plan",
+    requiresDoctor: true,
     name: "Meal Plan",
     description: "Rencana makan yang disusun sesuai kondisi dan target Anda.",
     promoPrice: 300000,

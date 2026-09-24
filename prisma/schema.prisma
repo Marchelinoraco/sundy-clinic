@@ -88,6 +88,10 @@ model Service {
   isSignature Boolean @default(false)
   isActive    Boolean @default(true)
   sortOrder   Int     @default(0)
+  /// Menentukan antrean staf mana yang terpakai saat layanan ini dipesan:
+  /// true wajib staf berperan DOKTER, false boleh DOKTER atau TERAPIS.
+  /// Usulan awal — lihat keputusan D10 pada PRD, perlu dikonfirmasi pemilik.
+  requiresDoctor Boolean @default(false)
 
   categoryId String
   category   ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
