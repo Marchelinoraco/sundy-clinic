@@ -28,6 +28,8 @@ model Branch {
 
   scheduleTemplates  ScheduleTemplate[]
   scheduleExceptions ScheduleException[]
+  appointments       Appointment[]
+  slotHolds          SlotHold[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -81,6 +83,8 @@ model Staff {
 
   scheduleTemplates  ScheduleTemplate[]
   scheduleExceptions ScheduleException[]
+  appointments       Appointment[]
+  slotHolds          SlotHold[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -143,22 +147,22 @@ model ServiceCategory {
 }
 
 model Service {
-  id          String  @id @default(cuid())
-  slug        String  @unique
-  name        String
-  description String?
+  id             String  @id @default(cuid())
+  slug           String  @unique
+  name           String
+  description    String?
   /// Harga sebelum promo dalam rupiah penuh. null bila tidak ada harga coret.
-  normalPrice Int?
+  normalPrice    Int?
   /// Harga yang berlaku dalam rupiah penuh.
-  promoPrice  Int
+  promoPrice     Int
   /// Satuan harga yang tampil setelah angka, misal "/ unit" atau "/ 5 titik".
-  priceNote   String?
-  durationMin Int     @default(30)
-  imageUrl    String?
+  priceNote      String?
+  durationMin    Int     @default(30)
+  imageUrl       String?
   /// Ditampilkan di bagian "Our Signature Treatment" pada beranda.
-  isSignature Boolean @default(false)
-  isActive    Boolean @default(true)
-  sortOrder   Int     @default(0)
+  isSignature    Boolean @default(false)
+  isActive       Boolean @default(true)
+  sortOrder      Int     @default(0)
   /// Menentukan antrean staf mana yang terpakai saat layanan ini dipesan:
   /// true wajib staf berperan DOKTER, false boleh DOKTER atau TERAPIS.
   /// Usulan awal — lihat keputusan D10 pada PRD, perlu dikonfirmasi pemilik.
@@ -166,6 +170,8 @@ model Service {
 
   categoryId String
   category   ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  appointments Appointment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -344,6 +350,83 @@ model Patient {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  appointments Appointment[]
+
   @@index([whatsapp])
   @@index([name])
+}
+
+enum AppointmentType {
+  KONSULTASI
+  TREATMENT
+}
+
+enum AppointmentStatus {
+  MENUNGGU_KONFIRMASI
+  TERKONFIRMASI
+  HADIR
+  SELESAI
+  DIBATALKAN
+  TIDAK_HADIR
+  KEDALUWARSA
+}
+
+enum BookingSource {
+  SITUS
+  WHATSAPP
+  TELEPON
+  WALK_IN
+}
+
+/// Jaminan anti-bentrok yang sesungguhnya ada di migrasi (exclusion
+/// constraint pada staffId x rentang waktu), bukan di sini — lihat PRD
+/// bagian 9 "Catatan integritas slot". Model ini hanya mendefinisikan kolom.
+model Appointment {
+  id   String @id @default(cuid())
+  code String @unique
+
+  type    AppointmentType
+  startAt DateTime
+  endAt   DateTime
+  status  AppointmentStatus @default(MENUNGGU_KONFIRMASI)
+  source  BookingSource
+  notes   String?
+
+  branchId  String
+  branch    Branch   @relation(fields: [branchId], references: [id])
+  staffId   String
+  staff     Staff    @relation(fields: [staffId], references: [id])
+  patientId String
+  patient   Patient  @relation(fields: [patientId], references: [id])
+  serviceId String?
+  service   Service? @relation(fields: [serviceId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([staffId, startAt])
+  @@index([branchId, startAt])
+  @@index([patientId])
+  @@index([status])
+}
+
+/// Penahanan sementara slot selama pasien mengisi form pendaftaran mandiri
+/// (Plan 3b). Tabelnya dibuat sekarang karena berbagi mekanisme exclusion
+/// constraint yang sama dengan Appointment.
+model SlotHold {
+  id        String   @id @default(cuid())
+  startAt   DateTime
+  endAt     DateTime
+  expiresAt DateTime
+  token     String   @unique
+
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
+  staffId  String
+  staff    Staff  @relation(fields: [staffId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([staffId, startAt])
+  @@index([expiresAt])
 }
