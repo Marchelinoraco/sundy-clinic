@@ -26,6 +26,9 @@ model Branch {
   status       BranchStatus @default(SEGERA_HADIR)
   sortOrder    Int          @default(0)
 
+  scheduleTemplates  ScheduleTemplate[]
+  scheduleExceptions ScheduleException[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -76,10 +79,58 @@ model Staff {
 
   user User?
 
+  scheduleTemplates  ScheduleTemplate[]
+  scheduleExceptions ScheduleException[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([role, isActive])
+}
+
+enum ExceptionKind {
+  LIBUR
+  JAM_TAMBAHAN
+  BLOKIR_SEBAGIAN
+}
+
+/// Jam kerja mingguan satu staf di satu cabang. weekday: 0=Minggu..6=Sabtu.
+model ScheduleTemplate {
+  id          String @id @default(cuid())
+  weekday     Int
+  startMinute Int
+  endMinute   Int
+  slotMinutes Int    @default(30)
+
+  staffId  String
+  staff    Staff  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([staffId, weekday])
+  @@index([branchId, weekday])
+}
+
+/// Pengecualian satu staf pada satu tanggal: cuti, jam tambahan, atau blokir
+/// sebagian. startMinute/endMinute null hanya sah untuk kind LIBUR.
+model ScheduleException {
+  id          String        @id @default(cuid())
+  date        DateTime      @db.Date
+  kind        ExceptionKind
+  startMinute Int?
+  endMinute   Int?
+
+  staffId  String
+  staff    Staff   @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([staffId, date])
 }
 
 model ServiceCategory {

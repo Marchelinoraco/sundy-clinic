@@ -791,6 +791,28 @@ export async function seed(): Promise<void> {
       ],
       TRANSACTION_OPTIONS,
     );
+
+    const mahakeret = await prisma.branch.findUniqueOrThrow({ where: { slug: "mahakeret" } });
+    const diane = await prisma.staff.findUniqueOrThrow({ where: { slug: "diane-paparang" } });
+
+    // Senin(1)-Sabtu(6), 11.00-19.00 WITA (660-1140 menit), slot 30 menit.
+    await prisma.$transaction(
+      [1, 2, 3, 4, 5, 6].map((weekday) =>
+        prisma.scheduleTemplate.upsert({
+          where: { staffId_weekday: { staffId: diane.id, weekday } },
+          update: { branchId: mahakeret.id, startMinute: 660, endMinute: 1140, slotMinutes: 30 },
+          create: {
+            staffId: diane.id,
+            branchId: mahakeret.id,
+            weekday,
+            startMinute: 660,
+            endMinute: 1140,
+            slotMinutes: 30,
+          },
+        }),
+      ),
+      TRANSACTION_OPTIONS,
+    );
   } finally {
     await prisma.$disconnect();
   }
