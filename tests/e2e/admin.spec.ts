@@ -12,6 +12,13 @@ test("halaman staf juga tertutup untuk yang belum login", async ({ page }) => {
   await expect(page).toHaveURL(/\/masuk$/);
 });
 
+test("halaman jadwal, pasien, dan booking tertutup untuk yang belum login", async ({ page }) => {
+  for (const path of ["/admin/jadwal", "/admin/pasien", "/admin/booking", "/admin/booking/baru"]) {
+    await page.goto(path);
+    await expect(page).toHaveURL(/\/masuk$/);
+  }
+});
+
 test("halaman login tidak meminta mesin pencari mengindeksnya", async ({ page }) => {
   await page.goto("/masuk");
   const robots = page.locator('meta[name="robots"]');

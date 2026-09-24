@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatPrice, formatRupiah } from "@/lib/format";
+import { formatIndonesianDate, formatPrice, formatRupiah } from "@/lib/format";
 
 describe("formatRupiah", () => {
   it("memakai titik sebagai pemisah ribuan", () => {
@@ -36,5 +36,19 @@ describe("formatPrice", () => {
 
   it("menghilangkan catatan bila tidak diberikan", () => {
     expect(formatPrice(499000)).toBe("Rp 499.000");
+  });
+});
+
+describe("formatIndonesianDate", () => {
+  it("menulis hari dan bulan dalam bahasa Indonesia, dalam WITA", () => {
+    // 25 September 2026 pukul 07.00 UTC = 15.00 WITA, hari Jumat.
+    const date = new Date("2026-09-25T07:00:00Z");
+    expect(formatIndonesianDate(date)).toBe("Jumat, 25 September 2026");
+  });
+
+  it("tidak melompat ke tanggal berikutnya dekat tengah malam WITA", () => {
+    // 26 Sep pukul 00.30 WITA = 25 Sep pukul 16.30 UTC — tetap tanggal 26 WITA.
+    const date = new Date("2026-09-25T16:30:00Z");
+    expect(formatIndonesianDate(date)).toBe("Sabtu, 26 September 2026");
   });
 });

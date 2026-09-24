@@ -1,7 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
+import { E2E_BASE_URL, E2E_PORT, e2eDatabaseEnv } from "./tests/e2e/test-env";
 
 export default defineConfig({
   testDir: "./tests/e2e",
+  globalSetup: "./tests/e2e/global-setup.ts",
   fullyParallel: true,
   // Server pengujian menjalankan `next dev`, yang mengkompilasi setiap rute
   // saat pertama diakses. Rute admin juga menempuh Better Auth dan Neon lewat
@@ -17,7 +19,7 @@ export default defineConfig({
   // worker lain sedang membebani server yang sama.
   expect: { timeout: 10_000 },
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: E2E_BASE_URL,
     trace: "on-first-retry",
   },
   projects: [
@@ -26,10 +28,19 @@ export default defineConfig({
     // harus diuji di lebar ponsel, bukan hanya di desktop.
     { name: "mobile", use: { ...devices["Pixel 7"] } },
   ],
+  // Server uji terpisah dari `npm run dev` (port 3000, branch production):
+  // port sendiri dan DATABASE_URL yang ditimpa ke branch test. Tidak pernah
+  // memakai ulang server yang sudah berjalan — server lain di port ini bisa
+  // saja terhubung ke production, dan uji ini menulis booking sungguhan.
   webServer: {
-    command: "npm run dev",
-    url: "http://localhost:3000",
-    reuseExistingServer: !process.env.CI,
+    command: `npx next dev -p ${E2E_PORT}`,
+    url: E2E_BASE_URL,
+    reuseExistingServer: false,
     timeout: 180_000,
+    env: {
+      ...e2eDatabaseEnv(),
+      BETTER_AUTH_URL: E2E_BASE_URL,
+      NEXT_PUBLIC_SITE_URL: E2E_BASE_URL,
+    },
   },
 });
