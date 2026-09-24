@@ -2,7 +2,12 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
 import { unwrap } from "./unwrap";
-import { createPatient, findPatientsByWhatsapp, searchPatients } from "@/server/patient";
+import {
+  createPatient,
+  findPatientsByWhatsapp,
+  listRecentPatients,
+  searchPatients,
+} from "@/server/patient";
 
 vi.mock("@/server/session", () => ({
   requireCapability: vi.fn().mockResolvedValue({
@@ -21,6 +26,10 @@ describe("data pasien", () => {
   });
 
   afterAll(async () => {
+    // beforeEach hanya membersihkan sebelum giliran berikutnya — pasien dari
+    // giliran terakhir tertinggal dan terbawa ke berkas atau uji lain.
+    await prisma.patient.deleteMany();
+    await prisma.patientNumberCounter.deleteMany();
     await prisma.$disconnect();
   });
 
@@ -68,5 +77,44 @@ describe("data pasien", () => {
     const matches = await findPatientsByWhatsapp("6281234567890");
     expect(matches).toHaveLength(1);
     expect(matches[0].name).toBe("Siti Rahayu");
+  });
+
+  it("menyimpan nomor WhatsApp dalam bentuk seragam 62…", async () => {
+    const patient = await unwrap(createPatient({ name: "Siti Rahayu", whatsapp: "0812-3456-7890" }));
+    expect(patient.whatsapp).toBe("6281234567890");
+  });
+
+  it("mendeteksi duplikat walau nomor diketik dengan awalan 0", async () => {
+    await unwrap(createPatient({ name: "Siti Rahayu", whatsapp: "6281234567890" }));
+    const matches = await findPatientsByWhatsapp("0812 3456 7890");
+    expect(matches.map((p) => p.name)).toEqual(["Siti Rahayu"]);
+  });
+
+  it("menemukan pasien saat admin mencari dengan awalan 0", async () => {
+    await unwrap(createPatient({ name: "Siti Rahayu", whatsapp: "6281234567890" }));
+    const found = await searchPatients("0812345");
+    expect(found.map((p) => p.name)).toContain("Siti Rahayu");
+  });
+
+  it("menolak pasien tanpa nama", async () => {
+    const result = await createPatient({ name: "   ", whatsapp: "6281234567890" });
+    expect(result).toEqual({ ok: false, error: expect.stringMatching(/nama/i) });
+    expect(await prisma.patient.count()).toBe(0);
+  });
+
+  it("menolak nomor WhatsApp yang tidak sah tanpa memakan nomor rekam medis", async () => {
+    const result = await createPatient({ name: "Siti Rahayu", whatsapp: "0812" });
+    expect(result).toEqual({ ok: false, error: expect.stringMatching(/whatsapp/i) });
+
+    // Nomor urut tidak boleh terbuang oleh input yang ditolak.
+    const next = await unwrap(createPatient({ name: "Siti Rahayu", whatsapp: "6281234567890" }));
+    expect(next.medicalRecordNumber).toBe(`SDY-${new Date().getFullYear()}-0001`);
+  });
+
+  it("mendaftar pasien terbaru lebih dulu", async () => {
+    await unwrap(createPatient({ name: "Pasien Lama", whatsapp: "6281111111111" }));
+    await unwrap(createPatient({ name: "Pasien Baru", whatsapp: "6282222222222" }));
+    const list = await listRecentPatients();
+    expect(list.map((p) => p.name)).toEqual(["Pasien Baru", "Pasien Lama"]);
   });
 });

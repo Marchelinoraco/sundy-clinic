@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   CalendarClock,
   CalendarDays,
+  Contact,
   LayoutDashboard,
   Scissors,
   ShieldCheck,
@@ -32,6 +33,7 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
     items: [
       { title: "Dasbor", url: "/admin", icon: LayoutDashboard },
       { title: "Booking", url: "/admin/booking", icon: CalendarClock, needs: "booking:manage" },
+      { title: "Pasien", url: "/admin/pasien", icon: Contact, needs: "booking:manage" },
       { title: "Jadwal", url: "/admin/jadwal", icon: CalendarDays, needs: "schedule:manage" },
     ],
   },

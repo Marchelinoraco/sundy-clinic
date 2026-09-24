@@ -3,9 +3,36 @@ import {
   appointmentConfirmationMessage,
   branchNotifyMessage,
   buildWhatsAppLink,
+  normalizeWhatsapp,
   productInquiryMessage,
   serviceInquiryMessage,
 } from "@/lib/whatsapp";
+
+describe("normalizeWhatsapp", () => {
+  it("mengubah awalan 0 menjadi 62", () => {
+    expect(normalizeWhatsapp("081234567890")).toBe("6281234567890");
+  });
+
+  it("membuang spasi, tanda hubung, tanda kurung, dan tanda plus", () => {
+    expect(normalizeWhatsapp("+62 812-3456-7890")).toBe("6281234567890");
+    expect(normalizeWhatsapp("(0812) 3456 7890")).toBe("6281234567890");
+  });
+
+  it("melengkapi nomor yang diketik tanpa awalan sama sekali", () => {
+    expect(normalizeWhatsapp("81234567890")).toBe("6281234567890");
+  });
+
+  it("membiarkan nomor yang sudah berawalan 62", () => {
+    expect(normalizeWhatsapp("6281234567890")).toBe("6281234567890");
+  });
+
+  it("mengembalikan null untuk nomor yang terlalu pendek, terlalu panjang, atau bukan angka", () => {
+    expect(normalizeWhatsapp("0812")).toBeNull();
+    expect(normalizeWhatsapp("08123456789012345")).toBeNull();
+    expect(normalizeWhatsapp("bukan nomor")).toBeNull();
+    expect(normalizeWhatsapp("")).toBeNull();
+  });
+});
 
 describe("buildWhatsAppLink", () => {
   it("menunjuk ke nomor resmi klinik", () => {
