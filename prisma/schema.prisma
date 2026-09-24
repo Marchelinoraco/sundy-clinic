@@ -1,0 +1,432 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum BranchStatus {
+  AKTIF
+  SEGERA_HADIR
+}
+
+model Branch {
+  id           String       @id @default(cuid())
+  slug         String       @unique
+  name         String
+  address      String
+  mapsUrl      String?
+  latitude     Float?
+  longitude    Float?
+  whatsapp     String
+  openingHours String
+  /// Cabang baru bawaannya SEGERA_HADIR: yang belum jelas statusnya tidak
+  /// boleh langsung bisa dibooking pasien.
+  status       BranchStatus @default(SEGERA_HADIR)
+  sortOrder    Int          @default(0)
+
+  scheduleTemplates  ScheduleTemplate[]
+  scheduleExceptions ScheduleException[]
+  appointments       Appointment[]
+  slotHolds          SlotHold[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, sortOrder])
+}
+
+enum HolidayKind {
+  LIBUR_NASIONAL
+  CUTI_BERSAMA
+  LIBUR_KLINIK
+}
+
+/// Berlaku global lintas cabang. Tanggal yang tercatat di sini menutup slot
+/// di seluruh klinik, sesuai kebijakan "tanggal merah tutup".
+model Holiday {
+  id   String      @id @default(cuid())
+  date DateTime    @db.Date
+  name String
+  kind HolidayKind
+
+  createdAt DateTime @default(now())
+
+  @@unique([date])
+  @@index([date])
+}
+
+enum StaffRole {
+  SUPER_ADMIN
+  DOKTER
+  TERAPIS
+  RESEPSIONIS
+}
+
+model Staff {
+  id            String    @id @default(cuid())
+  slug          String    @unique
+  name          String
+  role          StaffRole
+  sipNumber     String?
+  specialty     String?
+  photoUrl      String?
+  bio           String?
+  /// Ditampilkan di halaman "Tim Dokter" pada situs publik.
+  /// Bawaannya false agar staf baru tidak pernah tidak sengaja terpublikasi.
+  showOnWebsite Boolean   @default(false)
+  isActive      Boolean   @default(true)
+  sortOrder     Int       @default(0)
+
+  user User?
+
+  scheduleTemplates  ScheduleTemplate[]
+  scheduleExceptions ScheduleException[]
+  appointments       Appointment[]
+  slotHolds          SlotHold[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([role, isActive])
+}
+
+enum ExceptionKind {
+  LIBUR
+  JAM_TAMBAHAN
+  BLOKIR_SEBAGIAN
+}
+
+/// Jam kerja mingguan satu staf di satu cabang. weekday: 0=Minggu..6=Sabtu.
+model ScheduleTemplate {
+  id          String @id @default(cuid())
+  weekday     Int
+  startMinute Int
+  endMinute   Int
+  slotMinutes Int    @default(30)
+
+  staffId  String
+  staff    Staff  @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([staffId, weekday])
+  @@index([branchId, weekday])
+}
+
+/// Pengecualian satu staf pada satu tanggal: cuti, jam tambahan, atau blokir
+/// sebagian. startMinute/endMinute null hanya sah untuk kind LIBUR.
+model ScheduleException {
+  id          String        @id @default(cuid())
+  date        DateTime      @db.Date
+  kind        ExceptionKind
+  startMinute Int?
+  endMinute   Int?
+
+  staffId  String
+  staff    Staff   @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([staffId, date])
+}
+
+model ServiceCategory {
+  id          String    @id @default(cuid())
+  slug        String    @unique
+  name        String
+  description String?
+  sortOrder   Int       @default(0)
+  services    Service[]
+}
+
+model Service {
+  id             String  @id @default(cuid())
+  slug           String  @unique
+  name           String
+  description    String?
+  /// Harga sebelum promo dalam rupiah penuh. null bila tidak ada harga coret.
+  normalPrice    Int?
+  /// Harga yang berlaku dalam rupiah penuh.
+  promoPrice     Int
+  /// Satuan harga yang tampil setelah angka, misal "/ unit" atau "/ 5 titik".
+  priceNote      String?
+  durationMin    Int     @default(30)
+  imageUrl       String?
+  /// Ditampilkan di bagian "Our Signature Treatment" pada beranda.
+  isSignature    Boolean @default(false)
+  isActive       Boolean @default(true)
+  sortOrder      Int     @default(0)
+  /// Menentukan antrean staf mana yang terpakai saat layanan ini dipesan:
+  /// true wajib staf berperan DOKTER, false boleh DOKTER atau TERAPIS.
+  /// Usulan awal — lihat keputusan D10 pada PRD, perlu dikonfirmasi pemilik.
+  requiresDoctor Boolean @default(false)
+
+  categoryId String
+  category   ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  appointments Appointment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([categoryId, sortOrder])
+  @@index([isSignature])
+}
+
+model Package {
+  id           String        @id @default(cuid())
+  slug         String        @unique
+  name         String
+  /// Kelompok paket: MAX, LUX, atau ACTIVE.
+  groupName    String
+  /// Harga per bulan dalam rupiah penuh.
+  monthlyPrice Int
+  description  String?
+  isActive     Boolean       @default(true)
+  sortOrder    Int           @default(0)
+  items        PackageItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([groupName, sortOrder])
+}
+
+model PackageItem {
+  id        String @id @default(cuid())
+  label     String
+  sortOrder Int    @default(0)
+
+  packageId String
+  package   Package @relation(fields: [packageId], references: [id], onDelete: Cascade)
+
+  @@index([packageId, sortOrder])
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String?
+  /// Harga dalam rupiah penuh. null bila harga hanya lewat WhatsApp.
+  price       Int?
+  imageUrl    String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model User {
+  id            String    @id
+  name          String
+  email         String
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  staffId       String?   @unique
+  staff         Staff?    @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  sessions      Session[]
+  accounts      Account[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+/// Hanya-tambah. Tidak ada jalur di panel yang menyunting atau menghapus
+/// baris di tabel ini — lihat Permenkes 24/2022 pada PRD bagian 10.
+model AuditLog {
+  id String @id @default(cuid())
+
+  /// Identitas pelaku disalin, bukan sekadar dirujuk: bila staf dihapus,
+  /// catatan audit harus tetap terbaca.
+  actorStaffId String
+  actorName    String
+  actorRole    String
+
+  action   String
+  entity   String
+  entityId String
+  summary  String?
+
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([actorStaffId, createdAt])
+  @@index([createdAt])
+}
+
+enum PatientProgramStatus {
+  AKTIF
+  SELESAI
+  TIDAK_AKTIF
+}
+
+enum Gender {
+  L
+  P
+}
+
+/// Alokasi nomor rekam medis atomik per tahun. Baris "diupdate" lewat
+/// INSERT ... ON CONFLICT DO UPDATE dalam satu pernyataan SQL, sehingga
+/// dua pembuatan pasien yang bersamaan tidak pernah mendapat nomor sama.
+model PatientNumberCounter {
+  year  Int @id
+  value Int @default(0)
+}
+
+/// Tidak terikat cabang — pasien yang pindah cabang tetap satu rekam medis.
+model Patient {
+  id                  String               @id @default(cuid())
+  medicalRecordNumber String               @unique
+  name                String
+  whatsapp            String
+  birthDate           DateTime?            @db.Date
+  gender              Gender?
+  occupation          String?
+  address             String?
+  allergies           String?
+  medicalHistory      String?
+  programStatus       PatientProgramStatus @default(AKTIF)
+  activePackageId     String?
+  lastVisitAt         DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  appointments Appointment[]
+
+  @@index([whatsapp])
+  @@index([name])
+}
+
+enum AppointmentType {
+  KONSULTASI
+  TREATMENT
+}
+
+enum AppointmentStatus {
+  MENUNGGU_KONFIRMASI
+  TERKONFIRMASI
+  HADIR
+  SELESAI
+  DIBATALKAN
+  TIDAK_HADIR
+  KEDALUWARSA
+}
+
+enum BookingSource {
+  SITUS
+  WHATSAPP
+  TELEPON
+  WALK_IN
+}
+
+/// Jaminan anti-bentrok yang sesungguhnya ada di migrasi (exclusion
+/// constraint pada staffId x rentang waktu), bukan di sini — lihat PRD
+/// bagian 9 "Catatan integritas slot". Model ini hanya mendefinisikan kolom.
+model Appointment {
+  id   String @id @default(cuid())
+  code String @unique
+
+  type    AppointmentType
+  startAt DateTime
+  endAt   DateTime
+  status  AppointmentStatus @default(MENUNGGU_KONFIRMASI)
+  source  BookingSource
+  notes   String?
+
+  branchId  String
+  branch    Branch   @relation(fields: [branchId], references: [id])
+  staffId   String
+  staff     Staff    @relation(fields: [staffId], references: [id])
+  patientId String
+  patient   Patient  @relation(fields: [patientId], references: [id])
+  serviceId String?
+  service   Service? @relation(fields: [serviceId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([staffId, startAt])
+  @@index([branchId, startAt])
+  @@index([patientId])
+  @@index([status])
+}
+
+/// Penahanan sementara slot selama pasien mengisi form pendaftaran mandiri
+/// (Plan 3b). Tabelnya dibuat sekarang karena berbagi mekanisme exclusion
+/// constraint yang sama dengan Appointment.
+model SlotHold {
+  id        String   @id @default(cuid())
+  startAt   DateTime
+  endAt     DateTime
+  expiresAt DateTime
+  token     String   @unique
+
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
+  staffId  String
+  staff    Staff  @relation(fields: [staffId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([staffId, startAt])
+  @@index([expiresAt])
+}

@@ -1,6 +1,6 @@
 # PRD — Sistem Klinik SunDY (Situs Publik + Admin & Rekam Medis)
 
-- **Versi:** 1.2
+- **Versi:** 1.5
 - **Tanggal:** 23 September 2026
 - **Status:** Menunggu review pemilik
 - **Klinik:** SunDY — Nutrition, Slimming & Wellness Clinic, Manado
@@ -16,11 +16,17 @@
 
 **Jam operasional (kedua cabang):** Senin–Sabtu, 11.00–19.00 WITA. Minggu dan hari libur nasional tutup.
 
-**Dokter:** dr. Diane Paparang (praktik di SunDY Mahakeret). Sistem dirancang multi-dokter; untuk saat ini hanya satu dokter yang ditampilkan.
+**Dokter:** Dr. Diane Paparang, Sp.GK, AIFO-K (praktik di SunDY Mahakeret). Sistem dirancang multi-dokter; untuk saat ini hanya satu dokter yang ditampilkan.
 
 **Perubahan dari versi 1.0:** dukungan multi-cabang dinaikkan dari Fase 3 ke MVP; jam operasional, hari libur nasional, dan data dokter dikonfirmasi pemilik.
 
 **Perubahan dari versi 1.1:** ditambahkan **Pengingat Kontrol Mingguan** (F17) — daftar kerja harian bagi admin untuk mengingatkan pasien program slimming lewat WhatsApp; keputusan hosting Vercel + Neon dicatat.
+
+**Perubahan dari versi 1.2:** ditambahkan **batasan unik (dokter, waktu mulai)** pada Appointment dan SlotHold. Tanpa itu, pencegahan bentrok jadwal hanya berjalan di aplikasi dan masih dapat tertembus dua permintaan yang tiba bersamaan; nama lengkap dan gelar dokter dilengkapi.
+
+**Perubahan dari versi 1.3:** jadwal beralih dari "milik klinik" menjadi **milik tenaga** (F4a). Dua jenis booking dengan durasi berbeda, layanan ditandai `requiresDoctor`, dan `Doctor` digantikan `Staff` berperan DOKTER/TERAPIS. **Batasan unik (dokter, waktu mulai) dari v1.3 dicabut** — batasan itu meloloskan treatment 15.00–16.00 yang bertindihan dengan konsultasi 15.30, dan digantikan *exclusion constraint* atas rentang waktu.
+
+**Perubahan dari versi 1.4:** F9 diperluas — admin **membuat** janji temu sendiri, bukan hanya memverifikasi, karena mayoritas pasien akan tetap memesan lewat WhatsApp. Sumber booking dicatat (`SITUS` / `WHATSAPP` / `TELEPON` / `WALK_IN`), pasien baru dapat dibuat langsung dari form booking, dan ditegaskan bahwa booking **tidak pernah dihapus** — pembatalan adalah perubahan status.
 
 ---
 
@@ -139,8 +145,50 @@ Halaman yang menampilkan kalender per dokter **pada cabang yang dipilih**. Pasie
 - Durasi slot default: **30 menit** untuk konsultasi (dapat diatur per dokter per cabang).
 - Ketersediaan dihitung per kombinasi **dokter × cabang**: seorang dokter tidak dapat memiliki dua slot bersamaan di cabang berbeda, sehingga booking di satu cabang otomatis menutup jam yang sama di cabang lain.
 - Saat pasien memilih slot, slot ditahan sementara (**hold 10 menit**) agar tidak direbut pasien lain selama pengisian form. Hold yang kedaluwarsa otomatis dilepas.
+- **Jaminan akhir ada di basis data,** bukan di aplikasi: *exclusion constraint* menolak dua booking dengan rentang waktu bertindihan pada tenaga yang sama. Perhitungan slot dan penahanan di atas menjaga pengalaman pasien tetap wajar; batasan basis data yang menjaga datanya tetap benar. Lihat **Catatan integritas slot** pada bagian 9.
 
-**Data awal:** dr. Diane Paparang — SunDY Mahakeret, Senin–Sabtu 11.00–19.00. SunDY Citraland belum memiliki jadwal dokter sehingga tidak dapat dipilih saat booking.
+**Data awal:** Dr. Diane Paparang, Sp.GK, AIFO-K — SunDY Mahakeret, Senin–Sabtu 11.00–19.00. SunDY Citraland belum memiliki jadwal dokter sehingga tidak dapat dipilih saat booking.
+
+### F4a. Dua Jenis Booking & Jalur Jadwal
+
+Klinik menjalankan dua jenis janji temu dengan durasi berbeda, dan keduanya tidak selalu memakai orang yang sama.
+
+| Jenis | Durasi | Contoh |
+|---|---|---|
+| **Konsultasi dokter** | 30 menit | Konsultasi program slimming, kontrol mingguan, Timbang BIA |
+| **Treatment kecantikan** | 60 menit (mengikuti durasi layanan) | Facial, peeling, RF, HIFU, botox, laser |
+
+Pada rentang 15.00–16.00, artinya klinik dapat menerima **dua konsultasi** (15.00 dan 15.30) **atau satu treatment** — tergantung siapa yang mengerjakan.
+
+**Jadwal dimiliki tenaga, bukan klinik.** Dr. Diane punya antreannya sendiri, terapis punya antreannya sendiri, dan keduanya berjalan paralel. Konsekuensinya:
+
+- Facial yang dikerjakan terapis pukul 15.00 **tidak** menutup konsultasi Dr. Diane pukul 15.00.
+- Botox yang harus dikerjakan dokter pukul 15.00 **menutup** konsultasi pukul 15.00 dan 15.30, karena Dr. Diane sedang tidak tersedia.
+
+Karena itu setiap layanan membawa penanda **`requiresDoctor`**. Penanda inilah yang menentukan antrean mana yang terpakai saat pasien memesan layanan tersebut. Salah menandai satu layanan berakibat langsung: layanan yang seharusnya butuh dokter akan tampak tersedia padahal dokternya sedang menangani pasien lain.
+
+**Usulan pembagian — perlu dikonfirmasi pemilik (keputusan D10).**
+
+| Dikerjakan terapis | Harus dokter |
+|---|---|
+| Relaxing Facial, Facial Brightening, Facial Acne | Konsultasi Dokter |
+| Peeling, Peeling Premium | Botox |
+| RF Perut, RF Paha, RF Lengan, RF Wajah | Skin Booster HA, DNA Salmon, Eyebooster |
+| Timbang BIA | Injek & Infus Vitamin C |
+| | Dermapen, Dermapen PRP |
+| | Elektrocauter |
+| | Meso Treatment |
+| | HIFU Wajah, HIFU Miss V, HIFU Perut |
+| | Laser Rejuve/Fleck, Laser 2 in 1, Lip Laser |
+| | Meal Plan |
+
+Dasar usulan: tindakan yang menembus kulit (injeksi, infus, PRP, mesoterapi), membakar jaringan (elektrocauter), atau memakai energi terarah (HIFU, laser) ditempatkan pada dokter; perawatan permukaan kulit ditempatkan pada terapis. Ini penilaian dari sisi keamanan prosedur, bukan dari cara klinik Anda benar-benar membagi pekerjaan — mohon dikoreksi.
+
+**Tanpa jeda antar treatment.** Booking berikutnya boleh dimulai tepat pada menit treatment sebelumnya selesai. Treatment 15.00–16.00 membuat slot 16.00 langsung tersedia, bukan 16.15. Ini menyederhanakan perhitungan slot: rentang waktu booking sama persis dengan durasi layanan, tanpa penambahan tersembunyi.
+
+**Pasien baru vs pasien lama.** Pasien baru hanya dapat memesan **konsultasi dokter**; treatment ditentukan dokter setelah pemeriksaan. Pasien yang sudah pernah datang boleh langsung memilih treatment beserta durasinya.
+
+Situs publik **tidak** memeriksa status pasien dari nomor WhatsApp yang dimasukkan. Pemeriksaan semacam itu memungkinkan siapa pun menebak nomor untuk mengetahui apakah seseorang pernah berobat di sini — kebocoran privasi yang tidak sebanding dengan manfaatnya. Sebagai gantinya, form menawarkan kedua pilihan kepada semua orang, disertai keterangan bahwa treatment hanya untuk pasien yang sudah pernah konsultasi. Admin memverifikasinya pada langkah konfirmasi WhatsApp yang memang sudah ada, sehingga tidak menambah pekerjaan baru.
 
 ### F5. Pendaftaran Konsultasi
 Alur 4 langkah, mobile-first:
@@ -152,7 +200,7 @@ Alur 4 langkah, mobile-first:
 
 Setelah submit, pasien diarahkan ke halaman sukses berisi kode booking, detail jadwal, instruksi pembayaran, dan tombol besar **"Konfirmasi via WhatsApp"**. Tombol ini membuka chat ke 0851-7222-8900 dengan pesan terisi otomatis:
 
-> *Halo SunDY Clinic, saya sudah booking konsultasi. Kode: SDY-8F3K, atas nama Siti Rahayu, dengan dr. Diane Paparang di cabang Mahakeret, Kamis 25 Sep 2026 pukul 15.00. Berikut bukti transfernya.*
+> *Halo SunDY Clinic, saya sudah booking konsultasi. Kode: SDY-8F3K, atas nama Siti Rahayu, dengan Dr. Diane Paparang, Sp.GK, AIFO-K di cabang Mahakeret, Kamis 25 Sep 2026 pukul 15.00. Berikut bukti transfernya.*
 
 Pasien mengirim bukti transfer di chat tersebut, admin memverifikasi di panel.
 
@@ -168,7 +216,7 @@ Halaman publik: masukkan **kode booking + 4 digit terakhir nomor WhatsApp** untu
 
 Setiap cabang memiliki URL sendiri agar dapat dioptimalkan untuk pencarian lokal ("klinik kecantikan Mahakeret", "klinik slimming Citraland Manado").
 
-**Halaman pendukung** — Tentang klinik & tim dokter (dr. Diane Paparang), jam operasional, FAQ, Kebijakan Privasi, dan Syarat & Ketentuan.
+**Halaman pendukung** — Tentang klinik & tim dokter (Dr. Diane Paparang, Sp.GK, AIFO-K), jam operasional, FAQ, Kebijakan Privasi, dan Syarat & Ketentuan.
 
 ---
 
@@ -178,10 +226,32 @@ Setiap cabang memiliki URL sendiri agar dapat dioptimalkan untuk pencarian lokal
 Booking hari ini, booking yang menunggu verifikasi, jadwal per dokter hari ini, dan ringkasan angka minggu berjalan.
 
 ### F9. Manajemen Booking
-Daftar booking dengan filter (tanggal, **cabang**, dokter, status). Aksi: **verifikasi** (Menunggu → Terkonfirmasi), **jadwal ulang**, **batalkan**, **tandai hadir**, **tandai tidak hadir**. Admin juga dapat membuat booking manual untuk pasien walk-in atau yang menelepon. Setiap booking terkonfirmasi menyediakan teks konfirmasi siap-salin untuk dikirim admin lewat WhatsApp.
+
+Daftar booking dengan filter (tanggal, **cabang**, tenaga, status), tersedia sebagai tabel maupun tampilan kalender harian.
+
+**Admin membuat booking sendiri, bukan hanya memverifikasi.** Mayoritas pasien akan tetap memesan lewat WhatsApp atau menelepon, apa pun yang tersedia di situs. Pendaftaran mandiri di situs publik adalah tambahan, bukan pengganti. Karena itu panel admin harus dapat mencatat janji temu dari nol secepat menulis di buku — kalau tidak, admin akan kembali ke buku.
+
+**Aksi yang tersedia:**
+
+| Aksi | Keterangan |
+|---|---|
+| **Buat** | Pilih pasien (atau buat pasien baru saat itu juga), cabang, tenaga, layanan, tanggal & jam. Sistem menolak jam yang bentrok. |
+| **Ubah** | Ganti layanan, tenaga, atau catatan. Perubahan layanan ikut menyesuaikan durasi. |
+| **Jadwal ulang** | Pindah ke jam lain, tetap melewati pemeriksaan bentrok pada jam tujuan. |
+| **Verifikasi** | Menunggu Konfirmasi → Terkonfirmasi, setelah bukti transfer diterima. |
+| **Tandai hadir / tidak hadir** | Mengubah status pada hari kunjungan. |
+| **Batalkan** | Mengubah status menjadi Dibatalkan dan melepas slotnya. |
+
+**Booking tidak pernah dihapus.** Pembatalan adalah perubahan status, bukan penghapusan baris. Janji temu adalah catatan kegiatan klinik: menghapusnya menghilangkan riwayat siapa pernah dijadwalkan kapan, memutus tautan ke rekam medis yang mungkin sudah dibuat, dan membuat jejak audit menunjuk ke baris yang tidak ada lagi. Yang tampak sebagai "hapus" di antarmuka selalu berarti "batalkan".
+
+**Sumber booking dicatat** sebagai `SITUS`, `WHATSAPP`, `TELEPON`, atau `WALK_IN`. Tanpa pembedaan ini, sasaran "≥ 40% booking masuk lewat situs" pada bagian 3 tidak dapat diukur — dan pemilik tidak akan tahu apakah situs benar-benar mengurangi beban admin atau hanya memindahkannya.
+
+**Pasien baru dibuat langsung dari form booking.** Admin yang sedang menerima telepon tidak boleh dipaksa membuka halaman lain untuk mendaftarkan pasien dulu. Cukup nama dan nomor WhatsApp; sisanya dilengkapi saat pasien datang.
+
+Setiap booking terkonfirmasi menyediakan teks konfirmasi siap-salin untuk dikirim admin lewat WhatsApp.
 
 ### F10. Manajemen Jadwal Dokter
-- **Template mingguan** per **dokter per cabang**: data awal — dr. Diane Paparang, SunDY Mahakeret, Senin–Sabtu 11.00–19.00, slot 30 menit. Admin dapat menambah baris untuk cabang atau dokter baru tanpa bantuan developer.
+- **Template mingguan** per **dokter per cabang**: data awal — Dr. Diane Paparang, Sp.GK, AIFO-K, SunDY Mahakeret, Senin–Sabtu 11.00–19.00, slot 30 menit. Admin dapat menambah baris untuk cabang atau dokter baru tanpa bantuan developer.
 - **Pengecualian tanggal**: cuti dokter, jam tambahan, atau blokir sebagian jam.
 - **Kalender hari libur**: daftar hari libur nasional & cuti bersama per tahun yang dapat disunting admin. Tanggal libur menutup slot di seluruh cabang sekaligus, sesuai kebijakan klinik ("tanggal merah tutup").
 - Sistem menolak template yang membuat satu dokter berada di dua cabang pada jam yang sama.
@@ -345,6 +415,7 @@ Bila pasien tidak datang, pengingat tetap berstatus `SUDAH_DIINGATKAN` dan muncu
 | Kasus | Perilaku sistem |
 |---|---|
 | Dua pasien memilih slot sama bersamaan | Slot pertama yang menahan (hold) menang; pasien kedua melihat pesan "slot baru saja terisi" dan kalender dimuat ulang. |
+| Dua permintaan tiba pada milidetik yang sama | Penahanan slot berjalan di aplikasi dan punya celah baca-tulis. Batasan unik pada (dokter, waktu) di basis data menolak permintaan kedua; aplikasi menangkap penolakan itu dan menampilkan pesan yang sama seperti baris di atas, bukan galat mentah. |
 | Pasien tidak konfirmasi dalam 24 jam | Booking `KEDALUWARSA`, slot kembali tersedia. |
 | Dokter mendadak berhalangan | Admin menandai pengecualian tanggal; sistem menampilkan daftar booking terdampak untuk dijadwal ulang satu per satu. |
 | Pasien lama booking lagi | Sistem mengenali nomor WhatsApp dan menautkan ke rekam medis yang sudah ada, bukan membuat pasien baru. |
@@ -369,18 +440,48 @@ Entitas inti dan hubungannya:
 | `Holiday` | tanggal, nama hari libur, jenis (libur nasional / cuti bersama / libur klinik), tahun | berlaku global lintas cabang |
 | `Patient` | no. rekam medis, nama, no. WhatsApp, tanggal lahir, jenis kelamin, pekerjaan, alamat, alergi, riwayat penyakit, **status program** (`AKTIF` / `SELESAI` / `TIDAK_AKTIF`), **paket berjalan**, **tanggal kunjungan terakhir** | punya banyak Appointment, Encounter, Measurement, Reminder — **tidak terikat cabang** |
 | `Reminder` | pasien, kunjungan pemicu, jenis pengingat (`AMBIL_OBAT` / `KONTROL_BIA` / `INJECT` / `TREATMENT_LANJUTAN`), tanggal kontrol, tanggal tampil (H-1 setelah penyesuaian hari libur), status, waktu dikirim, admin pengirim, catatan | milik Patient & Encounter; **maksimal satu pengingat terbuka per pasien** |
-| `Doctor` | nama, no. SIP, spesialisasi, foto, bio, aktif | punya ScheduleTemplate, ScheduleException, Appointment |
-| `ScheduleTemplate` | **cabang**, dokter, hari dalam minggu, jam mulai, jam selesai, durasi slot, jeda | milik Doctor × Branch |
-| `ScheduleException` | dokter, opsional cabang, tanggal, jenis (libur / jam tambahan / blokir sebagian), rentang jam | milik Doctor |
-| `Appointment` | kode booking, **cabang**, pasien, dokter, waktu mulai & selesai (UTC), tujuan, layanan diminati, status, catatan, sumber (online/walk-in) | milik Patient, Doctor & Branch; menghasilkan satu Encounter |
-| `SlotHold` | cabang, dokter, waktu, kedaluwarsa, token sesi | sementara, dibersihkan otomatis |
+| `Staff` | nama, **peran (`DOKTER` / `TERAPIS`)**, no. SIP, spesialisasi, foto, bio, aktif | punya ScheduleTemplate, ScheduleException, Appointment. Menggantikan `Doctor`: satu dokter adalah Staff berperan `DOKTER`, sehingga jadwal terapis memakai mekanisme yang sama persis alih-alih jalur terpisah |
+| `ScheduleTemplate` | **cabang**, **staff**, hari dalam minggu, jam mulai, jam selesai, durasi slot, jeda | milik Staff × Branch |
+| `ScheduleException` | **staff**, opsional cabang, tanggal, jenis (libur / jam tambahan / blokir sebagian), rentang jam | milik Staff |
+| `Appointment` | kode booking, **cabang**, pasien, **staff**, **jenis (`KONSULTASI` / `TREATMENT`)**, waktu mulai & **selesai** (UTC), layanan diminati, status, catatan, **sumber (`SITUS` / `WHATSAPP` / `TELEPON` / `WALK_IN`)** | milik Patient, Staff & Branch; menghasilkan satu Encounter. **Exclusion constraint pada (staff, rentang waktu)** — lihat catatan di bawah |
+| `SlotHold` | cabang, **staff**, waktu mulai & selesai, kedaluwarsa, token sesi | sementara, dibersihkan otomatis. **Exclusion constraint pada (staff, rentang waktu)** |
+
+**Catatan integritas slot.** Batasan di atas bukan detail teknis yang bisa ditunda — itulah satu-satunya hal yang membuat bentrok jadwal *mustahil*, bukan sekadar tidak mungkin.
+
+Perhitungan slot, penahanan 10 menit, dan pemeriksaan "apakah jam ini masih kosong?" semuanya berjalan di aplikasi. Pemeriksaan di aplikasi selalu punya celah waktu antara membaca dan menulis: dua permintaan yang tiba dalam milidetik yang sama sama-sama membaca "kosong", lalu sama-sama menulis. Pasien tidak melihat ada yang salah sampai keduanya datang ke klinik pada jam yang sama.
+
+**Batasan unik pada waktu mulai tidak cukup.** Booking di klinik ini punya durasi berbeda-beda — konsultasi 30 menit, treatment 60 menit atau lebih. Dua booking bisa bentrok tanpa waktu mulai yang sama:
+
+> Treatment pukul 15.00–16.00, lalu konsultasi pukul 15.30. Waktu mulainya berbeda, sehingga batasan unik meloloskan keduanya, padahal jelas bertindihan.
+
+Yang dibutuhkan adalah penolakan terhadap **rentang waktu yang bertindihan** pada tenaga yang sama. PostgreSQL menyediakannya lewat *exclusion constraint*:
+
+```sql
+ALTER TABLE "Appointment" ADD CONSTRAINT appointment_tanpa_tindih
+EXCLUDE USING gist (
+  "staffId"  WITH =,
+  tstzrange("startAt", "endAt", '[)') WITH &&
+) WHERE (status IN ('MENUNGGU_KONFIRMASI', 'TERKONFIRMASI', 'HADIR'));
+```
+
+Tiga hal yang perlu diperhatikan saat menerapkannya:
+
+1. **Kuncinya `staffId`, bukan dokter atau cabang.** Ini yang membuat jalur dokter dan jalur terapis berdiri sendiri, sekaligus mencegah satu orang dipesan di dua cabang pada jam yang sama.
+2. **Klausa `WHERE` penting.** Booking yang sudah `DIBATALKAN`, `KEDALUWARSA`, atau `TIDAK_HADIR` harus berhenti memblokir slot; tanpa klausa itu, satu pembatalan mengunci jam tersebut selamanya.
+3. **Prisma tidak mendukung exclusion constraint,** jadi ini ditulis sebagai SQL mentah di dalam berkas migrasi, dan butuh ekstensi `btree_gist` diaktifkan lebih dulu.
+
+`SlotHold` memakai batasan yang sama persis, agar slot yang sedang ditahan pasien lain juga tidak bisa ditembus.
+
+Aplikasi menangkap penolakan dari basis data dan menampilkan "slot baru saja terisi", bukan melempar galat mentah ke pasien. Tanpa mekanisme ini, target "double-booking: 0 kejadian" pada bagian 3 tidak dapat dijanjikan.
+
+Booking walk-in di luar slot tetap tunduk pada batasan yang sama; bila admin memasukkan walk-in pada jam yang sudah terisi, sistem menolak dan meminta admin memilih jam lain.
 | `IntakeForm` | jawaban skrining & food recall (JSON terstruktur), tertaut appointment | milik Appointment |
 | `Encounter` | tanggal, **cabang**, dokter, S, O, A, P, status (draf/final), **tanggal kontrol berikutnya** | milik Patient & Branch; punya banyak TreatmentRecord, Prescription, Measurement; memicu satu Reminder |
 | `EncounterAddendum` | isi koreksi, penulis, waktu | milik Encounter |
 | `Measurement` | tanggal, berat, tinggi, BMI, % lemak, massa otot, lemak visceral, % air, BMR | milik Patient, opsional tertaut Encounter |
 | `TreatmentRecord` | layanan, area, dosis, pelaksana, catatan | milik Encounter |
 | `Prescription` | item (kapsul M/L, Fat Blocker/Burner, Inject S/T), dosis, aturan pakai | milik Encounter |
-| `ServiceCategory` / `Service` | nama, deskripsi, harga normal, harga promo, durasi, foto, urutan, aktif | Service milik ServiceCategory |
+| `ServiceCategory` / `Service` | nama, deskripsi, harga normal, harga promo, durasi, **`requiresDoctor`**, foto, urutan, aktif | Service milik ServiceCategory. `requiresDoctor` menentukan antrean mana yang terpakai saat layanan ini dipesan |
 | `Package` / `PackageItem` | nama paket, harga per bulan, deskripsi, daftar isi | PackageItem milik Package |
 | `Product` | nama, deskripsi, harga, foto, aktif | mandiri |
 | `User` / `Role` | email, kata sandi terenkripsi, peran (SUPER_ADMIN / DOKTER / RESEPSIONIS), **cabang penempatan**, aktif | User dapat tertaut ke Doctor; resepsionis dibatasi pada cabangnya, SUPER_ADMIN & dokter melihat seluruh cabang |
@@ -448,8 +549,8 @@ Aplikasi dirancang portabel (Docker + PostgreSQL standar) sehingga perpindahan i
 | # | Keputusan | Yang saya usulkan | Catatan |
 |---|---|---|---|
 | D1 | **Verifikasi nomor pasien** | MVP: tanpa OTP. Verifikasi terjadi alami saat pasien mengirim bukti transfer lewat WhatsApp. | Anda sempat memilih OTP WhatsApp, namun tidak ada layanan OTP WhatsApp yang gratis (Meta Cloud API menagih per pesan; gateway lokal seperti Fonnte ±Rp 100.000/bulan). Bila tingkat ketidakhadiran ternyata tinggi, OTP dapat ditambahkan di Fase 1.5 tanpa mengubah alur. |
-| D2 | ~~Jam operasional & jumlah dokter~~ | **Selesai.** Senin–Sabtu 11.00–19.00, tanggal merah tutup. Satu dokter tampil: dr. Diane Paparang di SunDY Mahakeret. Sistem tetap multi-dokter & multi-cabang. | Dikonfirmasi pemilik, 23 Sep 2026. |
-| D2b | **Jadwal dr. Diane bila Citraland buka** | Belum ditentukan. | Saat Citraland siap, perlu keputusan pembagian hari (misal Senin–Rabu Mahakeret, Kamis–Sabtu Citraland) atau penambahan dokter kedua. Cukup diisi lewat panel admin, tanpa perubahan kode. |
+| D2 | ~~Jam operasional & jumlah dokter~~ | **Selesai.** Senin–Sabtu 11.00–19.00, tanggal merah tutup. Satu dokter tampil: Dr. Diane Paparang, Sp.GK, AIFO-K di SunDY Mahakeret. Sistem tetap multi-dokter & multi-cabang. | Dikonfirmasi pemilik, 23 Sep 2026. |
+| D2b | **Jadwal Dr. Diane bila Citraland buka** | Belum ditentukan. | Saat Citraland siap, perlu keputusan pembagian hari (misal Senin–Rabu Mahakeret, Kamis–Sabtu Citraland) atau penambahan dokter kedua. Cukup diisi lewat panel admin, tanpa perubahan kode. |
 | D2c | **Nomor WhatsApp cabang Citraland** | Sementara memakai nomor yang sama, 0851-7222-8900. | Bila nanti Citraland punya nomor sendiri, tinggal diisi di data cabang. |
 | D3 | **Harga Vitamin C** | Ditranskrip apa adanya dari materi promosi. | Materi menulis "1.299 JT" untuk Injek Vit C 2000mg. Bila maksudnya Rp 1.299.000 sudah benar; bila seharusnya Rp 299.000, mohon dikoreksi sebelum tayang. |
 | D4 | **Ketikan pada paket LUX T ACTIVE** | Diperbaiki menjadi "Kapsul **L**-Fat Burner". | Materi promosi menulis "Kapsul M-Fat Burner-Inject T" padahal paket LUX lain memakai Kapsul L. Kemungkinan salah ketik di desain. |
@@ -458,10 +559,15 @@ Aplikasi dirancang portabel (Docker + PostgreSQL standar) sehingga perpindahan i
 | D7 | **Jeda pengingat** | Kontrol setiap **7 hari**, pengingat tampil **H-1**, dimajukan bila jatuh di hari tutup. | Dikonfirmasi pemilik, 23 Sep 2026. Angka 7 hari disimpan sebagai pengaturan, bukan ditulis keras di kode, agar dapat diubah tanpa developer. |
 | D8 | **Pengingat otomatis terjadwal** | Tidak di MVP — admin menekan tombol secara manual. | Pengiriman otomatis memerlukan WhatsApp API berbayar. Ditinjau ulang di Fase 2 bila jumlah pasien slimming membuat pengiriman manual terlalu memberatkan. |
 | D9 | **Pasien aesthetic** | Belum masuk daftar pengingat. | Model data sudah mendukung; tinggal melonggarkan penyaringan bila nanti treatment aesthetic berseri juga ingin diingatkan. |
+| D10 | **Layanan mana yang harus dokter** | Usulan tabel pada F4a. | **Perlu dikonfirmasi pemilik.** Salah menandai membuat layanan tampak tersedia padahal dokternya sedang menangani pasien lain. |
+| D11 | **Jumlah terapis per cabang** | Asumsi sementara: satu terapis di Mahakeret. | Model `Staff` mendukung berapa pun; ini hanya data awal. Menambah terapis kedua langsung menggandakan kapasitas treatment tanpa perubahan kode. |
+| D12 | ~~Durasi treatment di jadwal~~ | **Selesai.** Memakai `durationMin` tiap layanan (20–90 menit), dibulatkan ke kelipatan 30 menit. **Tanpa jeda bersih-bersih antar treatment** — booking berikutnya boleh dimulai tepat saat yang sebelumnya selesai. | Dikonfirmasi pemilik, 24 Sep 2026. Contoh: HIFU Wajah 90 menit mengunci tiga slot berurutan, dan slot berikutnya langsung tersedia. |
 
 ---
 
 ## 13. Rencana Bertahap
+
+**Catatan urutan pembangunan.** Pencatatan janji temu oleh admin dibangun **sebelum** pendaftaran mandiri di situs publik. Admin yang dapat mencatat janji temu sudah menggantikan buku jadwal dan mencegah bentrok sejak hari pertama, sementara pendaftaran mandiri hanya berguna bila sisi admin-nya sudah ada untuk memverifikasi. Membangunnya terbalik berarti mesin anti-bentrok pertama kali diuji oleh pasien sungguhan, bukan oleh staf sendiri.
 
 **Fase 1 — MVP (lingkup dokumen ini)**
 Situs publik + katalog + pendaftaran konsultasi + panel admin + rekam medis + grafik progres, dengan dukungan multi-cabang sejak awal (Mahakeret aktif, Citraland "Segera Hadir").

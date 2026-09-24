@@ -1,0 +1,58 @@
+"use server";
+
+import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
+import { safeRevalidatePath } from "@/lib/revalidate";
+import { prisma } from "@/lib/db";
+import { formatRupiah } from "@/lib/format";
+import { validatePriceChange, type PriceInput } from "@/lib/price-validation";
+import { recordAudit } from "@/server/audit";
+import { requireCapability } from "@/server/session";
+
+export async function updateServicePrice(
+  input: PriceInput & { id: string },
+): Promise<ActionResult> {
+  return runAction(async () => {
+    const actor = await requireCapability("content:manage");
+
+    const error = validatePriceChange(input);
+    if (error) throw new UserFacingError(error);
+
+    const before = await prisma.service.findUniqueOrThrow({ where: { id: input.id } });
+    const after = await prisma.service.update({
+      where: { id: input.id },
+      data: { normalPrice: input.normalPrice, promoPrice: input.promoPrice },
+    });
+
+    await recordAudit({
+      actor,
+      action: "service.price.update",
+      entity: "Service",
+      entityId: after.id,
+      summary: `${after.name}: ${formatRupiah(before.promoPrice)} -> ${formatRupiah(after.promoPrice)}`,
+    });
+
+    // Halaman publik di-prerender. Tanpa ini, harga baru tidak muncul sampai
+    // deploy berikutnya.
+    safeRevalidatePath("/layanan");
+    safeRevalidatePath(`/layanan/${after.slug}`);
+    safeRevalidatePath("/");
+  });
+}
+
+export async function setServiceActive(id: string, isActive: boolean): Promise<void> {
+  const actor = await requireCapability("content:manage");
+
+  const updated = await prisma.service.update({ where: { id }, data: { isActive } });
+
+  await recordAudit({
+    actor,
+    action: isActive ? "service.activate" : "service.deactivate",
+    entity: "Service",
+    entityId: id,
+    summary: updated.name,
+  });
+
+  safeRevalidatePath("/layanan");
+  safeRevalidatePath(`/layanan/${updated.slug}`);
+  safeRevalidatePath("/");
+}
