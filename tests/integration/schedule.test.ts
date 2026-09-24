@@ -5,6 +5,7 @@ import { unwrap } from "./unwrap";
 import {
   createScheduleException,
   getStaffAvailability,
+  getStaffAvailabilityForAdmin,
   listScheduleExceptions,
   listScheduleTemplates,
   upsertScheduleTemplate,
@@ -329,5 +330,65 @@ describe("getStaffAvailability — melawan basis data sungguhan", () => {
       durationMinutes: 30,
     });
     expect(slots.map((s) => s.label)).toContain("15.00");
+  });
+
+  it("menerapkan batas 2 jam untuk situs publik, tetapi tidak untuk admin", async () => {
+    // Senin 2026-10-05 pukul 14.00 WITA. Pasien walk-in yang berdiri di meja
+    // resepsionis harus bisa dicatat untuk jam yang sama, sedangkan
+    // pendaftaran mandiri tetap paling cepat 2 jam dari sekarang (PRD F4).
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-05T06:00:00Z"));
+    try {
+      const input = { staffId, branchId, date: "2026-10-05", durationMinutes: 30 };
+      const publicSlots = await getStaffAvailability(input);
+      const adminSlots = await getStaffAvailabilityForAdmin(input);
+
+      expect(publicSlots[0].label).toBe("16.00");
+      expect(adminSlots[0].label).toBe("14.00");
+      expect(adminSlots.map((s) => s.label)).not.toContain("13.30");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("menghitung booking sebelum pukul 08.00 WITA sebagai hari yang sama", async () => {
+    // 07.00 WITA = 23.00 UTC hari SEBELUMNYA. Batas hari harus mengikuti WITA,
+    // bukan tengah malam UTC, atau booking pagi ini tidak terlihat.
+    await unwrap(
+      createScheduleException({
+        staffId,
+        branchId: null,
+        date: "2026-10-05",
+        kind: "JAM_TAMBAHAN",
+        startMinute: 420,
+        endMinute: 480,
+      }),
+    );
+    const patient = await prisma.patient.create({
+      data: { medicalRecordNumber: "SDY-2026-9999", name: "Pasien Pagi", whatsapp: "628999" },
+    });
+    await prisma.appointment.create({
+      data: {
+        code: "SDY-PAGI",
+        branchId,
+        staffId,
+        patientId: patient.id,
+        type: "KONSULTASI",
+        startAt: new Date("2026-10-04T23:00:00Z"),
+        endAt: new Date("2026-10-04T23:30:00Z"),
+        status: "TERKONFIRMASI",
+        source: "WALK_IN",
+      },
+    });
+
+    const slots = await getStaffAvailabilityForAdmin({
+      staffId,
+      branchId,
+      date: "2026-10-05",
+      durationMinutes: 30,
+    });
+    const labels = slots.map((s) => s.label);
+    expect(labels).toContain("07.30");
+    expect(labels).not.toContain("07.00");
   });
 });

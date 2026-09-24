@@ -3,7 +3,7 @@
 import type { ExceptionKind, ScheduleException, ScheduleTemplate, Staff } from "@prisma/client";
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
 import { getAvailableSlots, type SlotOption } from "@/lib/slot";
-import { witaWeekday } from "@/lib/time";
+import { combineWitaDateAndMinutes, witaWeekday } from "@/lib/time";
 import { prisma } from "@/lib/db";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { recordAudit } from "@/server/audit";
@@ -157,6 +157,13 @@ export async function listScheduleExceptions(
   });
 }
 
+type AvailabilityInput = {
+  staffId: string;
+  branchId: string;
+  date: string;
+  durationMinutes: number;
+};
+
 /**
  * Menyambungkan mesin murni getAvailableSlots ke data nyata: template hari
  * itu, pengecualian, status libur, dan rentang sibuk (Appointment berstatus
@@ -164,31 +171,28 @@ export async function listScheduleExceptions(
  * Plan 3b yang menambahkannya, karena penahanan sementara hanya relevan
  * untuk alur pendaftaran mandiri publik.
  */
-export async function getStaffAvailability(input: {
-  staffId: string;
-  branchId: string;
-  date: string;
-  durationMinutes: number;
-}): Promise<SlotOption[]> {
+async function computeAvailability(
+  input: AvailabilityInput,
+  minLeadMinutes: number,
+): Promise<SlotOption[]> {
   const weekday = witaWeekday(new Date(`${input.date}T12:00:00Z`));
+  const dayStart = combineWitaDateAndMinutes(input.date, 0);
+  const dayEnd = combineWitaDateAndMinutes(input.date, 24 * 60);
 
   const [template, exceptions, holiday, busyAppointments] = await Promise.all([
     prisma.scheduleTemplate.findUnique({
       where: { staffId_weekday: { staffId: input.staffId, weekday } },
     }),
     prisma.scheduleException.findMany({
-      where: {
-        staffId: input.staffId,
-        date: new Date(`${input.date}T00:00:00Z`),
-      },
+      where: { staffId: input.staffId, date: new Date(`${input.date}T00:00:00Z`) },
     }),
     isHoliday(input.date),
     prisma.appointment.findMany({
       where: {
         staffId: input.staffId,
         status: { in: [...BLOCKING_STATUSES] },
-        startAt: { gte: new Date(`${input.date}T00:00:00Z`) },
-        endAt: { lte: new Date(`${input.date}T23:59:59Z`) },
+        startAt: { lt: dayEnd },
+        endAt: { gt: dayStart },
       },
       select: { startAt: true, endAt: true },
     }),
@@ -209,6 +213,23 @@ export async function getStaffAvailability(input: {
     isHoliday: holiday,
     busy: busyAppointments,
     now: new Date(),
-    minLeadMinutes: 120,
+    minLeadMinutes,
   });
+}
+
+/** Untuk pendaftaran mandiri publik: paling cepat 2 jam dari sekarang (PRD F4). */
+export async function getStaffAvailability(input: AvailabilityInput): Promise<SlotOption[]> {
+  return computeAvailability(input, 120);
+}
+
+/**
+ * Untuk admin yang mencatat booking: tanpa batas 2 jam, karena pasien
+ * walk-in dan penelepon sering minta jam terdekat (PRD F9). Slot yang
+ * sudah lewat tetap tidak ditawarkan.
+ */
+export async function getStaffAvailabilityForAdmin(
+  input: AvailabilityInput,
+): Promise<SlotOption[]> {
+  await requireCapability("booking:manage");
+  return computeAvailability(input, 0);
 }

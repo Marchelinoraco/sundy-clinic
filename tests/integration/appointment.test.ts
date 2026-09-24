@@ -27,6 +27,8 @@ describe("server action appointment", () => {
   let patientId: string;
   let staffId: string;
   let branchId: string;
+  let therapistId: string;
+  let doctorOnlyServiceId: string;
 
   beforeEach(async () => {
     await prisma.appointment.deleteMany();
@@ -34,6 +36,8 @@ describe("server action appointment", () => {
     await prisma.patient.deleteMany({ where: { medicalRecordNumber: "SDY-2026-7777" } });
     await prisma.staff.deleteMany({ where: { slug: "staf-appointment-uji" } });
     await prisma.branch.deleteMany({ where: { slug: "cabang-appointment-uji" } });
+    await prisma.staff.deleteMany({ where: { slug: "terapis-appointment-uji" } });
+    await prisma.serviceCategory.deleteMany({ where: { slug: "kategori-appointment-uji" } });
 
     const patient = await prisma.patient.create({
       data: {
@@ -55,9 +59,27 @@ describe("server action appointment", () => {
         status: "AKTIF",
       },
     });
+    const therapist = await prisma.staff.create({
+      data: { slug: "terapis-appointment-uji", name: "Terapis Appointment", role: "TERAPIS" },
+    });
+    const category = await prisma.serviceCategory.create({
+      data: { slug: "kategori-appointment-uji", name: "Kategori Uji" },
+    });
+    const doctorOnly = await prisma.service.create({
+      data: {
+        slug: "layanan-dokter-uji",
+        name: "Botox Uji",
+        promoPrice: 1,
+        durationMin: 60,
+        requiresDoctor: true,
+        categoryId: category.id,
+      },
+    });
     patientId = patient.id;
     staffId = staff.id;
     branchId = branch.id;
+    therapistId = therapist.id;
+    doctorOnlyServiceId = doctorOnly.id;
   });
 
   afterAll(async () => {
@@ -69,6 +91,8 @@ describe("server action appointment", () => {
     await prisma.patient.deleteMany({ where: { medicalRecordNumber: "SDY-2026-7777" } });
     await prisma.staff.deleteMany({ where: { slug: "staf-appointment-uji" } });
     await prisma.branch.deleteMany({ where: { slug: "cabang-appointment-uji" } });
+    await prisma.staff.deleteMany({ where: { slug: "terapis-appointment-uji" } });
+    await prisma.serviceCategory.deleteMany({ where: { slug: "kategori-appointment-uji" } });
     await prisma.$disconnect();
   });
 
@@ -236,5 +260,63 @@ describe("server action appointment", () => {
     const list = await listAppointments({ branchId, status: "MENUNGGU_KONFIRMASI" });
     expect(list).toHaveLength(1);
     expect(list[0].patient.name).toBe("Pasien Appointment");
+  });
+
+  it("menolak layanan khusus dokter yang dijadwalkan ke terapis", async () => {
+    const result = await createAppointment({
+      patientId,
+      branchId,
+      staffId: therapistId,
+      serviceId: doctorOnlyServiceId,
+      type: "TREATMENT",
+      startAt: new Date("2026-10-05T07:00:00Z"),
+      endAt: new Date("2026-10-05T08:00:00Z"),
+      source: "TELEPON",
+    });
+    expect(result).toEqual({ ok: false, error: expect.stringMatching(/dokter/i) });
+    expect(await prisma.appointment.count()).toBe(0);
+  });
+
+  it("menolak konsultasi yang dijadwalkan ke terapis", async () => {
+    const result = await createAppointment({
+      patientId,
+      branchId,
+      staffId: therapistId,
+      serviceId: null,
+      type: "KONSULTASI",
+      startAt: new Date("2026-10-05T07:00:00Z"),
+      endAt: new Date("2026-10-05T07:30:00Z"),
+      source: "TELEPON",
+    });
+    expect(result).toEqual({ ok: false, error: expect.stringMatching(/dokter/i) });
+  });
+
+  it("menolak booking di cabang yang belum aktif", async () => {
+    await prisma.branch.update({ where: { id: branchId }, data: { status: "SEGERA_HADIR" } });
+    const result = await createAppointment({
+      patientId,
+      branchId,
+      staffId,
+      serviceId: null,
+      type: "KONSULTASI",
+      startAt: new Date("2026-10-05T07:00:00Z"),
+      endAt: new Date("2026-10-05T07:30:00Z"),
+      source: "TELEPON",
+    });
+    expect(result).toEqual({ ok: false, error: expect.stringMatching(/cabang/i) });
+  });
+
+  it("menolak jam selesai yang tidak setelah jam mulai", async () => {
+    const result = await createAppointment({
+      patientId,
+      branchId,
+      staffId,
+      serviceId: null,
+      type: "KONSULTASI",
+      startAt: new Date("2026-10-05T07:30:00Z"),
+      endAt: new Date("2026-10-05T07:30:00Z"),
+      source: "TELEPON",
+    });
+    expect(result).toEqual({ ok: false, error: expect.stringMatching(/jam selesai/i) });
   });
 });

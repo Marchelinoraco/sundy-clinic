@@ -30,6 +30,12 @@ function isExclusionViolation(error: unknown): boolean {
   );
 }
 
+function assertTimeRange(startAt: Date, endAt: Date): void {
+  if (endAt.getTime() <= startAt.getTime()) {
+    throw new UserFacingError("Jam selesai harus setelah jam mulai.");
+  }
+}
+
 async function createWithSlotGuard<T>(fn: () => Promise<T>): Promise<T> {
   try {
     return await fn();
@@ -54,6 +60,27 @@ export async function createAppointment(input: {
 }): Promise<ActionResult<Appointment>> {
   return runAction(async () => {
     const actor = await requireCapability("booking:manage");
+
+    assertTimeRange(input.startAt, input.endAt);
+
+    const [branch, staff, service] = await Promise.all([
+      prisma.branch.findUniqueOrThrow({ where: { id: input.branchId } }),
+      prisma.staff.findUniqueOrThrow({ where: { id: input.staffId } }),
+      input.serviceId ? prisma.service.findUniqueOrThrow({ where: { id: input.serviceId } }) : null,
+    ]);
+
+    if (branch.status !== "AKTIF") {
+      throw new UserFacingError(`Cabang ${branch.name} belum menerima booking.`);
+    }
+    // Dijaga di server, bukan hanya disaring di form: salah menempatkan
+    // tindakan khusus dokter ke terapis adalah soal keselamatan pasien
+    // (PRD F4a, keputusan D10).
+    const needsDoctor = input.type === "KONSULTASI" || service?.requiresDoctor === true;
+    if (needsDoctor && staff.role !== "DOKTER") {
+      throw new UserFacingError(
+        `${service?.name ?? "Konsultasi"} harus ditangani dokter, bukan ${staff.name}.`,
+      );
+    }
 
     const created = await createWithSlotGuard(() =>
       prisma.appointment.create({
@@ -91,6 +118,8 @@ export async function rescheduleAppointment(
 ): Promise<ActionResult<Appointment>> {
   return runAction(async () => {
     const actor = await requireCapability("booking:manage");
+
+    assertTimeRange(input.startAt, input.endAt);
 
     const updated = await createWithSlotGuard(() =>
       prisma.appointment.update({
