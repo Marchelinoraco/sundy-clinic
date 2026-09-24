@@ -305,3 +305,45 @@ model AuditLog {
   @@index([actorStaffId, createdAt])
   @@index([createdAt])
 }
+
+enum PatientProgramStatus {
+  AKTIF
+  SELESAI
+  TIDAK_AKTIF
+}
+
+enum Gender {
+  L
+  P
+}
+
+/// Alokasi nomor rekam medis atomik per tahun. Baris "diupdate" lewat
+/// INSERT ... ON CONFLICT DO UPDATE dalam satu pernyataan SQL, sehingga
+/// dua pembuatan pasien yang bersamaan tidak pernah mendapat nomor sama.
+model PatientNumberCounter {
+  year  Int @id
+  value Int @default(0)
+}
+
+/// Tidak terikat cabang — pasien yang pindah cabang tetap satu rekam medis.
+model Patient {
+  id                  String               @id @default(cuid())
+  medicalRecordNumber String               @unique
+  name                String
+  whatsapp            String
+  birthDate           DateTime?            @db.Date
+  gender              Gender?
+  occupation          String?
+  address             String?
+  allergies           String?
+  medicalHistory      String?
+  programStatus       PatientProgramStatus @default(AKTIF)
+  activePackageId     String?
+  lastVisitAt         DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([whatsapp])
+  @@index([name])
+}
