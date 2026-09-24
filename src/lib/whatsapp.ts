@@ -16,3 +16,18 @@ export function serviceInquiryMessage(serviceName: string): string {
 export function branchNotifyMessage(branchName: string): string {
   return `Halo ${CLINIC_NAME}, mohon beri tahu saya saat cabang ${branchName} sudah buka.`;
 }
+
+export function appointmentConfirmationMessage(input: {
+  patientName: string;
+  code: string;
+  staffName: string;
+  branchName: string;
+  dateLabel: string;
+  timeLabel: string;
+}): string {
+  return (
+    `Halo ${CLINIC_NAME}, saya sudah booking konsultasi. Kode: ${input.code}, ` +
+    `atas nama ${input.patientName}, dengan ${input.staffName} di cabang ${input.branchName}, ` +
+    `${input.dateLabel} pukul ${input.timeLabel}. Berikut bukti transfernya.`
+  );
+}

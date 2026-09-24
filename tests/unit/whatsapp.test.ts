@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  appointmentConfirmationMessage,
   branchNotifyMessage,
   buildWhatsAppLink,
   productInquiryMessage,
@@ -37,6 +38,25 @@ describe("pesan terisi otomatis", () => {
   it("menyebut nama cabang yang ditunggu", () => {
     expect(branchNotifyMessage("SunDY Citraland")).toBe(
       "Halo SunDY Clinic, mohon beri tahu saya saat cabang SunDY Citraland sudah buka.",
+    );
+  });
+});
+
+describe("appointmentConfirmationMessage", () => {
+  it("menyusun teks siap-salin sesuai contoh pada PRD F5", () => {
+    const message = appointmentConfirmationMessage({
+      patientName: "Siti Rahayu",
+      code: "SDY-8F3K",
+      staffName: "Dr. Diane Paparang, Sp.GK, AIFO-K",
+      branchName: "Mahakeret",
+      dateLabel: "Kamis, 25 Sep 2026",
+      timeLabel: "15.00",
+    });
+
+    expect(message).toBe(
+      "Halo SunDY Clinic, saya sudah booking konsultasi. Kode: SDY-8F3K, atas nama Siti Rahayu, " +
+        "dengan Dr. Diane Paparang, Sp.GK, AIFO-K di cabang Mahakeret, Kamis, 25 Sep 2026 pukul 15.00. " +
+        "Berikut bukti transfernya.",
     );
   });
 });
