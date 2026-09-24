@@ -10,6 +10,9 @@ describe("manajemen staf", () => {
   });
 
   afterAll(async () => {
+    // Terapis uji dari giliran terakhir akan muncul sebagai pilihan tenaga di
+    // form booking bila tidak dibersihkan.
+    await prisma.staff.deleteMany({ where: { slug: { startsWith: "siti-rahayu" } } });
     await prisma.$disconnect();
   });
 
