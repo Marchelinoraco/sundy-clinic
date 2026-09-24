@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { safeRevalidatePath } from "@/lib/revalidate";
 import { prisma } from "@/lib/db";
 import { formatRupiah } from "@/lib/format";
 import { validatePriceChange, type PriceInput } from "@/lib/price-validation";
@@ -29,9 +29,9 @@ export async function updateServicePrice(input: PriceInput & { id: string }): Pr
 
   // Halaman publik di-prerender. Tanpa ini, harga baru tidak muncul sampai
   // deploy berikutnya.
-  revalidatePath("/layanan");
-  revalidatePath(`/layanan/${after.slug}`);
-  revalidatePath("/");
+  safeRevalidatePath("/layanan");
+  safeRevalidatePath(`/layanan/${after.slug}`);
+  safeRevalidatePath("/");
 }
 
 export async function setServiceActive(id: string, isActive: boolean): Promise<void> {
@@ -47,7 +47,7 @@ export async function setServiceActive(id: string, isActive: boolean): Promise<v
     summary: updated.name,
   });
 
-  revalidatePath("/layanan");
-  revalidatePath(`/layanan/${updated.slug}`);
-  revalidatePath("/");
+  safeRevalidatePath("/layanan");
+  safeRevalidatePath(`/layanan/${updated.slug}`);
+  safeRevalidatePath("/");
 }

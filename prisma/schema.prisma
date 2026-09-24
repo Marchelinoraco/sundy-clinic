@@ -32,6 +32,26 @@ model Branch {
   @@index([status, sortOrder])
 }
 
+enum HolidayKind {
+  LIBUR_NASIONAL
+  CUTI_BERSAMA
+  LIBUR_KLINIK
+}
+
+/// Berlaku global lintas cabang. Tanggal yang tercatat di sini menutup slot
+/// di seluruh klinik, sesuai kebijakan "tanggal merah tutup".
+model Holiday {
+  id   String      @id @default(cuid())
+  date DateTime    @db.Date
+  name String
+  kind HolidayKind
+
+  createdAt DateTime @default(now())
+
+  @@unique([date])
+  @@index([date])
+}
+
 enum StaffRole {
   SUPER_ADMIN
   DOKTER

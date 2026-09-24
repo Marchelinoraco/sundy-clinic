@@ -631,6 +631,40 @@ const products = [
   },
 ];
 
+type SeedHoliday = { date: string; name: string; kind: "LIBUR_NASIONAL" | "CUTI_BERSAMA" };
+
+// Sumber: SKB 3 Menteri Nomor 1497 Tahun 2025, Nomor 2 Tahun 2025, Nomor 5
+// Tahun 2025 (Menteri Agama, Menteri Ketenagakerjaan, MenPAN-RB), ditetapkan
+// 19 September 2025. 17 hari libur nasional + 8 cuti bersama, setiap tanggal
+// dicocokkan terhadap hari dalam minggu sebelum dimuat.
+const holidays2026: SeedHoliday[] = [
+  { date: "2026-01-01", name: "Tahun Baru 2026 Masehi", kind: "LIBUR_NASIONAL" },
+  { date: "2026-01-16", name: "Isra Mikraj Nabi Muhammad SAW", kind: "LIBUR_NASIONAL" },
+  { date: "2026-02-16", name: "Cuti Bersama Tahun Baru Imlek", kind: "CUTI_BERSAMA" },
+  { date: "2026-02-17", name: "Tahun Baru Imlek 2577 Kongzili", kind: "LIBUR_NASIONAL" },
+  { date: "2026-03-18", name: "Cuti Bersama Hari Suci Nyepi", kind: "CUTI_BERSAMA" },
+  { date: "2026-03-19", name: "Hari Suci Nyepi (Tahun Baru Saka 1948)", kind: "LIBUR_NASIONAL" },
+  { date: "2026-03-20", name: "Cuti Bersama Idul Fitri", kind: "CUTI_BERSAMA" },
+  { date: "2026-03-21", name: "Idul Fitri 1447 Hijriah", kind: "LIBUR_NASIONAL" },
+  { date: "2026-03-22", name: "Idul Fitri 1447 Hijriah", kind: "LIBUR_NASIONAL" },
+  { date: "2026-03-23", name: "Cuti Bersama Idul Fitri", kind: "CUTI_BERSAMA" },
+  { date: "2026-03-24", name: "Cuti Bersama Idul Fitri", kind: "CUTI_BERSAMA" },
+  { date: "2026-04-03", name: "Wafat Yesus Kristus", kind: "LIBUR_NASIONAL" },
+  { date: "2026-04-05", name: "Kebangkitan Yesus Kristus (Paskah)", kind: "LIBUR_NASIONAL" },
+  { date: "2026-05-01", name: "Hari Buruh Internasional", kind: "LIBUR_NASIONAL" },
+  { date: "2026-05-14", name: "Kenaikan Yesus Kristus", kind: "LIBUR_NASIONAL" },
+  { date: "2026-05-15", name: "Cuti Bersama Kenaikan Yesus Kristus", kind: "CUTI_BERSAMA" },
+  { date: "2026-05-27", name: "Idul Adha 1447 Hijriah", kind: "LIBUR_NASIONAL" },
+  { date: "2026-05-28", name: "Cuti Bersama Idul Adha", kind: "CUTI_BERSAMA" },
+  { date: "2026-05-31", name: "Hari Raya Waisak 2570 BE", kind: "LIBUR_NASIONAL" },
+  { date: "2026-06-01", name: "Hari Lahir Pancasila", kind: "LIBUR_NASIONAL" },
+  { date: "2026-06-16", name: "1 Muharram Tahun Baru Islam 1448 Hijriah", kind: "LIBUR_NASIONAL" },
+  { date: "2026-08-17", name: "Proklamasi Kemerdekaan", kind: "LIBUR_NASIONAL" },
+  { date: "2026-08-25", name: "Maulid Nabi Muhammad SAW", kind: "LIBUR_NASIONAL" },
+  { date: "2026-12-24", name: "Cuti Bersama Kelahiran Yesus Kristus", kind: "CUTI_BERSAMA" },
+  { date: "2026-12-25", name: "Kelahiran Yesus Kristus", kind: "LIBUR_NASIONAL" },
+];
+
 /**
  * Memuat katalog klinik. Aman dijalankan berulang kali.
  *
@@ -677,6 +711,13 @@ export async function seed(): Promise<void> {
             where: { slug: product.slug },
             update: product,
             create: product,
+          }),
+        ),
+        ...holidays2026.map((h) =>
+          prisma.holiday.upsert({
+            where: { date: new Date(`${h.date}T00:00:00Z`) },
+            update: { name: h.name, kind: h.kind },
+            create: { date: new Date(`${h.date}T00:00:00Z`), name: h.name, kind: h.kind },
           }),
         ),
       ],

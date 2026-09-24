@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { safeRevalidatePath } from "@/lib/revalidate";
 import type { Staff, StaffRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { slugify } from "@/lib/slug";
@@ -57,7 +57,7 @@ export async function createStaff(input: {
     summary: `${created.name} (${created.role})`,
   });
 
-  revalidatePath("/admin/staf");
+  safeRevalidatePath("/admin/staf");
   return created;
 }
 
@@ -74,6 +74,6 @@ export async function setStaffActive(id: string, isActive: boolean): Promise<voi
     summary: updated.name,
   });
 
-  revalidatePath("/admin/staf");
-  revalidatePath("/tentang");
+  safeRevalidatePath("/admin/staf");
+  safeRevalidatePath("/tentang");
 }
