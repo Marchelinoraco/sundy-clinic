@@ -22,7 +22,9 @@ for jalur in / /layanan /program-slimming /masuk; do
 done
 
 # /admin tanpa login harus dialihkan ke /masuk, bukan ditampilkan.
-lokasi=$(curl -s -o /dev/null -m 20 -w '%{http_code} %{redirect_url}' ${EXTRA[@]+"${EXTRA[@]}"} "$BASE/admin")
+# sed: buang user:sandi yang disisipkan curl ke URL pengalihan (mis. saat -u dipakai) agar tidak tercetak.
+lokasi=$(curl -s -o /dev/null -m 20 -w '%{http_code} %{redirect_url}' ${EXTRA[@]+"${EXTRA[@]}"} "$BASE/admin" \
+  | sed -E 's#//[^/@ ]+@#//#')
 lapor "/admin tanpa login → $lokasi (harus 30x ke /masuk)" \
   "$([[ $lokasi =~ ^30[1278]\ .*/masuk ]] && echo 1 || echo 0)"
 

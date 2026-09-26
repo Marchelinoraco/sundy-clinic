@@ -1638,7 +1638,9 @@ IP pemilik berubah-ubah — dan ditaruh **di dalam `location /`**, sehingga vali
 ssh sundy 'sudo bash -s' <<'EOF'
 set -e
 V=/www/server/panel/vhost; NGX=/www/server/nginx/sbin/nginx; C=/www/sundy/current/scripts/server
-BK=/root/backup-vhost-$(date +%Y%m%d-%H%M%S); mkdir -p "$BK"; cp -a $V/nginx/sundyclinic.com.conf $V/rewrite/sundyclinic.com.conf "$BK/"
+# vhost dan rewrite sama-sama bernama sundyclinic.com.conf — backup ke subfolder terpisah.
+BK=/root/backup-vhost-$(date +%Y%m%d-%H%M%S); mkdir -p "$BK/nginx" "$BK/rewrite"
+cp -a $V/nginx/sundyclinic.com.conf "$BK/nginx/"; cp -a $V/rewrite/sundyclinic.com.conf "$BK/rewrite/"
 $NGX -V 2>&1 | grep -q http_realip_module || { echo "Nginx tanpa realip_module"; exit 1; }
 bash $C/nginx/cloudflare-realip.sh $V/nginx/0.cloudflare-realip.conf
 install -o sundyapp -g sundyapp -m 644 $C/pemeliharaan.html /www/sundy/shared/pemeliharaan.html
@@ -1664,7 +1666,7 @@ EOF
 ```
 
 Expected: `blok cache statis aaPanel dihapus: 2`, `nginx reload OK`. Bila `nginx -t` gagal, kembalikan
-berkas dari `$BK` dan reload.
+`$BK/nginx/…` dan `$BK/rewrite/…` ke tempatnya dan reload.
 
 - [ ] **Step 7: Periksa situs lewat IP (Claude, di Mac)**
 
