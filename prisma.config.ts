@@ -1,13 +1,13 @@
 import "dotenv/config";
 import { defineConfig, env } from "prisma/config";
 
-// Perintah CLI memakai koneksi LANGSUNG (tanpa "-pooler"). Connection pooler
-// Neon tidak menerima perintah DDL yang dipakai migrasi. Runtime aplikasi
-// memakai koneksi pooled lewat adapter di src/lib/db.ts — sengaja berbeda.
+// Perintah CLI (migrate, seed) memakai DATABASE_URL_UNPOOLED. Di VPS nilainya
+// sama dengan DATABASE_URL (PostgreSQL lokal). Untuk Neon (branch "test") ini
+// koneksi LANGSUNG tanpa "-pooler", karena pooler Neon menolak DDL migrasi.
 //
 // PRISMA_TARGET=test mengarahkan perintah ke branch "test" di Neon.
 // Dipakai oleh `npm run db:migrate:test`, agar migrasi uji tidak pernah
-// menyentuh branch production hanya karena lupa mengganti variabel.
+// menyentuh database lain hanya karena lupa mengganti variabel.
 const isTestTarget = process.env.PRISMA_TARGET === "test";
 
 export default defineConfig({

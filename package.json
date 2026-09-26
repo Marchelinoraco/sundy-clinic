@@ -20,9 +20,7 @@
     "reset-password": "tsx scripts/reset-password.mts"
   },
   "dependencies": {
-    "@neon/config": "^1.7.2",
-    "@neon/env": "^1.4.3",
-    "@prisma/adapter-neon": "^7.10.0",
+    "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "better-auth": "^1.7.5",
     "class-variance-authority": "^0.7.1",

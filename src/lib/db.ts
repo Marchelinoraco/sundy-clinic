@@ -1,11 +1,11 @@
-import { PrismaNeon } from "@prisma/adapter-neon";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 
 const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {
   throw new Error(
-    "DATABASE_URL belum diisi. Salin .env.example menjadi .env lalu isi dengan connection string dari Neon.",
+    "DATABASE_URL belum diisi. Salin .env.example menjadi .env lalu isi dengan connection string PostgreSQL.",
   );
 }
 
@@ -14,9 +14,9 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient(): PrismaClient {
-  // Adapter Neon memakai connection string POOLED. Migrasi memakai koneksi
-  // langsung lewat prisma.config.ts — keduanya sengaja berbeda.
-  const adapter = new PrismaNeon({ connectionString });
+  // Adapter PostgreSQL biasa (node-postgres). Di VPS menunjuk PostgreSQL lokal;
+  // untuk uji integrasi tetap bisa menunjuk branch "test" di Neon.
+  const adapter = new PrismaPg({ connectionString });
 
   return new PrismaClient({
     adapter,

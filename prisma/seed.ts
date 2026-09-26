@@ -1,26 +1,25 @@
 import { pathToFileURL } from "node:url";
-import { PrismaNeon } from "@prisma/adapter-neon";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 
 /**
- * Seed memakai koneksi LANGSUNG, bukan pooled seperti runtime aplikasi.
+ * Seed memakai DATABASE_URL_UNPOOLED, bukan DATABASE_URL.
  *
- * Connection pooler Neon berjalan dalam mode transaksi, yang tidak mendukung
+ * Di Neon, DATABASE_URL adalah pooler mode transaksi yang tidak mendukung
  * transaksi batch seperti yang dipakai di bawah — percobaannya gagal dengan
- * "Unable to start a transaction in the given time". Seed adalah pekerjaan
- * batch sekali jalan, bukan lalu lintas serverless, jadi koneksi langsung
- * memang tempatnya.
+ * "Unable to start a transaction in the given time". Di VPS kedua nilai sama
+ * (PostgreSQL lokal), jadi pembedaan ini hanya berarti untuk Neon.
  */
 function createSeedClient(): PrismaClient {
   const connectionString = process.env.DATABASE_URL_UNPOOLED;
 
   if (!connectionString) {
     throw new Error(
-      'DATABASE_URL_UNPOOLED belum diisi. Seed membutuhkan koneksi langsung Neon (tanpa "-pooler").',
+      "DATABASE_URL_UNPOOLED belum diisi. Seed membutuhkan koneksi langsung ke PostgreSQL.",
     );
   }
 
-  return new PrismaClient({ adapter: new PrismaNeon({ connectionString }) });
+  return new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
 }
 
 // Seluruh harga di berkas ini disalin dari materi promosi klinik, yang
@@ -676,11 +675,13 @@ const holidays2026: SeedHoliday[] = [
 export async function seed(): Promise<void> {
   const prisma = createSeedClient();
 
-  // Batas transaksi Prisma bawaan (5 detik) sudah cukup ketat untuk basis data
-  // lokal, tetapi terlampaui saat menulis puluhan baris ke Neon Singapura dari
-  // koneksi dingin. Setiap transaksi di seed ini diberi batas eksplisit yang
-  // lebih longgar.
-  const TRANSACTION_OPTIONS = { timeout: 20_000 };
+  // Batas transaksi Prisma bawaan (maxWait 2 detik, timeout 5 detik) cukup
+  // untuk PostgreSQL lokal di VPS, tetapi tidak untuk Neon Singapura dari laptop
+  // pengembang. Diukur 26 Sep 2026 lewat port 5432: median 104 ms per kueri,
+  // namun ±14% kueri tertahan > 0,8 detik (hingga 3,6 detik), dan membuka
+  // koneksi baru 1–6 detik. Transaksi pertama berisi ±45 kueri berurutan, jadi
+  // batasnya dibuat longgar agar seed uji tidak gagal hanya karena jaringan.
+  const TRANSACTION_OPTIONS = { maxWait: 15_000, timeout: 60_000 };
 
   try {
     await prisma.$transaction(
