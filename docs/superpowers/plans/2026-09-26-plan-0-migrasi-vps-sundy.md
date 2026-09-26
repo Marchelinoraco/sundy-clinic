@@ -355,7 +355,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   mendengarkan `127.0.0.1:3000`, membaca rahasia dari `/www/sundy/shared/.env`.
   `scripts/server/cek-situs.sh <base-url> [opsi-curl...]` keluar 0 bila situs sehat.
 
-- [ ] **Step 1: Tulis uji yang gagal — `tests/unit/next-config.test.ts`**
+- [x] **Step 1: Tulis uji yang gagal — `tests/unit/next-config.test.ts`**
 
 ```ts
 // @vitest-environment node
@@ -373,12 +373,12 @@ describe("next.config", () => {
 });
 ```
 
-- [ ] **Step 2: Jalankan — harus gagal**
+- [x] **Step 2: Jalankan — harus gagal**
 
 Run: `npx vitest run tests/unit/next-config.test.ts`
 Expected: FAIL — `expected undefined to be 'standalone'`.
 
-- [ ] **Step 3: Ubah `next.config.ts`**
+- [x] **Step 3: Ubah `next.config.ts`**
 
 ```ts
 import type { NextConfig } from "next";
@@ -397,12 +397,12 @@ const nextConfig: NextConfig = {
 export default nextConfig;
 ```
 
-- [ ] **Step 4: Jalankan — harus lulus**
+- [x] **Step 4: Jalankan — harus lulus**
 
 Run: `npx vitest run tests/unit/next-config.test.ts`
 Expected: PASS (2 uji).
 
-- [ ] **Step 5: Tulis `scripts/server/ecosystem.config.cjs`**
+- [x] **Step 5: Tulis `scripts/server/ecosystem.config.cjs`**
 
 ```js
 // Proses aplikasi SunDY di VPS, dijalankan PM2 sebagai user "sundyapp".
@@ -428,7 +428,7 @@ module.exports = {
 };
 ```
 
-- [ ] **Step 6: Tulis `scripts/server/cek-situs.sh`**
+- [x] **Step 6: Tulis `scripts/server/cek-situs.sh`**
 
 ```bash
 #!/usr/bin/env bash
@@ -478,7 +478,7 @@ exit $gagal
 chmod +x scripts/server/cek-situs.sh
 ```
 
-- [ ] **Step 7: Uji `cek-situs.sh` terhadap server pengembangan**
+- [x] **Step 7: Uji `cek-situs.sh` terhadap server pengembangan**
 
 ```bash
 npm run dev    # terminal lain; tunggu "Ready"
@@ -489,7 +489,7 @@ Expected: semua baris `✓`, keluar 0. (Uji membaca halaman saja, tidak menulis 
 Uji kegagalan: `bash scripts/server/cek-situs.sh http://localhost:3999; echo $?` → baris `✗` dan `1`.
 Hentikan `npm run dev` sesudahnya.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add next.config.ts tests/unit/next-config.test.ts scripts/server/ecosystem.config.cjs scripts/server/cek-situs.sh
@@ -513,7 +513,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   `main`), `SUNDY_KEEP` (bawaan `3`). Susunan: `$SUNDY_ROOT/releases/<YYYYmmdd-HHMMSS>/`,
   `$SUNDY_ROOT/current` (symlink), `$SUNDY_ROOT/shared/.env`.
 
-- [ ] **Step 1: Tulis uji yang gagal — `tests/server/deploy.test.sh`**
+- [x] **Step 1: Tulis uji yang gagal — `tests/server/deploy.test.sh`**
 
 ```bash
 #!/usr/bin/env bash
@@ -599,12 +599,12 @@ Tambahkan ke `package.json` → `scripts`:
 "test:server": "bash tests/server/deploy.test.sh"
 ```
 
-- [ ] **Step 2: Jalankan — harus gagal**
+- [x] **Step 2: Jalankan — harus gagal**
 
 Run: `npm run test:server`
 Expected: FAIL — `bash: .../scripts/server/deploy.sh: No such file or directory`.
 
-- [ ] **Step 3: Tulis `scripts/server/deploy.sh`**
+- [x] **Step 3: Tulis `scripts/server/deploy.sh`**
 
 ```bash
 #!/usr/bin/env bash
@@ -707,19 +707,19 @@ esac
 chmod +x scripts/server/deploy.sh
 ```
 
-- [ ] **Step 4: Jalankan — harus lulus**
+- [x] **Step 4: Jalankan — harus lulus**
 
 Run: `npm run test:server`
 Expected: `13 lulus, 0 gagal`, keluar 0. (Uji menunggu ±1 detik antarrilis karena nama folder memakai
 detik.)
 
-- [ ] **Step 5: Periksa sintaks dengan ShellCheck bila tersedia**
+- [x] **Step 5: Periksa sintaks dengan ShellCheck bila tersedia**
 
 Run: `command -v shellcheck && shellcheck scripts/server/deploy.sh scripts/server/cek-situs.sh tests/server/deploy.test.sh`
 Expected: tanpa temuan (atau lewati bila ShellCheck tidak terpasang — jangan memasangnya bila disk
 Mac hampir penuh).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add scripts/server/deploy.sh tests/server/deploy.test.sh package.json
@@ -748,7 +748,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   - `hitung-baris.sql` — keluaran `psql -At`: satu baris `<tabel>|<jumlah>` per tabel skema `public`,
     urut nama tabel.
 
-- [ ] **Step 1: Tulis uji yang gagal — `tests/server/backup.test.sh`**
+- [x] **Step 1: Tulis uji yang gagal — `tests/server/backup.test.sh`**
 
 ```bash
 #!/usr/bin/env bash
@@ -829,12 +829,12 @@ Ubah skrip `package.json`:
 "test:server": "bash tests/server/deploy.test.sh && bash tests/server/backup.test.sh"
 ```
 
-- [ ] **Step 2: Jalankan — harus gagal**
+- [x] **Step 2: Jalankan — harus gagal**
 
 Run: `bash tests/server/backup.test.sh`
 Expected: FAIL — `scripts/server/backup.sh: No such file or directory`.
 
-- [ ] **Step 3: Tulis `scripts/server/backup.sh`**
+- [x] **Step 3: Tulis `scripts/server/backup.sh`**
 
 ```bash
 #!/usr/bin/env bash
@@ -895,12 +895,12 @@ echo "Backup $TGL selesai: $(ls "$DIR" | tr '\n' ' ')($(du -sh "$DIR" | cut -f1)
 chmod +x scripts/server/backup.sh
 ```
 
-- [ ] **Step 4: Jalankan — harus lulus**
+- [x] **Step 4: Jalankan — harus lulus**
 
 Run: `bash tests/server/backup.test.sh`
 Expected: `12 lulus, 0 gagal`.
 
-- [ ] **Step 5: Tulis `scripts/server/hitung-baris.sql`**
+- [x] **Step 5: Tulis `scripts/server/hitung-baris.sql`**
 
 ```sql
 -- Jumlah baris setiap tabel di skema public, satu baris per tabel: "<tabel>|<jumlah>".
@@ -915,7 +915,7 @@ WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
 ORDER BY table_name;
 ```
 
-- [ ] **Step 6: Uji `hitung-baris.sql` terhadap branch test Neon**
+- [x] **Step 6: Uji `hitung-baris.sql` terhadap branch test Neon**
 
 ```bash
 set -a; . ./.env; set +a
@@ -926,7 +926,7 @@ Expected: baris seperti `Appointment|0`, `Branch|2`, … — satu per tabel, ter
 `_prisma_migrations`. (Bila `psql` belum ada di Mac, lewati langkah ini; skrip diuji di server pada
 Task 9 Step 6.)
 
-- [ ] **Step 7: Tulis `scripts/server/restore-test.sh`**
+- [x] **Step 7: Tulis `scripts/server/restore-test.sh`**
 
 ```bash
 #!/usr/bin/env bash
@@ -977,7 +977,7 @@ bash -n scripts/server/restore-test.sh
 Expected: `bash -n` tanpa keluaran. Uji fungsionalnya di server pada Task 11 Step 8 (butuh PostgreSQL
 dan bucket sungguhan).
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add scripts/server/backup.sh scripts/server/restore-test.sh scripts/server/hitung-baris.sql tests/server/backup.test.sh package.json
@@ -1000,7 +1000,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   melempar `Error` dengan pesan berisi `"tidak valid"`, `"Tidak ada akun"`, atau `"sudah dipakai"`.
   CLI: `npm run change-email -- <email-lama> <email-baru>`.
 
-- [ ] **Step 1: Tulis uji yang gagal — `tests/integration/account.test.ts`**
+- [x] **Step 1: Tulis uji yang gagal — `tests/integration/account.test.ts`**
 
 ```ts
 // @vitest-environment node
@@ -1073,12 +1073,12 @@ describe("ganti email login staf", () => {
 });
 ```
 
-- [ ] **Step 2: Jalankan — harus gagal**
+- [x] **Step 2: Jalankan — harus gagal**
 
 Run: `npx vitest run --config vitest.integration.config.mts tests/integration/account.test.ts`
 Expected: FAIL — `Failed to resolve import "@/server/account"`.
 
-- [ ] **Step 3: Tulis `src/server/account.ts`**
+- [x] **Step 3: Tulis `src/server/account.ts`**
 
 ```ts
 import { prisma } from "@/lib/db";
@@ -1124,12 +1124,12 @@ export async function changeLoginEmail(
 }
 ```
 
-- [ ] **Step 4: Jalankan — harus lulus**
+- [x] **Step 4: Jalankan — harus lulus**
 
 Run: `npx vitest run --config vitest.integration.config.mts tests/integration/account.test.ts`
 Expected: PASS (5 uji).
 
-- [ ] **Step 5: Tulis `scripts/change-email.mts` dan skrip npm**
+- [x] **Step 5: Tulis `scripts/change-email.mts` dan skrip npm**
 
 ```ts
 import "dotenv/config";
@@ -1160,7 +1160,7 @@ try {
 "change-email": "tsx scripts/change-email.mts"
 ```
 
-- [ ] **Step 6: Jalankan seluruh uji integrasi dan pemeriksaan tipe**
+- [x] **Step 6: Jalankan seluruh uji integrasi dan pemeriksaan tipe**
 
 ```bash
 npm run test:integration
@@ -1170,7 +1170,7 @@ npm run lint
 
 Expected: semua hijau.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/server/account.ts scripts/change-email.mts tests/integration/account.test.ts package.json
@@ -1197,7 +1197,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
   `/www/sundy/maintenance.on` ada; halaman `/www/sundy/shared/pemeliharaan.html`;
   `cloudflare-realip.sh <berkas-keluaran>` menulis `set_real_ip_from` dari daftar resmi Cloudflare.
 
-- [ ] **Step 1: Tulis `scripts/server/nginx/sundyclinic.com.conf`**
+- [x] **Step 1: Tulis `scripts/server/nginx/sundyclinic.com.conf`**
 
 ```nginx
 # Aturan situs sundyclinic.com — dipasang sebagai "URL rewrite" situs di aaPanel
@@ -1231,7 +1231,7 @@ location / {
 }
 ```
 
-- [ ] **Step 2: Tulis `scripts/server/nginx/cloudflare-realip.sh`**
+- [x] **Step 2: Tulis `scripts/server/nginx/cloudflare-realip.sh`**
 
 ```bash
 #!/usr/bin/env bash
@@ -1264,7 +1264,7 @@ bash scripts/server/nginx/cloudflare-realip.sh /tmp/uji-realip.conf && head -3 /
 Expected: `Ditulis: /tmp/uji-realip.conf (NN jaringan)` dengan NN ≈ 20, lalu baris
 `set_real_ip_from 173.245.48.0/20;` (atau jaringan pertama yang berlaku saat itu).
 
-- [ ] **Step 3: Tulis `scripts/server/pemeliharaan.html`**
+- [x] **Step 3: Tulis `scripts/server/pemeliharaan.html`**
 
 ```html
 <!doctype html>
@@ -1292,7 +1292,7 @@ Expected: `Ditulis: /tmp/uji-realip.conf (NN jaringan)` dengan NN ≈ 20, lalu b
 </html>
 ```
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add scripts/server/nginx scripts/server/pemeliharaan.html
@@ -1301,7 +1301,7 @@ git commit -m "feat: add Nginx site rules, Cloudflare real-IP generator and main
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```
 
-- [ ] **Step 5: Dorong branch dan buka PR draf**
+- [x] **Step 5: Dorong branch dan buka PR draf**
 
 ```bash
 git push -u origin migrasi-vps-sundy
@@ -1423,7 +1423,7 @@ Expected: `kunci-masih-bisa`, lalu `Permission denied (publickey)` dan `exit=255
 Bila pesan masih `Permission denied (publickey,password)`, ada berkas lain di `sshd_config.d` yang
 terbaca lebih dulu — periksa dengan `sshd -T | grep passwordauthentication` (terjadi 26 Sep 2026).
 
-- [ ] **Step 4: Pasang aaPanel (Claude memulai, pemilik memilih paket)**
+- [x] **Step 4: Pasang aaPanel (Claude memulai, pemilik memilih paket)**
 
 Salin perintah instalasi **Ubuntu** yang berlaku dari situs resmi aaPanel (aapanel.com → Install),
 jalankan di latar belakang dan pantau lognya:
@@ -1438,7 +1438,7 @@ scratchpad Mac (izin 600)** — bukan ke chat — dan memberi tahu lokasinya.
 *(pemilik)* Masuk ke panel → pada tawaran paket, **hanya pilih Nginx** (hapus centang MySQL, PHP,
 Pure-FTPd, phpMyAdmin) → pasang.
 
-- [ ] **Step 5: Kunci panel (pemilik + Claude)**
+- [x] **Step 5: Kunci panel (pemilik + Claude)**
 
 Keputusan pemilik 26 Sep 2026: **panel ditutup dari internet** dan dibuka lewat terowongan SSH (IP
 pemilik berubah-ubah, jadi *Authorized IP* tidak bisa dipakai). *Security entrance* bawaan installer
@@ -1464,7 +1464,7 @@ Pemakaian (pemilik): `ssh -N sundy-panel` di Terminal (biarkan terbuka), lalu bu
 `curl -sk -m 8 https://<IP-VPS>:<PORT-PANEL>/` tidak dijawab dan log server mencatat `UFW BLOCK … DPT=<PORT-PANEL>`
 (`nc -z` dari jaringan seluler pemilik selalu tampak "terbuka" — jangan dipakai).
 
-- [ ] **Step 6: PostgreSQL 18 dari PGDG (Claude)**
+- [x] **Step 6: PostgreSQL 18 dari PGDG (Claude)**
 
 ```bash
 ssh sundy 'sudo bash -s' <<'EOF'
@@ -1481,7 +1481,7 @@ EOF
 
 Expected: `18.x`, `localhost`, `btree_gist`.
 
-- [ ] **Step 7: Node.js 22 + PM2 (Claude)**
+- [x] **Step 7: Node.js 22 + PM2 (Claude)**
 
 ```bash
 ssh sundy 'sudo bash -s' <<'EOF'
@@ -1495,7 +1495,7 @@ EOF
 
 Expected: `v22.x` dengan x ≥ 20.
 
-- [ ] **Step 8: User, folder, database, dan `.env` bersama (Claude)** — rahasia dibuat di server dan
+- [x] **Step 8: User, folder, database, dan `.env` bersama (Claude)** — rahasia dibuat di server dan
   langsung ditulis ke berkas; tidak ada yang tercetak.
 
 ```bash
@@ -1542,7 +1542,7 @@ Expected: `.env` `-rw------- sundyapp sundyapp`; `sundy|sundy`; PM2 startup terd
   aaPanel `sundyclinic.com` + `www` yang mem-proxy ke aplikasi, sementara **dilindungi kata sandi gladi**
   (HTTP basic auth, user `gladi`; kata sandinya di `/root/gladi-sandi.txt`).
 
-- [ ] **Step 1: Kirim URL Neon produksi ke server tanpa menampilkannya (Claude, di Mac)**
+- [x] **Step 1: Kirim URL Neon produksi ke server tanpa menampilkannya (Claude, di Mac)**
 
 ```bash
 cd ~/Documents/2026/sundy-clinik
@@ -1551,7 +1551,7 @@ grep '^DATABASE_URL_UNPOOLED=' .env | sed 's/^DATABASE_URL_UNPOOLED=/NEON_URL=/'
 ssh sundy 'sudo sh -c ". /root/pindah/neon.env; test -n \"\$NEON_URL\" && echo NEON_URL-terisi"'
 ```
 
-- [ ] **Step 2: Dump Neon dengan klien PostgreSQL 18 (Claude)**
+- [x] **Step 2: Dump Neon dengan klien PostgreSQL 18 (Claude)**
 
 ```bash
 ssh sundy 'sudo bash -s' <<'EOF'
@@ -1564,7 +1564,7 @@ EOF
 
 Expected: berkas dump beberapa ratus KB–MB, tanpa galat versi.
 
-- [ ] **Step 3: Pulihkan ke database `sundy` (Claude)**
+- [x] **Step 3: Pulihkan ke database `sundy` (Claude)**
 
 ```bash
 ssh sundy 'sudo bash -s' <<'EOF'
@@ -1585,7 +1585,7 @@ Expected: `btree_gist`. Bila `pg_restore` gagal:
   di atas, lalu pulihkan dengan `pg_restore -L /root/pindah/daftar.txt --no-owner --no-acl --exit-on-error -d "$DATABASE_URL" …`.
   Pakai daftar yang sama di Task 12 Step 4.
 
-- [ ] **Step 4: Cocokkan jumlah baris Neon vs VPS (Claude)**
+- [x] **Step 4: Cocokkan jumlah baris Neon vs VPS (Claude)**
 
 ```bash
 ssh sundy 'sudo bash -s' <<'EOF'
@@ -1601,7 +1601,7 @@ EOF
 
 Expected: `IDENTIK: NN tabel`.
 
-- [ ] **Step 5: Rilis pertama dari branch kerja (Claude)**
+- [x] **Step 5: Rilis pertama dari branch kerja (Claude)**
 
 ```bash
 ssh sundy 'sudo -u sundyapp -H bash -s' <<'EOF'
@@ -1624,7 +1624,7 @@ harus melaporkan *No pending migrations* (riwayat migrasi ikut dari Neon). Bila 
 `outputFileTracingIncludes: { "/*": ["./node_modules/.prisma/client/**/*"] }`, commit + push ke
 `migrasi-vps-sundy`, lalu jalankan `deploy.sh` lagi (kali ini dari `/www/sundy/current/scripts/server/`).
 
-- [ ] **Step 6: Situs Nginx (pemilik + Claude)**
+- [x] **Step 6: Situs Nginx (pemilik + Claude)**
 
 *(pemilik)* aaPanel → Website → Add site: domain `sundyclinic.com` dan `www.sundyclinic.com` (dua
 baris), PHP version **Static**, tanpa database/FTP.
@@ -1668,7 +1668,7 @@ EOF
 Expected: `blok cache statis aaPanel dihapus: 2`, `nginx reload OK`. Bila `nginx -t` gagal, kembalikan
 `$BK/nginx/…` dan `$BK/rewrite/…` ke tempatnya dan reload.
 
-- [ ] **Step 7: Periksa situs lewat IP (Claude, di Mac)**
+- [x] **Step 7: Periksa situs lewat IP (Claude, di Mac)**
 
 ```bash
 GLADI=$(ssh sundy 'sudo cat /root/gladi-sandi.txt')   # kata sandi gladi, tidak dicetak
@@ -1677,7 +1677,7 @@ bash scripts/server/cek-situs.sh http://sundyclinic.com --resolve sundyclinic.co
 
 Expected: semua `✓`. Tanpa `-u` semua halaman menjawab `401` — itu batasan gladi.
 
-- [ ] **Step 8: Uji rilis ulang & kembali di server (Claude)** — spec bagian 6 "Rilis & kembali".
+- [x] **Step 8: Uji rilis ulang & kembali di server (Claude)** — spec bagian 6 "Rilis & kembali".
 
 ```bash
 GLADI=$(ssh sundy 'sudo cat /root/gladi-sandi.txt')
