@@ -35,6 +35,9 @@ rclone crypt → IDCloudHost Object Storage · Bash (skrip server + uji dengan p
 - Zona waktu **WITA** (`Asia/Makassar`). Perpindahan final **≥ 19.00 WITA** (klinik tutup). Backup
   **02.00 WITA**.
 - Firewall hanya membuka **22, 80, 443, dan port panel**; PostgreSQL hanya `localhost`.
+- VPS **sundy-production**: IP `103.186.1.38` (IDCloudHost jkt01, akun "Marchelino Raco" — terpisah dari
+  akun Welcome Manado). User admin SSH = **`sundy`** (bawaan IDCloudHost, tidak bisa diubah); aplikasi
+  berjalan sebagai user sistem **`sundyapp`** tanpa hak sudo. Database & role PostgreSQL tetap bernama `sundy`.
 - Retensi: rilis **3** terakhir; backup **30 hari** di bucket (dihitung dari nama folder bertanggal),
   **7 hari** lokal.
 - Teks antarmuka, komentar kode, dan dokumen dalam Bahasa Indonesia; pesan commit dalam bahasa Inggris
@@ -274,7 +277,7 @@ Isi baru `.env.example`:
 # .env TIDAK BOLEH di-commit — berisi kredensial basis data rekam medis.
 #
 # Produksi (VPS sundy): .env ada di /www/sundy/shared/.env, dibuat langsung di
-# server dan hanya bisa dibaca user "sundy". Kedua URL di bawah menunjuk
+# server dan hanya bisa dibaca user "sundyapp". Kedua URL di bawah menunjuk
 # PostgreSQL 18 lokal (127.0.0.1) dan bernilai sama.
 #
 # Pengembangan di laptop: arahkan ke branch "dev" di Neon — bukan "test", dan
@@ -397,7 +400,7 @@ Expected: PASS (2 uji).
 - [ ] **Step 5: Tulis `scripts/server/ecosystem.config.cjs`**
 
 ```js
-// Proses aplikasi SunDY di VPS, dijalankan PM2 sebagai user "sundy".
+// Proses aplikasi SunDY di VPS, dijalankan PM2 sebagai user "sundyapp".
 // Jalurnya lewat symlink /www/sundy/current, dan deploy.sh selalu menjalankan
 // `pm2 delete` + `pm2 start` berkas ini, sehingga rilis baru pasti terpakai.
 module.exports = {
@@ -600,9 +603,9 @@ Expected: FAIL — `bash: .../scripts/server/deploy.sh: No such file or director
 
 ```bash
 #!/usr/bin/env bash
-# Rilis SunDY di VPS. Jalankan sebagai user "sundy":
-#   sudo -u sundy -H /www/sundy/current/scripts/server/deploy.sh           # rilis main terbaru
-#   sudo -u sundy -H /www/sundy/current/scripts/server/deploy.sh kembali   # kembali ke rilis sebelumnya
+# Rilis SunDY di VPS. Jalankan sebagai user "sundyapp":
+#   sudo -u sundyapp -H /www/sundy/current/scripts/server/deploy.sh           # rilis main terbaru
+#   sudo -u sundyapp -H /www/sundy/current/scripts/server/deploy.sh kembali   # kembali ke rilis sebelumnya
 #
 # Susunan:
 #   releases/<YYYYmmdd-HHMMSS>/   kode + build (node_modules disimpan untuk skrip admin)
@@ -1194,7 +1197,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 ```nginx
 # Aturan situs sundyclinic.com — dipasang sebagai "URL rewrite" situs di aaPanel
 # (/www/server/panel/vhost/rewrite/sundyclinic.com.conf). Aplikasi Next.js
-# berjalan di 127.0.0.1:3000 (PM2, user "sundy").
+# berjalan di 127.0.0.1:3000 (PM2, user "sundyapp").
 
 # www → domain utama
 if ($host = www.sundyclinic.com) { return 301 https://sundyclinic.com$request_uri; }
@@ -1345,9 +1348,9 @@ sambil menunggu). Cloudflare mengirim email "sundyclinic.com is now active" kepa
 Semua perintah server dijalankan dari Mac dengan `ssh sundy 'sudo bash -s' <<'EOF' … EOF`.
 
 **Interfaces:**
-- Produces: alias SSH `sundy`; user sistem **`sundy`** (PM2 berjalan sebagai user ini); folder
+- Produces: alias SSH `sundy`; user sistem **`sundyapp`** (PM2 berjalan sebagai user ini; tanpa hak sudo); folder
   `/www/sundy/{releases,shared}` dan `/www/sundy-files`; database **`sundy`** milik role **`sundy`**
-  di PostgreSQL 18; `/www/sundy/shared/.env` (600, `sundy`) berisi `DATABASE_URL`,
+  di PostgreSQL 18; `/www/sundy/shared/.env` (600, `sundyapp`) berisi `DATABASE_URL`,
   `DATABASE_URL_UNPOOLED`, `NEXT_PUBLIC_SITE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`,
   `PATIENT_FILES_DIR`.
 
@@ -1478,9 +1481,9 @@ Expected: `v22.x` dengan x ≥ 20.
 ```bash
 ssh sundy 'sudo bash -s' <<'EOF'
 set -e
-id sundy >/dev/null 2>&1 || useradd --system --create-home --home-dir /home/sundy --shell /bin/bash sundy
-install -d -o sundy -g sundy -m 750 /www/sundy /www/sundy/releases /www/sundy/shared
-install -d -o sundy -g sundy -m 700 /www/sundy-files
+id sundyapp >/dev/null 2>&1 || useradd --system --create-home --home-dir /home/sundyapp --shell /bin/bash sundyapp
+install -d -o sundyapp -g sundyapp -m 750 /www/sundy /www/sundy/releases /www/sundy/shared
+install -d -o sundyapp -g sundyapp -m 700 /www/sundy-files
 PW=$(openssl rand -hex 24)
 sudo -u postgres psql -v ON_ERROR_STOP=1 -q <<SQL
 CREATE ROLE sundy LOGIN PASSWORD '$PW';
@@ -1496,13 +1499,13 @@ BETTER_AUTH_SECRET="$AUTH"
 BETTER_AUTH_URL="https://sundyclinic.com"
 PATIENT_FILES_DIR="/www/sundy-files"
 ENV
-chown sundy:sundy /www/sundy/shared/.env && chmod 600 /www/sundy/shared/.env
-env PATH="$PATH" pm2 startup systemd -u sundy --hp /home/sundy | tail -1
+chown sundyapp:sundyapp /www/sundy/shared/.env && chmod 600 /www/sundy/shared/.env
+env PATH="$PATH" pm2 startup systemd -u sundyapp --hp /home/sundyapp | tail -1
 ls -la /www/sundy/shared/.env; sudo -u postgres psql -Atc "select datname, pg_get_userbyid(datdba) from pg_database where datname='sundy'"
 EOF
 ```
 
-Expected: `.env` `-rw------- sundy sundy`; `sundy|sundy`; PM2 startup terdaftar di systemd.
+Expected: `.env` `-rw------- sundyapp sundyapp`; `sundy|sundy`; PM2 startup terdaftar di systemd.
 
 ---
 
@@ -1578,7 +1581,7 @@ Expected: `IDENTIK: NN tabel`.
 - [ ] **Step 5: Rilis pertama dari branch kerja (Claude)**
 
 ```bash
-ssh sundy 'sudo -u sundy -H bash -s' <<'EOF'
+ssh sundy 'sudo -u sundyapp -H bash -s' <<'EOF'
 set -e
 rm -rf /tmp/sundy-awal
 git clone --quiet --depth 1 --branch migrasi-vps-sundy https://github.com/Marchelinoraco/sundy-clinic.git /tmp/sundy-awal
@@ -1616,7 +1619,7 @@ V=/www/server/panel/vhost; NGX=/www/server/nginx/sbin/nginx; C=/www/sundy/curren
 BK=/root/backup-vhost-$(date +%Y%m%d-%H%M%S); mkdir -p "$BK"; cp -a $V/nginx/sundyclinic.com.conf $V/rewrite/sundyclinic.com.conf "$BK/"
 $NGX -V 2>&1 | grep -q http_realip_module || { echo "Nginx tanpa realip_module"; exit 1; }
 bash $C/nginx/cloudflare-realip.sh $V/nginx/0.cloudflare-realip.conf
-install -o sundy -g sundy -m 644 $C/pemeliharaan.html /www/sundy/shared/pemeliharaan.html
+install -o sundyapp -g sundyapp -m 644 $C/pemeliharaan.html /www/sundy/shared/pemeliharaan.html
 test -n "$MY_IP"
 sed "s#^location / {#location / {\n    allow $MY_IP; deny all; \# GLADI — dihapus saat perpindahan final (Task 12)#" \
   $C/nginx/sundyclinic.com.conf > $V/rewrite/sundyclinic.com.conf
@@ -1650,16 +1653,16 @@ Expected: semua `✓`.
 - [ ] **Step 8: Uji rilis ulang & kembali di server (Claude)** — spec bagian 6 "Rilis & kembali".
 
 ```bash
-ssh sundy 'sudo -u sundy -H SUNDY_BRANCH=migrasi-vps-sundy /www/sundy/current/scripts/server/deploy.sh'
+ssh sundy 'sudo -u sundyapp -H SUNDY_BRANCH=migrasi-vps-sundy /www/sundy/current/scripts/server/deploy.sh'
 bash scripts/server/cek-situs.sh http://sundyclinic.com --resolve sundyclinic.com:80:<IP-VPS>
-ssh sundy 'sudo -u sundy -H /www/sundy/current/scripts/server/deploy.sh kembali && ls -1 /www/sundy/releases && readlink /www/sundy/current'
+ssh sundy 'sudo -u sundyapp -H /www/sundy/current/scripts/server/deploy.sh kembali && ls -1 /www/sundy/releases && readlink /www/sundy/current'
 bash scripts/server/cek-situs.sh http://sundyclinic.com --resolve sundyclinic.com:80:<IP-VPS>
-ssh sundy 'sudo -u sundy -H SUNDY_BRANCH=migrasi-vps-sundy /www/sundy/current/scripts/server/deploy.sh'
+ssh sundy 'sudo -u sundyapp -H SUNDY_BRANCH=migrasi-vps-sundy /www/sundy/current/scripts/server/deploy.sh'
 ```
 
 Expected: setelah rilis kedua dan setelah `kembali`, `cek-situs.sh` tetap semua `✓`; `current`
 menunjuk rilis pertama setelah `kembali`, lalu rilis terbaru setelah perintah terakhir.
-(`sudo -u sundy -H VAR=… perintah` diperbolehkan karena user admin VPS punya hak `ALL`.)
+(`sudo -u sundyapp -H VAR=… perintah` diperbolehkan karena user admin VPS punya hak `ALL`.)
 
 ---
 
@@ -1849,8 +1852,8 @@ Expected: tabel `pulih|aktif` dengan angka sama dan baris akhir `PULIH OK`.
   - Gagal backup: `ssh sundy 'sudo SUNDY_REMOTE=tidak-ada: /www/sundy/current/scripts/server/backup.sh'; echo "exit=$?"`
     → `exit` ≠ 0; pemilik menerima email "sundy-backup is DOWN" dari Healthchecks; jalankan backup
     normal sekali lagi agar status kembali *up*.
-  - Situs mati: `ssh sundy 'sudo -u sundy pm2 stop sundy'`, tunggu notifikasi UptimeRobot (≤ 10 menit),
-    lalu `ssh sundy 'sudo -u sundy pm2 start sundy'`. Aman karena situs belum dipakai pasien.
+  - Situs mati: `ssh sundy 'sudo -u sundyapp pm2 stop sundy'`, tunggu notifikasi UptimeRobot (≤ 10 menit),
+    lalu `ssh sundy 'sudo -u sundyapp pm2 start sundy'`. Aman karena situs belum dipakai pasien.
 
 ---
 
@@ -1888,7 +1891,7 @@ git push
 - [ ] **Step 2: Mode pemeliharaan di VPS**
 
 ```bash
-ssh sundy 'sudo -u sundy touch /www/sundy/maintenance.on'
+ssh sundy 'sudo -u sundyapp touch /www/sundy/maintenance.on'
 curl -s -o /dev/null -w "%{http_code}\n" https://sundyclinic.com/
 ```
 
@@ -1912,7 +1915,7 @@ log build di dashboard Vercel dan perbaiki sebelum lanjut.
 ssh sundy 'sudo bash -s' <<'EOF'
 set -e
 . /root/pindah/neon.env
-sudo -u sundy pm2 stop sundy
+sudo -u sundyapp pm2 stop sundy
 pg_dump -Fc --no-owner --no-acl "$NEON_URL" -f /root/pindah/neon-final.dump
 sudo -u postgres dropdb sundy
 sudo -u postgres createdb -O sundy sundy
@@ -1930,7 +1933,7 @@ sama dengan Task 9 Step 3.)
 - [ ] **Step 5: Rilis `main` (Claude)**
 
 ```bash
-ssh sundy 'sudo -u sundy -H /www/sundy/current/scripts/server/deploy.sh'
+ssh sundy 'sudo -u sundyapp -H /www/sundy/current/scripts/server/deploy.sh'
 ```
 
 Expected: `[deploy] aktif: <waktu>`; *No pending migrations*.
@@ -1957,7 +1960,7 @@ Expected: semua `✓`. Pemilik membuka situs dari data seluler (bukan Wi-Fi ruma
 - [ ] **Step 8: Email login Super Admin (pemilik memilih alamat; Claude menjalankan)**
 
 ```bash
-ssh sundy 'sudo -u sundy -H bash -c "cd /www/sundy/current && npm run change-email -- pemilik@sundyclinic.id <alamat-baru>@sundyclinic.com"'
+ssh sundy 'sudo -u sundyapp -H bash -c "cd /www/sundy/current && npm run change-email -- pemilik@sundyclinic.id <alamat-baru>@sundyclinic.com"'
 ```
 
 Pemilik login ulang dengan alamat baru. Kata sandi tidak berubah.
@@ -2006,7 +2009,7 @@ Expected: `.env lokal → branch dev`; seed berhasil.
   3. Susunan folder `/www/sundy` dan `/www/sundy-files`; letak `.env`.
   4. Rilis & kembali: perintah `deploy.sh` dan `deploy.sh kembali`; aturan migrasi dua langkah.
   5. Mode pemeliharaan: `touch` / `rm /www/sundy/maintenance.on`.
-  6. Skrip admin di server: `reset-password`, `change-email` (cara menjalankan sebagai `sundy`).
+  6. Skrip admin di server: `reset-password`, `change-email` (cara menjalankan sebagai `sundyapp`).
   7. Backup: isi, jadwal, lokasi kata sandi enkripsi (pengelola kata sandi pemilik), uji pulih bulanan
      (`restore-test.sh`), heartbeat & UptimeRobot.
   8. Memulihkan server dari nol: urutan Task 8 → 9 (pakai backup, bukan Neon) → 10 → 11.
