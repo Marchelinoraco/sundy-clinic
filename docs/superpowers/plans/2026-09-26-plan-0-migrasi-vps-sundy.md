@@ -1402,7 +1402,8 @@ Expected: `Asia/Makassar`, Swap `2.0Gi`, ufw aktif dengan 22/80/443. Bila koneks
 ```bash
 ssh sundy 'sudo bash -s' <<'EOF'
 set -e
-cat > /etc/ssh/sshd_config.d/99-sundy.conf <<'CONF'
+# 00-: sshd memakai nilai yang dibaca PERTAMA; 50-cloud-init.conf berisi PasswordAuthentication yes.
+cat > /etc/ssh/sshd_config.d/00-sundy.conf <<'CONF'
 PasswordAuthentication no
 KbdInteractiveAuthentication no
 PermitRootLogin no
@@ -1414,6 +1415,8 @@ ssh -o PubkeyAuthentication=no -o PreferredAuthentications=password -o BatchMode
 ```
 
 Expected: `kunci-masih-bisa`, lalu `Permission denied (publickey)` dan `exit=255`.
+Bila pesan masih `Permission denied (publickey,password)`, ada berkas lain di `sshd_config.d` yang
+terbaca lebih dulu — periksa dengan `sshd -T | grep passwordauthentication` (terjadi 26 Sep 2026).
 
 - [ ] **Step 4: Pasang aaPanel (Claude memulai, pemilik memilih paket)**
 
