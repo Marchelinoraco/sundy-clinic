@@ -102,13 +102,13 @@ di VPS memakai branch ini langsung (`SUNDY_BRANCH=migrasi-vps-sundy`).
   yang dibaca tetap `DATABASE_URL` (runtime) dan `DATABASE_URL_UNPOOLED` (migrasi & seed), ditambah
   `PATIENT_FILES_DIR` (baru terdokumentasi, belum dibaca kode).
 
-- [ ] **Step 1: Buat branch kerja**
+- [x] **Step 1: Buat branch kerja**
 
 ```bash
 git switch desain-migrasi-vps && git switch -c migrasi-vps-sundy
 ```
 
-- [ ] **Step 2: Tulis uji yang gagal — `tests/unit/db.test.ts`**
+- [x] **Step 2: Tulis uji yang gagal — `tests/unit/db.test.ts`**
 
 ```ts
 // @vitest-environment node
@@ -163,13 +163,13 @@ describe("klien basis data (src/lib/db.ts)", () => {
 });
 ```
 
-- [ ] **Step 3: Jalankan — harus gagal**
+- [x] **Step 3: Jalankan — harus gagal**
 
 Run: `npx vitest run tests/unit/db.test.ts`
 Expected: FAIL — `PrismaPg` tidak pernah dipanggil (db.ts masih memakai `PrismaNeon`) atau
 `@prisma/adapter-pg` belum terpasang.
 
-- [ ] **Step 4: Ganti dependensi**
+- [x] **Step 4: Ganti dependensi**
 
 ```bash
 npm uninstall @prisma/adapter-neon @neon/config @neon/env
@@ -180,7 +180,7 @@ npm ls pg
 Expected: `npm ls pg` menampilkan `pg@8.x` di bawah `@prisma/adapter-pg`. Bila `(empty)`, jalankan
 `npm install pg` (adapter membutuhkannya saat runtime).
 
-- [ ] **Step 5: Tulis ulang `src/lib/db.ts`**
+- [x] **Step 5: Tulis ulang `src/lib/db.ts`**
 
 ```ts
 import { PrismaPg } from "@prisma/adapter-pg";
@@ -217,12 +217,12 @@ if (process.env.NODE_ENV !== "production") {
 }
 ```
 
-- [ ] **Step 6: Jalankan uji unit — harus lulus**
+- [x] **Step 6: Jalankan uji unit — harus lulus**
 
 Run: `npx vitest run tests/unit/db.test.ts`
 Expected: PASS (2 uji).
 
-- [ ] **Step 7: Ganti adapter di `prisma/seed.ts`**
+- [x] **Step 7: Ganti adapter di `prisma/seed.ts`**
 
 Ganti baris 1–24 (impor sampai akhir `createSeedClient`) menjadi:
 
@@ -252,7 +252,7 @@ function createSeedClient(): PrismaClient {
 }
 ```
 
-- [ ] **Step 8: Perbarui komentar `prisma.config.ts` (baris 4–9)**
+- [x] **Step 8: Perbarui komentar `prisma.config.ts` (baris 4–9)**
 
 ```ts
 // Perintah CLI (migrate, seed) memakai DATABASE_URL_UNPOOLED. Di VPS nilainya
@@ -264,7 +264,7 @@ function createSeedClient(): PrismaClient {
 // menyentuh database lain hanya karena lupa mengganti variabel.
 ```
 
-- [ ] **Step 9: Hapus `neon.ts` dan tulis ulang `.env.example`**
+- [x] **Step 9: Hapus `neon.ts` dan tulis ulang `.env.example`**
 
 ```bash
 git rm neon.ts
@@ -306,7 +306,7 @@ BETTER_AUTH_URL="http://localhost:3000"
 PATIENT_FILES_DIR="/www/sundy-files"
 ```
 
-- [ ] **Step 10: Jalankan seluruh uji**
+- [x] **Step 10: Jalankan seluruh uji**
 
 ```bash
 npm test
@@ -321,7 +321,7 @@ Bila uji integrasi gagal dengan `prepared statement "…" already exists`, arahk
 di `.env` lokal ke endpoint langsung (sama dengan `TEST_DATABASE_URL_UNPOOLED`) — uji berjalan
 berurutan, jadi pooler tidak dibutuhkan — lalu ulangi. Catat di pesan commit bila langkah ini perlu.
 
-- [ ] **Step 11: Commit**
+- [x] **Step 11: Commit**
 
 ```bash
 git add src/lib/db.ts prisma/seed.ts prisma.config.ts .env.example package.json package-lock.json tests/unit/db.test.ts
@@ -1321,17 +1321,17 @@ Expected: URL PR draf. Laporkan ke pemilik.
 **Pelaksana:** pemilik (UI). Claude memandu dan memverifikasi. Boleh dikerjakan bersamaan dengan
 Task 1–6.
 
-- [ ] **Step 1: Install ulang VPS sundy** — console IDCloudHost → **pastikan yang dipilih VPS
+- [x] **Step 1: Install ulang VPS sundy** — console IDCloudHost → **pastikan yang dipilih VPS
   sundy (2 vCPU / 2 GB / 20 GB, AlmaLinux), BUKAN Wm-2026** → Reinstall/Rebuild → **Ubuntu 24.04**.
   Catat username dan IP yang ditampilkan. Kata sandi awal cukup diketik di Terminal Mac nanti — jangan
   dikirim ke chat.
 - [ ] **Step 2: Nama & proteksi** — ganti nama VPS menjadi **SUNDY-PRODUKSI**; aktifkan
   *delete/rebuild protection* bila ada; aktifkan backup mingguan VM (menu Backups).
-- [ ] **Step 3: Cloudflare** — akun yang sama dengan welcomemanado.com → *Add a domain* →
+- [x] **Step 3: Cloudflare** — akun yang sama dengan welcomemanado.com → *Add a domain* →
   `sundyclinic.com` → paket Free → lewati impor record → catat **dua nameserver** yang diberikan.
-- [ ] **Step 4: Jetorbit** — Domain `sundyclinic.com` → Nameserver → ganti `ns1–3.jetorbit.net`
+- [x] **Step 4: Jetorbit** — Domain `sundyclinic.com` → Nameserver → ganti `ns1–3.jetorbit.net`
   dengan dua nameserver Cloudflare → simpan.
-- [ ] **Step 5: Verifikasi (Claude)**
+- [x] **Step 5: Verifikasi (Claude)**
 
 ```bash
 dig +short NS sundyclinic.com @1.1.1.1
@@ -1354,7 +1354,7 @@ Semua perintah server dijalankan dari Mac dengan `ssh sundy 'sudo bash -s' <<'EO
   `DATABASE_URL_UNPOOLED`, `NEXT_PUBLIC_SITE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`,
   `PATIENT_FILES_DIR`.
 
-- [ ] **Step 1: Kunci SSH khusus (Claude, di Mac)**
+- [x] **Step 1: Kunci SSH khusus (Claude, di Mac)**
 
 ```bash
 ssh-keygen -t ed25519 -f ~/.ssh/sundy_ed25519 -N "" -C "claude-sundy"
@@ -1372,7 +1372,7 @@ EOF
 *(pemilik)* di Terminal Mac: `ssh-copy-id -o PubkeyAuthentication=no -i ~/.ssh/sundy_ed25519.pub <username-VPS>@<IP-VPS>`
 lalu ketik kata sandi VPS. Verifikasi (Claude): `ssh -o BatchMode=yes sundy 'whoami; sudo -n true && echo sudo-OK'`.
 
-- [ ] **Step 2: Dasar sistem (Claude)**
+- [x] **Step 2: Dasar sistem (Claude)**
 
 ```bash
 ssh sundy 'sudo bash -s' <<'EOF'
@@ -1396,7 +1396,7 @@ Expected: `Asia/Makassar`, Swap `2.0Gi`, ufw aktif dengan 22/80/443. Bila koneks
 ("Broken pipe") karena `sshd` dimulai ulang saat upgrade, sambung lagi dan periksa
 `sudo dpkg --audit` (harus kosong) — ini terjadi juga di Wm-2026 dan tidak berbahaya.
 
-- [ ] **Step 3: Matikan login SSH dengan kata sandi (Claude)** — hanya setelah Step 1 terbukti bisa
+- [x] **Step 3: Matikan login SSH dengan kata sandi (Claude)** — hanya setelah Step 1 terbukti bisa
   login dengan kunci.
 
 ```bash
