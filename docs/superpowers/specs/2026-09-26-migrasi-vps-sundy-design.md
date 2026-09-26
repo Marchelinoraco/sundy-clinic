@@ -29,6 +29,9 @@ Sub-proyek ini adalah langkah 0 dari rangkaian: **0 migrasi VPS** → 1 pendafta
 | K5 | DNS | Nameserver dipindah dari Jetorbit ke **Cloudflare**, proxy aktif, SSL **Full (strict)** |
 | K6 | Rilis | Skrip `deploy.sh` di server, folder rilis bergantian, bisa kembali ke rilis sebelumnya |
 | K7 | Backup | Harian, **terenkripsi**, ke IDCloudHost Object Storage; disertai laporan bila gagal |
+| K8 | Pemisahan dari Welcome Manado | VPS, kunci SSH, panel, database, dan storage account Object Storage **terpisah sepenuhnya** dari server Welcome Manado (Wm-2026) — tidak ada kredensial yang dipakai bersama |
+| K9 | Akun Cloudflare | Akun yang sama dengan zona `welcomemanado.com` (zona `sundyclinic.com` terpisah di dalamnya) |
+| K10 | Email klinik | Alamat **`@sundyclinic.com`** (penyedia kotak masuk: lihat bagian 9) |
 
 Pembagian kerja mengikuti cara yang terbukti saat memulihkan Wm-2026: Claude menjalankan perintah lewat
 SSH (setiap perintah disetujui), pemilik mengerjakan bagian UI (console IDCloudHost, aaPanel,
@@ -72,15 +75,18 @@ Satu aplikasi Next.js melayani seluruh rute: situs publik, `/admin/*`, `/masuk`,
 
 ### 4.3 Domain & DNS
 
-1. Pemilik menambahkan `sundyclinic.com` di Cloudflare, lalu mengganti nameserver di Jetorbit ke
-   nameserver Cloudflare. Karena domain belum dipakai, perpindahan ini tidak mengganggu apa pun dan
+1. Pemilik menambahkan `sundyclinic.com` di akun Cloudflare yang sama dengan `welcomemanado.com` (K9),
+   lalu mengganti nameserver di Jetorbit ke nameserver Cloudflare. Karena domain belum dipakai, perpindahan ini tidak mengganggu apa pun dan
    dilakukan paling awal.
 2. Record `A sundyclinic.com → IP VPS` dan `CNAME www → sundyclinic.com`, keduanya **di-proxy**.
 3. Sertifikat Let's Encrypt dari aaPanel untuk `sundyclinic.com` + `www`; Force HTTPS; Cloudflare SSL/TLS
    **Full (strict)**. (Validasi Let's Encrypt lewat proxy Cloudflare terbukti berhasil di Wm-2026.)
 4. `www` dialihkan 301 ke `https://sundyclinic.com`.
 
-Email klinik (`@sundyclinic.com`) **di luar ruang lingkup** — lihat bagian 9.
+**Email `@sundyclinic.com` (K10):** record MX, SPF, DKIM, dan DMARC dari penyedia kotak masuk (bagian 9)
+dipasang di zona Cloudflare yang sama — record email **tidak** di-proxy. Setelah kotak masuk aktif, email
+login Super Admin diganti dari contoh `pemilik@sundyclinic.id` ke alamat `@sundyclinic.com` yang
+sungguhan.
 
 ### 4.4 Perubahan kode (branch fitur, dengan tes)
 
@@ -134,6 +140,9 @@ cukup — perubahan skema semacam itu harus dirancang dua langkah (tambah dulu, 
   `/www/sundy-files` + konfigurasi (`shared/.env`, vhost Nginx).
 - **Dienkripsi di server** dengan `rclone crypt` sebelum dikirim ke IDCloudHost Object Storage, bucket
   `sundy-backup`, dengan access key khusus server sundy.
+- Bucket berada di **storage account IDCloudHost tersendiri** untuk SunDY. Access key IDCloudHost berlaku
+  untuk *semua* bucket dalam satu storage account, sehingga bucket di storage account Welcome Manado
+  akan ikut terbaca/terhapus oleh kunci server Wm-2026 (K8).
 - Retensi: 30 hari di bucket (dihitung dari nama folder bertanggal, bukan umur file — pelajaran dari
   Wm-2026), 7 hari salinan lokal (`/root/backup`, hanya root).
 - **Kata sandi enkripsi** dibuat acak; pemilik menyimpannya di pengelola kata sandi dan satu tempat aman
@@ -162,7 +171,7 @@ cukup — perubahan skema semacam itu harus dirancang dua langkah (tambah dulu, 
 
 **Masuk:** semua bagian 4.
 
-**Tidak masuk:** email klinik; rilis otomatis (CI/CD); Object Storage untuk file pasien (file disimpan di
+**Tidak masuk:** pengiriman email dari aplikasi (mis. notifikasi ke pasien); rilis otomatis (CI/CD); Object Storage untuk file pasien (file disimpan di
 disk VPS — ditinjau ulang bila mendekati 10 GB); fitur pendaftaran pasien, rekam medis, apotek, dan
 kasir (sub-proyek 1–3).
 
@@ -187,7 +196,10 @@ kasir (sub-proyek 1–3).
 3. Perubahan kode di branch fitur → PR → merge.
 4. Gladi restore dari Neon + uji aplikasi di VPS.
 5. DNS + SSL + Force HTTPS.
-6. Backup terenkripsi + uji pemulihan + pemantauan.
+6. Pemilik: buat storage account IDCloudHost khusus SunDY + bucket `sundy-backup` + access key. Lalu backup
+   terenkripsi + uji pemulihan + pemantauan.
+6a. Email `@sundyclinic.com`: record MX/SPF/DKIM/DMARC di Cloudflare, lalu ganti email login Super Admin
+   (setelah penyedia kotak masuk dipilih — boleh menyusul).
 7. Perpindahan final malam hari.
 8. Satu minggu kemudian: hapus proyek Vercel dan data produksi Neon.
 
@@ -203,8 +215,7 @@ kasir (sub-proyek 1–3).
 
 ## 9. Pertanyaan terbuka
 
-1. **Email klinik** (`@sundyclinic.com`): perlu kotak masuk sungguhan (mis. Google Workspace / Zoho /
-   email hosting Jetorbit) atau cukup sebagai nama login? Tidak menghalangi migrasi; alamat Super Admin
-   saat ini (`pemilik@sundyclinic.id`) hanyalah contoh dan diganti setelah keputusan ini.
-2. **Akun Cloudflare** yang dipakai untuk `sundyclinic.com` (akun yang sama dengan welcomemanado.com atau
-   akun khusus klinik).
+1. **Penyedia kotak masuk `@sundyclinic.com`** — menentukan record MX/SPF/DKIM yang dipasang dan alamat
+   login Super Admin yang baru. Tidak menghalangi migrasi server.
+2. ~~Akun Cloudflare~~ — **akun yang sama dengan welcomemanado.com** (pemilik, 26 Sep 2026; K9).
+3. ~~Email klinik~~ — **memakai `@sundyclinic.com`** (pemilik, 26 Sep 2026; K10).
