@@ -34,7 +34,12 @@ rclone crypt → IDCloudHost Object Storage · Bash (skrip server + uji dengan p
   rahasia lewat aaPanel *Files*; rahasia yang dibuat mesin langsung ditulis ke berkas di server.
 - Zona waktu **WITA** (`Asia/Makassar`). Perpindahan final **≥ 19.00 WITA** (klinik tutup). Backup
   **02.00 WITA**.
-- Firewall hanya membuka **22, 80, 443, dan port panel**; PostgreSQL hanya `localhost`.
+- Firewall hanya membuka **22, 80, 443**; PostgreSQL hanya `localhost`. **Port panel tertutup** — aaPanel
+  dibuka lewat terowongan SSH (`ssh -N sundy-panel`, lalu `https://localhost:<port-panel>/<entrance>`),
+  karena IP internet pemilik berubah-ubah (jaringan seluler) sehingga batasan per-IP tidak bisa dipakai.
+- Jaringan seluler pemilik "menjawab" koneksi TCP ke port mana pun, jadi `nc -z` dari Mac **tidak**
+  bisa dipakai untuk menguji port; periksa dari sisi server (`ufw status`, log `UFW BLOCK`) atau dengan
+  permintaan sungguhan (`curl`).
 - VPS **sundy-production**: IP `103.186.1.38` (IDCloudHost jkt01, akun "Marchelino Raco" — terpisah dari
   akun Welcome Manado). User admin SSH = **`sundy`** (bawaan IDCloudHost, tidak bisa diubah); aplikasi
   berjalan sebagai user sistem **`sundyapp`** tanpa hak sudo. Database & role PostgreSQL tetap bernama `sundy`.
@@ -1435,17 +1440,29 @@ Pure-FTPd, phpMyAdmin) → pasang.
 
 - [ ] **Step 5: Kunci panel (pemilik + Claude)**
 
-*(pemilik)* Panel → Settings: aktifkan *Security entrance*; ganti port panel ke angka acak 5 digit;
-*Authorized IP* = IP internet Anda saat ini (lihat di https://ifconfig.me). Simpan kata sandi panel di
-pengelola kata sandi.
-(Claude) buka port panel di firewall:
+Keputusan pemilik 26 Sep 2026: **panel ditutup dari internet** dan dibuka lewat terowongan SSH (IP
+pemilik berubah-ubah, jadi *Authorized IP* tidak bisa dipakai). *Security entrance* bawaan installer
+tetap aktif; simpan user & kata sandi panel di pengelola kata sandi.
+(Claude) tutup port panel yang dibuka installer dan buat alias terowongan di Mac:
 
 ```bash
-ssh sundy 'sudo ufw allow <PORT-PANEL>/tcp && sudo ufw status | grep <PORT-PANEL>'
+ssh sundy 'sudo ufw delete allow <PORT-PANEL>/tcp; sudo ufw status'
+cat >> ~/.ssh/config <<'CONF'
+
+Host sundy-panel
+  HostName <IP-VPS>
+  User sundy
+  IdentityFile ~/.ssh/sundy_ed25519
+  IdentitiesOnly yes
+  LocalForward <PORT-PANEL> 127.0.0.1:<PORT-PANEL>
+  ServerAliveInterval 30
+CONF
 ```
 
-Bila kelak IP pemilik berubah dan panel menolak, Claude membuka batasan lewat SSH dengan perintah
-`bt` (menu aaPanel) — catat di runbook (Task 13).
+Pemakaian (pemilik): `ssh -N sundy-panel` di Terminal (biarkan terbuka), lalu buka
+`https://localhost:<PORT-PANEL>/<security-entrance>` di browser. Bukti port tertutup: permintaan
+`curl -sk -m 8 https://<IP-VPS>:<PORT-PANEL>/` tidak dijawab dan log server mencatat `UFW BLOCK … DPT=<PORT-PANEL>`
+(`nc -z` dari jaringan seluler pemilik selalu tampak "terbuka" — jangan dipakai).
 
 - [ ] **Step 6: PostgreSQL 18 dari PGDG (Claude)**
 
@@ -1485,7 +1502,10 @@ Expected: `v22.x` dengan x ≥ 20.
 ssh sundy 'sudo bash -s' <<'EOF'
 set -e
 id sundyapp >/dev/null 2>&1 || useradd --system --create-home --home-dir /home/sundyapp --shell /bin/bash sundyapp
-install -d -o sundyapp -g sundyapp -m 750 /www/sundy /www/sundy/releases /www/sundy/shared
+# Grup www: Nginx perlu masuk ke /www/sundy (maintenance.on) dan membaca shared/pemeliharaan.html &
+# gladi.htpasswd. .env tetap 600 milik sundyapp, jadi Nginx tidak bisa membacanya.
+install -d -o sundyapp -g www -m 750 /www/sundy /www/sundy/shared
+install -d -o sundyapp -g sundyapp -m 750 /www/sundy/releases
 install -d -o sundyapp -g sundyapp -m 700 /www/sundy-files
 PW=$(openssl rand -hex 24)
 sudo -u postgres psql -v ON_ERROR_STOP=1 -q <<SQL
@@ -1519,8 +1539,8 @@ Expected: `.env` `-rw------- sundyapp sundyapp`; `sundy|sundy`; PM2 startup terd
 **Interfaces:**
 - Consumes: Task 1–6 (branch `migrasi-vps-sundy` sudah di-push), Task 8.
 - Produces: aplikasi berjalan di VPS dari branch `migrasi-vps-sundy` dengan salinan data Neon; situs
-  aaPanel `sundyclinic.com` + `www` yang mem-proxy ke aplikasi, sementara **hanya bisa dibuka dari IP
-  pemilik**.
+  aaPanel `sundyclinic.com` + `www` yang mem-proxy ke aplikasi, sementara **dilindungi kata sandi gladi**
+  (HTTP basic auth, user `gladi`; kata sandinya di `/root/gladi-sandi.txt`).
 
 - [ ] **Step 1: Kirim URL Neon produksi ke server tanpa menampilkannya (Claude, di Mac)**
 
@@ -1610,23 +1630,24 @@ harus melaporkan *No pending migrations* (riwayat migrasi ikut dari Neon). Bila 
 baris), PHP version **Static**, tanpa database/FTP.
 (Claude) pasang aturan dari repo, IP asli Cloudflare, halaman pemeliharaan, dan batasan gladi; lalu
 hapus dua blok cache statis aaPanel yang akan membelokkan `/_next/static/*.js` dan gambar ke disk
-alih-alih ke aplikasi. Batasan gladi ditaruh **di dalam `location /`**, sehingga validasi Let's
-Encrypt (`/.well-known/`, ditangani blok aaPanel sendiri) tetap bisa masuk. IP pemilik diambil di Mac
-(`sudo` membuang `$SSH_CLIENT`):
+alih-alih ke aplikasi. Batasan gladi berupa **kata sandi (HTTP basic auth)** — bukan per-IP, karena
+IP pemilik berubah-ubah — dan ditaruh **di dalam `location /`**, sehingga validasi Let's Encrypt
+(`/.well-known/`, ditangani blok aaPanel sendiri) tetap bisa masuk. Kata sandinya dibuat di server:
 
 ```bash
-MY_IP=$(curl -fsS -m 10 https://ifconfig.me); echo "IP pemilik: $MY_IP"
-ssh sundy "sudo env MY_IP=$MY_IP bash -s" <<'EOF'
+ssh sundy 'sudo bash -s' <<'EOF'
 set -e
 V=/www/server/panel/vhost; NGX=/www/server/nginx/sbin/nginx; C=/www/sundy/current/scripts/server
 BK=/root/backup-vhost-$(date +%Y%m%d-%H%M%S); mkdir -p "$BK"; cp -a $V/nginx/sundyclinic.com.conf $V/rewrite/sundyclinic.com.conf "$BK/"
 $NGX -V 2>&1 | grep -q http_realip_module || { echo "Nginx tanpa realip_module"; exit 1; }
 bash $C/nginx/cloudflare-realip.sh $V/nginx/0.cloudflare-realip.conf
 install -o sundyapp -g sundyapp -m 644 $C/pemeliharaan.html /www/sundy/shared/pemeliharaan.html
-test -n "$MY_IP"
-sed "s#^location / {#location / {\n    allow $MY_IP; deny all; \# GLADI — dihapus saat perpindahan final (Task 12)#" \
+umask 077; openssl rand -hex 12 > /root/gladi-sandi.txt
+printf 'gladi:%s\n' "$(openssl passwd -apr1 "$(cat /root/gladi-sandi.txt)")" > /www/sundy/shared/gladi.htpasswd
+chown root:www /www/sundy/shared/gladi.htpasswd && chmod 640 /www/sundy/shared/gladi.htpasswd
+sed "s#^location / {#location / {\n    auth_basic \"Gladi SunDY\"; auth_basic_user_file /www/sundy/shared/gladi.htpasswd; \# GLADI — dihapus di Task 12#" \
   $C/nginx/sundyclinic.com.conf > $V/rewrite/sundyclinic.com.conf
-grep -q "allow $MY_IP" $V/rewrite/sundyclinic.com.conf
+grep -q "auth_basic_user_file" $V/rewrite/sundyclinic.com.conf
 python3 - <<'PY'
 import re
 p = '/www/server/panel/vhost/nginx/sundyclinic.com.conf'
@@ -1648,18 +1669,20 @@ berkas dari `$BK` dan reload.
 - [ ] **Step 7: Periksa situs lewat IP (Claude, di Mac)**
 
 ```bash
-bash scripts/server/cek-situs.sh http://sundyclinic.com --resolve sundyclinic.com:80:<IP-VPS>
+GLADI=$(ssh sundy 'sudo cat /root/gladi-sandi.txt')   # kata sandi gladi, tidak dicetak
+bash scripts/server/cek-situs.sh http://sundyclinic.com --resolve sundyclinic.com:80:<IP-VPS> -u "gladi:$GLADI"
 ```
 
-Expected: semua `✓`.
+Expected: semua `✓`. Tanpa `-u` semua halaman menjawab `401` — itu batasan gladi.
 
 - [ ] **Step 8: Uji rilis ulang & kembali di server (Claude)** — spec bagian 6 "Rilis & kembali".
 
 ```bash
+GLADI=$(ssh sundy 'sudo cat /root/gladi-sandi.txt')
 ssh sundy 'sudo -u sundyapp -H SUNDY_BRANCH=migrasi-vps-sundy /www/sundy/current/scripts/server/deploy.sh'
-bash scripts/server/cek-situs.sh http://sundyclinic.com --resolve sundyclinic.com:80:<IP-VPS>
+bash scripts/server/cek-situs.sh http://sundyclinic.com --resolve sundyclinic.com:80:<IP-VPS> -u "gladi:$GLADI"
 ssh sundy 'sudo -u sundyapp -H /www/sundy/current/scripts/server/deploy.sh kembali && ls -1 /www/sundy/releases && readlink /www/sundy/current'
-bash scripts/server/cek-situs.sh http://sundyclinic.com --resolve sundyclinic.com:80:<IP-VPS>
+bash scripts/server/cek-situs.sh http://sundyclinic.com --resolve sundyclinic.com:80:<IP-VPS> -u "gladi:$GLADI"
 ssh sundy 'sudo -u sundyapp -H SUNDY_BRANCH=migrasi-vps-sundy /www/sundy/current/scripts/server/deploy.sh'
 ```
 
@@ -1722,35 +1745,40 @@ EOF
 Expected: SAN `DNS:sundyclinic.com, DNS:www.sundyclinic.com`. Setelah ini *Always Use HTTPS* di
 Cloudflare boleh dinyalakan (pemilik).
 
-- [ ] **Step 5: Verifikasi (Claude, dari Mac — IP pemilik)**
+- [ ] **Step 5: Verifikasi (Claude, dari Mac)**
 
 ```bash
+GLADI=$(ssh sundy 'sudo cat /root/gladi-sandi.txt')
 for u in http://sundyclinic.com/ https://www.sundyclinic.com/layanan; do
   printf "%-40s → " "$u"; curl -s -o /dev/null -m 20 -w "%{http_code} %{redirect_url}\n" "$u"; done
-bash scripts/server/cek-situs.sh https://sundyclinic.com
+bash scripts/server/cek-situs.sh https://sundyclinic.com -u "gladi:$GLADI"
 dig +short MX sundyclinic.com; dig +short TXT sundyclinic.com; dig +short TXT _dmarc.sundyclinic.com
 ```
 
 Expected: `301 https://sundyclinic.com/`, `301 https://sundyclinic.com/layanan`, semua `✓`, MX `0 .`,
-SPF dan DMARC tampil. Dari IP lain (mis. data seluler ponsel) situs menjawab **403** — itu batasan
-gladi yang disengaja.
+SPF dan DMARC tampil. Tanpa kata sandi gladi situs menjawab **401** — itu batasan gladi yang disengaja
+(pengalihan www dan http→https tetap berjalan tanpa kata sandi).
 
-- [ ] **Step 6: Uji aplikasi oleh pemilik (browser, dari IP pemilik)** — buka
-  `https://sundyclinic.com/masuk`, login sebagai Super Admin yang sekarang, buka **Jadwal**, buat satu
+- [ ] **Step 6: Uji aplikasi oleh pemilik (browser)** — Claude membuka `/root/gladi-sandi.txt` untuk
+  pemilik lewat panel (*Files*, lewat terowongan) — bukan chat. Buka `https://sundyclinic.com/masuk`,
+  isi user `gladi` + kata sandi itu saat browser meminta, login sebagai Super Admin yang sekarang, buka **Jadwal**, buat satu
   booking uji lalu batalkan. Data gladi ini akan ditimpa saat perpindahan final.
 
 - [ ] **Step 7: Uji keamanan (Claude + pemilik)** — spec bagian 6 "Keamanan".
 
+Dari sisi server (bukan `nc` dari Mac — jaringan seluler pemilik memalsukan port "terbuka"):
+
 ```bash
-IP=<IP-VPS>
-for p in 21 22 25 80 443 3000 3306 5432 8888 <PORT-PANEL>; do
-  if nc -z -G 3 "$IP" "$p" 2>/dev/null; then echo "$p TERBUKA"; else echo "$p tertutup"; fi
-done
+ssh sundy 'sudo bash -s' <<'EOF'
+echo "ufw: $(ufw status | awk 'NR>4 && $2=="ALLOW"{print $1}' | sort -u | tr '\n' ' ')"
+echo "mendengarkan di semua antarmuka: $(ss -tlnH | awk '$4 !~ /^(127\.|\[::1\])/{print $4}' | sed 's/.*://' | sort -un | tr '\n' ' ')"
+echo "PostgreSQL: $(sudo -u postgres psql -Atc 'show listen_addresses')"
+EOF
+for p in 3000 5432 <PORT-PANEL>; do printf "%s: " $p; curl -sk -m 8 -o /dev/null -w "%{http_code}\n" https://<IP-VPS>:$p/ || echo "tidak dijawab"; done
 ```
 
-Expected: hanya `22`, `80`, `443`, dan port panel yang `TERBUKA`; `3000` (aplikasi) dan `5432`
-(PostgreSQL) **tertutup**. *(pemilik)* buka alamat panel dari data seluler ponsel (bukan Wi-Fi
-rumah) → panel harus menolak.
+Expected: ufw hanya `22/tcp 80/tcp 443/tcp`; port yang mendengarkan di luar localhost hanya 22, 80, 443
+(dan panel/888 yang tetap ditutup ufw); PostgreSQL `localhost`; ketiga `curl` **tidak dijawab**.
 
 ---
 
@@ -1949,13 +1977,14 @@ set -e
 R=/www/server/panel/vhost/rewrite/sundyclinic.com.conf
 cp -a "$R" /root/pindah/rewrite-gladi.conf
 cp /www/sundy/current/scripts/server/nginx/sundyclinic.com.conf "$R"
-rm -f /www/sundy/maintenance.on
+rm -f /www/sundy/maintenance.on /www/sundy/shared/gladi.htpasswd /root/gladi-sandi.txt
 /www/server/nginx/sbin/nginx -t && /www/server/nginx/sbin/nginx -s reload
 EOF
 bash scripts/server/cek-situs.sh https://sundyclinic.com
 ```
 
-Expected: semua `✓`. Pemilik membuka situs dari data seluler (bukan Wi-Fi rumah) — harus tampil.
+Expected: semua `✓` tanpa kata sandi gladi. Pemilik membuka situs di ponsel — harus tampil tanpa diminta
+kata sandi.
 
 - [ ] **Step 7: Uji pemilik** — login, buka Jadwal: booking terakhir dari Vercel/Neon tampil; buat dan
   batalkan satu booking uji.
@@ -2007,8 +2036,8 @@ Expected: `.env lokal → branch dev`; seed berhasil.
 - [ ] **Step 1: Tulis `docs/operasional/server-sundy.md`** dengan bagian-bagian berikut, diisi nilai
   **sesungguhnya** dari Task 7–12 — tanpa kata sandi, kunci, atau alamat *security entrance*:
   1. Ringkasan: IP VPS, OS, versi PostgreSQL/Node/PM2/aaPanel, domain, akun Cloudflare yang dipakai.
-  2. Akses: `ssh sundy` (kunci `~/.ssh/sundy_ed25519`); panel dibatasi IP pemilik — bila IP berubah,
-     buka lewat `ssh sundy 'sudo bt'`.
+  2. Akses: `ssh sundy` (kunci `~/.ssh/sundy_ed25519`); panel **tidak terbuka ke internet** — buka lewat
+     `ssh -N sundy-panel` lalu `https://localhost:<port-panel>/<entrance>`; lupa kata sandi panel → `ssh sundy 'sudo bt'`.
   3. Susunan folder `/www/sundy` dan `/www/sundy-files`; letak `.env`.
   4. Rilis & kembali: perintah `deploy.sh` dan `deploy.sh kembali`; aturan migrasi dua langkah.
   5. Mode pemeliharaan: `touch` / `rm /www/sundy/maintenance.on`.
