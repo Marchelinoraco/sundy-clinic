@@ -18,7 +18,8 @@
     "test:e2e": "playwright test",
     "create-admin": "tsx scripts/create-admin.mts",
     "reset-password": "tsx scripts/reset-password.mts",
-    "test:server": "bash tests/server/deploy.test.sh && bash tests/server/backup.test.sh"
+    "test:server": "bash tests/server/deploy.test.sh && bash tests/server/backup.test.sh",
+    "change-email": "tsx scripts/change-email.mts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",
