@@ -31,6 +31,15 @@ case "$1" in
     touch .next/standalone/server.js .next/static/chunks/app.js ;;
 esac
 STUB
+cat > "$TMP/bin/find" <<'STUB'
+#!/usr/bin/env bash
+# Tiru find GNU (Ubuntu): gagal bila folder kerja awal tidak bisa diakses pemanggil.
+# find bawaan macOS tidak begitu, sehingga tanpa tiruan ini bug-nya tidak terlihat di uji.
+if ! ls "$PWD" > /dev/null 2>&1; then
+  echo "find: Failed to restore initial working directory: $PWD: Permission denied" >&2; exit 1
+fi
+exec /usr/bin/find "$@"
+STUB
 printf '#!/usr/bin/env bash\necho "npx $*" >> "$LOG"\n' > "$TMP/bin/npx"
 printf '#!/usr/bin/env bash\necho "pm2 $*" >> "$LOG"\n' > "$TMP/bin/pm2"
 chmod +x "$TMP/bin/"*
@@ -64,10 +73,15 @@ for _ in 2 3 4; do bash "$DEPLOY" > /dev/null; done
 periksa "tersisa 3 folder rilis" '[ "$(jumlah_rilis)" = 3 ]'
 periksa "rilis pertama sudah terhapus" '[ ! -e "$R1" ]'
 
-echo "kembali ke rilis sebelumnya"
+echo "kembali ke rilis sebelumnya — dipanggil dari folder yang tidak bisa diakses"
+# Di server, admin memanggil deploy.sh sebagai sundyapp dari /home/sundy yang tidak bisa dimasuki
+# sundyapp; skrip harus tetap bekerja dan tidak boleh gagal diam-diam.
 R4=$(readlink "$SUNDY_ROOT/current")
-bash "$DEPLOY" kembali > /dev/null
+mkdir "$TMP/terkunci"
+if (cd "$TMP/terkunci" && chmod 000 "$TMP/terkunci" && bash "$DEPLOY" kembali > /dev/null 2>&1); then status=0; else status=$?; fi
+chmod 755 "$TMP/terkunci"
 R3=$(readlink "$SUNDY_ROOT/current")
+periksa "deploy.sh kembali keluar tanpa galat" '[ "$status" = 0 ]'
 periksa "current pindah ke rilis yang lebih lama" '[ "$R3" != "$R4" ] && [[ "$R3" < "$R4" ]]'
 
 echo

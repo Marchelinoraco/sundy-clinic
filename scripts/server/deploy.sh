@@ -21,6 +21,11 @@ KEEP=${SUNDY_KEEP:-3}
 RELEASES=$ROOT/releases
 dir=""
 
+# Pindah ke folder yang pasti bisa dibaca sundyapp. Admin memanggil skrip ini dari
+# /home/sundy, yang tidak bisa dimasuki sundyapp; `find` GNU lalu gagal ("Failed to
+# restore initial working directory") dan pipefail menghentikan skrip tanpa pesan.
+cd "$ROOT"
+
 log() { printf '[deploy] %s\n' "$*"; }
 
 daftar_rilis() { # terlama → terbaru
