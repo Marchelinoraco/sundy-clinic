@@ -2,7 +2,7 @@
 
 - **Versi:** 1.0
 - **Tanggal:** 26 September 2026
-- **Status:** Menunggu review pemilik
+- **Status:** Disetujui pemilik (26 September 2026)
 - **Menggantikan:** keputusan hosting *Vercel + Neon* di PRD v1.1 (bagian hosting PRD perlu disesuaikan setelah desain ini disetujui)
 
 ## 1. Latar belakang
@@ -31,7 +31,7 @@ Sub-proyek ini adalah langkah 0 dari rangkaian: **0 migrasi VPS** → 1 pendafta
 | K7 | Backup | Harian, **terenkripsi**, ke IDCloudHost Object Storage; disertai laporan bila gagal |
 | K8 | Pemisahan dari Welcome Manado | VPS, kunci SSH, panel, database, dan storage account Object Storage **terpisah sepenuhnya** dari server Welcome Manado (Wm-2026) — tidak ada kredensial yang dipakai bersama |
 | K9 | Akun Cloudflare | Akun yang sama dengan zona `welcomemanado.com` (zona `sundyclinic.com` terpisah di dalamnya) |
-| K10 | Email klinik | Alamat **`@sundyclinic.com`** (penyedia kotak masuk: lihat bagian 9) |
+| K10 | Email klinik | Alamat **`@sundyclinic.com` hanya sebagai nama login** staf — tanpa kotak masuk |
 
 Pembagian kerja mengikuti cara yang terbukti saat memulihkan Wm-2026: Claude menjalankan perintah lewat
 SSH (setiap perintah disetujui), pemilik mengerjakan bagian UI (console IDCloudHost, aaPanel,
@@ -83,10 +83,19 @@ Satu aplikasi Next.js melayani seluruh rute: situs publik, `/admin/*`, `/masuk`,
    **Full (strict)**. (Validasi Let's Encrypt lewat proxy Cloudflare terbukti berhasil di Wm-2026.)
 4. `www` dialihkan 301 ke `https://sundyclinic.com`.
 
-**Email `@sundyclinic.com` (K10):** record MX, SPF, DKIM, dan DMARC dari penyedia kotak masuk (bagian 9)
-dipasang di zona Cloudflare yang sama — record email **tidak** di-proxy. Setelah kotak masuk aktif, email
-login Super Admin diganti dari contoh `pemilik@sundyclinic.id` ke alamat `@sundyclinic.com` yang
-sungguhan.
+**Email `@sundyclinic.com` (K10)** hanya menjadi nama login staf; domain ini tidak menerima maupun mengirim
+email. Agar tidak ada yang bisa memalsukan email atas nama klinik, zona diberi record "domain tanpa email":
+
+```
+sundyclinic.com.         MX   0 .                                   (null MX, RFC 7505)
+sundyclinic.com.         TXT  "v=spf1 -all"
+_dmarc.sundyclinic.com.  TXT  "v=DMARC1; p=reject; adkim=s; aspf=s"
+```
+
+Email login Super Admin diganti dari contoh `pemilik@sundyclinic.id` ke alamat `@sundyclinic.com` pilihan
+pemilik. Konsekuensinya: tidak ada "lupa kata sandi lewat email" — kata sandi staf diatur ulang dengan
+`npm run reset-password` (sudah ada). Bila kelak klinik butuh kotak masuk sungguhan, cukup ganti record di
+atas dengan milik penyedia email.
 
 ### 4.4 Perubahan kode (branch fitur, dengan tes)
 
@@ -198,8 +207,8 @@ kasir (sub-proyek 1–3).
 5. DNS + SSL + Force HTTPS.
 6. Pemilik: buat storage account IDCloudHost khusus SunDY + bucket `sundy-backup` + access key. Lalu backup
    terenkripsi + uji pemulihan + pemantauan.
-6a. Email `@sundyclinic.com`: record MX/SPF/DKIM/DMARC di Cloudflare, lalu ganti email login Super Admin
-   (setelah penyedia kotak masuk dipilih — boleh menyusul).
+6a. Record "domain tanpa email" (null MX, SPF, DMARC) di Cloudflare, lalu ganti email login Super Admin
+   ke alamat `@sundyclinic.com`.
 7. Perpindahan final malam hari.
 8. Satu minggu kemudian: hapus proyek Vercel dan data produksi Neon.
 
@@ -215,7 +224,7 @@ kasir (sub-proyek 1–3).
 
 ## 9. Pertanyaan terbuka
 
-1. **Penyedia kotak masuk `@sundyclinic.com`** — menentukan record MX/SPF/DKIM yang dipasang dan alamat
-   login Super Admin yang baru. Tidak menghalangi migrasi server.
+1. **Alamat login Super Admin** yang baru (mis. `pemilik@sundyclinic.com`) — ditanyakan saat langkah 6a.
 2. ~~Akun Cloudflare~~ — **akun yang sama dengan welcomemanado.com** (pemilik, 26 Sep 2026; K9).
-3. ~~Email klinik~~ — **memakai `@sundyclinic.com`** (pemilik, 26 Sep 2026; K10).
+3. ~~Email klinik~~ — **`@sundyclinic.com` hanya sebagai nama login, tanpa kotak masuk** (pemilik,
+   26 Sep 2026; K10).
