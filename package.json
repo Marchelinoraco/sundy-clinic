@@ -17,7 +17,8 @@
     "test:integration": "vitest run --config vitest.integration.config.mts",
     "test:e2e": "playwright test",
     "create-admin": "tsx scripts/create-admin.mts",
-    "reset-password": "tsx scripts/reset-password.mts"
+    "reset-password": "tsx scripts/reset-password.mts",
+    "test:server": "bash tests/server/deploy.test.sh"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.0",
