@@ -1330,7 +1330,7 @@ Task 1–6.
   sundy (2 vCPU / 2 GB / 20 GB, AlmaLinux), BUKAN Wm-2026** → Reinstall/Rebuild → **Ubuntu 24.04**.
   Catat username dan IP yang ditampilkan. Kata sandi awal cukup diketik di Terminal Mac nanti — jangan
   dikirim ke chat.
-- [ ] **Step 2: Nama & proteksi** — ganti nama VPS menjadi **SUNDY-PRODUKSI**; aktifkan
+- [x] **Step 2: Nama & proteksi** — ganti nama VPS menjadi **SUNDY-PRODUKSI**; aktifkan
   *delete/rebuild protection* bila ada; aktifkan backup mingguan VM (menu Backups).
 - [x] **Step 3: Cloudflare** — akun yang sama dengan welcomemanado.com → *Add a domain* →
   `sundyclinic.com` → paket Free → lewati impor record → catat **dua nameserver** yang diberikan.
@@ -1797,7 +1797,7 @@ Expected: ufw hanya `22/tcp 80/tcp 443/tcp`; port yang mendengarkan di luar loca
   storage account** (bukan "Default storage account" milik Welcome Manado) bernama `SunDY` → bucket
   `sundy-backup` (Private) → access key `sundy-backup` (**tanpa** centang Read-only).
 
-- [ ] **Step 2: Heartbeat & uptime (pemilik)**
+- [ ] **Step 2: Heartbeat & uptime (pemilik)** — *28 Sep 2026: Healthchecks selesai & peringatan diterima pemilik; UptimeRobot dibuat setelah Task 12 (selama gladi situs menjawab 401).*
   - healthchecks.io → daftar gratis → *Add Check* `sundy-backup`, Period **1 day**, Grace **2 hours** →
     salin **Ping URL**. Integrasi: email (dan Telegram bila mau).
   - uptimerobot.com → *New monitor* HTTP(s) `https://sundyclinic.com`, interval 5 menit, notifikasi
@@ -1884,7 +1884,7 @@ ssh sundy 'sudo /www/sundy/current/scripts/server/restore-test.sh'
 
 Expected: tabel `pulih|aktif` dengan angka sama dan baris akhir `PULIH OK`.
 
-- [ ] **Step 9: Uji notifikasi (Claude + pemilik)**
+- [ ] **Step 9: Uji notifikasi (Claude + pemilik)** — *28 Sep 2026: peringatan backup gagal terbukti sampai ke email pemilik; uji UptimeRobot menyusul setelah Task 12.*
   - Gagal backup: `ssh sundy 'sudo SUNDY_REMOTE=tidak-ada: /www/sundy/current/scripts/server/backup.sh'; echo "exit=$?"`
     → `exit` ≠ 0; pemilik menerima email "sundy-backup is DOWN" dari Healthchecks; jalankan backup
     normal sekali lagi agar status kembali *up*.
