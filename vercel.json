@@ -2,6 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "regions": ["sin1"],
   "redirects": [
-    { "source": "/:path*", "destination": "https://sundyclinic.com/:path*", "permanent": false }
+    { "source": "/(.*)", "destination": "https://sundyclinic.com/$1", "permanent": false }
   ]
 }
