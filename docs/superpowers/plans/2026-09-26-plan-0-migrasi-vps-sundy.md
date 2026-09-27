@@ -1996,7 +1996,7 @@ kata sandi.
 - [x] **Step 7: Uji pemilik** — login, buka Jadwal: booking terakhir dari Vercel/Neon tampil; buat dan
   batalkan satu booking uji.
 
-- [ ] **Step 8: Email login Super Admin (pemilik memilih alamat; Claude menjalankan)**
+- [x] **Step 8: Email login Super Admin (pemilik memilih alamat; Claude menjalankan)**
 
 ```bash
 ssh sundy 'sudo -u sundyapp -H bash -c "cd /www/sundy/current && npm run change-email -- pemilik@sundyclinic.id <alamat-baru>@sundyclinic.com"'
@@ -2026,7 +2026,7 @@ npm run db:seed
 
 Expected: `.env lokal → branch dev`; seed berhasil.
 
-- [ ] **Step 10: Rencana mundur (hanya bila Step 5–7 gagal)** — di dashboard Vercel → Deployments →
+- [x] **Step 10: Rencana mundur (hanya bila Step 5–7 gagal)** — *tidak diperlukan (28 Sep 2026).* — di dashboard Vercel → Deployments →
   deployment sebelum pengalihan → **Promote to Production**. Situs kembali ke Vercel + Neon (Neon tidak
   menerima penulisan sejak Step 3, jadi datanya utuh). Pasang lagi `maintenance.on` di VPS, perbaiki,
   lalu ulangi dari Step 3.
@@ -2040,7 +2040,7 @@ Expected: `.env lokal → branch dev`; seed berhasil.
 - Modify: `docs/superpowers/specs/2026-09-26-migrasi-vps-sundy-design.md` (jalur skrip),
   `docs/superpowers/specs/2026-09-23-sundy-clinic-prd.md` (bagian hosting + D6)
 
-- [ ] **Step 1: Tulis `docs/operasional/server-sundy.md`** dengan bagian-bagian berikut, diisi nilai
+- [x] **Step 1: Tulis `docs/operasional/server-sundy.md`** dengan bagian-bagian berikut, diisi nilai
   **sesungguhnya** dari Task 7–12 — tanpa kata sandi, kunci, atau alamat *security entrance*:
   1. Ringkasan: IP VPS, OS, versi PostgreSQL/Node/PM2/aaPanel, domain, akun Cloudflare yang dipakai.
   2. Akses: `ssh sundy` (kunci `~/.ssh/sundy_ed25519`); panel **tidak terbuka ke internet** — buka lewat
@@ -2054,15 +2054,15 @@ Expected: `.env lokal → branch dev`; seed berhasil.
   8. Memulihkan server dari nol: urutan Task 8 → 9 (pakai backup, bukan Neon) → 10 → 11.
   9. Pemeriksaan cepat: `scripts/server/cek-situs.sh https://sundyclinic.com`.
 
-- [ ] **Step 2: Perbarui spec** — ganti `scripts/deploy.sh` menjadi `scripts/server/deploy.sh` di
+- [x] **Step 2: Perbarui spec** — ganti `scripts/deploy.sh` menjadi `scripts/server/deploy.sh` di
   bagian 4.4 dan 4.6; tambahkan di bawah tabel keputusan: "Pelaksanaan: PostgreSQL 18 dari PGDG,
   Node.js 22 dari NodeSource + PM2 (lihat Plan 0)".
 
-- [ ] **Step 3: Perbarui PRD** — bagian hosting: Vercel + Neon → VPS sundy (rujuk spec migrasi); D6 →
+- [x] **Step 3: Perbarui PRD** — bagian hosting: Vercel + Neon → VPS sundy (rujuk spec migrasi); D6 →
   "Selesai: `sundyclinic.com` (Jetorbit, DNS Cloudflare); email `@sundyclinic.com` hanya untuk login";
   naikkan versi PRD dan tambahkan baris "Perubahan dari versi 1.5".
 
-- [ ] **Step 4: Commit & PR**
+- [x] **Step 4: Commit & PR**
 
 ```bash
 git switch main && git pull

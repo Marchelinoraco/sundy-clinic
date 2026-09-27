@@ -1,7 +1,7 @@
 # PRD — Sistem Klinik SunDY (Situs Publik + Admin & Rekam Medis)
 
-- **Versi:** 1.5
-- **Tanggal:** 23 September 2026
+- **Versi:** 1.6
+- **Tanggal:** 23 September 2026 (diperbarui 28 September 2026)
 - **Status:** Menunggu review pemilik
 - **Klinik:** SunDY — Nutrition, Slimming & Wellness Clinic, Manado
 - **Kontak resmi:** WhatsApp 0851-7222-8900 (+62 851-7222-8900) · Instagram @sundyclinic
@@ -25,6 +25,8 @@
 **Perubahan dari versi 1.2:** ditambahkan **batasan unik (dokter, waktu mulai)** pada Appointment dan SlotHold. Tanpa itu, pencegahan bentrok jadwal hanya berjalan di aplikasi dan masih dapat tertembus dua permintaan yang tiba bersamaan; nama lengkap dan gelar dokter dilengkapi.
 
 **Perubahan dari versi 1.3:** jadwal beralih dari "milik klinik" menjadi **milik tenaga** (F4a). Dua jenis booking dengan durasi berbeda, layanan ditandai `requiresDoctor`, dan `Doctor` digantikan `Staff` berperan DOKTER/TERAPIS. **Batasan unik (dokter, waktu mulai) dari v1.3 dicabut** — batasan itu meloloskan treatment 15.00–16.00 yang bertindihan dengan konsultasi 15.30, dan digantikan *exclusion constraint* atas rentang waktu.
+
+**Perubahan dari versi 1.5:** hosting pindah dari Vercel + Neon ke **VPS sendiri di Indonesia** (IDCloudHost Jakarta) dengan domain `sundyclinic.com` — lihat `docs/superpowers/specs/2026-09-26-migrasi-vps-sundy-design.md` dan runbook `docs/operasional/server-sundy.md`. Keputusan D6 (domain & email) selesai.
 
 **Perubahan dari versi 1.4:** F9 diperluas — admin **membuat** janji temu sendiri, bukan hanya memverifikasi, karena mayoritas pasien akan tetap memesan lewat WhatsApp. Sumber booking dicatat (`SITUS` / `WHATSAPP` / `TELEPON` / `WALK_IN`), pasien baru dapat dibuat langsung dari form booking, dan ditegaskan bahwa booking **tidak pernah dihapus** — pembatalan adalah perubahan status.
 
@@ -522,15 +524,17 @@ Keputusan: **Next.js**, dengan biaya awal nol.
 |---|---|---|
 | Framework | **Next.js 15 (App Router) + TypeScript** | Satu basis kode untuk situs publik dan panel admin. Rendering server memberi SEO yang dibutuhkan halaman layanan. |
 | Antarmuka | **Tailwind CSS + shadcn/ui** | Komponen siap pakai untuk tabel, formulir, dan kalender admin; tema disesuaikan dengan identitas emas-krem SunDY. |
-| Basis data | **PostgreSQL (Neon, paket gratis)** | Relasional — cocok untuk rekam medis yang butuh integritas. Paket gratis cukup untuk tahap awal. |
+| Basis data | **PostgreSQL 18 di VPS sendiri** (sejak 28 Sep 2026; sebelumnya Neon) | Relasional — cocok untuk rekam medis yang butuh integritas. Data tetap di Indonesia. |
 | ORM | **Prisma** | Migrasi berversi, tipe aman, mengurangi kesalahan pada skema yang cukup besar ini. |
 | Autentikasi staf | **Auth.js (NextAuth) — kredensial + sesi basis data** | Tanpa layanan pihak ketiga berbayar; sesi dapat dicabut. |
 | Penyimpanan gambar | **Cloudinary (paket gratis)** | Optimasi & pengubahan ukuran otomatis untuk foto treatment dan produk. |
 | Grafik | **Recharts** | Ringan, cukup untuk grafik progres BIA. |
 | Pengujian | **Vitest** (unit) + **Playwright** (alur booking ujung-ke-ujung) | Logika ketersediaan slot wajib punya pengujian otomatis. |
-| Hosting tahap awal | **Vercel (paket Hobby)** | Gratis, deploy langsung dari repositori. |
+| Hosting | **VPS IDCloudHost Jakarta + aaPanel (Nginx) + PM2**, di balik Cloudflare (sejak 28 Sep 2026; sebelumnya Vercel Hobby) | Data rekam medis di dalam negeri; biaya tetap bulanan; rilis lewat `scripts/server/deploy.sh`. |
 
 ### Catatan penting soal hosting produksi
+**Pembaruan 28 Sep 2026:** aplikasi, database, dan file pasien kini berjalan di **VPS sendiri** (`sundyclinic.com`) — rekomendasi "pindah ke VPS Indonesia" di bawah sudah dijalankan. Catatan asli dipertahankan sebagai riwayat keputusan.
+
 **Keputusan pemilik (23 Sep 2026):** memakai **Vercel + Neon** sejak awal agar proses deploy sederhana dan biayanya nol. Basis data Neon ditempatkan di region **Singapore (`ap-southeast-1`)**, yang terdekat dari Manado.
 
 Dua hal yang perlu ditinjau ulang menjelang go-live komersial:
@@ -555,7 +559,7 @@ Aplikasi dirancang portabel (Docker + PostgreSQL standar) sehingga perpindahan i
 | D3 | **Harga Vitamin C** | Ditranskrip apa adanya dari materi promosi. | Materi menulis "1.299 JT" untuk Injek Vit C 2000mg. Bila maksudnya Rp 1.299.000 sudah benar; bila seharusnya Rp 299.000, mohon dikoreksi sebelum tayang. |
 | D4 | **Ketikan pada paket LUX T ACTIVE** | Diperbaiki menjadi "Kapsul **L**-Fat Burner". | Materi promosi menulis "Kapsul M-Fat Burner-Inject T" padahal paket LUX lain memakai Kapsul L. Kemungkinan salah ketik di desain. |
 | D5 | **Biaya konsultasi & DP** | Konsultasi Dokter Rp 200.000 ditampilkan; besaran DP untuk mengunci slot belum ditentukan. | Perlu keputusan: apakah pasien membayar penuh di muka, DP sebagian, atau bayar di klinik dengan bukti transfer hanya untuk booking berbayar. |
-| D6 | **Domain & email klinik** | Belum ada. | Diperlukan sebelum go-live (contoh: `sundyclinic.com`). |
+| D6 | ~~Domain & email klinik~~ | **Selesai (26–28 Sep 2026).** Domain `sundyclinic.com` (Jetorbit, DNS Cloudflare). `@sundyclinic.com` hanya dipakai sebagai nama login staf, tanpa kotak masuk (null MX, SPF `-all`, DMARC `reject`). Login Super Admin: `admin@sundyclinic.com`. | Bila kelak butuh kotak masuk, cukup ganti record email di Cloudflare. |
 | D7 | **Jeda pengingat** | Kontrol setiap **7 hari**, pengingat tampil **H-1**, dimajukan bila jatuh di hari tutup. | Dikonfirmasi pemilik, 23 Sep 2026. Angka 7 hari disimpan sebagai pengaturan, bukan ditulis keras di kode, agar dapat diubah tanpa developer. |
 | D8 | **Pengingat otomatis terjadwal** | Tidak di MVP — admin menekan tombol secara manual. | Pengiriman otomatis memerlukan WhatsApp API berbayar. Ditinjau ulang di Fase 2 bila jumlah pasien slimming membuat pengiriman manual terlalu memberatkan. |
 | D9 | **Pasien aesthetic** | Belum masuk daftar pengingat. | Model data sudah mendukung; tinggal melonggarkan penyaringan bila nanti treatment aesthetic berseri juga ingin diingatkan. |
