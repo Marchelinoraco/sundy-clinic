@@ -1797,7 +1797,7 @@ Expected: ufw hanya `22/tcp 80/tcp 443/tcp`; port yang mendengarkan di luar loca
   storage account** (bukan "Default storage account" milik Welcome Manado) bernama `SunDY` → bucket
   `sundy-backup` (Private) → access key `sundy-backup` (**tanpa** centang Read-only).
 
-- [ ] **Step 2: Heartbeat & uptime (pemilik)** — *28 Sep 2026: Healthchecks selesai & peringatan diterima pemilik; UptimeRobot dibuat setelah Task 12 (selama gladi situs menjawab 401).*
+- [x] **Step 2: Heartbeat & uptime (pemilik)** — *28 Sep 2026: Healthchecks selesai & peringatan diterima pemilik; UptimeRobot dibuat setelah Task 12 (selama gladi situs menjawab 401).*
   - healthchecks.io → daftar gratis → *Add Check* `sundy-backup`, Period **1 day**, Grace **2 hours** →
     salin **Ping URL**. Integrasi: email (dan Telegram bila mau).
   - uptimerobot.com → *New monitor* HTTP(s) `https://sundyclinic.com`, interval 5 menit, notifikasi
@@ -1884,7 +1884,7 @@ ssh sundy 'sudo /www/sundy/current/scripts/server/restore-test.sh'
 
 Expected: tabel `pulih|aktif` dengan angka sama dan baris akhir `PULIH OK`.
 
-- [ ] **Step 9: Uji notifikasi (Claude + pemilik)** — *28 Sep 2026: peringatan backup gagal terbukti sampai ke email pemilik; uji UptimeRobot menyusul setelah Task 12.*
+- [x] **Step 9: Uji notifikasi (Claude + pemilik)** — *28 Sep 2026: peringatan backup gagal terbukti sampai ke email pemilik; uji UptimeRobot menyusul setelah Task 12.*
   - Gagal backup: `ssh sundy 'sudo SUNDY_REMOTE=tidak-ada: /www/sundy/current/scripts/server/backup.sh'; echo "exit=$?"`
     → `exit` ≠ 0; pemilik menerima email "sundy-backup is DOWN" dari Healthchecks; jalankan backup
     normal sekali lagi agar status kembali *up*.
@@ -1902,7 +1902,7 @@ Expected: tabel `pulih|aktif` dengan angka sama dan baris akhir `PULIH OK`.
 - Produces: `sundyclinic.com` melayani pasien dari VPS dengan data Neon terakhir;
   `sundy-clinic.vercel.app` mengalihkan ke `sundyclinic.com`; `main` berisi seluruh perubahan.
 
-- [ ] **Step 1: Tambah pengalihan Vercel ke PR (Claude, di Mac)**
+- [x] **Step 1: Tambah pengalihan Vercel ke PR (Claude, di Mac)**
 
 Isi baru `vercel.json`:
 
@@ -1924,7 +1924,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 git push
 ```
 
-- [ ] **Step 2: Mode pemeliharaan di VPS**
+- [x] **Step 2: Mode pemeliharaan di VPS**
 
 ```bash
 ssh sundy 'sudo -u sundyapp touch /www/sundy/maintenance.on'
@@ -1933,7 +1933,7 @@ curl -s -o /dev/null -w "%{http_code}\n" https://sundyclinic.com/
 
 Expected: `503`.
 
-- [ ] **Step 3: Merge PR → Vercel menjadi pengalihan (pemilik menyetujui merge; Claude memeriksa)**
+- [x] **Step 3: Merge PR → Vercel menjadi pengalihan (pemilik menyetujui merge; Claude memeriksa)**
 
 ```bash
 gh pr ready && gh pr merge --merge
@@ -1941,11 +1941,13 @@ gh pr ready && gh pr merge --merge
 curl -s -o /dev/null -w "%{http_code} %{redirect_url}\n" https://sundy-clinic.vercel.app/layanan
 ```
 
-Expected: `307 https://sundyclinic.com/layanan`. **Jangan lanjut** sebelum hasil ini benar — selama
+Expected: `307 https://sundyclinic.com/layanan`. **Pelaksanaan 28 Sep 2026:** pola `/:path*` ternyata tidak
+mencakup halaman utama `/` (masih dilayani dari cache Vercel); diperbaiki lewat PR kedua dengan pola
+`/(.*)` → `https://sundyclinic.com/$1`. Periksa juga `https://sundy-clinic.vercel.app/` → 307. **Jangan lanjut** sebelum hasil ini benar — selama
 Vercel masih melayani aplikasi, pasien masih bisa menulis ke Neon. Bila build Vercel gagal, periksa
 log build di dashboard Vercel dan perbaiki sebelum lanjut.
 
-- [ ] **Step 4: Dump terakhir → pulihkan → cocokkan (Claude)**
+- [x] **Step 4: Dump terakhir → pulihkan → cocokkan (Claude)**
 
 ```bash
 ssh sundy 'sudo bash -s' <<'EOF'
@@ -1966,7 +1968,7 @@ EOF
 Expected: `IDENTIK: NN tabel`. (Bila `CREATE EXTENSION btree_gist` ditolak, lakukan penanganan yang
 sama dengan Task 9 Step 3.)
 
-- [ ] **Step 5: Rilis `main` (Claude)**
+- [x] **Step 5: Rilis `main` (Claude)**
 
 ```bash
 ssh sundy 'sudo -u sundyapp -H /www/sundy/current/scripts/server/deploy.sh'
@@ -1974,7 +1976,7 @@ ssh sundy 'sudo -u sundyapp -H /www/sundy/current/scripts/server/deploy.sh'
 
 Expected: `[deploy] aktif: <waktu>`; *No pending migrations*.
 
-- [ ] **Step 6: Buka untuk umum (Claude)** — hapus batasan gladi dan mode pemeliharaan.
+- [x] **Step 6: Buka untuk umum (Claude)** — hapus batasan gladi dan mode pemeliharaan.
 
 ```bash
 ssh sundy 'sudo bash -s' <<'EOF'
@@ -1991,7 +1993,7 @@ bash scripts/server/cek-situs.sh https://sundyclinic.com
 Expected: semua `✓` tanpa kata sandi gladi. Pemilik membuka situs di ponsel — harus tampil tanpa diminta
 kata sandi.
 
-- [ ] **Step 7: Uji pemilik** — login, buka Jadwal: booking terakhir dari Vercel/Neon tampil; buat dan
+- [x] **Step 7: Uji pemilik** — login, buka Jadwal: booking terakhir dari Vercel/Neon tampil; buat dan
   batalkan satu booking uji.
 
 - [ ] **Step 8: Email login Super Admin (pemilik memilih alamat; Claude menjalankan)**
@@ -2002,7 +2004,7 @@ ssh sundy 'sudo -u sundyapp -H bash -c "cd /www/sundy/current && npm run change-
 
 Pemilik login ulang dengan alamat baru. Kata sandi tidak berubah.
 
-- [ ] **Step 9: Database pengembangan di laptop (Claude)** — `.env` lokal masih menunjuk Neon produksi,
+- [x] **Step 9: Database pengembangan di laptop (Claude)** — `.env` lokal masih menunjuk Neon produksi,
   yang kini usang. Buat branch Neon `dev` dan arahkan `.env` lokal ke sana, tanpa menampilkan URL-nya:
 
 ```bash
