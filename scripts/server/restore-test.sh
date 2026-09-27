@@ -24,13 +24,17 @@ sudo -u postgres dropdb --if-exists "$UJI"
 sudo -u postgres createdb "$UJI"
 sudo -u postgres pg_restore --no-owner --no-acl --exit-on-error --dbname "$UJI" "$KERJA/$DB.dump"
 
-echo "tabel|pulih|aktif"
-join -t '|' -a1 -a2 -e '-' -o 0,1.2,2.2 \
-  <(sudo -u postgres psql -At -d "$UJI" -f "$SQL") \
-  <(sudo -u postgres psql -At -d "$DB" -f "$SQL")
+# SQL dialirkan lewat stdin: skrip ini berjalan sebagai root, tetapi psql berjalan sebagai
+# postgres yang tidak boleh membaca folder rilis milik sundyapp.
+hitung() { sudo -u postgres psql -At -d "$1" < "$SQL" | LC_ALL=C sort; }
+hitung "$UJI" > "$KERJA/pulih.txt"
+hitung "$DB" > "$KERJA/aktif.txt"
 
-jumlah_pulih=$(sudo -u postgres psql -At -d "$UJI" -f "$SQL" | wc -l)
-jumlah_aktif=$(sudo -u postgres psql -At -d "$DB" -f "$SQL" | wc -l)
+echo "tabel|pulih|aktif"
+LC_ALL=C join -t '|' -a1 -a2 -e '-' -o 0,1.2,2.2 "$KERJA/pulih.txt" "$KERJA/aktif.txt"
+
+jumlah_pulih=$(wc -l < "$KERJA/pulih.txt")
+jumlah_aktif=$(wc -l < "$KERJA/aktif.txt")
 if [ "$jumlah_pulih" -ne "$jumlah_aktif" ]; then
   echo "GAGAL: backup berisi $jumlah_pulih tabel, database aktif $jumlah_aktif." >&2
   exit 1
