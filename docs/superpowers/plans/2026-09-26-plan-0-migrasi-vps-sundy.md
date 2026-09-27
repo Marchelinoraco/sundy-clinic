@@ -1330,7 +1330,7 @@ Task 1–6.
   sundy (2 vCPU / 2 GB / 20 GB, AlmaLinux), BUKAN Wm-2026** → Reinstall/Rebuild → **Ubuntu 24.04**.
   Catat username dan IP yang ditampilkan. Kata sandi awal cukup diketik di Terminal Mac nanti — jangan
   dikirim ke chat.
-- [x] **Step 2: Nama & proteksi** — ganti nama VPS menjadi **SUNDY-PRODUKSI**; aktifkan
+- [ ] **Step 2: Nama & proteksi** — ganti nama VPS menjadi **SUNDY-PRODUKSI**; aktifkan
   *delete/rebuild protection* bila ada; aktifkan backup mingguan VM (menu Backups).
 - [x] **Step 3: Cloudflare** — akun yang sama dengan welcomemanado.com → *Add a domain* →
   `sundyclinic.com` → paket Free → lewati impor record → catat **dua nameserver** yang diberikan.
