@@ -2,7 +2,7 @@
 
 - **Versi:** 1.0
 - **Tanggal:** 26 September 2026
-- **Status:** Disetujui pemilik (26 September 2026)
+- **Status:** Disetujui pemilik (26 September 2026) · **Terlaksana 28 September 2026**
 - **Menggantikan:** keputusan hosting *Vercel + Neon* di PRD v1.1 (bagian hosting PRD perlu disesuaikan setelah desain ini disetujui)
 
 ## 1. Latar belakang
@@ -32,6 +32,12 @@ Sub-proyek ini adalah langkah 0 dari rangkaian: **0 migrasi VPS** → 1 pendafta
 | K8 | Pemisahan dari Welcome Manado | VPS, kunci SSH, panel, database, dan storage account Object Storage **terpisah sepenuhnya** dari server Welcome Manado (Wm-2026) — tidak ada kredensial yang dipakai bersama |
 | K9 | Akun Cloudflare | Akun yang sama dengan zona `welcomemanado.com` (zona `sundyclinic.com` terpisah di dalamnya) |
 | K10 | Email klinik | Alamat **`@sundyclinic.com` hanya sebagai nama login** staf — tanpa kotak masuk |
+
+**Pelaksanaan (Plan 0, 26–28 Sep 2026):** PostgreSQL 18 dari repositori resmi PGDG dan Node.js 22 dari
+NodeSource + PM2 global (bukan menu aaPanel) agar versinya tepat dan proses dikendalikan `deploy.sh`; aplikasi
+berjalan sebagai user `sundyapp` (admin VPS bernama `sundy`); panel aaPanel **tertutup dari internet** dan dibuka
+lewat terowongan SSH karena IP pemilik berubah-ubah; jadwal backup memakai `/etc/cron.d`. Keadaan akhir:
+`docs/operasional/server-sundy.md`.
 
 Pembagian kerja mengikuti cara yang terbukti saat memulihkan Wm-2026: Claude menjalankan perintah lewat
 SSH (setiap perintah disetujui), pemilik mengerjakan bagian UI (console IDCloudHost, aaPanel,
@@ -107,7 +113,7 @@ atas dengan milik penyedia email.
    **belum** dibuat di sub-proyek ini — dibuat di sub-proyek pertama yang membutuhkannya (BIA/rekam
    medis). Aturannya sudah ditetapkan di sini: file di luar web root, nama acak, hanya bisa diunduh lewat
    rute aplikasi setelah login dengan peran yang sesuai.
-4. `scripts/deploy.sh` (lihat 4.6) masuk repo.
+4. `scripts/server/deploy.sh` (lihat 4.6) masuk repo, bersama berkas server lain di `scripts/server/`.
 5. `vercel.json` dihapus setelah perpindahan selesai.
 6. `.env.example` diperbarui: `DATABASE_URL` menunjuk PostgreSQL lokal; bagian Neon hanya untuk
    pengembangan/uji.
