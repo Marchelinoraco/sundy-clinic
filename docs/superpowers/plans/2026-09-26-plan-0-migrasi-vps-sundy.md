@@ -1330,7 +1330,7 @@ Task 1–6.
   sundy (2 vCPU / 2 GB / 20 GB, AlmaLinux), BUKAN Wm-2026** → Reinstall/Rebuild → **Ubuntu 24.04**.
   Catat username dan IP yang ditampilkan. Kata sandi awal cukup diketik di Terminal Mac nanti — jangan
   dikirim ke chat.
-- [ ] **Step 2: Nama & proteksi** — ganti nama VPS menjadi **SUNDY-PRODUKSI**; aktifkan
+- [x] **Step 2: Nama & proteksi** — ganti nama VPS menjadi **SUNDY-PRODUKSI**; aktifkan
   *delete/rebuild protection* bila ada; aktifkan backup mingguan VM (menu Backups).
 - [x] **Step 3: Cloudflare** — akun yang sama dengan welcomemanado.com → *Add a domain* →
   `sundyclinic.com` → paket Free → lewati impor record → catat **dua nameserver** yang diberikan.
@@ -1698,7 +1698,7 @@ menunjuk rilis pertama setelah `kembali`, lalu rilis terbaru setelah perintah te
 
 **Pelaksana:** pemilik (Cloudflare, aaPanel) + Claude (verifikasi dan Force HTTPS).
 
-- [ ] **Step 1: Record DNS (pemilik, Cloudflare → DNS → Records)**
+- [x] **Step 1: Record DNS (pemilik, Cloudflare → DNS → Records)**
 
 | Type | Name | Content | Proxy |
 |---|---|---|---|
@@ -1712,14 +1712,14 @@ Bila Cloudflare menolak MX berisi `.`, lewati baris itu (SPF + DMARC sudah mence
 Pastikan **SSL/TLS → Edge Certificates → Always Use HTTPS = Off** selama sertifikat Let's Encrypt
 belum terbit (validasinya lewat HTTP).
 
-- [ ] **Step 2: Sertifikat Let's Encrypt (pemilik, aaPanel)** — situs `sundyclinic.com` → SSL → tab
+- [x] **Step 2: Sertifikat Let's Encrypt (pemilik, aaPanel)** — situs `sundyclinic.com` → SSL → tab
   Let's Encrypt → centang **kedua** domain → Apply.
 
-- [ ] **Step 3: Cloudflare Full (strict) (pemilik)** — SSL/TLS → Configure → Custom SSL/TLS →
+- [x] **Step 3: Cloudflare Full (strict) (pemilik)** — SSL/TLS → Configure → Custom SSL/TLS →
   **Full (Strict)** → Save. Harus sebelum Step 4: dengan mode *Flexible*, Force HTTPS di server
   membuat pengalihan berputar tanpa akhir.
 
-- [ ] **Step 4: Force HTTPS (Claude)** — blok yang sama persis dengan tombol aaPanel (diverifikasi di
+- [x] **Step 4: Force HTTPS (Claude)** — blok yang sama persis dengan tombol aaPanel (diverifikasi di
   Wm-2026 25 Sep 2026):
 
 ```bash
@@ -1747,7 +1747,7 @@ EOF
 Expected: SAN `DNS:sundyclinic.com, DNS:www.sundyclinic.com`. Setelah ini *Always Use HTTPS* di
 Cloudflare boleh dinyalakan (pemilik).
 
-- [ ] **Step 5: Verifikasi (Claude, dari Mac)**
+- [x] **Step 5: Verifikasi (Claude, dari Mac)**
 
 ```bash
 GLADI=$(ssh sundy 'sudo cat /root/gladi-sandi.txt')
@@ -1761,12 +1761,12 @@ Expected: `301 https://sundyclinic.com/`, `301 https://sundyclinic.com/layanan`,
 SPF dan DMARC tampil. Tanpa kata sandi gladi situs menjawab **401** — itu batasan gladi yang disengaja
 (pengalihan www dan http→https tetap berjalan tanpa kata sandi).
 
-- [ ] **Step 6: Uji aplikasi oleh pemilik (browser)** — Claude membuka `/root/gladi-sandi.txt` untuk
+- [x] **Step 6: Uji aplikasi oleh pemilik (browser)** — Claude membuka `/root/gladi-sandi.txt` untuk
   pemilik lewat panel (*Files*, lewat terowongan) — bukan chat. Buka `https://sundyclinic.com/masuk`,
   isi user `gladi` + kata sandi itu saat browser meminta, login sebagai Super Admin yang sekarang, buka **Jadwal**, buat satu
   booking uji lalu batalkan. Data gladi ini akan ditimpa saat perpindahan final.
 
-- [ ] **Step 7: Uji keamanan (Claude + pemilik)** — spec bagian 6 "Keamanan".
+- [x] **Step 7: Uji keamanan (Claude + pemilik)** — spec bagian 6 "Keamanan".
 
 Dari sisi server (bukan `nc` dari Mac — jaringan seluler pemilik memalsukan port "terbuka"):
 
@@ -1793,7 +1793,7 @@ Expected: ufw hanya `22/tcp 80/tcp 443/tcp`; port yang mendengarkan di luar loca
 - Produces: remote rclone `idch-sundy:` (bucket `sundy-backup`) dan `sundy-crypt:` (terenkripsi);
   `/root/.config/sundy-backup.env` berisi `HEARTBEAT_URL`; cron harian 02.00.
 
-- [ ] **Step 1: Storage account tersendiri (pemilik, console IDCloudHost)** — Storage → **Create new
+- [x] **Step 1: Storage account tersendiri (pemilik, console IDCloudHost)** — Storage → **Create new
   storage account** (bukan "Default storage account" milik Welcome Manado) bernama `SunDY` → bucket
   `sundy-backup` (Private) → access key `sundy-backup` (**tanpa** centang Read-only).
 
@@ -1803,7 +1803,7 @@ Expected: ufw hanya `22/tcp 80/tcp 443/tcp`; port yang mendengarkan di luar loca
   - uptimerobot.com → *New monitor* HTTP(s) `https://sundyclinic.com`, interval 5 menit, notifikasi
     email/Telegram.
 
-- [ ] **Step 3: rclone + kata sandi enkripsi (Claude)** — kata sandi enkripsi dibuat di server; pemilik
+- [x] **Step 3: rclone + kata sandi enkripsi (Claude)** — kata sandi enkripsi dibuat di server; pemilik
   menyalinnya dari berkas lewat aaPanel Files, lalu berkas itu dihapus.
 
 ```bash
@@ -1836,14 +1836,16 @@ rclone version | head -1
 EOF
 ```
 
-- [ ] **Step 4: Isi rahasia (pemilik, aaPanel → Files)**
+- [x] **Step 4: Isi rahasia (pemilik)** — pelaksanaan 28 Sep 2026: lewat dua berkas 600 di Mac yang dibuka di
+  TextEdit (`~/sundy-backup-kata-sandi.txt` untuk disimpan, `~/sundy-isi-kunci.txt` untuk diisi); Claude
+  memindahkan isinya ke server tanpa menampilkannya lalu menghapus keduanya. Cara lama lewat aaPanel Files:
   1. Buka `/root/KATA-SANDI-BACKUP-SUNDY.txt` → salin kedua baris ke pengelola kata sandi **dan** satu
      tempat aman lain → beri tahu Claude "sudah disimpan".
   2. `/root/.config/rclone/rclone.conf` → ganti `ISI_ACCESS_KEY` / `ISI_SECRET_KEY` dengan kunci dari
      Step 1 → Save.
   3. `/root/.config/sundy-backup.env` → isi Ping URL: `HEARTBEAT_URL="https://hc-ping.com/…"` → Save.
 
-- [ ] **Step 5: Hapus berkas kata sandi & uji koneksi (Claude)** — setelah pemilik konfirmasi Step 4.1.
+- [x] **Step 5: Hapus berkas kata sandi & uji koneksi (Claude)** — setelah pemilik konfirmasi Step 4.1.
 
 ```bash
 ssh sundy 'sudo bash -s' <<'EOF'
@@ -1856,10 +1858,11 @@ EOF
 
 Expected: `placeholder tersisa: 0`, bucket `sundy-backup` tampil.
 
-- [ ] **Step 6: Cron (pemilik, aaPanel → Cron → Add task)** — Type *Shell Script*, Name *Backup SunDY*,
-  Period **Daily 2:00**, User **root**, Script: `/www/sundy/current/scripts/server/backup.sh`.
+- [x] **Step 6: Jadwal harian (Claude)** — dipasang sebagai cron sistem `/etc/cron.d/sundy-backup`
+  (`0 2 * * * root …/backup.sh >> /var/log/sundy-backup.log`), bukan lewat UI aaPanel: panel tertutup dari
+  internet, dan kegagalan tetap terlapor lewat Healthchecks. (Pelaksanaan 28 Sep 2026.)
 
-- [ ] **Step 7: Backup pertama & bukti enkripsi (Claude)**
+- [x] **Step 7: Backup pertama & bukti enkripsi (Claude)**
 
 ```bash
 ssh sundy 'sudo bash -s' <<'EOF'
@@ -1873,7 +1876,7 @@ EOF
 Expected: `sundy.dump`, `file-pasien.tar.gz`, `konfigurasi.tar.gz` di daftar pertama; nama acak di
 daftar kedua. Healthchecks menandai *up*.
 
-- [ ] **Step 8: Uji pulih (Claude)**
+- [x] **Step 8: Uji pulih (Claude)**
 
 ```bash
 ssh sundy 'sudo /www/sundy/current/scripts/server/restore-test.sh'
