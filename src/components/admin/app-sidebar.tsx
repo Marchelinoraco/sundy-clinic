@@ -51,9 +51,25 @@ export function AppSidebar({ staff }: { staff: CurrentStaff }) {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
-        <Link href="/admin" className="px-2 py-1 font-display text-lg">
-          {CLINIC_NAME}
-        </Link>
+        {/* Pola yang sama dengan NavUser: saat sidebar diciutkan menjadi kolom ikon,
+            hanya monogram yang tersisa — nama lengkap tidak muat di lebar 3rem. */}
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton size="lg" asChild tooltip={CLINIC_NAME}>
+              <Link href="/admin" aria-label={CLINIC_NAME}>
+                <span
+                  aria-hidden
+                  className="flex aspect-square size-8 shrink-0 items-center justify-center rounded-md bg-sidebar-primary font-display text-base text-sidebar-primary-foreground"
+                >
+                  S
+                </span>
+                <span className="truncate font-display text-lg group-data-[collapsible=icon]:hidden">
+                  {CLINIC_NAME}
+                </span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarHeader>
 
       <SidebarContent>
