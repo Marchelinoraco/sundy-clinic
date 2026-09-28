@@ -3,12 +3,14 @@
 import { randomBytes } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
+import { STATUS_LABEL, type AppointmentStatusValue } from "@/lib/appointment-status";
 import { generateBookingCode } from "@/lib/booking-code";
 import {
   CONSULTATION_SERVICE_SLUG,
   HOLD_MINUTES,
   PUBLIC_MIN_LEAD_MINUTES,
   SLIMMING_CATEGORY_SLUG,
+  canPatientChange,
   isBookableDate,
 } from "@/lib/booking-rules";
 import { prisma } from "@/lib/db";
@@ -23,7 +25,7 @@ import { createRateLimiter } from "@/lib/rate-limit";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import type { SlotOption } from "@/lib/slot";
 import { addDaysToDateString, minutesToTimeLabel, witaDateString, witaMinutesOfDay } from "@/lib/time";
-import { buildWhatsAppLink, siteBookingWhatsAppMessage } from "@/lib/whatsapp";
+import { buildWhatsAppLink, maskWhatsapp, rescheduleRequestMessage, siteBookingWhatsAppMessage } from "@/lib/whatsapp";
 import { recordAudit, SITE_PATIENT_ACTOR } from "@/server/audit";
 import { computeAvailability } from "@/server/availability";
 import { expireStaleSiteBookings } from "@/server/booking-expiry";
@@ -450,5 +452,142 @@ export async function submitSiteBooking(input: SiteBookingInput): Promise<Action
     });
     safeRevalidatePath("/admin/booking");
     return { kind: "booked", receipt };
+  });
+}
+
+export type PublicBookingStatus = {
+  code: string;
+  status: AppointmentStatusValue;
+  statusLabel: string;
+  serviceName: string;
+  staffName: string;
+  branchName: string;
+  startAt: Date;
+  maskedWhatsapp: string;
+  bookingFee: number | null;
+  canCancel: boolean;
+  canReschedule: boolean;
+  rescheduleLink: string | null;
+};
+
+const lookupLimiter = createRateLimiter({ limit: 10, windowMs: 10 * 60_000 });
+const cancelLimiter = createRateLimiter({ limit: 5, windowMs: 10 * 60_000 });
+
+const ACTIVE: AppointmentStatusValue[] = ["MENUNGGU_KONFIRMASI", "TERKONFIRMASI"];
+
+function parseLookup(input: { code: string; last4: string }) {
+  const code = String(input.code ?? "").trim().toUpperCase();
+  const last4 = String(input.last4 ?? "").trim();
+  if (!code || !/^\d{4}$/.test(last4)) {
+    throw new UserFacingError("Isi kode booking dan 4 digit terakhir nomor WhatsApp.");
+  }
+  return { code, last4 };
+}
+
+/**
+ * Booking yang cocok dengan kode DAN 4 digit terakhir WA, atau null.
+ * Kode salah dan digit salah sengaja memberi jawaban yang sama, agar kode
+ * orang lain tidak bisa ditebak lewat perbedaan pesan (PRD F6).
+ */
+async function findOwnBooking(code: string, last4: string) {
+  const appointment = await prisma.appointment.findUnique({
+    where: { code },
+    select: {
+      id: true,
+      code: true,
+      status: true,
+      startAt: true,
+      bookingFee: true,
+      service: { select: { name: true } },
+      staff: { select: { name: true } },
+      branch: { select: { name: true } },
+      patient: { select: { whatsapp: true } },
+      intake: { select: { whatsapp: true } },
+    },
+  });
+  const whatsapp = appointment?.patient?.whatsapp ?? appointment?.intake?.whatsapp;
+  if (!appointment || !whatsapp || !whatsapp.endsWith(last4)) return null;
+  return { ...appointment, whatsapp };
+}
+
+function toPublicStatus(
+  booking: NonNullable<Awaited<ReturnType<typeof findOwnBooking>>>,
+  now: Date,
+): PublicBookingStatus {
+  const changeable = canPatientChange(booking.startAt, now);
+  const canReschedule = booking.status === "TERKONFIRMASI" && changeable;
+  return {
+    code: booking.code,
+    status: booking.status,
+    statusLabel: STATUS_LABEL[booking.status],
+    serviceName: booking.service?.name ?? "Konsultasi Dokter",
+    staffName: booking.staff.name,
+    branchName: booking.branch.name,
+    startAt: booking.startAt,
+    maskedWhatsapp: maskWhatsapp(booking.whatsapp),
+    bookingFee: booking.bookingFee,
+    canCancel: ACTIVE.includes(booking.status) && changeable,
+    canReschedule,
+    rescheduleLink: canReschedule
+      ? buildWhatsAppLink(
+          rescheduleRequestMessage({
+            code: booking.code,
+            dateLabel: formatIndonesianDate(booking.startAt),
+            timeLabel: minutesToTimeLabel(witaMinutesOfDay(booking.startAt)),
+          }),
+        )
+      : null,
+  };
+}
+
+export async function findBookingStatus(input: {
+  code: string;
+  last4: string;
+}): Promise<ActionResult<PublicBookingStatus | null>> {
+  return runAction(async () => {
+    await guardRate(lookupLimiter);
+    const { code, last4 } = parseLookup(input);
+    await expireStaleSiteBookings();
+    const booking = await findOwnBooking(code, last4);
+    return booking ? toPublicStatus(booking, new Date()) : null;
+  });
+}
+
+export async function cancelSiteBooking(input: {
+  code: string;
+  last4: string;
+}): Promise<ActionResult<PublicBookingStatus>> {
+  return runAction(async () => {
+    await guardRate(cancelLimiter);
+    const { code, last4 } = parseLookup(input);
+    await expireStaleSiteBookings();
+
+    const booking = await findOwnBooking(code, last4);
+    if (!booking) throw new UserFacingError("Booking tidak ditemukan. Periksa kode dan nomor WhatsApp.");
+    const now = new Date();
+    if (!ACTIVE.includes(booking.status)) {
+      throw new UserFacingError(`Booking ini sudah berstatus ${STATUS_LABEL[booking.status].toLowerCase()}.`);
+    }
+    if (!canPatientChange(booking.startAt, now)) {
+      throw new UserFacingError(
+        "Pembatalan lewat situs hanya sampai 2 jam sebelum jadwal. Hubungi kami lewat WhatsApp.",
+      );
+    }
+
+    const { count } = await prisma.appointment.updateMany({
+      where: { id: booking.id, status: { in: ACTIVE } },
+      data: { status: "DIBATALKAN" },
+    });
+    if (count === 0) throw new UserFacingError("Status booking baru saja berubah. Muat ulang halaman.");
+
+    await recordAudit({
+      actor: SITE_PATIENT_ACTOR,
+      action: "appointment.cancel-by-patient",
+      entity: "Appointment",
+      entityId: booking.id,
+      summary: booking.code,
+    });
+    safeRevalidatePath("/admin/booking");
+    return toPublicStatus({ ...booking, status: "DIBATALKAN" }, now);
   });
 }
