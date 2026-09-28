@@ -1,14 +1,34 @@
 "use server";
 
 import { randomBytes } from "node:crypto";
+import type { Prisma } from "@prisma/client";
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
-import { HOLD_MINUTES, PUBLIC_MIN_LEAD_MINUTES, isBookableDate } from "@/lib/booking-rules";
+import { generateBookingCode } from "@/lib/booking-code";
+import {
+  CONSULTATION_SERVICE_SLUG,
+  HOLD_MINUTES,
+  PUBLIC_MIN_LEAD_MINUTES,
+  SLIMMING_CATEGORY_SLUG,
+  isBookableDate,
+} from "@/lib/booking-rules";
 import { prisma } from "@/lib/db";
+import { formatIndonesianDate } from "@/lib/format";
+import type { QuizAnswers } from "@/lib/kuis/v1/answers";
+import { validateIdentity } from "@/lib/kuis/v1/identity";
+import { QUIZ_VERSION } from "@/lib/kuis/v1/options";
+import { validateQuizAnswers } from "@/lib/kuis/v1/steps";
+import { bookingFeeFor, formatBankAccount } from "@/lib/payment";
+import { PRIVACY_POLICY_VERSION } from "@/lib/privacy";
 import { createRateLimiter } from "@/lib/rate-limit";
+import { safeRevalidatePath } from "@/lib/revalidate";
 import type { SlotOption } from "@/lib/slot";
-import { witaDateString } from "@/lib/time";
+import { addDaysToDateString, minutesToTimeLabel, witaDateString, witaMinutesOfDay } from "@/lib/time";
+import { buildWhatsAppLink, siteBookingWhatsAppMessage } from "@/lib/whatsapp";
+import { recordAudit, SITE_PATIENT_ACTOR } from "@/server/audit";
 import { computeAvailability } from "@/server/availability";
-import { isExclusionViolation } from "@/server/db-errors";
+import { expireStaleSiteBookings } from "@/server/booking-expiry";
+import { getClinicSetting } from "@/server/clinic-setting";
+import { isExclusionViolation, isUniqueViolation } from "@/server/db-errors";
 import { guardRate } from "@/server/request-guard";
 
 // Setiap ekspor berkas ini bisa dipanggil siapa pun dari browser tanpa login.
@@ -151,5 +171,257 @@ export async function holdSlot(input: {
     }
 
     return { token, expiresAt };
+  });
+}
+
+export type SiteBookingInput = {
+  holdToken: string;
+  serviceId: string;
+  staffId: string;
+  branchId: string;
+  /** ISO string dari slot yang ditahan. */
+  startAt: string;
+  answers: unknown;
+  identity: unknown;
+  consentData: boolean;
+  consentFee: boolean;
+  /** Kolom jebakan: tersembunyi dari manusia, diisi bot. */
+  website: string;
+};
+
+export type BookingReceipt = {
+  code: string;
+  patientName: string;
+  serviceName: string;
+  staffName: string;
+  branchName: string;
+  startAt: Date;
+  bookingFee: number | null;
+  /** "BCA 123… a.n. …", atau null bila rekening belum diisi di pengaturan. */
+  bankAccount: string | null;
+  confirmationLink: string;
+};
+
+export type SubmitOutcome = { kind: "booked"; receipt: BookingReceipt } | { kind: "slot-taken" };
+
+const submitLimiter = createRateLimiter({ limit: 5, windowMs: 10 * 60_000 });
+const GENERIC_FAILURE = "Pendaftaran gagal dikirim. Muat ulang halaman lalu coba lagi.";
+
+async function findSubmitted(holdToken: string): Promise<string | null> {
+  const intake = await prisma.intake.findUnique({
+    where: { submissionKey: holdToken },
+    select: { appointmentId: true },
+  });
+  return intake?.appointmentId ?? null;
+}
+
+async function buildReceipt(appointmentId: string): Promise<BookingReceipt> {
+  const [appointment, setting] = await Promise.all([
+    prisma.appointment.findUniqueOrThrow({
+      where: { id: appointmentId },
+      select: {
+        code: true,
+        startAt: true,
+        bookingFee: true,
+        service: { select: { name: true } },
+        staff: { select: { name: true } },
+        branch: { select: { name: true } },
+        intake: { select: { name: true } },
+      },
+    }),
+    getClinicSetting(),
+  ]);
+  const patientName = appointment.intake?.name ?? "";
+  const serviceName = appointment.service?.name ?? "Konsultasi Dokter";
+  const timeLabel = minutesToTimeLabel(witaMinutesOfDay(appointment.startAt));
+
+  return {
+    code: appointment.code,
+    patientName,
+    serviceName,
+    staffName: appointment.staff.name,
+    branchName: appointment.branch.name,
+    startAt: appointment.startAt,
+    bookingFee: appointment.bookingFee,
+    bankAccount: formatBankAccount(setting),
+    confirmationLink: buildWhatsAppLink(
+      siteBookingWhatsAppMessage({
+        patientName,
+        code: appointment.code,
+        serviceName,
+        staffName: appointment.staff.name,
+        branchName: appointment.branch.name,
+        dateLabel: formatIndonesianDate(appointment.startAt),
+        timeLabel,
+        bookingFee: appointment.bookingFee,
+      }),
+    ),
+  };
+}
+
+/** Pasien baru dan pasien non-Aesthetic hanya memesan Konsultasi Dokter (K9). */
+function assertServiceFits(service: { slug: string; category: { slug: string } }, answers: QuizAnswers) {
+  if (service.slug === CONSULTATION_SERVICE_SLUG) return;
+  const mayChooseTreatment = answers.patientType === "LAMA" && answers.purpose === "AESTHETIC";
+  if (!mayChooseTreatment || service.category.slug === SLIMMING_CATEGORY_SLUG) {
+    throw new UserFacingError(
+      "Pasien baru mendaftar untuk Konsultasi Dokter lebih dulu. Treatment ditentukan dokter setelah pemeriksaan.",
+    );
+  }
+}
+
+/** Berat & tinggi disimpan di kolom bertipe, bukan di JSON jawaban (spec 5.1). */
+function storedAnswers(answers: QuizAnswers): Prisma.InputJsonValue {
+  const copy = structuredClone(answers);
+  if (copy.slimming) {
+    delete copy.slimming.weightKg;
+    delete copy.slimming.heightCm;
+  }
+  return copy as Prisma.InputJsonValue;
+}
+
+/**
+ * Satu transaksi: hold dilepas, booking dibuat, isian dibuat. Exclusion
+ * constraint Appointment tetap jaminan akhir anti-bentrok. Kode SDY-XXXX
+ * kembar (±1 per sejuta) dicoba ulang dengan kode lain.
+ */
+async function createSiteBooking(
+  appointment: Omit<Prisma.AppointmentUncheckedCreateInput, "code">,
+  intake: Omit<Prisma.IntakeUncheckedCreateInput, "appointmentId">,
+  holdToken: string,
+): Promise<string> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await prisma.$transaction(async (tx) => {
+        await tx.slotHold.deleteMany({ where: { token: holdToken } });
+        const created = await tx.appointment.create({
+          data: { ...appointment, code: generateBookingCode() },
+          select: { id: true },
+        });
+        await tx.intake.create({ data: { ...intake, appointmentId: created.id } });
+        return created.id;
+      });
+    } catch (error) {
+      const codeCollision = isUniqueViolation(error) && !(await findSubmitted(holdToken));
+      if (codeCollision && attempt < 3) continue;
+      throw error;
+    }
+  }
+}
+
+export async function submitSiteBooking(input: SiteBookingInput): Promise<ActionResult<SubmitOutcome>> {
+  return runAction(async () => {
+    await guardRate(submitLimiter);
+    if (input.website) throw new UserFacingError(GENERIC_FAILURE);
+    if (typeof input.holdToken !== "string" || input.holdToken.length < 16) {
+      throw new UserFacingError("Pilih jadwal lebih dulu.");
+    }
+
+    // Kirim ulang (sinyal putus, tombol ditekan dua kali): kembalikan booking yang sama.
+    const previous = await findSubmitted(input.holdToken);
+    if (previous) return { kind: "booked", receipt: await buildReceipt(previous) };
+
+    if (input.consentData !== true || input.consentFee !== true) {
+      throw new UserFacingError("Centang kedua persetujuan untuk melanjutkan.");
+    }
+
+    const quiz = validateQuizAnswers(input.answers, { askPatientType: true });
+    if (!quiz.ok) throw new UserFacingError(quiz.message);
+    const answers = quiz.answers;
+    const patientType = answers.patientType;
+    if (!patientType) throw new UserFacingError(GENERIC_FAILURE);
+
+    const checked = validateIdentity(input.identity, patientType);
+    if (!checked.ok) throw new UserFacingError(checked.message);
+    const identity = checked.identity;
+
+    const now = new Date();
+    const startAt = new Date(input.startAt);
+    if (Number.isNaN(startAt.getTime()) || startAt <= now || !isBookableDate(witaDateString(startAt), now)) {
+      throw new UserFacingError("Jadwal ini sudah lewat. Pilih jam lain.");
+    }
+
+    const [service, staff, branch, setting] = await Promise.all([
+      prisma.service.findUnique({
+        where: { id: input.serviceId },
+        select: {
+          id: true,
+          slug: true,
+          durationMin: true,
+          requiresDoctor: true,
+          isActive: true,
+          category: { select: { slug: true } },
+        },
+      }),
+      prisma.staff.findUnique({ where: { id: input.staffId }, select: { id: true, role: true, isActive: true } }),
+      prisma.branch.findUnique({ where: { id: input.branchId }, select: { status: true } }),
+      getClinicSetting(),
+    ]);
+    if (!service?.isActive) throw new UserFacingError("Layanan ini tidak tersedia untuk booking.");
+    assertServiceFits(service, answers);
+    if (branch?.status !== "AKTIF") throw new UserFacingError("Cabang ini belum menerima booking.");
+    const staffAllowed =
+      staff?.isActive && (staff.role === "DOKTER" || (staff.role === "TERAPIS" && !service.requiresDoctor));
+    if (!staff || !staffAllowed) throw new UserFacingError("Tenaga ini tidak menangani layanan tersebut.");
+
+    await expireStaleSiteBookings(now);
+
+    let appointmentId: string;
+    try {
+      appointmentId = await createSiteBooking(
+        {
+          type: service.slug === CONSULTATION_SERVICE_SLUG ? "KONSULTASI" : "TREATMENT",
+          startAt,
+          endAt: new Date(startAt.getTime() + service.durationMin * 60_000),
+          source: "SITUS",
+          branchId: input.branchId,
+          staffId: staff.id,
+          serviceId: service.id,
+          patientId: null,
+          bookingFee: bookingFeeFor("SITUS", setting.bookingFee),
+        },
+        {
+          status: "TERISI",
+          kind: patientType === "LAMA" ? "PENDEK" : "LENGKAP",
+          purpose: answers.purpose,
+          claimsReturning: patientType === "LAMA",
+          quizVersion: QUIZ_VERSION,
+          answers: storedAnswers(answers),
+          name: identity.name,
+          whatsapp: identity.whatsapp,
+          birthDate: new Date(`${identity.birthDate}T00:00:00Z`),
+          gender: identity.gender,
+          occupation: identity.occupation,
+          address: identity.address,
+          selfWeightKg: answers.slimming?.weightKg,
+          selfHeightCm: answers.slimming?.heightCm,
+          activityDate: answers.returning?.activities
+            ? new Date(`${addDaysToDateString(witaDateString(now), -1)}T00:00:00Z`)
+            : null,
+          consentAt: now,
+          consentVersion: PRIVACY_POLICY_VERSION,
+          submittedAt: now,
+          submissionKey: input.holdToken,
+        },
+        input.holdToken,
+      );
+    } catch (error) {
+      if (isExclusionViolation(error)) return { kind: "slot-taken" };
+      // Dua Kirim bersamaan dengan token yang sama: yang kalah mengembalikan booking pemenang.
+      const raced = isUniqueViolation(error) ? await findSubmitted(input.holdToken) : null;
+      if (raced) return { kind: "booked", receipt: await buildReceipt(raced) };
+      throw error;
+    }
+
+    const receipt = await buildReceipt(appointmentId);
+    await recordAudit({
+      actor: SITE_PATIENT_ACTOR,
+      action: "appointment.site-create",
+      entity: "Appointment",
+      entityId: appointmentId,
+      summary: `${receipt.code} — ${startAt.toISOString()}`,
+    });
+    safeRevalidatePath("/admin/booking");
+    return { kind: "booked", receipt };
   });
 }
