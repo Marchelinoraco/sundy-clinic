@@ -13,6 +13,7 @@ import { prisma } from "@/lib/db";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { combineWitaDateAndMinutes } from "@/lib/time";
 import { recordAudit } from "@/server/audit";
+import { expireStaleSiteBookings } from "@/server/booking-expiry";
 import { requireCapability } from "@/server/session";
 
 /**
@@ -61,6 +62,9 @@ export async function createAppointment(input: {
 }): Promise<ActionResult<Appointment>> {
   return runAction(async () => {
     const actor = await requireCapability("booking:manage");
+
+    // Booking situs basi masih memblokir slot di exclusion constraint.
+    await expireStaleSiteBookings();
 
     assertTimeRange(input.startAt, input.endAt);
 
@@ -234,6 +238,7 @@ export async function listAppointments(filter: {
   date?: string;
 }) {
   await requireCapability("booking:manage");
+  await expireStaleSiteBookings();
 
   return prisma.appointment.findMany({
     where: {

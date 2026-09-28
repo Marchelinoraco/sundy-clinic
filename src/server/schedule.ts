@@ -7,6 +7,7 @@ import { combineWitaDateAndMinutes, witaWeekday } from "@/lib/time";
 import { prisma } from "@/lib/db";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { recordAudit } from "@/server/audit";
+import { expireStaleSiteBookings } from "@/server/booking-expiry";
 import { isHoliday } from "@/server/holiday";
 import { requireCapability } from "@/server/session";
 
@@ -175,6 +176,8 @@ async function computeAvailability(
   input: AvailabilityInput,
   minLeadMinutes: number,
 ): Promise<SlotOption[]> {
+  await expireStaleSiteBookings();
+
   const weekday = witaWeekday(new Date(`${input.date}T12:00:00Z`));
   const dayStart = combineWitaDateAndMinutes(input.date, 0);
   const dayEnd = combineWitaDateAndMinutes(input.date, 24 * 60);

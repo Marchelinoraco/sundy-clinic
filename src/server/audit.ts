@@ -1,8 +1,25 @@
 import { prisma } from "@/lib/db";
 import type { CurrentStaff } from "@/server/session";
 
+/**
+ * Pelaku yang tercatat di jejak audit: staf yang sedang login (CurrentStaff
+ * memenuhi bentuk ini), atau salah satu pelaku tetap di bawah. Kolom
+ * actorStaffId tidak berelasi, jadi penanda tetap aman disimpan di sana.
+ */
+export type AuditActor = Pick<CurrentStaff, "staffId" | "name"> & { role: string };
+
+/** Perubahan yang dilakukan sistem sendiri, mis. booking situs yang kedaluwarsa. */
+export const SYSTEM_ACTOR: AuditActor = { staffId: "sistem", name: "Sistem", role: "SISTEM" };
+
+/** Pasien yang memesan atau membatalkan lewat situs publik. */
+export const SITE_PATIENT_ACTOR: AuditActor = {
+  staffId: "pasien",
+  name: "Pasien (situs)",
+  role: "PASIEN",
+};
+
 type AuditInput = {
-  actor: CurrentStaff;
+  actor: AuditActor;
   action: string;
   entity: string;
   entityId: string;
