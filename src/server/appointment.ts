@@ -10,10 +10,12 @@ import type {
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
 import { generateBookingCode } from "@/lib/booking-code";
 import { prisma } from "@/lib/db";
+import { bookingFeeFor } from "@/lib/payment";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { combineWitaDateAndMinutes } from "@/lib/time";
 import { recordAudit } from "@/server/audit";
 import { expireStaleSiteBookings } from "@/server/booking-expiry";
+import { getClinicSetting } from "@/server/clinic-setting";
 import { requireCapability } from "@/server/session";
 
 /**
@@ -66,6 +68,8 @@ export async function createAppointment(input: {
     // Booking situs basi masih memblokir slot di exclusion constraint.
     await expireStaleSiteBookings();
 
+    const setting = await getClinicSetting();
+
     assertTimeRange(input.startAt, input.endAt);
 
     const [branch, staff, service] = await Promise.all([
@@ -100,6 +104,7 @@ export async function createAppointment(input: {
           endAt: input.endAt,
           source: input.source,
           notes: input.notes,
+          bookingFee: bookingFeeFor(input.source, setting.bookingFee),
         },
       }),
     );
