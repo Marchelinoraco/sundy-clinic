@@ -7,15 +7,15 @@ function required(name: string): string {
   const value = process.env[name];
   if (!value) {
     throw new Error(
-      `${name} belum diisi di .env. Uji integrasi butuh branch "test" di Neon, ` +
-        `bukan branch production.`,
+      `${name} belum diisi di .env. Uji integrasi butuh basis data uji tersendiri ` +
+        `(mis. sundy_test), bukan basis data pengembangan atau produksi.`,
     );
   }
   return value;
 }
 
 // Uji integrasi mengosongkan tabel berulang kali, jadi ia HARUS menunjuk ke
-// branch "test". Pemetaan ini satu-satunya tempat TEST_* menjadi DATABASE_URL;
+// basis data uji. Pemetaan ini satu-satunya tempat TEST_* menjadi DATABASE_URL;
 // tidak ada skrip lain yang boleh melakukannya sendiri.
 export default defineConfig({
   resolve: { tsconfigPaths: true },
@@ -26,9 +26,9 @@ export default defineConfig({
     // Seluruh berkas memakai satu basis data dan sebagian mengosongkan tabel.
     // Berjalan paralel membuat satu berkas menghapus data berkas lain.
     fileParallelism: false,
-    // Basis datanya di Singapura, jadi setiap kueri menempuh jaringan dan
-    // batas bawaan 5 detik terlalu ketat. Neon juga menidurkan basis data yang
-    // menganggur; kueri pertama setelah itu perlu waktu membangunkannya.
+    // Batas longgar dari masa basis data uji masih di Neon Singapura (jaringan,
+    // basis data yang tertidur). Dengan PostgreSQL lokal tidak lagi diperlukan,
+    // tetapi aman dipertahankan bila basis data uji kelak di server lain.
     testTimeout: 30_000,
     hookTimeout: 30_000,
     env: {

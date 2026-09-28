@@ -1,7 +1,7 @@
 // Dijalankan oleh global-setup.ts dengan DATABASE_URL yang sudah diarahkan
-// ke branch test. Jangan jalankan langsung tanpa lewat global-setup.
+// ke basis data uji. Jangan jalankan langsung tanpa lewat global-setup.
 // dotenv tidak menimpa variabel yang sudah ada, jadi DATABASE_URL tetap
-// menunjuk branch test; yang terisi dari .env hanya BETTER_AUTH_SECRET dkk.
+// menunjuk basis data uji; yang terisi dari .env hanya BETTER_AUTH_SECRET dkk.
 import "dotenv/config";
 import { auth } from "../../src/lib/auth";
 import { prisma } from "../../src/lib/db";

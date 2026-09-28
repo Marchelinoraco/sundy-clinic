@@ -12,7 +12,7 @@ describe("koneksi basis data", () => {
     expect(result[0].ok).toBe(1);
   });
 
-  it("terhubung ke branch uji, bukan branch production", async () => {
+  it("terhubung ke basis data uji, bukan basis data utama", async () => {
     // Pengaman: uji integrasi mengosongkan tabel. Kalau variabel lingkungan
     // salah arah, uji ini gagal sebelum ada data yang terhapus.
     const url = process.env.DATABASE_URL ?? "";
