@@ -47,7 +47,14 @@ async function loadServiceAndBranch(serviceId: string, branchId: string) {
   const [service, branch] = await Promise.all([
     prisma.service.findUnique({
       where: { id: serviceId },
-      select: { id: true, durationMin: true, requiresDoctor: true, isActive: true },
+      select: {
+        id: true,
+        slug: true,
+        durationMin: true,
+        requiresDoctor: true,
+        isActive: true,
+        category: { select: { slug: true } },
+      },
     }),
     prisma.branch.findUnique({ where: { id: branchId }, select: { status: true } }),
   ]);
@@ -341,28 +348,48 @@ export async function submitSiteBooking(input: SiteBookingInput): Promise<Action
       throw new UserFacingError("Jadwal ini sudah lewat. Pilih jam lain.");
     }
 
-    const [service, staff, branch, setting] = await Promise.all([
-      prisma.service.findUnique({
-        where: { id: input.serviceId },
-        select: {
-          id: true,
-          slug: true,
-          durationMin: true,
-          requiresDoctor: true,
-          isActive: true,
-          category: { select: { slug: true } },
-        },
-      }),
-      prisma.staff.findUnique({ where: { id: input.staffId }, select: { id: true, role: true, isActive: true } }),
-      prisma.branch.findUnique({ where: { id: input.branchId }, select: { status: true } }),
+    // Sama seperti holdSlot: "siapa saja" sudah diselesaikan client jadi satu
+    // staffId nyata sebelum Kirim — permintaan mentah tanpa staffId tidak
+    // boleh diam-diam jatuh ke staf pertama yang kosong lewat eligibleStaff.
+    if (typeof input.staffId !== "string" || !input.staffId) {
+      throw new UserFacingError("Tenaga ini tidak menangani layanan tersebut.");
+    }
+
+    const [service, setting] = await Promise.all([
+      loadServiceAndBranch(input.serviceId, input.branchId),
       getClinicSetting(),
     ]);
-    if (!service?.isActive) throw new UserFacingError("Layanan ini tidak tersedia untuk booking.");
     assertServiceFits(service, answers);
-    if (branch?.status !== "AKTIF") throw new UserFacingError("Cabang ini belum menerima booking.");
-    const staffAllowed =
-      staff?.isActive && (staff.role === "DOKTER" || (staff.role === "TERAPIS" && !service.requiresDoctor));
-    if (!staff || !staffAllowed) throw new UserFacingError("Tenaga ini tidak menangani layanan tersebut.");
+    const [staff] = await eligibleStaff(service, input.staffId);
+
+    const endAt = new Date(startAt.getTime() + service.durationMin * 60_000);
+
+    // Jam yang dikirim harus sama dengan jam yang ditahan token ini — token
+    // buatan (tanpa hold nyata, atau jam berbeda dari holdnya) tidak boleh
+    // memesan langsung tanpa lewat pemeriksaan jadwal & lead time computeAvailability.
+    const hold = await prisma.slotHold.findUnique({
+      where: { token: input.holdToken },
+      select: { staffId: true, branchId: true, startAt: true, endAt: true },
+    });
+    if (hold) {
+      const matchesHold =
+        hold.staffId === staff.id &&
+        hold.branchId === input.branchId &&
+        hold.startAt.getTime() === startAt.getTime() &&
+        hold.endAt.getTime() === endAt.getTime();
+      if (!matchesHold) {
+        throw new UserFacingError("Jadwal tidak cocok dengan jam yang ditahan. Pilih jam lagi.");
+      }
+    } else {
+      // Hold sudah kedaluwarsa dan dibersihkan (mis. oleh hold pasien lain):
+      // jam ini tetap boleh dibooking bila memang masih kosong (spec 5.4).
+      const offered = await computeAvailability(
+        { staffId: staff.id, branchId: input.branchId, date: witaDateString(startAt), durationMinutes: service.durationMin },
+        { minLeadMinutes: PUBLIC_MIN_LEAD_MINUTES, holds: { excludeToken: input.holdToken } },
+      );
+      const stillOpen = offered.some((slot) => slot.startAt.getTime() === startAt.getTime());
+      if (!stillOpen) return { kind: "slot-taken" };
+    }
 
     await expireStaleSiteBookings(now);
 
@@ -372,7 +399,7 @@ export async function submitSiteBooking(input: SiteBookingInput): Promise<Action
         {
           type: service.slug === CONSULTATION_SERVICE_SLUG ? "KONSULTASI" : "TREATMENT",
           startAt,
-          endAt: new Date(startAt.getTime() + service.durationMin * 60_000),
+          endAt,
           source: "SITUS",
           branchId: input.branchId,
           staffId: staff.id,

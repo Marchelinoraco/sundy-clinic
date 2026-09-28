@@ -150,6 +150,37 @@ describe("Kirim pendaftaran situs", () => {
     expect(await prisma.intake.count({ where: { submissionKey: token } })).toBe(0);
   });
 
+  it("menolak token hold buatan untuk jam di luar jadwal", async () => {
+    const fakeToken = "token-buatan-000000000000";
+    const outcome = await unwrap(submitSiteBooking(input(fakeToken, "09:00")));
+
+    expect(outcome).toEqual({ kind: "slot-taken" });
+    expect(await prisma.appointment.count({ where: { staffId: world.doctorId } })).toBe(0);
+  });
+
+  it("tidak bisa merebut jam yang sedang ditahan pasien lain", async () => {
+    await holdFor("16:00");
+    const fakeToken = "token-buatan-111111111111";
+
+    expect(await unwrap(submitSiteBooking(input(fakeToken, "16:00")))).toEqual({ kind: "slot-taken" });
+  });
+
+  it("menolak jam yang berbeda dari jam yang ditahan", async () => {
+    const token = await holdFor("16:30");
+
+    expect(await submitSiteBooking(input(token, "17:00"))).toEqual({
+      ok: false,
+      error: "Jadwal tidak cocok dengan jam yang ditahan. Pilih jam lagi.",
+    });
+  });
+
+  it("hold yang sudah dibersihkan tetap menjadi booking bila jamnya masih kosong", async () => {
+    const token = await holdFor("17:30");
+    await prisma.slotHold.delete({ where: { token } });
+
+    expect((await unwrap(submitSiteBooking(input(token, "17:30")))).kind).toBe("booked");
+  });
+
   it("pasien baru hanya boleh memesan Konsultasi Dokter", async () => {
     const token = await holdFor("13:00", world.treatmentId, world.therapistId);
     const result = await submitSiteBooking(
