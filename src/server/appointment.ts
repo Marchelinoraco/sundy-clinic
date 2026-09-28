@@ -1,6 +1,5 @@
 "use server";
 
-import { Prisma } from "@prisma/client";
 import type {
   Appointment,
   AppointmentStatus,
@@ -16,23 +15,8 @@ import { combineWitaDateAndMinutes } from "@/lib/time";
 import { recordAudit } from "@/server/audit";
 import { expireStaleSiteBookings } from "@/server/booking-expiry";
 import { getClinicSetting } from "@/server/clinic-setting";
+import { isExclusionViolation } from "@/server/db-errors";
 import { requireCapability } from "@/server/session";
-
-/**
- * Kode Postgres untuk pelanggaran exclusion constraint adalah "23P01".
- * Ini satu-satunya tempat yang menerjemahkannya ke pesan yang admin
- * mengerti — di mana pun exclusion constraint bisa terpicu, tangkap di
- * sini, jangan biarkan galat SQL mentah sampai ke antarmuka.
- */
-function isExclusionViolation(error: unknown): boolean {
-  return (
-    (error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2010" &&
-      typeof error.meta?.code === "string" &&
-      error.meta.code === "23P01") ||
-    (error instanceof Error && error.message.includes("23P01"))
-  );
-}
 
 function assertTimeRange(startAt: Date, endAt: Date): void {
   if (endAt.getTime() <= startAt.getTime()) {

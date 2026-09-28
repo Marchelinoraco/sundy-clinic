@@ -2,18 +2,12 @@
 
 import type { ExceptionKind, ScheduleException, ScheduleTemplate, Staff } from "@prisma/client";
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
-import { getAvailableSlots, type SlotOption } from "@/lib/slot";
-import { combineWitaDateAndMinutes, witaWeekday } from "@/lib/time";
+import type { SlotOption } from "@/lib/slot";
 import { prisma } from "@/lib/db";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { recordAudit } from "@/server/audit";
-import { expireStaleSiteBookings } from "@/server/booking-expiry";
-import { isHoliday } from "@/server/holiday";
+import { computeAvailability, type AvailabilityInput } from "@/server/availability";
 import { requireCapability } from "@/server/session";
-
-// Status Appointment yang benar-benar memblokir slot — sejalan dengan
-// klausa WHERE pada exclusion constraint di migrasi Task 9.
-const BLOCKING_STATUSES = ["MENUNGGU_KONFIRMASI", "TERKONFIRMASI", "HADIR"] as const;
 
 /** Staf yang punya antrean jadwal sendiri: dokter dan terapis aktif. */
 export async function listSchedulableStaff(): Promise<Staff[]> {
@@ -158,81 +152,19 @@ export async function listScheduleExceptions(
   });
 }
 
-type AvailabilityInput = {
-  staffId: string;
-  branchId: string;
-  date: string;
-  durationMinutes: number;
-};
-
-/**
- * Menyambungkan mesin murni getAvailableSlots ke data nyata: template hari
- * itu, pengecualian, status libur, dan rentang sibuk (Appointment berstatus
- * memblokir) milik staf tersebut. SlotHold belum ikut dihitung di sini —
- * Plan 3b yang menambahkannya, karena penahanan sementara hanya relevan
- * untuk alur pendaftaran mandiri publik.
- */
-async function computeAvailability(
-  input: AvailabilityInput,
-  minLeadMinutes: number,
-): Promise<SlotOption[]> {
-  await expireStaleSiteBookings();
-
-  const weekday = witaWeekday(new Date(`${input.date}T12:00:00Z`));
-  const dayStart = combineWitaDateAndMinutes(input.date, 0);
-  const dayEnd = combineWitaDateAndMinutes(input.date, 24 * 60);
-
-  const [template, exceptions, holiday, busyAppointments] = await Promise.all([
-    prisma.scheduleTemplate.findUnique({
-      where: { staffId_weekday: { staffId: input.staffId, weekday } },
-    }),
-    prisma.scheduleException.findMany({
-      where: { staffId: input.staffId, date: new Date(`${input.date}T00:00:00Z`) },
-    }),
-    isHoliday(input.date),
-    prisma.appointment.findMany({
-      where: {
-        staffId: input.staffId,
-        status: { in: [...BLOCKING_STATUSES] },
-        startAt: { lt: dayEnd },
-        endAt: { gt: dayStart },
-      },
-      select: { startAt: true, endAt: true },
-    }),
-  ]);
-
-  return getAvailableSlots({
-    date: input.date,
-    durationMinutes: input.durationMinutes,
-    template:
-      template && template.branchId === input.branchId
-        ? { startMinute: template.startMinute, endMinute: template.endMinute }
-        : null,
-    exceptions: exceptions.map((e) => ({
-      kind: e.kind,
-      startMinute: e.startMinute,
-      endMinute: e.endMinute,
-    })),
-    isHoliday: holiday,
-    busy: busyAppointments,
-    now: new Date(),
-    minLeadMinutes,
-  });
-}
-
-/** Untuk pendaftaran mandiri publik: paling cepat 2 jam dari sekarang (PRD F4). */
+/** Untuk pendaftaran mandiri publik: paling cepat 2 jam dari sekarang, hold pasien lain dihitung sibuk. */
 export async function getStaffAvailability(input: AvailabilityInput): Promise<SlotOption[]> {
-  return computeAvailability(input, 120);
+  return computeAvailability(input, { minLeadMinutes: 120, holds: { excludeToken: null } });
 }
 
 /**
  * Untuk admin yang mencatat booking: tanpa batas 2 jam, karena pasien
  * walk-in dan penelepon sering minta jam terdekat (PRD F9). Slot yang
- * sudah lewat tetap tidak ditawarkan.
+ * sudah lewat tetap tidak ditawarkan. Hold pasien tidak mengikat admin.
  */
 export async function getStaffAvailabilityForAdmin(
   input: AvailabilityInput,
 ): Promise<SlotOption[]> {
   await requireCapability("booking:manage");
-  return computeAvailability(input, 0);
+  return computeAvailability(input, { minLeadMinutes: 0 });
 }
