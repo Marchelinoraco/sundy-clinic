@@ -6,16 +6,16 @@ export default defineConfig({
   globalSetup: "./tests/e2e/global-setup.ts",
   fullyParallel: true,
   // Server pengujian menjalankan `next dev`, yang mengkompilasi setiap rute
-  // saat pertama diakses. Rute admin juga menempuh Better Auth dan Neon lewat
-  // jaringan. Dengan paralelisme bawaan Playwright (mendekati jumlah inti
+  // saat pertama diakses, dan rute admin juga menempuh Better Auth ke basis
+  // data. Dengan paralelisme bawaan Playwright (mendekati jumlah inti
   // CPU), banyak rute yang belum pernah dikompilasi diakses bersamaan dan
   // navigasi melewati batas waktu secara acak — bergiliran uji mana yang
   // gagal setiap dijalankan, bukan bug pada halamannya. Dibatasi ke angka
   // yang terbukti stabil di lingkungan ini.
   workers: 3,
   reporter: "list",
-  // Uji login menembus Better Auth ke Neon lewat jaringan, bukan hanya
-  // navigasi lokal. Batas waktu bawaan (5 detik) sesekali terlampaui saat
+  // Uji login menembus Better Auth ke basis data, bukan hanya navigasi lokal.
+  // Batas waktu bawaan (5 detik) sesekali terlampaui saat
   // worker lain sedang membebani server yang sama.
   expect: { timeout: 10_000 },
   use: {
@@ -28,10 +28,10 @@ export default defineConfig({
     // harus diuji di lebar ponsel, bukan hanya di desktop.
     { name: "mobile", use: { ...devices["Pixel 7"] } },
   ],
-  // Server uji terpisah dari `npm run dev` (port 3000, branch production):
-  // port sendiri dan DATABASE_URL yang ditimpa ke branch test. Tidak pernah
-  // memakai ulang server yang sudah berjalan — server lain di port ini bisa
-  // saja terhubung ke production, dan uji ini menulis booking sungguhan.
+  // Server uji terpisah dari `npm run dev` (port 3000, sundy_dev): port sendiri
+  // dan DATABASE_URL yang ditimpa ke basis data uji. Tidak pernah memakai ulang
+  // server yang sudah berjalan — server lain di port ini bisa saja terhubung ke
+  // basis data lain, dan uji ini menulis booking sungguhan.
   webServer: {
     command: `npx next dev -p ${E2E_PORT}`,
     url: E2E_BASE_URL,

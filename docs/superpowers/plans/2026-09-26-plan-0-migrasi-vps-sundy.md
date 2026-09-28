@@ -2081,16 +2081,20 @@ gh pr create --base main --title "Runbook server sundy" --body "Runbook server &
 
 ### Task 14: Tujuh hari kemudian — hapus Vercel dan data produksi Neon
 
+**Pelaksanaan 28 Sep 2026 (lebih awal dari rencana):** pemilik menghapus proyek Vercel dan **seluruh proyek Neon**
+— termasuk branch `test`/`dev`, bukan hanya `production`. Uji pulih lulus hari itu; pengembangan & uji dipindah ke
+PostgreSQL 18 lokal di Mac (branch `db-lokal-postgres`: pengaman e2e kini membandingkan host + nama database).
+
 **Pelaksana:** pemilik (dashboard Vercel/Neon) + Claude. **Syarat:** Task 11 Step 8 dan satu uji pulih
 lagi pada hari ini lulus, dan situs berjalan normal selama tujuh hari.
 
-- [ ] **Step 1: Uji pulih ulang (Claude)** — `ssh sundy 'sudo /www/sundy/current/scripts/server/restore-test.sh'` → `PULIH OK`.
-- [ ] **Step 2: Hapus branch `production` Neon (pemilik, dashboard Neon)** — Branches → `production` →
+- [x] **Step 1: Uji pulih ulang (Claude)** — `ssh sundy 'sudo /www/sundy/current/scripts/server/restore-test.sh'` → `PULIH OK`.
+- [x] **Step 2: Hapus branch `production` Neon (pemilik, dashboard Neon)** — Branches → `production` →
   Delete. Branch `test` dan `dev` **tetap**. Konfirmasi ke Claude.
-- [ ] **Step 3: Hapus proyek Vercel (pemilik, dashboard Vercel)** — Settings → Delete Project.
+- [x] **Step 3: Hapus proyek Vercel (pemilik, dashboard Vercel)** — Settings → Delete Project.
   (Pengalihan `sundy-clinic.vercel.app` ikut berhenti — pastikan tautan di Instagram/WhatsApp sudah
   memakai `sundyclinic.com`.)
-- [ ] **Step 4: Bersihkan repo & server (Claude)**
+- [x] **Step 4: Bersihkan repo & server (Claude)**
 
 ```bash
 git switch main && git pull && git switch -c bersih-sisa-vercel

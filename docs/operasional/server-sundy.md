@@ -11,7 +11,7 @@ pengelola kata sandi atau hanya ada di server.
 
 | | |
 |---|---|
-| Situs | https://sundyclinic.com (`www` dialihkan ke domain utama); `sundy-clinic.vercel.app` mengalihkan ke sini sampai proyek Vercel dihapus |
+| Situs | https://sundyclinic.com (`www` dialihkan ke domain utama). Proyek Vercel & Neon lama sudah dihapus (28 Sep 2026) |
 | VPS | **sundy-production** — IDCloudHost jkt01, akun "Marchelino Raco" (terpisah dari akun Welcome Manado); IP `103.186.1.38`; 2 vCPU / 2 GB RAM / 20 GB disk |
 | OS & perangkat | Ubuntu 24.04.5 LTS · aaPanel 8.0.6 (Nginx 1.24.0) · PostgreSQL 18.6 (PGDG) · Node.js 22 (NodeSource) · PM2 7 · rclone 1.60 |
 | DNS | Cloudflare (akun yang sama dengan `welcomemanado.com`), proxy aktif, SSL/TLS **Full (strict)**; nameserver diatur di Jetorbit |
@@ -135,8 +135,10 @@ lewat stdin; `cek-situs.sh` membuang kredensial dari URL yang dicetaknya; backup
 | Sertifikat | diperpanjang aaPanel otomatis; cek sisa hari di aaPanel → situs → SSL |
 | fail2ban | `sudo fail2ban-client status sshd` — IP yang diblokir wajar (bot) |
 
-## 10. Setelah 5 Oktober 2026 (Plan 0 Task 14)
+## 10. Riwayat pembersihan (Plan 0 Task 14)
 
-Uji pulih sekali lagi, lalu pemilik menghapus proyek Vercel dan branch `production` di Neon (branch `test`
-dan `dev` tetap untuk pengembangan), `vercel.json` dihapus dari repo, dan `/root/pindah` (URL Neon + dump
-berisi data pasien) dihancurkan di server.
+28 Sep 2026: pemilik menghapus proyek Vercel dan **seluruh proyek Neon SunDY** (lebih awal dari rencana satu
+minggu; uji pemulihan dari backup lulus pada hari yang sama). `/root/pindah` (URL Neon + dump) dihancurkan di
+server, `vercel.json` dihapus dari repo. Pengembangan & uji di laptop pindah ke PostgreSQL 18 lokal
+(`sundy_dev`, `sundy_test`) — lihat README. **Satu-satunya salinan data produksi kini ada di VPS dan di backup
+terenkripsi**, jadi uji pemulihan bulanan (bagian 7) penting.

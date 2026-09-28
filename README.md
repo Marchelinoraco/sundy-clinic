@@ -35,17 +35,22 @@ Jam operasional: Senin–Sabtu, 11.00–19.00 WITA. Minggu dan hari libur nasion
 ## Teknologi
 
 Next.js 15 (App Router) + TypeScript · Tailwind CSS v4 + shadcn/ui · Prisma 7 +
-PostgreSQL (Neon) · Better Auth · Vitest + Playwright.
+PostgreSQL 18 · Better Auth · Vitest + Playwright.
 
 ## Menjalankan secara lokal
 
-Butuh Node 22.20+ dan satu proyek [Neon](https://console.neon.tech) (paket gratis,
-region `ap-southeast-1`) berisi dua basis data/branch: `production` dan `test`.
+Butuh Node 22.20+ dan PostgreSQL 18 di laptop, dengan dua basis data: `sundy_dev` (pengembangan)
+dan `sundy_test` (uji — tabelnya dikosongkan berulang kali). Di macOS:
 
 ```bash
-cp .env.example .env   # lalu isi connection string dari Neon dan BETTER_AUTH_SECRET
+brew install postgresql@18 && brew services start postgresql@18
+psql -h localhost -d postgres -c "CREATE ROLE sundy LOGIN"
+createdb -h localhost -O sundy sundy_dev
+createdb -h localhost -O sundy sundy_test
+
+cp .env.example .env   # URL bawaannya sudah menunjuk kedua basis data di atas; isi BETTER_AUTH_SECRET
 npm install
-npm run db:migrate     # terapkan skema ke branch production
+npm run db:migrate     # terapkan skema ke sundy_dev
 npm run db:seed        # muat katalog layanan
 npm run dev            # http://localhost:3000
 ```
@@ -53,7 +58,7 @@ npm run dev            # http://localhost:3000
 Skema basis data uji diperbarui setiap ada migrasi baru:
 
 ```bash
-npm run db:migrate:test   # prisma migrate deploy ke branch test
+npm run db:migrate:test   # prisma migrate deploy ke sundy_test
 ```
 
 ## Panel admin
@@ -79,42 +84,29 @@ npm run reset-password -- <email> "<kata-sandi-baru>"
 
 ```bash
 npm test                  # uji unit & komponen
-npm run test:integration  # uji terhadap basis data uji di Neon
+npm run test:integration  # uji terhadap basis data uji (sundy_test)
 npm run test:e2e          # uji ujung-ke-ujung Playwright (desktop & ponsel)
 ```
 
-Uji integrasi dan uji E2E sama-sama memakai branch `test` dan mengosongkan tabelnya —
+Uji integrasi dan uji E2E sama-sama memakai `sundy_test` dan mengosongkan tabelnya —
 jangan jalankan keduanya bersamaan. Uji E2E menjalankan server sendiri di port 3100
-yang diarahkan ke branch `test`, menjalankan seed, dan membuat akun admin uji; ia
-menolak berjalan bila `TEST_DATABASE_URL` menunjuk basis data production.
-
-## Deploy ke Vercel
-
-Proyek Vercel dihubungkan ke repositori ini dan membangun production dari `main`.
-Fungsi server berjalan di Singapura (`sin1`, lihat `vercel.json`) agar dekat dengan
-basis data Neon di `ap-southeast-1`.
-
-Environment variables untuk lingkungan **Production**:
-
-| Nama | Isi |
-|---|---|
-| `DATABASE_URL` | Connection string *pooled* branch `production` |
-| `DATABASE_URL_UNPOOLED` | Connection string langsung branch `production` — dibaca `prisma generate` saat build |
-| `BETTER_AUTH_SECRET` | Rahasia acak: `openssl rand -base64 32` |
-| `BETTER_AUTH_URL` | Alamat situs, misal `https://domain-klinik.com` |
-| `NEXT_PUBLIC_SITE_URL` | Alamat yang sama — dipakai sitemap dan robots.txt |
-
-Untuk lingkungan **Preview**, isi `DATABASE_URL`/`DATABASE_URL_UNPOOLED` dengan
-connection string branch `test`, bukan production — preview dibangun dari setiap
-branch dan tidak boleh menulis ke data pasien sungguhan. Variabel `TEST_*` tidak
-dipakai di Vercel.
-
-Migrasi **tidak** dijalankan saat build. Terapkan dari lokal sebelum perubahan skema
-digabung ke `main`:
+yang diarahkan ke `sundy_test`, menjalankan seed, dan membuat akun admin uji; ia
+menolak berjalan bila `TEST_DATABASE_URL` menunjuk basis data yang sama dengan `DATABASE_URL`.
 
 ```bash
-npx prisma migrate deploy   # ke branch production (DATABASE_URL_UNPOOLED di .env)
+npm run test:server       # uji skrip server (deploy.sh, backup.sh) dengan perintah tiruan
 ```
+
+## Produksi
+
+Situs produksi berjalan di VPS sendiri (IDCloudHost Jakarta) di **https://sundyclinic.com**, di balik
+Cloudflare. Semua hal operasional — rilis, kembali ke rilis sebelumnya, mode pemeliharaan, backup
+terenkripsi, uji pemulihan, dan membangun ulang server — ada di runbook
+[`docs/operasional/server-sundy.md`](docs/operasional/server-sundy.md).
+
+Rilis dilakukan dari server dengan `scripts/server/deploy.sh`, yang juga menjalankan
+`prisma migrate deploy` sebelum rilis baru aktif. Migrasi yang mengubah skema harus tetap cocok dengan
+kode rilis sebelumnya, agar kembali ke rilis sebelumnya tetap aman.
 
 ## Catatan keamanan
 

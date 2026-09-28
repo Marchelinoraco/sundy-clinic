@@ -14,8 +14,8 @@ const globalForPrisma = globalThis as unknown as {
 };
 
 function createPrismaClient(): PrismaClient {
-  // Adapter PostgreSQL biasa (node-postgres). Di VPS menunjuk PostgreSQL lokal;
-  // untuk uji integrasi tetap bisa menunjuk branch "test" di Neon.
+  // Adapter PostgreSQL biasa (node-postgres): PostgreSQL lokal di VPS, dan
+  // sundy_dev / sundy_test di laptop.
   const adapter = new PrismaPg({ connectionString });
 
   return new PrismaClient({

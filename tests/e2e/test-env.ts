@@ -8,7 +8,7 @@ export const E2E_BASE_URL = `http://localhost:${E2E_PORT}`;
  * Koneksi database uji (`sundy_test` di PostgreSQL lokal) untuk server uji ujung-ke-ujung.
  *
  * Uji E2E membuat pasien dan booking sungguhan, dan booking tidak pernah
- * dihapus lewat aplikasi (PRD F9). Menjalankannya ke branch production akan
+ * dihapus lewat aplikasi (PRD F9). Menjalankannya ke basis data utama akan
  * menanam data palsu di basis data yang menyimpan rekam medis pasien — jadi
  * fungsi ini menolak keras bila alamat test sama dengan production.
  */

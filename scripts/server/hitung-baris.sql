@@ -1,5 +1,5 @@
 -- Jumlah baris setiap tabel di skema public, satu baris per tabel: "<tabel>|<jumlah>".
--- Dipakai untuk mencocokkan Neon vs VPS saat perpindahan dan saat uji pemulihan:
+-- Dipakai untuk mencocokkan dua basis data (mis. saat pindah server) dan saat uji pemulihan:
 --   psql "$URL" -At -f scripts/server/hitung-baris.sql
 SELECT table_name || '|' ||
        (xpath('/row/c/text()',

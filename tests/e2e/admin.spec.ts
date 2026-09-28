@@ -12,12 +12,15 @@ test("halaman staf juga tertutup untuk yang belum login", async ({ page }) => {
   await expect(page).toHaveURL(/\/masuk$/);
 });
 
-test("halaman jadwal, pasien, dan booking tertutup untuk yang belum login", async ({ page }) => {
-  for (const path of ["/admin/jadwal", "/admin/pasien", "/admin/booking", "/admin/booking/baru"]) {
+// Satu uji per halaman: setiap rute dikompilasi `next dev` saat pertama dibuka
+// (±4–5 detik), jadi empat rute dalam satu uji bisa melewati batas 30 detik saat
+// worker lain ikut mengompilasi — gagal karena waktu, bukan karena halamannya.
+for (const path of ["/admin/jadwal", "/admin/pasien", "/admin/booking", "/admin/booking/baru"]) {
+  test(`${path} tertutup untuk yang belum login`, async ({ page }) => {
     await page.goto(path);
     await expect(page).toHaveURL(/\/masuk$/);
-  }
-});
+  });
+}
 
 test("halaman login tidak meminta mesin pencari mengindeksnya", async ({ page }) => {
   await page.goto("/masuk");

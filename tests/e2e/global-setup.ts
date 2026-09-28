@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { e2eDatabaseEnv } from "./test-env";
 
 /**
- * Menyiapkan branch test sebelum uji E2E: data katalog & jadwal dari seed,
+ * Menyiapkan basis data uji sebelum uji E2E: data katalog & jadwal dari seed,
  * booking/pasien sisa dibersihkan, dan akun admin uji dipastikan ada.
  *
  * Uji integrasi (npm run test:integration) memakai branch yang sama dan
