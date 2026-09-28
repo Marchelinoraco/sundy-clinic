@@ -90,10 +90,12 @@ export function describeAnswers(a: QuizAnswers): IntakeSection[] {
       const result = s.dietResults?.[program];
       const name = dietProgramName(a, program);
       if (result?.outcome === "BERHASIL") {
+        const lost = result.lostKg !== undefined ? ` −${formatDecimal(result.lostKg)} kg` : "";
         const after = result.weightAfter ? `, ${WEIGHT_AFTER_DIET[result.weightAfter].toLowerCase()}` : "";
-        dietLines.push(`${name}: berhasil −${formatDecimal(result.lostKg ?? 0)} kg${after}`);
+        dietLines.push(`${name}: berhasil${lost}${after}`);
       } else if (result?.outcome === "MASIH_JALAN") {
-        dietLines.push(`${name}: masih jalan −${formatDecimal(result.lostKg ?? 0)} kg`);
+        const lost = result.lostKg !== undefined ? ` −${formatDecimal(result.lostKg)} kg` : "";
+        dietLines.push(`${name}: masih jalan${lost}`);
       } else if (result?.outcome === "TIDAK_BERHASIL") {
         dietLines.push(`${name}: tidak berhasil`);
       }
@@ -171,8 +173,8 @@ export function describeAnswers(a: QuizAnswers): IntakeSection[] {
             const medication = h.medications?.[condition];
             return `${conditionName(a, condition)}: ${medication?.none ? "tidak minum obat" : medication?.text ?? "-"}`;
           });
-    lines.push(`Obat/suplemen lain: ${h.otherMeds?.has ? h.otherMeds.text : "tidak ada"}`);
-    lines.push(`Alergi: ${h.allergies?.has ? h.allergies.text : "tidak ada"}`);
+    lines.push(`Obat/suplemen lain: ${h.otherMeds?.has ? (h.otherMeds.text || "belum diisi") : "tidak ada"}`);
+    lines.push(`Alergi: ${h.allergies?.has ? (h.allergies.text || "belum diisi") : "tidak ada"}`);
     if (h.pregnancy) lines.push(`Hamil/menyusui: ${PREGNANCY[h.pregnancy]}`);
     sections.push({ title: "Kesehatan", step: "K1", lines });
   }

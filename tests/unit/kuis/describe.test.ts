@@ -83,4 +83,30 @@ describe("describeAnswers", () => {
     ]);
     expect(sections["Aktivitas kemarin"][0]).toBe("06.00 · Kapsul/obat · Kapsul M");
   });
+
+  it("tidak pernah menulis −0 kg atau undefined untuk jawaban yang belum lengkap", () => {
+    const sections = describeAnswers({
+      patientType: "BARU",
+      purpose: "SLIMMING",
+      slimming: {
+        dietHistory: "PERNAH",
+        dietPrograms: ["KETO", "OLAHRAGA"],
+        dietResults: {
+          KETO: { outcome: "BERHASIL" },
+          OLAHRAGA: { outcome: "MASIH_JALAN" },
+        },
+      },
+      health: {
+        conditions: ["TIDAK_ADA"],
+        otherMeds: { has: true },
+        allergies: { has: true },
+      },
+    });
+    const joined = sections.map((s) => s.lines.join("|")).join("|");
+    expect(joined).toContain("Keto: berhasil");
+    expect(joined).toContain("Olahraga / gym: masih jalan");
+    expect(joined).toContain("Obat/suplemen lain: belum diisi");
+    expect(joined).toContain("Alergi: belum diisi");
+    expect(joined).not.toMatch(/undefined|−0 kg/);
+  });
 });
