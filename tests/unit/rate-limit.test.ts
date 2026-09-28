@@ -1,0 +1,23 @@
+import { describe, expect, it } from "vitest";
+import { createRateLimiter } from "@/lib/rate-limit";
+
+describe("createRateLimiter", () => {
+  it("mengizinkan sampai batas lalu menolak", () => {
+    const limiter = createRateLimiter({ limit: 3, windowMs: 60_000 });
+    expect([1, 2, 3, 4].map(() => limiter.take("1.2.3.4", 1_000))).toEqual([true, true, true, false]);
+  });
+
+  it("menghitung setiap kunci secara terpisah", () => {
+    const limiter = createRateLimiter({ limit: 1, windowMs: 60_000 });
+    expect(limiter.take("a", 0)).toBe(true);
+    expect(limiter.take("b", 0)).toBe(true);
+    expect(limiter.take("a", 0)).toBe(false);
+  });
+
+  it("mengizinkan lagi setelah jendela waktu lewat", () => {
+    const limiter = createRateLimiter({ limit: 1, windowMs: 60_000 });
+    expect(limiter.take("a", 0)).toBe(true);
+    expect(limiter.take("a", 59_999)).toBe(false);
+    expect(limiter.take("a", 60_000)).toBe(true);
+  });
+});
