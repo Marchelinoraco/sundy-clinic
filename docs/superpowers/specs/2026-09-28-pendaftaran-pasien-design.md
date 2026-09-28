@@ -50,6 +50,7 @@ konsultasinya (Slimming atau Aesthetic) **sebelum** data pribadi diminta.
 | K15 | Biaya booking (menjawab D5) | **Rp 100.000** untuk semua jenis booking, **terpisah** dari biaya layanan (tidak dipotong dari tagihan) |
 | K16 | Pembatalan | Biaya booking **tidak dikembalikan**, tetapi **tetap berlaku bila pasien pindah jadwal** paling lambat 2 jam sebelum jadwal |
 | K17 | Angka biaya & rekening | Disimpan sebagai **pengaturan klinik** yang diubah Super Admin di panel, tanpa developer |
+| K18 | Biaya booking untuk booking admin | Berlaku juga untuk booking yang dicatat admin lewat **WhatsApp atau telepon**. **Walk-in** tidak dikenai biaya |
 
 ## 3. Alur pasien di situs
 
@@ -258,7 +259,8 @@ Satu baris per booking (`appointmentId` unik).
   Kode yang menampilkan booking (daftar, teks konfirmasi) menangani pasien kosong dengan menampilkan nama dari
   isian dan label "Belum dicocokkan".
 - **`Appointment.bookingFee`** (angka rupiah, boleh kosong) menyimpan salinan biaya booking saat booking
-  dibuat. Perubahan pengaturan tidak mengubah booking lama, dan kasir (Plan 5) nanti membaca angka ini.
+  dibuat. Kolom ini diisi untuk sumber `SITUS`, `WHATSAPP`, dan `TELEPON`, dan dibiarkan kosong untuk
+  `WALK_IN` (K18). Perubahan pengaturan tidak mengubah booking lama, dan kasir (Plan 5) nanti membaca angka ini.
 - **Tabel baru `ClinicSetting`** (satu baris) berisi `bookingFee` (awal 100.000), `bankName`,
   `bankAccountNumber`, dan `bankAccountHolder`. Halaman `/admin/pengaturan` hanya untuk Super Admin
   (`content:manage`), dan setiap perubahan dicatat di audit.
@@ -484,7 +486,6 @@ Sebelum itu, `/daftar` bisa dibuka lewat alamat langsung untuk uji coba.
 
 ## 15. Yang perlu dikonfirmasi saat tinjauan spec
 
-- **Biaya booking untuk booking yang dicatat admin.** Asumsi spec ini: biaya berlaku juga untuk booking lewat
-  WA/telepon (pesan "Kirim form" menyertakan instruksi transfer), tetapi **tidak** untuk walk-in (sumber
-  `WALK_IN`), yang `bookingFee`-nya kosong. Mohon dikoreksi bila berbeda.
-- **Kata-kata kuis versi 1** (bagian 3.2), untuk ditinjau dokter.
+- ~~Biaya booking untuk booking yang dicatat admin~~: **dijawab pemilik 28 Sep 2026** dan menjadi K18.
+- **Kata-kata kuis versi 1** (bagian 3.2), untuk ditinjau dokter. Tinjauan ini tidak menahan penulisan plan.
+  Kata-katanya harus final sebelum task yang membangun definisi kuis dikerjakan.
