@@ -260,7 +260,7 @@ describe("server action appointment", () => {
 
     const list = await listAppointments({ branchId, status: "MENUNGGU_KONFIRMASI" });
     expect(list).toHaveLength(1);
-    expect(list[0].patient.name).toBe("Pasien Appointment");
+    expect(list[0].patient?.name).toBe("Pasien Appointment");
   });
 
   it("menolak layanan khusus dokter yang dijadwalkan ke terapis", async () => {

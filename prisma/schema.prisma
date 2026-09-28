@@ -85,6 +85,7 @@ model Staff {
   scheduleExceptions ScheduleException[]
   appointments       Appointment[]
   slotHolds          SlotHold[]
+  reviewedIntakes    Intake[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -351,6 +352,7 @@ model Patient {
   updatedAt DateTime @updatedAt
 
   appointments Appointment[]
+  intakes      Intake[]
 
   @@index([whatsapp])
   @@index([name])
@@ -392,12 +394,19 @@ model Appointment {
   source  BookingSource
   notes   String?
 
+  /// Salinan biaya booking (rupiah) saat booking dibuat. Kosong untuk walk-in.
+  /// Perubahan pengaturan tidak mengubah booking lama.
+  bookingFee Int?
+  intake     Intake?
+
   branchId  String
   branch    Branch   @relation(fields: [branchId], references: [id])
   staffId   String
   staff     Staff    @relation(fields: [staffId], references: [id])
-  patientId String
-  patient   Patient  @relation(fields: [patientId], references: [id])
+  /// Kosong hanya untuk booking situs yang belum dicocokkan admin — dijaga
+  /// CHECK appointment_patient_required di migrasi pendaftaran_pasien.
+  patientId String?
+  patient   Patient? @relation(fields: [patientId], references: [id])
   serviceId String?
   service   Service? @relation(fields: [serviceId], references: [id])
 
@@ -429,4 +438,90 @@ model SlotHold {
 
   @@index([staffId, startAt])
   @@index([expiresAt])
+}
+
+enum IntakeStatus {
+  MENUNGGU_DIISI
+  TERISI
+  DIPERIKSA
+}
+
+enum IntakeKind {
+  LENGKAP
+  PENDEK
+}
+
+enum IntakePurpose {
+  SLIMMING
+  AESTHETIC
+  BELUM_YAKIN
+}
+
+/// Isian Pendaftaran: jawaban kuis & data diri pasien untuk satu booking.
+/// Tidak pernah dihapus; setelah TERISI, jawabannya tidak pernah diubah —
+/// yang boleh berubah hanya patientId (pencocokan) dan kolom pemeriksaan
+/// dokter. Spec: docs/superpowers/specs/2026-09-28-pendaftaran-pasien-design.md 5.1.
+model Intake {
+  id              String         @id @default(cuid())
+  status          IntakeStatus
+  kind            IntakeKind
+  purpose         IntakePurpose?
+  /// Pengakuan pasien di pertanyaan "Pernah berobat?" (booking situs saja).
+  claimsReturning Boolean?
+  quizVersion     Int?
+  /// Jawaban kuis selain kolom bertipe di bawah. Bentuknya dikunci skema
+  /// src/lib/kuis/v<quizVersion>/answers.ts.
+  answers         Json?
+
+  name       String?
+  whatsapp   String?
+  birthDate  DateTime? @db.Date
+  gender     Gender?
+  occupation String?
+  address    String?
+
+  /// Ukuran mandiri pasien — berbeda dari hasil Timbang BIA di klinik.
+  selfWeightKg Decimal?  @db.Decimal(5, 1)
+  selfHeightCm Decimal?  @db.Decimal(5, 1)
+  /// Tanggal yang dimaksud "kemarin" pada pertanyaan aktivitas H-1.
+  activityDate DateTime? @db.Date
+
+  consentAt      DateTime?
+  consentVersion String?
+  submittedAt    DateTime?
+  /// Token hold yang dipakai saat Kirim. Kirim ganda dengan token yang sama
+  /// mengembalikan booking yang sudah dibuat, bukan booking kedua.
+  submissionKey  String?   @unique
+
+  reviewedAt        DateTime?
+  reviewedByStaffId String?
+  reviewedBy        Staff?    @relation(fields: [reviewedByStaffId], references: [id], onDelete: Restrict)
+
+  /// Link WA pribadi (Plan 3b-2): hanya hash SHA-256 token yang disimpan.
+  linkTokenHash String?   @unique
+  linkExpiresAt DateTime?
+
+  appointmentId String      @unique
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
+  patientId     String?
+  patient       Patient?    @relation(fields: [patientId], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([patientId])
+  @@index([status])
+}
+
+/// Pengaturan klinik yang diubah Super Admin tanpa developer. Selalu tepat
+/// satu baris (id = 1) — dijaga CHECK clinic_setting_single_row.
+model ClinicSetting {
+  id                Int     @id @default(1)
+  /// Biaya booking dalam rupiah penuh (spec K15).
+  bookingFee        Int     @default(100000)
+  bankName          String?
+  bankAccountNumber String?
+  bankAccountHolder String?
+
+  updatedAt DateTime @updatedAt
 }

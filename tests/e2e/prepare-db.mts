@@ -10,6 +10,7 @@ import { E2E_ADMIN } from "./credentials";
 // Booking dan pasien dari putaran sebelumnya dibuang agar slot yang
 // ditawarkan selalu sama di setiap putaran.
 await prisma.slotHold.deleteMany();
+await prisma.intake.deleteMany();
 await prisma.appointment.deleteMany();
 await prisma.patient.deleteMany();
 await prisma.patientNumberCounter.deleteMany();
