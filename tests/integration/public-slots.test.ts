@@ -102,6 +102,19 @@ describe("slot dan hold publik", () => {
     }
   });
 
+  it("menolak menahan jam tanpa tenaga yang jelas", async () => {
+    const result = await holdSlot({
+      serviceId: world.consultationId,
+      staffId: "" as unknown as string,
+      branchId: world.branchId,
+      startAt: at(date, "14:00").toISOString(),
+      previousToken: null,
+    });
+
+    expect(result).toEqual({ ok: false, error: "Tenaga ini tidak menangani layanan tersebut." });
+    expect(await prisma.slotHold.count({ where: { startAt: at(date, "14:00") } })).toBe(0);
+  });
+
   it("dua pasien tidak bisa menahan jam yang sama", async () => {
     await unwrap(hold("16:00"));
     expect(await hold("16:00")).toMatchObject({ ok: false });

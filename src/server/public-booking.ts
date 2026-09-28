@@ -99,6 +99,14 @@ export async function holdSlot(input: {
   return runAction(async () => {
     await guardRate(holdLimiter);
 
+    // Beda dari getPublicSlots: di sini staffId wajib. "Siapa saja" sudah
+    // diselesaikan client jadi satu staffId nyata sebelum menahan jam —
+    // permintaan mentah tanpa staffId tidak boleh diam-diam jatuh ke staf
+    // pertama yang kosong lewat eligibleStaff.
+    if (typeof input.staffId !== "string" || !input.staffId) {
+      throw new UserFacingError("Tenaga ini tidak menangani layanan tersebut.");
+    }
+
     const startAt = new Date(input.startAt);
     if (Number.isNaN(startAt.getTime())) throw new UserFacingError(SLOT_GONE);
     const now = new Date();
