@@ -13,6 +13,8 @@ const intake: IntakeDetail = {
   submittedAt: new Date("2026-09-28T02:00:00Z"),
   appointment: { code: "SDY-8F3K", startAt: new Date("2026-10-01T07:00:00Z"), serviceName: "Konsultasi Dokter", staffName: "Dr. Diane" },
   patient: null,
+  review: null,
+  approval: null,
   identity: {
     name: "Siti Rahayu",
     whatsapp: "6281234567890",

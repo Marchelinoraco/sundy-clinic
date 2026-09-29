@@ -6,9 +6,11 @@ import { prisma } from "@/lib/db";
 import { formatIndonesianDate } from "@/lib/format";
 import type { ActivityRow, IntakeSection } from "@/lib/kuis/v1/describe";
 import { activityTable, describeAnswers } from "@/lib/kuis/v1/describe";
-import { quizAnswersSchema } from "@/lib/kuis/v1/answers";
+import { quizAnswersSchema, type QuizAnswers } from "@/lib/kuis/v1/answers";
 import { PURPOSES, QUIZ_VERSION } from "@/lib/kuis/v1/options";
+import { proposeRecordFromAnswers, type RecordProposal } from "@/lib/kuis/v1/record-proposal";
 import { can } from "@/lib/permissions";
+import { mergeRecordText } from "@/lib/record-text";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { recordAudit } from "@/server/audit";
 import { insertPatient } from "@/server/patient-store";
@@ -206,6 +208,19 @@ export async function createPatientFromIntake(
   });
 }
 
+export type IntakeApproval =
+  | { state: "needs-match" }
+  | {
+      state: "ready";
+      patientId: string;
+      /** updatedAt pasien (ISO) saat halaman dibuka; simpan ditolak bila data pasien berubah sesudahnya. */
+      patientVersion: string;
+      current: { allergies: string | null; medicalHistory: string | null };
+      proposed: RecordProposal;
+      /** Isi awal kolom sunting. */
+      prefill: { allergies: string; medicalHistory: string };
+    };
+
 export type IntakeDetail = {
   id: string;
   status: "MENUNGGU_DIISI" | "TERISI" | "DIPERIKSA";
@@ -213,7 +228,8 @@ export type IntakeDetail = {
   purposeLabel: string | null;
   submittedAt: Date | null;
   appointment: { code: string; startAt: Date; serviceName: string; staffName: string };
-  patient: { name: string; medicalRecordNumber: string } | null;
+  patient: { id: string; name: string; medicalRecordNumber: string } | null;
+  review: { reviewedAt: Date; reviewerName: string } | null;
   identity: {
     name: string | null;
     whatsapp: string | null;
@@ -228,10 +244,14 @@ export type IntakeDetail = {
     activities: ActivityRow[] | null;
     activityDateLabel: string | null;
   } | null;
+  /** Hanya untuk record:write, setelah pasien mengisi kuis (spec 6.4). */
+  approval: IntakeApproval | null;
 };
 
 /** Kolom klinis dibaca dengan kueri terpisah, hanya untuk yang berhak (spec 6.2). */
-async function loadClinical(intakeId: string): Promise<IntakeDetail["clinical"]> {
+async function loadClinical(
+  intakeId: string,
+): Promise<{ clinical: NonNullable<IntakeDetail["clinical"]>; answers: QuizAnswers } | null> {
   const row = await prisma.intake.findUniqueOrThrow({
     where: { id: intakeId },
     select: { quizVersion: true, answers: true, selfWeightKg: true, selfHeightCm: true, activityDate: true },
@@ -249,10 +269,39 @@ async function loadClinical(intakeId: string): Promise<IntakeDetail["clinical"]>
   }
 
   return {
-    // Aktivitas tampil sebagai tabel 06.00–22.00, bukan daftar baris.
-    sections: describeAnswers(answers).filter((section) => section.step !== "P3"),
-    activities: answers.returning?.activities ? activityTable(answers.returning.activities) : null,
-    activityDateLabel: row.activityDate ? formatIndonesianDate(row.activityDate) : null,
+    answers,
+    clinical: {
+      // Aktivitas tampil sebagai tabel 06.00–22.00, bukan daftar baris.
+      sections: describeAnswers(answers).filter((section) => section.step !== "P3"),
+      activities: answers.returning?.activities ? activityTable(answers.returning.activities) : null,
+      activityDateLabel: row.activityDate ? formatIndonesianDate(row.activityDate) : null,
+    },
+  };
+}
+
+/**
+ * Usulan berdampingan dengan catatan pasien saat ini (spec 6.4). Isian yang
+ * sudah diperiksa tidak menggabungkan usulan lagi: baris yang sengaja dihapus
+ * dokter tidak boleh muncul kembali.
+ */
+async function loadApproval(patientId: string, answers: QuizAnswers, reviewed: boolean): Promise<IntakeApproval> {
+  const patient = await prisma.patient.findUniqueOrThrow({
+    where: { id: patientId },
+    select: { allergies: true, medicalHistory: true, updatedAt: true },
+  });
+  const proposed = proposeRecordFromAnswers(answers);
+  return {
+    state: "ready",
+    patientId,
+    patientVersion: patient.updatedAt.toISOString(),
+    current: { allergies: patient.allergies, medicalHistory: patient.medicalHistory },
+    proposed,
+    prefill: reviewed
+      ? { allergies: patient.allergies ?? "", medicalHistory: patient.medicalHistory ?? "" }
+      : {
+          allergies: mergeRecordText(patient.allergies, proposed.allergies),
+          medicalHistory: mergeRecordText(patient.medicalHistory, proposed.medicalHistory),
+        },
   };
 }
 
@@ -281,10 +330,20 @@ export async function getIntakeForStaff(intakeId: string): Promise<IntakeDetail 
           staff: { select: { name: true } },
         },
       },
-      patient: { select: { name: true, medicalRecordNumber: true } },
+      patient: { select: { id: true, name: true, medicalRecordNumber: true } },
+      reviewedAt: true,
+      reviewedBy: { select: { name: true } },
     },
   });
   if (!row) return null;
+
+  const loaded = can(staff.role, "record:read") ? await loadClinical(row.id) : null;
+  let approval: IntakeApproval | null = null;
+  if (loaded && can(staff.role, "record:write")) {
+    approval = row.patient
+      ? await loadApproval(row.patient.id, loaded.answers, row.status === "DIPERIKSA")
+      : { state: "needs-match" };
+  }
 
   return {
     id: row.id,
@@ -299,6 +358,7 @@ export async function getIntakeForStaff(intakeId: string): Promise<IntakeDetail 
       staffName: row.appointment.staff.name,
     },
     patient: row.patient,
+    review: row.reviewedAt && row.reviewedBy ? { reviewedAt: row.reviewedAt, reviewerName: row.reviewedBy.name } : null,
     identity: {
       name: row.name,
       whatsapp: row.whatsapp,
@@ -307,6 +367,76 @@ export async function getIntakeForStaff(intakeId: string): Promise<IntakeDetail 
       occupation: row.occupation,
       address: row.address,
     },
-    clinical: can(staff.role, "record:read") ? await loadClinical(row.id) : null,
+    clinical: loaded?.clinical ?? null,
+    approval,
   };
+}
+
+/** Batas panjang teks catatan medis yang disunting dokter. */
+const RECORD_TEXT_MAX = 2000;
+
+/**
+ * Setujui ke data pasien (spec 6.4, K12). Mengganti catatan Alergi dan
+ * Riwayat penyakit & obat pasien dengan teks yang disunting dokter, lalu
+ * menandai isian DIPERIKSA. Identitas pasien dan jawaban isian tidak disentuh.
+ */
+export async function approveIntakeToPatient(input: {
+  intakeId: string;
+  allergies: string;
+  medicalHistory: string;
+  patientVersion: string;
+}): Promise<ActionResult<void>> {
+  return runAction(async () => {
+    const actor = await requireCapability("record:write");
+    const allergies = String(input.allergies ?? "").trim();
+    const medicalHistory = String(input.medicalHistory ?? "").trim();
+    if (allergies.length > RECORD_TEXT_MAX || medicalHistory.length > RECORD_TEXT_MAX) {
+      throw new UserFacingError("Teks alergi atau riwayat penyakit terlalu panjang (maks. 2.000 karakter).");
+    }
+    const version = new Date(String(input.patientVersion ?? ""));
+    if (Number.isNaN(version.getTime())) throw new UserFacingError("Muat ulang halaman lalu coba lagi.");
+
+    const intake = await prisma.intake.findUnique({
+      where: { id: String(input.intakeId ?? "") },
+      select: {
+        id: true,
+        status: true,
+        patientId: true,
+        appointment: { select: { code: true } },
+        patient: { select: { medicalRecordNumber: true } },
+      },
+    });
+    if (!intake) throw new UserFacingError("Isian tidak ditemukan.");
+    if (intake.status === "MENUNGGU_DIISI") throw new UserFacingError("Pasien belum mengisi kuis.");
+    if (!intake.patientId || !intake.patient) throw new UserFacingError("Cocokkan booking ini dengan pasien dulu.");
+    const patientId = intake.patientId;
+
+    await prisma.$transaction(async (tx) => {
+      // Hanya bila catatan pasien belum berubah sejak halaman dibuka: persetujuan
+      // dari halaman lama tidak boleh menimpa persetujuan yang lebih baru.
+      const { count } = await tx.patient.updateMany({
+        where: { id: patientId, updatedAt: version },
+        data: { allergies: allergies || null, medicalHistory: medicalHistory || null },
+      });
+      if (count === 0) {
+        throw new UserFacingError("Data pasien baru saja berubah. Muat ulang halaman lalu periksa lagi.");
+      }
+      await tx.intake.update({
+        where: { id: intake.id },
+        data: { status: "DIPERIKSA", reviewedAt: new Date(), reviewedByStaffId: actor.staffId },
+      });
+    });
+
+    // Tanpa isi klinis: jejak audit untuk menelusuri siapa dan kapan, bukan apa.
+    await recordAudit({
+      actor,
+      action: "patient.approve-intake",
+      entity: "Patient",
+      entityId: patientId,
+      summary: `${intake.patient.medicalRecordNumber}: alergi & riwayat penyakit dari isian ${intake.appointment.code}`,
+    });
+    safeRevalidatePath(`/admin/isian/${intake.id}`);
+    safeRevalidatePath(`/admin/pasien/${patientId}`);
+    safeRevalidatePath("/admin/booking");
+  });
 }
