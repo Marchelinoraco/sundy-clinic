@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatIndonesianDate, formatPrice, formatRupiah } from "@/lib/format";
+import { formatIndonesianDate, formatPrice, formatRupiah, formatShortIndonesianDate } from "@/lib/format";
 
 describe("formatRupiah", () => {
   it("memakai titik sebagai pemisah ribuan", () => {
@@ -52,3 +52,11 @@ describe("formatIndonesianDate", () => {
     expect(formatIndonesianDate(date)).toBe("Sabtu, 26 September 2026");
   });
 });
+
+describe("formatShortIndonesianDate", () => {
+  it("menulis hari dan bulan singkat dalam WITA", () => {
+    // 7 Okt 2026 pukul 20.30 UTC = 8 Okt 04.30 WITA, hari Kamis.
+    expect(formatShortIndonesianDate(new Date("2026-10-07T20:30:00Z"))).toBe("Kam, 8 Okt");
+  });
+});
+

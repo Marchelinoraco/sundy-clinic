@@ -13,7 +13,11 @@ import { bookingFeeFor } from "@/lib/payment";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { combineWitaDateAndMinutes } from "@/lib/time";
 import { recordAudit } from "@/server/audit";
-import { expireStaleSiteBookings } from "@/server/booking-expiry";
+import {
+  confirmationDeadlines,
+  currentConfirmationCutoff,
+  expireStaleSiteBookings,
+} from "@/server/booking-expiry";
 import { getClinicSetting } from "@/server/clinic-setting";
 import { isExclusionViolation } from "@/server/db-errors";
 import { requireCapability } from "@/server/session";
@@ -229,6 +233,16 @@ export async function cancelAppointment(
   );
 }
 
+// Isian hanya membawa identitas: daftar booking juga dibuka resepsionis,
+// yang tidak boleh menerima jawaban klinis (spec 6.2).
+const BOOKING_LIST_INCLUDE = {
+  patient: true,
+  staff: true,
+  branch: true,
+  service: true,
+  intake: { select: { id: true, name: true, whatsapp: true, status: true } },
+} as const;
+
 export async function listAppointments(filter: {
   branchId?: string;
   staffId?: string;
@@ -252,15 +266,35 @@ export async function listAppointments(filter: {
           }
         : {}),
     },
-    // Isian hanya membawa identitas: daftar booking juga dibuka resepsionis,
-    // yang tidak boleh menerima jawaban klinis (spec 6.2).
-    include: {
-      patient: true,
-      staff: true,
-      branch: true,
-      service: true,
-      intake: { select: { id: true, name: true, whatsapp: true, status: true } },
-    },
+    include: BOOKING_LIST_INCLUDE,
     orderBy: { startAt: "asc" },
+  });
+}
+
+/**
+ * Booking situs yang belum diverifikasi, dari tanggal jadwal mana pun, yang
+ * masuk paling awal (paling dekat kedaluwarsa) lebih dulu. Tanpa daftar ini
+ * admin harus membuka tanggal satu per satu, dan booking bisa kedaluwarsa
+ * tanpa pernah dilihat.
+ */
+export async function listPendingSiteBookings() {
+  await requireCapability("booking:manage");
+  await expireStaleSiteBookings();
+
+  const appointments = await prisma.appointment.findMany({
+    where: { source: "SITUS", status: "MENUNGGU_KONFIRMASI" },
+    include: BOOKING_LIST_INCLUDE,
+    orderBy: { createdAt: "asc" },
+  });
+  const deadlines = await confirmationDeadlines(appointments.map((a) => a.createdAt));
+  return appointments.map((a, index) => ({ ...a, expiresAt: deadlines[index] }));
+}
+
+/** Jumlah untuk menu samping; tanpa menulis apa pun, karena dipanggil di setiap halaman admin. */
+export async function countPendingSiteBookings(): Promise<number> {
+  await requireCapability("booking:manage");
+  const cutoff = await currentConfirmationCutoff();
+  return prisma.appointment.count({
+    where: { source: "SITUS", status: "MENUNGGU_KONFIRMASI", createdAt: { gte: cutoff } },
   });
 }

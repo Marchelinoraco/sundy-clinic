@@ -50,6 +50,8 @@ export type BookingRow = {
   isSiteBooking: boolean;
   /** Isian pendaftaran booking ini, bila ada. */
   intakeId: string | null;
+  /** Batas sebelum booking situs kedaluwarsa, untuk daftar yang menunggu konfirmasi. */
+  deadlineLabel?: string;
 };
 
 const ACTIVE: AppointmentStatusValue[] = ["MENUNGGU_KONFIRMASI", "TERKONFIRMASI"];
@@ -111,6 +113,9 @@ export function AppointmentTable({ rows, canReadRecords }: { rows: BookingRow[];
               <TableCell className="align-top whitespace-nowrap">
                 <div className="font-medium">{row.timeLabel}</div>
                 <div className="font-mono text-xs text-muted-foreground">{row.code}</div>
+                {row.deadlineLabel && (
+                  <div className="mt-1 text-xs font-medium text-amber-700">{row.deadlineLabel}</div>
+                )}
               </TableCell>
               <TableCell className="align-top">
                 <div className="font-medium">{row.patientName}</div>

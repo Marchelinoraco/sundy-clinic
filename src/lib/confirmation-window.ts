@@ -1,9 +1,9 @@
-import { combineWitaDateAndMinutes, witaDateString, witaWeekday } from "./time";
+import { addDaysToDateString, combineWitaDateAndMinutes, witaDateString, witaWeekday } from "./time";
 
 /** Booking situs yang belum diverifikasi selama ini menjadi KEDALUWARSA (spec K13). */
 export const CONFIRMATION_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-/** Rentang terjauh yang ditelusuri mundur; cukup untuk libur panjang lebaran plus hari Minggu. */
+/** Rentang terjauh yang ditelusuri (mundur atau maju); cukup untuk libur panjang lebaran plus hari Minggu. */
 export const MAX_LOOKBACK_DAYS = 45;
 
 /**
@@ -29,6 +29,28 @@ export function confirmationCutoff(now: Date, closedDates: ReadonlySet<string>):
       remaining -= counted;
     }
     cursor = dayStart;
+  }
+  return cursor;
+}
+
+/**
+ * Kebalikan `confirmationCutoff`: saat booking situs yang dibuat pada
+ * `createdAt` menjadi KEDALUWARSA bila belum diverifikasi. Ditampilkan ke admin
+ * agar tahu booking mana yang harus didahulukan.
+ */
+export function confirmationDeadline(createdAt: Date, closedDates: ReadonlySet<string>): Date {
+  let remaining = CONFIRMATION_WINDOW_MS;
+  let cursor = createdAt;
+  for (let day = 0; day < MAX_LOOKBACK_DAYS; day += 1) {
+    const date = witaDateString(cursor);
+    const nextDayStart = combineWitaDateAndMinutes(addDaysToDateString(date, 1), 0);
+    const closed = witaWeekday(cursor) === 0 || closedDates.has(date);
+    if (!closed) {
+      const counted = nextDayStart.getTime() - cursor.getTime();
+      if (counted >= remaining) return new Date(cursor.getTime() + remaining);
+      remaining -= counted;
+    }
+    cursor = nextDayStart;
   }
   return cursor;
 }

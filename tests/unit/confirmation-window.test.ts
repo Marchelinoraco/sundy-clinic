@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { confirmationCutoff } from "@/lib/confirmation-window";
+import { confirmationCutoff, confirmationDeadline } from "@/lib/confirmation-window";
 
 // Jam WITA → instant UTC (WITA = UTC+8). 8–13 Feb 2031: Sabtu, Minggu, Senin, Selasa, Rabu, Kamis.
 const wita = (date: string, hour: number, minute = 0) =>
@@ -38,5 +38,37 @@ describe("confirmationCutoff", () => {
     expect(cutoff.getTime()).toBeLessThan(wita("2031-02-09", 14).getTime());
     // Selasa 00.00 tepat 24 jam kerja sejak Senin 00.00 → booking Minggu siang lewat batas.
     expect(confirmationCutoff(wita("2031-02-11", 0), none).getTime()).toBeGreaterThan(wita("2031-02-09", 14).getTime());
+  });
+});
+
+describe("confirmationDeadline", () => {
+  it("24 jam kemudian bila tidak ada hari Minggu atau libur", () => {
+    expect(confirmationDeadline(wita("2031-02-11", 12), none)).toEqual(wita("2031-02-12", 12));
+  });
+
+  it("melompati hari Minggu", () => {
+    // Sabtu 15.00 → Sabtu 9 jam + Senin 15 jam.
+    expect(confirmationDeadline(wita("2031-02-08", 15), none)).toEqual(wita("2031-02-10", 15));
+  });
+
+  it("melompati tanggal libur", () => {
+    expect(confirmationDeadline(wita("2031-02-11", 12), new Set(["2031-02-12"]))).toEqual(wita("2031-02-13", 12));
+  });
+
+  it("booking yang dibuat hari Minggu mulai dihitung Senin 00.00", () => {
+    expect(confirmationDeadline(wita("2031-02-09", 14), none)).toEqual(wita("2031-02-11", 0));
+  });
+
+  it("cocok dengan confirmationCutoff: belum kedaluwarsa sebelum batas, kedaluwarsa sesudahnya", () => {
+    const closed = new Set(["2031-02-12"]);
+    const minute = 60_000;
+    for (const createdAt of [wita("2031-02-08", 15), wita("2031-02-09", 14), wita("2031-02-11", 6, 30), wita("2031-02-13", 23)]) {
+      const deadline = confirmationDeadline(createdAt, closed);
+      // Kedaluwarsa berarti createdAt < cutoff(now) (booking-expiry.ts).
+      expect(createdAt.getTime()).toBeGreaterThanOrEqual(
+        confirmationCutoff(new Date(deadline.getTime() - minute), closed).getTime(),
+      );
+      expect(createdAt.getTime()).toBeLessThan(confirmationCutoff(new Date(deadline.getTime() + minute), closed).getTime());
+    }
   });
 });

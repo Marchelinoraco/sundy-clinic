@@ -107,19 +107,30 @@ test("pasien baru Slimming mendaftar sampai mendapat kode booking", async ({ pag
 test("admin mencocokkan pasien, memverifikasi, lalu membaca isiannya", async ({ page }, testInfo) => {
   test.skip(!booking, "Butuh booking dari uji sebelumnya.");
   await signIn(page, E2E_ADMIN);
-  await page.goto(`/admin/booking?tanggal=${booking!.date}`);
+  // Booking situs langsung terlihat di daftar "menunggu konfirmasi" tanpa membuka tanggal jadwalnya.
+  await page.goto("/admin/booking");
+  const pending = page.getByRole("region", { name: /Booking situs menunggu konfirmasi/ });
+  const pendingRow = pending.getByRole("row").filter({ hasText: booking!.code });
+  await expect(pendingRow.getByText(/^Kedaluwarsa /)).toBeVisible();
+  if (testInfo.project.name !== "mobile") {
+    // Menu samping tersembunyi di ponsel; di desktop angkanya tampil di menu Booking.
+    await expect(page.getByLabel(/^\d+ booking situs menunggu konfirmasi$/)).toBeVisible();
+  }
 
-  const row = page.getByRole("row").filter({ hasText: booking!.code });
-  await expect(row.getByText("Belum dicocokkan", { exact: true })).toBeVisible();
-  await row.getByRole("button", { name: "Cocokkan pasien" }).click();
+  await expect(pendingRow.getByText("Belum dicocokkan", { exact: true })).toBeVisible();
+  await pendingRow.getByRole("button", { name: "Cocokkan pasien" }).click();
 
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByText(patientFor(testInfo).name).first()).toBeVisible();
   await dialog.getByRole("button", { name: "Buat pasien baru" }).click();
-  await expect(row.getByText("Belum dicocokkan", { exact: true })).toBeHidden({ timeout: 30_000 });
+  await expect(pendingRow.getByText("Belum dicocokkan", { exact: true })).toBeHidden({ timeout: 30_000 });
 
-  await row.getByRole("button", { name: "Verifikasi" }).click();
-  await expect(row.getByText("Terkonfirmasi", { exact: true })).toBeVisible({ timeout: 30_000 });
+  await pendingRow.getByRole("button", { name: "Verifikasi" }).click();
+  // Setelah diverifikasi booking keluar dari daftar menunggu, tetapi tetap ada di tanggal jadwalnya.
+  await expect(pendingRow).toHaveCount(0, { timeout: 30_000 });
+  await page.goto(`/admin/booking?tanggal=${booking!.date}`);
+  const row = page.getByRole("row").filter({ hasText: booking!.code });
+  await expect(row.getByText("Terkonfirmasi", { exact: true })).toBeVisible();
 
   await row.getByRole("link", { name: "Lihat isian" }).click();
   // Rute /admin/isian/[id] belum pernah dikompilasi next dev di uji manapun
