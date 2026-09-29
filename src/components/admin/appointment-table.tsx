@@ -52,9 +52,19 @@ export type BookingRow = {
   intakeId: string | null;
   /** Batas sebelum booking situs kedaluwarsa, untuk daftar yang menunggu konfirmasi. */
   deadlineLabel?: string;
+  /** Status isian booking ini (resepsionis boleh melihatnya, spec 6.2). */
+  intakeStatus: "MENUNGGU_DIISI" | "TERISI" | "DIPERIKSA" | null;
+  /** Pasien yang sudah dicocokkan; null untuk booking situs yang belum dicocokkan. */
+  patientId: string | null;
 };
 
 const ACTIVE: AppointmentStatusValue[] = ["MENUNGGU_KONFIRMASI", "TERKONFIRMASI"];
+
+const INTAKE_STATUS_LABEL: Record<NonNullable<BookingRow["intakeStatus"]>, string> = {
+  MENUNGGU_DIISI: "belum diisi",
+  TERISI: "belum diperiksa",
+  DIPERIKSA: "diperiksa",
+};
 
 export function AppointmentTable({ rows, canReadRecords }: { rows: BookingRow[]; canReadRecords: boolean }) {
   const [pending, startTransition] = useTransition();
@@ -118,7 +128,15 @@ export function AppointmentTable({ rows, canReadRecords }: { rows: BookingRow[];
                 )}
               </TableCell>
               <TableCell className="align-top">
-                <div className="font-medium">{row.patientName}</div>
+                <div className="font-medium">
+                  {row.patientId ? (
+                    <Link href={`/admin/pasien/${row.patientId}`} className="underline-offset-4 hover:underline">
+                      {row.patientName}
+                    </Link>
+                  ) : (
+                    row.patientName
+                  )}
+                </div>
                 {row.needsMatch && (
                   <Badge variant="outline" className="mt-1">
                     Belum dicocokkan
@@ -136,6 +154,11 @@ export function AppointmentTable({ rows, canReadRecords }: { rows: BookingRow[];
               </TableCell>
               <TableCell className="align-top">
                 <AppointmentStatusBadge status={row.status} />
+                {row.intakeStatus && (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    Isian: {INTAKE_STATUS_LABEL[row.intakeStatus]}
+                  </div>
+                )}
               </TableCell>
               <TableCell className="align-top">
                 <div className="flex flex-wrap gap-1">

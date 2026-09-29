@@ -5,6 +5,7 @@ import type {
   AppointmentStatus,
   AppointmentType,
   BookingSource,
+  IntakeStatus,
 } from "@prisma/client";
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
 import { generateBookingCode } from "@/lib/booking-code";
@@ -236,7 +237,8 @@ export async function cancelAppointment(
 // Isian hanya membawa identitas: daftar booking juga dibuka resepsionis,
 // yang tidak boleh menerima jawaban klinis (spec 6.2).
 const BOOKING_LIST_INCLUDE = {
-  patient: true,
+  // Hanya identitas: catatan medis tidak pernah ikut daftar booking (spec 6.2).
+  patient: { select: { id: true, name: true, medicalRecordNumber: true, whatsapp: true } },
   staff: true,
   branch: true,
   service: true,
@@ -248,6 +250,7 @@ export async function listAppointments(filter: {
   staffId?: string;
   status?: AppointmentStatus;
   date?: string;
+  intakeStatus?: IntakeStatus;
 }) {
   await requireCapability("booking:manage");
   await expireStaleSiteBookings();
@@ -263,6 +266,13 @@ export async function listAppointments(filter: {
               gte: combineWitaDateAndMinutes(filter.date, 0),
               lt: combineWitaDateAndMinutes(filter.date, 24 * 60),
             },
+          }
+        : {}),
+      ...(filter.intakeStatus
+        ? {
+            intake: { status: filter.intakeStatus },
+            // Isian booking yang batal atau kedaluwarsa tidak perlu diperiksa lagi.
+            ...(filter.status ? {} : { status: { notIn: ["DIBATALKAN", "KEDALUWARSA"] as AppointmentStatus[] } }),
           }
         : {}),
     },

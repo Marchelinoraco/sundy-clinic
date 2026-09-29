@@ -30,6 +30,8 @@ const base: BookingRow = {
   needsMatch: false,
   isSiteBooking: true,
   intakeId: "i1",
+  intakeStatus: "TERISI",
+  patientId: "p1",
 };
 
 describe("AppointmentTable pencocokan pasien", () => {
@@ -75,3 +77,22 @@ describe("AppointmentTable batas kedaluwarsa", () => {
   });
 });
 
+describe("AppointmentTable status isian dan tautan pasien", () => {
+  it("menampilkan status isian di bawah status booking", () => {
+    render(<AppointmentTable rows={[base]} canReadRecords={false} />);
+    expect(screen.getByText("Isian: belum diperiksa")).toBeInTheDocument();
+  });
+
+  it("tidak menampilkan status isian untuk booking tanpa isian", () => {
+    render(<AppointmentTable rows={[{ ...base, intakeStatus: null, intakeId: null }]} canReadRecords={false} />);
+    expect(screen.queryByText(/^Isian:/)).not.toBeInTheDocument();
+  });
+
+  it("nama pasien menaut ke halaman pasien, kecuali booking yang belum dicocokkan", () => {
+    const { rerender } = render(<AppointmentTable rows={[base]} canReadRecords={false} />);
+    expect(screen.getByRole("link", { name: "Siti Rahayu" })).toHaveAttribute("href", "/admin/pasien/p1");
+
+    rerender(<AppointmentTable rows={[{ ...base, patientId: null, needsMatch: true }]} canReadRecords={false} />);
+    expect(screen.queryByRole("link", { name: "Siti Rahayu" })).not.toBeInTheDocument();
+  });
+});

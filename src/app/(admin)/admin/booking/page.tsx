@@ -63,6 +63,8 @@ function toRow(a: ListedAppointment): BookingRow {
     needsMatch: patient === null,
     isSiteBooking: a.source === "SITUS" && a.intake !== null,
     intakeId: a.intake?.id ?? null,
+    intakeStatus: a.intake?.status ?? null,
+    patientId: patient?.id ?? null,
     serviceName,
     staffName: a.staff.name,
     branchName: a.branch.name,
@@ -81,7 +83,7 @@ function toRow(a: ListedAppointment): BookingRow {
 export default async function BookingListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tanggal?: string; status?: string; staf?: string; cabang?: string }>;
+  searchParams: Promise<{ tanggal?: string; status?: string; staf?: string; cabang?: string; isian?: string }>;
 }) {
   const staff = await requireCapability("booking:manage");
   const params = await searchParams;
@@ -89,13 +91,16 @@ export default async function BookingListPage({
   const today = witaDateString(new Date());
   const date = params.tanggal && DATE_PATTERN.test(params.tanggal) ? params.tanggal : today;
   const status = isAppointmentStatus(params.status) ? params.status : null;
+  // Filter isian berlaku untuk semua tanggal: isian lama pun harus terlihat (spec 6.5).
+  const unreviewedOnly = params.isian === "belum-diperiksa";
 
   const [appointments, pendingSiteBookings, staffList, branches] = await Promise.all([
     listAppointments({
-      date,
+      date: unreviewedOnly ? undefined : date,
       status: status ?? undefined,
       staffId: params.staf || undefined,
       branchId: params.cabang || undefined,
+      intakeStatus: unreviewedOnly ? "TERISI" : undefined,
     }),
     listPendingSiteBookings(),
     listSchedulableStaff(),
@@ -105,7 +110,11 @@ export default async function BookingListPage({
   // Label tanggal dari tengah hari WITA, agar tidak bergeser ke hari lain.
   const dateLabel = formatIndonesianDate(combineWitaDateAndMinutes(date, 12 * 60));
 
-  const rows = appointments.map(toRow);
+  const rows = appointments.map((a) => {
+    const row = toRow(a);
+    // Tanpa batas tanggal: jam jadwal ditulis bersama tanggalnya.
+    return unreviewedOnly ? { ...row, timeLabel: `${formatShortIndonesianDate(a.startAt)} · ${row.timeLabel}` } : row;
+  });
   // Semua tanggal sekaligus: jam jadwal ditulis bersama tanggalnya.
   const pendingRows: BookingRow[] = pendingSiteBookings.map((a) => {
     const row = toRow(a);
@@ -147,24 +156,28 @@ export default async function BookingListPage({
         )}
 
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Button asChild variant="outline" size="sm">
-              <Link href={dayLink(addDaysToDateString(date, -1))} aria-label="Hari sebelumnya">
-                ‹
-              </Link>
-            </Button>
-            <h2 className="text-lg font-medium">{dateLabel}</h2>
-            <Button asChild variant="outline" size="sm">
-              <Link href={dayLink(addDaysToDateString(date, 1))} aria-label="Hari berikutnya">
-                ›
-              </Link>
-            </Button>
-            {date !== today && (
-              <Button asChild variant="ghost" size="sm">
-                <Link href={dayLink(today)}>Hari ini</Link>
+          {unreviewedOnly ? (
+            <h2 className="text-lg font-medium">Isian belum diperiksa · semua tanggal</h2>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Button asChild variant="outline" size="sm">
+                <Link href={dayLink(addDaysToDateString(date, -1))} aria-label="Hari sebelumnya">
+                  ‹
+                </Link>
               </Button>
-            )}
-          </div>
+              <h2 className="text-lg font-medium">{dateLabel}</h2>
+              <Button asChild variant="outline" size="sm">
+                <Link href={dayLink(addDaysToDateString(date, 1))} aria-label="Hari berikutnya">
+                  ›
+                </Link>
+              </Button>
+              {date !== today && (
+                <Button asChild variant="ghost" size="sm">
+                  <Link href={dayLink(today)}>Hari ini</Link>
+                </Button>
+              )}
+            </div>
+          )}
           <Button asChild>
             <Link href="/admin/booking/baru">+ Booking Baru</Link>
           </Button>
@@ -175,6 +188,7 @@ export default async function BookingListPage({
           status={status}
           staffId={params.staf || null}
           branchId={params.cabang || null}
+          intake={unreviewedOnly ? "belum-diperiksa" : null}
           staff={staffList.map((s) => ({ id: s.id, name: s.name }))}
           branches={branches
             .filter((b) => b.status === "AKTIF")
@@ -183,7 +197,9 @@ export default async function BookingListPage({
 
         {rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Tidak ada booking{status ? " dengan status ini" : ""} pada tanggal ini.
+            {unreviewedOnly
+              ? "Tidak ada isian yang menunggu diperiksa."
+              : `Tidak ada booking${status ? " dengan status ini" : ""} pada tanggal ini.`}
           </p>
         ) : (
           <AppointmentTable rows={rows} canReadRecords={can(staff.role, "record:read")} />
