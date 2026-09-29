@@ -5,7 +5,7 @@
 import "dotenv/config";
 import { auth } from "../../src/lib/auth";
 import { prisma } from "../../src/lib/db";
-import { E2E_ADMIN } from "./credentials";
+import { E2E_ADMIN, E2E_RESEPSIONIS } from "./credentials";
 
 // Booking dan pasien dari putaran sebelumnya dibuang agar slot yang
 // ditawarkan selalu sama di setiap putaran.
@@ -15,17 +15,31 @@ await prisma.appointment.deleteMany();
 await prisma.patient.deleteMany();
 await prisma.patientNumberCounter.deleteMany();
 
-const existing = await prisma.user.findFirst({ where: { email: E2E_ADMIN.email } });
-if (!existing) {
+async function ensureAccount(
+  account: { email: string; password: string; name: string },
+  slug: string,
+  role: "SUPER_ADMIN" | "RESEPSIONIS",
+) {
+  const existing = await prisma.user.findFirst({ where: { email: account.email } });
+  if (existing) return;
   const created = await auth.api.signUpEmail({
-    body: { email: E2E_ADMIN.email, password: E2E_ADMIN.password, name: E2E_ADMIN.name },
+    body: { email: account.email, password: account.password, name: account.name },
   });
   const staff = await prisma.staff.upsert({
-    where: { slug: "staf-e2e" },
-    update: { role: "SUPER_ADMIN", isActive: true },
-    create: { slug: "staf-e2e", name: E2E_ADMIN.name, role: "SUPER_ADMIN" },
+    where: { slug },
+    update: { role, isActive: true },
+    create: { slug, name: account.name, role },
   });
   await prisma.user.update({ where: { id: created.user.id }, data: { staffId: staff.id } });
 }
+
+await ensureAccount(E2E_ADMIN, "staf-e2e", "SUPER_ADMIN");
+await ensureAccount(E2E_RESEPSIONIS, "resepsionis-e2e", "RESEPSIONIS");
+
+// Rekening uji: halaman sukses menampilkan instruksi transfer yang lengkap.
+await prisma.clinicSetting.update({
+  where: { id: 1 },
+  data: { bookingFee: 100000, bankName: "BCA", bankAccountNumber: "1234567890", bankAccountHolder: "SunDY Clinic" },
+});
 
 await prisma.$disconnect();
