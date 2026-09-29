@@ -4,7 +4,13 @@ import type { StaffRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import type { QuizAnswers } from "@/lib/kuis/v1/answers";
 import { can } from "@/lib/permissions";
-import { approveIntakeToPatient, createPatientFromIntake, getIntakeForStaff, type IntakeDetail } from "@/server/intake";
+import {
+  approveIntakeToPatient,
+  createPatientFromIntake,
+  getIntakeForStaff,
+  matchPatient,
+  type IntakeDetail,
+} from "@/server/intake";
 import { holdSlot, submitSiteBooking } from "@/server/public-booking";
 import { requireCapability } from "@/server/session";
 import { aestheticNewPatient, newPatientIdentity, slimmingNewPatient } from "../fixtures/quiz-answers";
@@ -19,11 +25,12 @@ vi.mock("@/server/request-guard", () => ({
 
 const SLUG = "setujui-isian-uji";
 const PATIENT_WA = "6281234567890"; // newPatientIdentity yang sudah dinormalkan
+const OTHER_WA = "6281200006650";
 
 describe("setujui isian ke data pasien", () => {
   let world: BookingWorld;
   let date: string;
-  let hour = 10;
+  let slot = -1;
 
   /** Meniru requireCapability sungguhan: staf tanpa hak itu ditolak. staffId harus Staff nyata (FK reviewedBy). */
   function actAs(role: StaffRole) {
@@ -35,8 +42,10 @@ describe("setujui isian ke data pasien", () => {
 
   /** Booking situs yang sudah diisi pasien; `match` membuat pasien baru dari isiannya. */
   async function siteIntake(answers: QuizAnswers = slimmingNewPatient, match = true) {
-    hour += 1;
-    const startAt = at(date, `${hour}:00`).toISOString();
+    // Slot 30 menit mulai 11.00: jadwal uji 11.00–19.00 memuat 16 booking.
+    slot += 1;
+    const minutes = 11 * 60 + slot * 30;
+    const startAt = at(date, `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}`).toISOString();
     const { token } = await unwrap(
       holdSlot({ serviceId: world.consultationId, staffId: world.doctorId, branchId: world.branchId, startAt, previousToken: null }),
     );
@@ -59,7 +68,7 @@ describe("setujui isian ke data pasien", () => {
       select: { id: true, appointmentId: true },
     });
     const patientId = match ? (await unwrap(createPatientFromIntake(intake.appointmentId))).patientId : null;
-    return { intakeId: intake.id, patientId };
+    return { intakeId: intake.id, appointmentId: intake.appointmentId, patientId };
   }
 
   function ready(detail: IntakeDetail | null) {
@@ -68,13 +77,13 @@ describe("setujui isian ke data pasien", () => {
   }
 
   beforeAll(async () => {
-    await cleanupBookingWorld(SLUG, [PATIENT_WA]);
+    await cleanupBookingWorld(SLUG, [PATIENT_WA, OTHER_WA]);
     world = await createBookingWorld(SLUG);
     date = await bookableDate();
   });
 
   afterAll(async () => {
-    await cleanupBookingWorld(SLUG, [PATIENT_WA]);
+    await cleanupBookingWorld(SLUG, [PATIENT_WA, OTHER_WA]);
     await prisma.$disconnect();
   });
 
@@ -209,4 +218,54 @@ describe("setujui isian ke data pasien", () => {
     ).rejects.toThrow("forbidden");
     expect(await prisma.patient.findUniqueOrThrow({ where: { id: patientId! } })).toMatchObject({ allergies: null });
   });
+
+  it("setelah disetujui, pasien booking tidak bisa diganti ke pasien lain", async () => {
+    actAs("DOKTER");
+    const { intakeId, appointmentId, patientId } = await siteIntake();
+    const approval = ready(await getIntakeForStaff(intakeId));
+    await unwrap(approveIntakeToPatient({ intakeId, allergies: "Amoxicillin", medicalHistory: "", patientVersion: approval.patientVersion }));
+    const other = await prisma.patient.create({
+      data: { medicalRecordNumber: "SDY-2026-6650", name: "Saudara Pasien", whatsapp: OTHER_WA },
+    });
+    const refusal = {
+      ok: false,
+      error: "Isian booking ini sudah disetujui dokter ke data pasien, jadi pasiennya tidak bisa diganti lagi.",
+    };
+
+    expect(await matchPatient(appointmentId, other.id)).toEqual(refusal);
+    expect(await createPatientFromIntake(appointmentId)).toEqual(refusal);
+    expect(await prisma.intake.findUniqueOrThrow({ where: { id: intakeId } })).toMatchObject({ patientId });
+    expect(await prisma.appointment.findUniqueOrThrow({ where: { id: appointmentId } })).toMatchObject({ patientId });
+  });
+
+  it("menolak persetujuan bila pasien booking diganti di tengah jalan", async () => {
+    actAs("DOKTER");
+    const { intakeId, patientId } = await siteIntake();
+    const approval = ready(await getIntakeForStaff(intakeId));
+    const other = await prisma.patient.create({
+      data: { medicalRecordNumber: "SDY-2026-6651", name: "Saudara Lain", whatsapp: OTHER_WA },
+    });
+    // Admin mengganti pasien tepat setelah aksi membaca isian, sebelum transaksinya berjalan.
+    const read = prisma.intake.findUnique.bind(prisma.intake);
+    const findUnique = vi.spyOn(prisma.intake, "findUnique").mockImplementationOnce((async (args: never) => {
+      const row = await read(args);
+      await prisma.intake.update({ where: { id: intakeId }, data: { patientId: other.id } });
+      return row;
+    }) as never);
+    try {
+      const result = await approveIntakeToPatient({
+        intakeId,
+        allergies: "Amoxicillin",
+        medicalHistory: "",
+        patientVersion: approval.patientVersion,
+      });
+
+      expect(result).toEqual({ ok: false, error: "Pasien booking ini baru saja diganti. Muat ulang halaman lalu periksa lagi." });
+      expect(await prisma.patient.findUniqueOrThrow({ where: { id: patientId! } })).toMatchObject({ allergies: null });
+      expect((await prisma.intake.findUniqueOrThrow({ where: { id: intakeId } })).status).toBe("TERISI");
+    } finally {
+      findUnique.mockRestore();
+    }
+  });
 });
+

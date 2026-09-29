@@ -74,7 +74,17 @@ async function linkPatient(
     data: { patientId },
   });
   if (count === 0) throw new UserFacingError("Status booking baru saja berubah. Muat ulang halaman.");
-  await tx.intake.update({ where: { id: intakeId }, data: { patientId } });
+  // Isian yang sudah disetujui dokter terikat pada pasien itu: menggantinya akan
+  // meninggalkan alergi & riwayat penyakit di catatan pasien yang salah (spec 6.4).
+  const linked = await tx.intake.updateMany({
+    where: { id: intakeId, status: { not: "DIPERIKSA" } },
+    data: { patientId },
+  });
+  if (linked.count === 0) {
+    throw new UserFacingError(
+      "Isian booking ini sudah disetujui dokter ke data pasien, jadi pasiennya tidak bisa diganti lagi.",
+    );
+  }
 }
 
 /**
@@ -416,10 +426,15 @@ export async function approveIntakeToPatient(input: {
       if (count === 0) {
         throw new UserFacingError("Data pasien baru saja berubah. Muat ulang halaman lalu periksa lagi.");
       }
-      await tx.intake.update({
-        where: { id: intake.id },
+      // Pasien isian dibaca di luar transaksi; bila admin menggantinya sementara itu,
+      // catatan tadi masuk ke pasien yang salah — batalkan semuanya.
+      const reviewed = await tx.intake.updateMany({
+        where: { id: intake.id, patientId },
         data: { status: "DIPERIKSA", reviewedAt: new Date(), reviewedByStaffId: actor.staffId },
       });
+      if (reviewed.count === 0) {
+        throw new UserFacingError("Pasien booking ini baru saja diganti. Muat ulang halaman lalu periksa lagi.");
+      }
     });
 
     // Tanpa isi klinis: jejak audit untuk menelusuri siapa dan kapan, bukan apa.
