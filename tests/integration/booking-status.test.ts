@@ -191,4 +191,33 @@ describe("cek status dan batal dari situs", () => {
     // Booking lain tidak terpengaruh.
     expect(await unwrap(findBookingStatus({ code: other, last4: "7890" }))).toMatchObject({ code: other });
   });
+
+  it("tebakan serentak dari banyak alamat tetap berhenti di 10 per kode", async () => {
+    const code = await bookAt("14:30");
+    const findUnique = vi.spyOn(prisma.appointment, "findUnique");
+    try {
+      await Promise.all(Array.from({ length: 30 }, () => findBookingStatus({ code, last4: "0000" })));
+      const queried = findUnique.mock.calls.filter(([args]) => args?.where?.code === code).length;
+      expect(queried).toBe(10);
+    } finally {
+      findUnique.mockRestore();
+    }
+  });
+
+  it("cek status dengan digit benar tidak menghabiskan jatah tebakan", async () => {
+    const code = await bookAt("15:00");
+    for (let attempt = 0; attempt < 12; attempt++) {
+      expect(await unwrap(findBookingStatus({ code, last4: "7890" }))).toMatchObject({ code });
+    }
+  });
+
+  it("kode yang terlalu panjang dianggap tidak ditemukan tanpa menyentuh basis data", async () => {
+    const findUnique = vi.spyOn(prisma.appointment, "findUnique");
+    try {
+      expect(await findBookingStatus({ code: "X".repeat(5000), last4: "7890" })).toEqual({ ok: true, data: null });
+      expect(findUnique).not.toHaveBeenCalled();
+    } finally {
+      findUnique.mockRestore();
+    }
+  });
 });

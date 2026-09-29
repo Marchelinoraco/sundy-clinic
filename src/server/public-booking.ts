@@ -485,6 +485,10 @@ const cancelLimiter = createRateLimiter({ limit: 5, windowMs: 10 * 60_000 });
 // alamat; kode yang sudah habis jatahnya tampak persis seperti "tidak ditemukan".
 const wrongDigitsLimiter = createRateLimiter({ limit: 10, windowMs: 60 * 60_000 });
 
+// Kode asli berformat SDY-XXXX. Yang jauh lebih panjang pasti salah dan tidak
+// disimpan sebagai kunci pembatas, yang hidup di memori proses.
+const MAX_CODE_LENGTH = 32;
+
 const ACTIVE: AppointmentStatusValue[] = ["MENUNGGU_KONFIRMASI", "TERKONFIRMASI"];
 
 function parseLookup(input: { code: string; last4: string }) {
@@ -502,7 +506,10 @@ function parseLookup(input: { code: string; last4: string }) {
  * orang lain tidak bisa ditebak lewat perbedaan pesan (PRD F6).
  */
 async function findOwnBooking(code: string, last4: string) {
-  if (!wrongDigitsLimiter.peek(code)) return null;
+  if (code.length > MAX_CODE_LENGTH) return null;
+  // Jatah dicatat sebelum kueri, agar tebakan serentak tidak lolos bersama-sama
+  // sebelum hitungannya bertambah. Digit yang benar mengembalikannya di bawah.
+  if (!wrongDigitsLimiter.take(code)) return null;
   const appointment = await prisma.appointment.findUnique({
     where: { code },
     select: {
@@ -523,10 +530,8 @@ async function findOwnBooking(code: string, last4: string) {
   // situs tidak boleh membocorkan bahwa orang itu pasien lama (spec 1/K4).
   // Booking admin tidak punya isian, jadi memakai nomor pasiennya.
   const whatsapp = appointment?.intake?.whatsapp ?? appointment?.patient?.whatsapp;
-  if (!appointment || !whatsapp || !whatsapp.endsWith(last4)) {
-    wrongDigitsLimiter.take(code);
-    return null;
-  }
+  if (!appointment || !whatsapp || !whatsapp.endsWith(last4)) return null;
+  wrongDigitsLimiter.undo(code);
   return { ...appointment, whatsapp };
 }
 
