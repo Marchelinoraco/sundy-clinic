@@ -25,6 +25,7 @@ function patientFor(testInfo: TestInfo) {
 
 let booking: { code: string; date: string } | null = null;
 let intakeUrl: string | null = null;
+let patientUrl: string | null = null;
 
 const choose = (page: Page, name: string | RegExp) =>
   page.getByRole("radio", typeof name === "string" ? { name, exact: true } : { name }).click();
@@ -128,21 +129,46 @@ test("admin mencocokkan pasien, memverifikasi, lalu membaca isiannya", async ({ 
   await pendingRow.getByRole("button", { name: "Verifikasi" }).click();
   // Setelah diverifikasi booking keluar dari daftar menunggu, tetapi tetap ada di tanggal jadwalnya.
   await expect(pendingRow).toHaveCount(0, { timeout: 30_000 });
-  await page.goto(`/admin/booking?tanggal=${booking!.date}`);
+  // Isian terisi tampil di filter "belum diperiksa" dari tanggal mana pun.
+  await page.goto("/admin/booking?isian=belum-diperiksa");
   const row = page.getByRole("row").filter({ hasText: booking!.code });
+  await expect(row.getByText("Isian: belum diperiksa")).toBeVisible();
   await expect(row.getByText("Terkonfirmasi", { exact: true })).toBeVisible();
 
   await row.getByRole("link", { name: "Lihat isian" }).click();
   // Rute /admin/isian/[id] belum pernah dikompilasi next dev di uji manapun
   // sebelumnya; dengan worker paralel navigasi pertama bisa lebih lambat
   // dari batas waktu bawaan (lihat catatan di playwright.config.ts).
-  await expect(page.getByText("Darah tinggi: Amlodipine 5 mg, 1× sehari")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("Darah tinggi: Amlodipine 5 mg, 1× sehari").first()).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("72 kg · 158 cm · IMT 28,8")).toBeVisible();
   intakeUrl = page.url();
+
+  // Super Admin memegang record:write: menyetujui ke data pasien dengan sedikit suntingan.
+  const approval = page.getByRole("region", { name: "Setujui ke data pasien" });
+  await expect(approval.getByLabel("Alergi", { exact: true })).toHaveValue("Tidak ada");
+  const history = approval.getByLabel("Riwayat penyakit & obat", { exact: true });
+  await expect(history).toHaveValue("Darah tinggi: Amlodipine 5 mg, 1× sehari");
+  await history.fill("Darah tinggi: Amlodipine 5 mg, 1× sehari (kontrol rutin)");
+  await approval.getByRole("button", { name: "Setujui ke data pasien" }).click();
+  await expect(page.getByText("Sudah diperiksa dokter")).toBeVisible({ timeout: 30_000 });
+
+  await page.getByRole("link", { name: new RegExp(`^${patientFor(testInfo).name} \\(`) }).click();
+  // Halaman isian yang baru dimuat ulang juga memuat teks ini (catatan saat ini dan kolom sunting),
+  // jadi tunggu halaman pasien terbuka dulu, lalu cari di bagian catatan medisnya.
+  await expect(page).toHaveURL(/\/admin\/pasien\/[^/]+$/, { timeout: 30_000 });
+  await expect(
+    page.getByRole("region", { name: "Catatan medis" }).getByText("Darah tinggi: Amlodipine 5 mg, 1× sehari (kontrol rutin)"),
+  ).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: booking!.code }).first()).toBeVisible();
+  patientUrl = page.url();
+
+  // Setelah disetujui, booking ini keluar dari filter "belum diperiksa".
+  await page.goto("/admin/booking?isian=belum-diperiksa");
+  await expect(page.getByRole("row").filter({ hasText: booking!.code })).toHaveCount(0);
 });
 
-test("resepsionis melihat booking tanpa isi klinis isian", async ({ page }) => {
-  test.skip(!booking || !intakeUrl, "Butuh booking dan isian dari uji sebelumnya.");
+test("resepsionis melihat booking tanpa isi klinis isian", async ({ page }, testInfo) => {
+  test.skip(!booking || !intakeUrl || !patientUrl, "Butuh booking, isian, dan pasien dari uji sebelumnya.");
   await signIn(page, E2E_RESEPSIONIS);
   await page.goto(`/admin/booking?tanggal=${booking!.date}`);
 
@@ -152,6 +178,11 @@ test("resepsionis melihat booking tanpa isi klinis isian", async ({ page }) => {
 
   await page.goto(intakeUrl!);
   await expect(page.getByText(/Amlodipine/)).toHaveCount(0);
+
+  await page.goto(patientUrl!);
+  await expect(page.getByText(patientFor(testInfo).name).first()).toBeVisible();
+  await expect(page.getByText(/Amlodipine/)).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Lihat isian" })).toHaveCount(0);
 });
 
 test("pasien membatalkan booking lewat cek booking", async ({ page }, testInfo) => {
