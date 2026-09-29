@@ -3,30 +3,11 @@
 import type { Patient } from "@prisma/client";
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
 import { prisma } from "@/lib/db";
-import { formatMedicalRecordNumber } from "@/lib/medical-record-number";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { normalizeWhatsapp } from "@/lib/whatsapp";
 import { recordAudit } from "@/server/audit";
+import { insertPatient } from "@/server/patient-store";
 import { requireCapability } from "@/server/session";
-
-/**
- * Mengalokasikan nomor urut berikutnya untuk tahun ini secara atomik.
- *
- * INSERT ... ON CONFLICT DO UPDATE adalah satu pernyataan tunggal di
- * PostgreSQL — baris dikunci selama pernyataan itu berjalan, sehingga dua
- * panggilan bersamaan tidak akan pernah membaca nilai yang sama sebelum
- * menulis. Ini yang membuat nomor rekam medis dijamin unik tanpa perlu
- * transaksi terpisah atau retry.
- */
-async function nextMedicalRecordSequence(year: number): Promise<number> {
-  const rows = await prisma.$queryRaw<{ value: number }[]>`
-    INSERT INTO "PatientNumberCounter" ("year", "value")
-    VALUES (${year}, 1)
-    ON CONFLICT ("year") DO UPDATE SET "value" = "PatientNumberCounter"."value" + 1
-    RETURNING "value"
-  `;
-  return rows[0].value;
-}
 
 export async function createPatient(input: {
   name: string;
@@ -49,20 +30,13 @@ export async function createPatient(input: {
       throw new UserFacingError("Nomor WhatsApp tidak sah. Contoh: 081234567890.");
     }
 
-    const year = new Date().getFullYear();
-    const sequence = await nextMedicalRecordSequence(year);
-    const medicalRecordNumber = formatMedicalRecordNumber(year, sequence);
-
-    const patient = await prisma.patient.create({
-      data: {
-        medicalRecordNumber,
-        name,
-        whatsapp,
-        birthDate: input.birthDate ? new Date(`${input.birthDate}T00:00:00Z`) : null,
-        gender: input.gender,
-        occupation: input.occupation,
-        address: input.address,
-      },
+    const patient = await insertPatient(prisma, {
+      name,
+      whatsapp,
+      birthDate: input.birthDate ? new Date(`${input.birthDate}T00:00:00Z`) : null,
+      gender: input.gender,
+      occupation: input.occupation,
+      address: input.address,
     });
 
     await recordAudit({

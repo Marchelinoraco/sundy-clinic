@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
@@ -12,6 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,6 +27,7 @@ import {
   verifyAppointment,
 } from "@/server/appointment";
 import { AppointmentStatusBadge } from "./appointment-status-badge";
+import { MatchPatientDialog } from "./match-patient-dialog";
 
 /** Hanya kolom yang dibutuhkan tabel — data klinis pasien tidak pernah dikirim ke browser. */
 export type BookingRow = {
@@ -41,11 +44,15 @@ export type BookingRow = {
   notes: string | null;
   /** Hanya untuk booking terkonfirmasi (PRD F9). */
   confirmation: { text: string; link: string | null } | null;
+  /** Booking situs yang belum dicocokkan dengan data pasien (spec 6.1). */
+  needsMatch: boolean;
+  /** Isian pendaftaran booking ini, bila ada. */
+  intakeId: string | null;
 };
 
 const ACTIVE: AppointmentStatusValue[] = ["MENUNGGU_KONFIRMASI", "TERKONFIRMASI"];
 
-export function AppointmentTable({ rows }: { rows: BookingRow[] }) {
+export function AppointmentTable({ rows, canReadRecords }: { rows: BookingRow[]; canReadRecords: boolean }) {
   const [pending, startTransition] = useTransition();
   const [cancelTarget, setCancelTarget] = useState<BookingRow | null>(null);
   const [cancelReason, setCancelReason] = useState("");
@@ -105,6 +112,11 @@ export function AppointmentTable({ rows }: { rows: BookingRow[] }) {
               </TableCell>
               <TableCell className="align-top">
                 <div className="font-medium">{row.patientName}</div>
+                {row.needsMatch && (
+                  <Badge variant="outline" className="mt-1">
+                    Belum dicocokkan
+                  </Badge>
+                )}
                 <div className="text-xs text-muted-foreground">
                   {row.patientRecordNumber} · {row.sourceLabel}
                 </div>
@@ -120,7 +132,10 @@ export function AppointmentTable({ rows }: { rows: BookingRow[] }) {
               </TableCell>
               <TableCell className="align-top">
                 <div className="flex flex-wrap gap-1">
-                  {row.status === "MENUNGGU_KONFIRMASI" && (
+                  {row.status === "MENUNGGU_KONFIRMASI" && row.needsMatch && (
+                    <MatchPatientDialog appointmentId={row.id} code={row.code} />
+                  )}
+                  {row.status === "MENUNGGU_KONFIRMASI" && !row.needsMatch && (
                     <Button
                       size="sm"
                       disabled={pending}
@@ -129,6 +144,11 @@ export function AppointmentTable({ rows }: { rows: BookingRow[] }) {
                       }
                     >
                       Verifikasi
+                    </Button>
+                  )}
+                  {row.intakeId && canReadRecords && (
+                    <Button size="sm" variant="ghost" asChild>
+                      <Link href={`/admin/isian/${row.intakeId}`}>Lihat isian</Link>
                     </Button>
                   )}
                   {row.confirmation && (
@@ -151,24 +171,28 @@ export function AppointmentTable({ rows }: { rows: BookingRow[] }) {
                   )}
                   {ACTIVE.includes(row.status) && (
                     <>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={pending}
-                        onClick={() => run(() => markAttended(row.id), `${row.patientName} hadir.`)}
-                      >
-                        Hadir
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={pending}
-                        onClick={() =>
-                          run(() => markNoShow(row.id), `${row.patientName} ditandai tidak hadir.`)
-                        }
-                      >
-                        Tidak Hadir
-                      </Button>
+                      {!row.needsMatch && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={pending}
+                            onClick={() => run(() => markAttended(row.id), `${row.patientName} hadir.`)}
+                          >
+                            Hadir
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={pending}
+                            onClick={() =>
+                              run(() => markNoShow(row.id), `${row.patientName} ditandai tidak hadir.`)
+                            }
+                          >
+                            Tidak Hadir
+                          </Button>
+                        </>
+                      )}
                       <Button
                         size="sm"
                         variant="ghost"

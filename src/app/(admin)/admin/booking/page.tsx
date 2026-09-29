@@ -5,6 +5,7 @@ import { BookingFilters } from "@/components/admin/booking-filters";
 import { Button } from "@/components/ui/button";
 import { isAppointmentStatus } from "@/lib/appointment-status";
 import { formatIndonesianDate } from "@/lib/format";
+import { can } from "@/lib/permissions";
 import {
   addDaysToDateString,
   combineWitaDateAndMinutes,
@@ -36,7 +37,7 @@ export default async function BookingListPage({
 }: {
   searchParams: Promise<{ tanggal?: string; status?: string; staf?: string; cabang?: string }>;
 }) {
-  await requireCapability("booking:manage");
+  const staff = await requireCapability("booking:manage");
   const params = await searchParams;
 
   const today = witaDateString(new Date());
@@ -81,8 +82,10 @@ export default async function BookingListPage({
       code: a.code,
       status: a.status,
       timeLabel: `${start}–${timeLabel(a.endAt)}`,
-      patientName: patient?.name ?? "Belum dicocokkan",
+      patientName: patient?.name ?? a.intake?.name ?? "Tanpa nama",
       patientRecordNumber: patient?.medicalRecordNumber ?? "—",
+      needsMatch: patient === null,
+      intakeId: a.intake?.id ?? null,
       serviceName,
       staffName: a.staff.name,
       branchName: a.branch.name,
@@ -150,7 +153,7 @@ export default async function BookingListPage({
             Tidak ada booking{status ? " dengan status ini" : ""} pada tanggal ini.
           </p>
         ) : (
-          <AppointmentTable rows={rows} />
+          <AppointmentTable rows={rows} canReadRecords={can(staff.role, "record:read")} />
         )}
       </div>
     </>
