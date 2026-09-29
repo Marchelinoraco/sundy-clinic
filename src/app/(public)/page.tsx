@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BranchCard } from "@/components/catalog/branch-card";
 import { ServiceCard } from "@/components/catalog/service-card";
+import { RegisterCta } from "@/components/layout/register-cta";
 import {
   CLINIC_BEAUTY_TAGLINE,
   CLINIC_FULL_NAME,
@@ -33,9 +34,10 @@ export default async function HomePage() {
           <p className="mt-1 text-lg text-brown-700">{CLINIC_BEAUTY_TAGLINE}</p>
 
           <div className="mt-10 flex flex-wrap justify-center gap-3">
+            <RegisterCta />
             <Link
               href="/layanan"
-              className="rounded-full bg-gold-500 px-7 py-3 font-medium text-white hover:bg-gold-600"
+              className="rounded-full border border-gold-500 px-7 py-3 font-medium text-gold-600 hover:bg-cream-100"
             >
               Lihat Layanan & Harga
             </Link>

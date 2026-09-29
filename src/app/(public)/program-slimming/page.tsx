@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { PackageCard } from "@/components/catalog/package-card";
 import { ServiceCard } from "@/components/catalog/service-card";
+import { RegisterCta } from "@/components/layout/register-cta";
 import { CLINIC_TAGLINE } from "@/lib/clinic";
 import { getPackagesByGroup, getServiceCategoriesWithServices } from "@/server/catalog";
 
@@ -75,6 +76,10 @@ export default async function SlimmingProgramPage() {
           <strong className="font-semibold">Nutrigenomics Program</strong> — segera hadir.
         </p>
       </section>
+
+      <div className="mt-10 text-center">
+        <RegisterCta />
+      </div>
     </div>
   );
 }

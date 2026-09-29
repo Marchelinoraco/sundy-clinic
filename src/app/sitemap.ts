@@ -13,6 +13,8 @@ const STATIC_ROUTES = [
   "/faq",
   "/kebijakan-privasi",
   "/syarat-ketentuan",
+  "/daftar",
+  "/cek-booking",
 ];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {

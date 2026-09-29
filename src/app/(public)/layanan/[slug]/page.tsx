@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PriceTag } from "@/components/catalog/price-tag";
+import { RegisterCta } from "@/components/layout/register-cta";
 import { formatPrice } from "@/lib/format";
 import { buildWhatsAppLink, serviceInquiryMessage } from "@/lib/whatsapp";
 import { getAllServiceSlugs, getServiceBySlug } from "@/server/catalog";
@@ -70,15 +71,14 @@ export default async function ServiceDetailPage({ params }: PageProps) {
         </div>
       </dl>
 
-      {/* Pendaftaran konsultasi daring dibangun pada Plan 3. Sampai saat itu,
-          WhatsApp adalah satu-satunya jalur pendaftaran. */}
+      <RegisterCta className="mt-8 mr-3" />
       <a
         href={buildWhatsAppLink(serviceInquiryMessage(service.name))}
         target="_blank"
         rel="noopener noreferrer"
-        className="mt-8 inline-block rounded-full bg-gold-500 px-7 py-3 font-medium text-white hover:bg-gold-600"
+        className="mt-8 inline-block rounded-full border border-gold-500 px-7 py-3 font-medium text-gold-600 hover:bg-cream-100"
       >
-        Tanya & Daftar via WhatsApp
+        Tanya via WhatsApp
       </a>
     </div>
   );
