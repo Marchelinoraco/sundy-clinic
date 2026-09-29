@@ -4,7 +4,7 @@ import { AppointmentTable, type BookingRow } from "@/components/admin/appointmen
 import { BookingFilters } from "@/components/admin/booking-filters";
 import { Button } from "@/components/ui/button";
 import { isAppointmentStatus } from "@/lib/appointment-status";
-import { formatIndonesianDate } from "@/lib/format";
+import { formatIndonesianDate, formatShortIndonesianDate } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import {
   addDaysToDateString,
@@ -14,7 +14,7 @@ import {
   witaMinutesOfDay,
 } from "@/lib/time";
 import { buildWhatsAppLinkTo, patientBookingConfirmationMessage } from "@/lib/whatsapp";
-import { listAppointments } from "@/server/appointment";
+import { listAppointments, listPendingSiteBookings } from "@/server/appointment";
 import { getBranches } from "@/server/catalog";
 import { listSchedulableStaff } from "@/server/schedule";
 import { requireCapability } from "@/server/session";
@@ -32,6 +32,52 @@ function timeLabel(date: Date): string {
   return minutesToTimeLabel(witaMinutesOfDay(date));
 }
 
+type ListedAppointment = Awaited<ReturnType<typeof listAppointments>>[number];
+
+function toRow(a: ListedAppointment): BookingRow {
+  const serviceName = a.service?.name ?? (a.type === "KONSULTASI" ? "Konsultasi" : "Treatment");
+  const start = timeLabel(a.startAt);
+  // Booking situs boleh belum punya pasien sampai admin mencocokkannya;
+  // CHECK di basis data menjamin booking terkonfirmasi selalu punya pasien.
+  const patient = a.patient;
+  const confirmationText =
+    a.status === "TERKONFIRMASI" && patient
+      ? patientBookingConfirmationMessage({
+          patientName: patient.name,
+          code: a.code,
+          serviceName,
+          staffName: a.staff.name,
+          branchName: a.branch.name,
+          dateLabel: formatIndonesianDate(a.startAt),
+          timeLabel: start,
+        })
+      : null;
+
+  return {
+    id: a.id,
+    code: a.code,
+    status: a.status,
+    timeLabel: `${start}–${timeLabel(a.endAt)}`,
+    patientName: patient?.name ?? a.intake?.name ?? "Tanpa nama",
+    patientRecordNumber: patient?.medicalRecordNumber ?? "—",
+    needsMatch: patient === null,
+    isSiteBooking: a.source === "SITUS" && a.intake !== null,
+    intakeId: a.intake?.id ?? null,
+    serviceName,
+    staffName: a.staff.name,
+    branchName: a.branch.name,
+    sourceLabel: SOURCE_LABEL[a.source] ?? a.source,
+    notes: a.notes,
+    confirmation:
+      confirmationText && patient
+        ? {
+            text: confirmationText,
+            link: buildWhatsAppLinkTo(patient.whatsapp, confirmationText),
+          }
+        : null,
+  };
+}
+
 export default async function BookingListPage({
   searchParams,
 }: {
@@ -44,13 +90,14 @@ export default async function BookingListPage({
   const date = params.tanggal && DATE_PATTERN.test(params.tanggal) ? params.tanggal : today;
   const status = isAppointmentStatus(params.status) ? params.status : null;
 
-  const [appointments, staffList, branches] = await Promise.all([
+  const [appointments, pendingSiteBookings, staffList, branches] = await Promise.all([
     listAppointments({
       date,
       status: status ?? undefined,
       staffId: params.staf || undefined,
       branchId: params.cabang || undefined,
     }),
+    listPendingSiteBookings(),
     listSchedulableStaff(),
     getBranches(),
   ]);
@@ -58,47 +105,14 @@ export default async function BookingListPage({
   // Label tanggal dari tengah hari WITA, agar tidak bergeser ke hari lain.
   const dateLabel = formatIndonesianDate(combineWitaDateAndMinutes(date, 12 * 60));
 
-  const rows: BookingRow[] = appointments.map((a) => {
-    const serviceName = a.service?.name ?? (a.type === "KONSULTASI" ? "Konsultasi" : "Treatment");
-    const start = timeLabel(a.startAt);
-    // Booking situs boleh belum punya pasien sampai admin mencocokkannya;
-    // CHECK di basis data menjamin booking terkonfirmasi selalu punya pasien.
-    const patient = a.patient;
-    const confirmationText =
-      a.status === "TERKONFIRMASI" && patient
-        ? patientBookingConfirmationMessage({
-            patientName: patient.name,
-            code: a.code,
-            serviceName,
-            staffName: a.staff.name,
-            branchName: a.branch.name,
-            dateLabel,
-            timeLabel: start,
-          })
-        : null;
-
+  const rows = appointments.map(toRow);
+  // Semua tanggal sekaligus: jam jadwal ditulis bersama tanggalnya.
+  const pendingRows: BookingRow[] = pendingSiteBookings.map((a) => {
+    const row = toRow(a);
     return {
-      id: a.id,
-      code: a.code,
-      status: a.status,
-      timeLabel: `${start}–${timeLabel(a.endAt)}`,
-      patientName: patient?.name ?? a.intake?.name ?? "Tanpa nama",
-      patientRecordNumber: patient?.medicalRecordNumber ?? "—",
-      needsMatch: patient === null,
-      isSiteBooking: a.source === "SITUS" && a.intake !== null,
-      intakeId: a.intake?.id ?? null,
-      serviceName,
-      staffName: a.staff.name,
-      branchName: a.branch.name,
-      sourceLabel: SOURCE_LABEL[a.source] ?? a.source,
-      notes: a.notes,
-      confirmation:
-        confirmationText && patient
-          ? {
-              text: confirmationText,
-              link: buildWhatsAppLinkTo(patient.whatsapp, confirmationText),
-            }
-          : null,
+      ...row,
+      timeLabel: `${formatShortIndonesianDate(a.startAt)} · ${row.timeLabel}`,
+      deadlineLabel: `Kedaluwarsa ${formatShortIndonesianDate(a.expiresAt)} ${timeLabel(a.expiresAt)}`,
     };
   });
 
@@ -114,6 +128,24 @@ export default async function BookingListPage({
     <>
       <AdminHeader title="Booking" />
       <div className="space-y-6 p-6">
+        {pendingRows.length > 0 && (
+          <section
+            aria-labelledby="booking-situs-menunggu"
+            className="space-y-3 rounded-lg border border-amber-300 bg-amber-50/60 p-4"
+          >
+            <div>
+              <h2 id="booking-situs-menunggu" className="text-lg font-medium">
+                Booking situs menunggu konfirmasi ({pendingRows.length})
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Semua tanggal, yang paling dekat kedaluwarsa di atas. Cocokkan pasiennya, lalu verifikasi
+                setelah bukti transfer diterima. Hari Minggu dan hari libur tidak dihitung.
+              </p>
+            </div>
+            <AppointmentTable rows={pendingRows} canReadRecords={can(staff.role, "record:read")} />
+          </section>
+        )}
+
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Button asChild variant="outline" size="sm">

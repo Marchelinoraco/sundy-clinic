@@ -62,3 +62,16 @@ describe("AppointmentTable pencocokan pasien", () => {
     expect(screen.getByRole("button", { name: "Verifikasi" })).toBeInTheDocument();
   });
 });
+
+describe("AppointmentTable batas kedaluwarsa", () => {
+  it("menampilkan batas kedaluwarsa bila ada", () => {
+    render(<AppointmentTable rows={[{ ...base, deadlineLabel: "Kedaluwarsa Sen, 5 Okt 15.00" }]} canReadRecords={false} />);
+    expect(screen.getByText("Kedaluwarsa Sen, 5 Okt 15.00")).toBeInTheDocument();
+  });
+
+  it("tidak menampilkan apa pun bila tidak ada batas", () => {
+    render(<AppointmentTable rows={[base]} canReadRecords={false} />);
+    expect(screen.queryByText(/Kedaluwarsa/)).not.toBeInTheDocument();
+  });
+});
+

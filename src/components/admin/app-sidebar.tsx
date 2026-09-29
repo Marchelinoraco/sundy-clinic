@@ -18,6 +18,7 @@ import {
   SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuBadge,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
@@ -49,7 +50,14 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   },
 ];
 
-export function AppSidebar({ staff }: { staff: CurrentStaff }) {
+export function AppSidebar({
+  staff,
+  pendingSiteBookings = 0,
+}: {
+  staff: CurrentStaff;
+  /** Booking situs yang menunggu konfirmasi, ditampilkan sebagai angka di menu Booking. */
+  pendingSiteBookings?: number;
+}) {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
@@ -95,6 +103,14 @@ export function AppSidebar({ staff }: { staff: CurrentStaff }) {
                           <span>{item.title}</span>
                         </Link>
                       </SidebarMenuButton>
+                      {item.url === "/admin/booking" && pendingSiteBookings > 0 && (
+                        <SidebarMenuBadge
+                          aria-label={`${pendingSiteBookings} booking situs menunggu konfirmasi`}
+                          className="bg-amber-500 text-white peer-hover/menu-button:text-white"
+                        >
+                          {pendingSiteBookings}
+                        </SidebarMenuBadge>
+                      )}
                     </SidebarMenuItem>
                   ))}
                 </SidebarMenu>

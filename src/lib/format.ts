@@ -34,3 +34,15 @@ const indonesianDateFormatter = new Intl.DateTimeFormat("id-ID", {
 export function formatIndonesianDate(date: Date): string {
   return indonesianDateFormatter.format(date);
 }
+
+const shortIndonesianDateFormatter = new Intl.DateTimeFormat("id-ID", {
+  timeZone: CLINIC_TIMEZONE,
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+});
+
+/** Tanggal singkat dalam WITA untuk tabel, misal "Rab, 7 Okt". */
+export function formatShortIndonesianDate(date: Date): string {
+  return shortIndonesianDateFormatter.format(date);
+}
