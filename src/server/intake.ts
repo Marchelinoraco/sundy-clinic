@@ -4,6 +4,11 @@ import type { Prisma } from "@prisma/client";
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
 import { prisma } from "@/lib/db";
 import { formatIndonesianDate } from "@/lib/format";
+import type { ActivityRow, IntakeSection } from "@/lib/kuis/v1/describe";
+import { activityTable, describeAnswers } from "@/lib/kuis/v1/describe";
+import { quizAnswersSchema } from "@/lib/kuis/v1/answers";
+import { PURPOSES, QUIZ_VERSION } from "@/lib/kuis/v1/options";
+import { can } from "@/lib/permissions";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { recordAudit } from "@/server/audit";
 import { insertPatient } from "@/server/patient-store";
@@ -199,4 +204,109 @@ export async function createPatientFromIntake(
     safeRevalidatePath("/admin/pasien");
     return { patientId: patient.id, medicalRecordNumber: patient.medicalRecordNumber };
   });
+}
+
+export type IntakeDetail = {
+  id: string;
+  status: "MENUNGGU_DIISI" | "TERISI" | "DIPERIKSA";
+  kind: "LENGKAP" | "PENDEK";
+  purposeLabel: string | null;
+  submittedAt: Date | null;
+  appointment: { code: string; startAt: Date; serviceName: string; staffName: string };
+  patient: { name: string; medicalRecordNumber: string } | null;
+  identity: {
+    name: string | null;
+    whatsapp: string | null;
+    birthDateLabel: string | null;
+    genderLabel: string | null;
+    occupation: string | null;
+    address: string | null;
+  };
+  /** null untuk peran tanpa record:read, atau bila pasien belum mengisi. */
+  clinical: {
+    sections: IntakeSection[];
+    activities: ActivityRow[] | null;
+    activityDateLabel: string | null;
+  } | null;
+};
+
+/** Kolom klinis dibaca dengan kueri terpisah, hanya untuk yang berhak (spec 6.2). */
+async function loadClinical(intakeId: string): Promise<IntakeDetail["clinical"]> {
+  const row = await prisma.intake.findUniqueOrThrow({
+    where: { id: intakeId },
+    select: { quizVersion: true, answers: true, selfWeightKg: true, selfHeightCm: true, activityDate: true },
+  });
+  if (row.answers === null) return null;
+  if (row.quizVersion !== QUIZ_VERSION) {
+    throw new Error(`Isian dengan kuis versi ${row.quizVersion} belum bisa ditampilkan.`);
+  }
+
+  const answers = quizAnswersSchema.parse(row.answers);
+  // Berat & tinggi disimpan di kolom bertipe, bukan di JSON (spec 5.1).
+  if (answers.slimming && row.selfWeightKg !== null && row.selfHeightCm !== null) {
+    answers.slimming.weightKg = Number(row.selfWeightKg);
+    answers.slimming.heightCm = Number(row.selfHeightCm);
+  }
+
+  return {
+    // Aktivitas tampil sebagai tabel 06.00–22.00, bukan daftar baris.
+    sections: describeAnswers(answers).filter((section) => section.step !== "P3"),
+    activities: answers.returning?.activities ? activityTable(answers.returning.activities) : null,
+    activityDateLabel: row.activityDate ? formatIndonesianDate(row.activityDate) : null,
+  };
+}
+
+export async function getIntakeForStaff(intakeId: string): Promise<IntakeDetail | null> {
+  const staff = await requireCapability("booking:manage");
+
+  const row = await prisma.intake.findUnique({
+    where: { id: intakeId },
+    select: {
+      id: true,
+      status: true,
+      kind: true,
+      purpose: true,
+      submittedAt: true,
+      name: true,
+      whatsapp: true,
+      birthDate: true,
+      gender: true,
+      occupation: true,
+      address: true,
+      appointment: {
+        select: {
+          code: true,
+          startAt: true,
+          service: { select: { name: true } },
+          staff: { select: { name: true } },
+        },
+      },
+      patient: { select: { name: true, medicalRecordNumber: true } },
+    },
+  });
+  if (!row) return null;
+
+  return {
+    id: row.id,
+    status: row.status,
+    kind: row.kind,
+    purposeLabel: row.purpose ? PURPOSES[row.purpose] : null,
+    submittedAt: row.submittedAt,
+    appointment: {
+      code: row.appointment.code,
+      startAt: row.appointment.startAt,
+      serviceName: row.appointment.service?.name ?? "Konsultasi",
+      staffName: row.appointment.staff.name,
+    },
+    patient: row.patient,
+    identity: {
+      name: row.name,
+      whatsapp: row.whatsapp,
+      birthDateLabel: dateLabel(row.birthDate),
+      genderLabel: row.gender === "P" ? "Perempuan" : row.gender === "L" ? "Laki-laki" : null,
+      occupation: row.occupation,
+      address: row.address,
+    },
+    clinical: can(staff.role, "record:read") ? await loadClinical(row.id) : null,
+  };
 }
