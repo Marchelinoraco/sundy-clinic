@@ -202,6 +202,7 @@ describe("getStaffAvailability — melawan basis data sungguhan", () => {
   let branchId: string;
 
   beforeEach(async () => {
+    await prisma.intake.deleteMany();
     await prisma.appointment.deleteMany();
     await prisma.patient.deleteMany({
       where: { medicalRecordNumber: { in: ["SDY-2026-9999", "SDY-2026-9998"] } },
@@ -242,6 +243,7 @@ describe("getStaffAvailability — melawan basis data sungguhan", () => {
   });
 
   afterAll(async () => {
+    await prisma.intake.deleteMany();
     await prisma.appointment.deleteMany();
     await prisma.patient.deleteMany({
       where: { medicalRecordNumber: { in: ["SDY-2026-9999", "SDY-2026-9998"] } },

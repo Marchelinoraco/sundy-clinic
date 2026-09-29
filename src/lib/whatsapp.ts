@@ -1,4 +1,5 @@
 import { CLINIC_NAME, CLINIC_WHATSAPP } from "./clinic";
+import { formatRupiah } from "./format";
 
 /**
  * Menyeragamkan nomor WhatsApp Indonesia ke bentuk "62xxxxxxxxxx", atau null
@@ -75,4 +76,36 @@ export function appointmentConfirmationMessage(input: {
     `atas nama ${input.patientName}, dengan ${input.staffName} di cabang ${input.branchName}, ` +
     `${input.dateLabel} pukul ${input.timeLabel}. Berikut bukti transfernya.`
   );
+}
+
+/** "6281234567890" → "0812-****-7890". Halaman publik tidak pernah menampilkan nomor utuh (PRD bagian 10). */
+export function maskWhatsapp(normalized: string): string {
+  const local = normalized.startsWith("62") ? `0${normalized.slice(2)}` : normalized;
+  return `${local.slice(0, 4)}-****-${local.slice(-4)}`;
+}
+
+/** Pesan pasien ke klinik setelah booking di situs, untuk mengantar bukti transfer (spec 3.1). */
+export function siteBookingWhatsAppMessage(input: {
+  patientName: string;
+  code: string;
+  serviceName: string;
+  staffName: string;
+  branchName: string;
+  dateLabel: string;
+  timeLabel: string;
+  bookingFee: number | null;
+}): string {
+  const transfer = input.bookingFee
+    ? ` Berikut bukti transfer biaya booking ${formatRupiah(input.bookingFee)}.`
+    : "";
+  return (
+    `Halo ${CLINIC_NAME}, saya sudah booking ${input.serviceName}. Kode: ${input.code}, ` +
+    `atas nama ${input.patientName}, dengan ${input.staffName} di ${input.branchName}, ` +
+    `${input.dateLabel} pukul ${input.timeLabel}.${transfer}`
+  );
+}
+
+/** Permintaan pindah jadwal dari /cek-booking; admin memindahkannya di panel (spec 3.3). */
+export function rescheduleRequestMessage(input: { code: string; dateLabel: string; timeLabel: string }): string {
+  return `Halo ${CLINIC_NAME}, saya ingin pindah jadwal booking ${input.code} (${input.dateLabel} pukul ${input.timeLabel}).`;
 }

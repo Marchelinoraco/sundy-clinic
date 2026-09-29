@@ -1,6 +1,5 @@
 "use server";
 
-import { Prisma } from "@prisma/client";
 import type {
   Appointment,
   AppointmentStatus,
@@ -10,26 +9,14 @@ import type {
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
 import { generateBookingCode } from "@/lib/booking-code";
 import { prisma } from "@/lib/db";
+import { bookingFeeFor } from "@/lib/payment";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { combineWitaDateAndMinutes } from "@/lib/time";
 import { recordAudit } from "@/server/audit";
+import { expireStaleSiteBookings } from "@/server/booking-expiry";
+import { getClinicSetting } from "@/server/clinic-setting";
+import { isExclusionViolation } from "@/server/db-errors";
 import { requireCapability } from "@/server/session";
-
-/**
- * Kode Postgres untuk pelanggaran exclusion constraint adalah "23P01".
- * Ini satu-satunya tempat yang menerjemahkannya ke pesan yang admin
- * mengerti — di mana pun exclusion constraint bisa terpicu, tangkap di
- * sini, jangan biarkan galat SQL mentah sampai ke antarmuka.
- */
-function isExclusionViolation(error: unknown): boolean {
-  return (
-    (error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2010" &&
-      typeof error.meta?.code === "string" &&
-      error.meta.code === "23P01") ||
-    (error instanceof Error && error.message.includes("23P01"))
-  );
-}
 
 function assertTimeRange(startAt: Date, endAt: Date): void {
   if (endAt.getTime() <= startAt.getTime()) {
@@ -61,6 +48,11 @@ export async function createAppointment(input: {
 }): Promise<ActionResult<Appointment>> {
   return runAction(async () => {
     const actor = await requireCapability("booking:manage");
+
+    // Booking situs basi masih memblokir slot di exclusion constraint.
+    await expireStaleSiteBookings();
+
+    const setting = await getClinicSetting();
 
     assertTimeRange(input.startAt, input.endAt);
 
@@ -96,6 +88,7 @@ export async function createAppointment(input: {
           endAt: input.endAt,
           source: input.source,
           notes: input.notes,
+          bookingFee: bookingFeeFor(input.source, setting.bookingFee),
         },
       }),
     );
@@ -126,11 +119,18 @@ const STATUS_WORD: Record<AppointmentStatus, string> = {
   KEDALUWARSA: "kedaluwarsa",
 };
 
-async function staleStatusError(id: string): Promise<UserFacingError> {
+/**
+ * Pesan untuk UPDATE bersyarat yang tidak mengubah apa pun: pasien belum
+ * dicocokkan (booking situs), atau statusnya sudah berubah.
+ */
+async function rejectedChangeError(id: string, needsPatient = false): Promise<UserFacingError> {
   const current = await prisma.appointment.findUniqueOrThrow({
     where: { id },
-    select: { status: true },
+    select: { status: true, patientId: true },
   });
+  if (needsPatient && current.patientId === null) {
+    return new UserFacingError("Cocokkan booking ini dengan data pasien lebih dulu.");
+  }
   return new UserFacingError(
     `Booking ini sudah berstatus ${STATUS_WORD[current.status]}. Muat ulang halaman.`,
   );
@@ -151,7 +151,7 @@ export async function rescheduleAppointment(
         data: { startAt: input.startAt, endAt: input.endAt },
       }),
     );
-    if (count === 0) throw await staleStatusError(id);
+    if (count === 0) throw await rejectedChangeError(id);
 
     await recordAudit({
       actor,
@@ -172,7 +172,8 @@ export async function rescheduleAppointment(
  * bersifat atomik, sehingga dua admin yang mengklik bersamaan tidak saling
  * menimpa, dan booking yang sudah dibatalkan tidak bisa "hidup lagi" lewat
  * tombol Hadir — yang juga akan menabrak exclusion constraint bila slotnya
- * sudah diisi orang lain.
+ * sudah diisi orang lain. Selain pembatalan, booking wajib sudah punya
+ * pasien (CHECK appointment_patient_required menjaga hal yang sama di basis data).
  */
 async function setStatus(
   id: string,
@@ -183,12 +184,13 @@ async function setStatus(
 ): Promise<ActionResult<Appointment>> {
   return runAction(async () => {
     const actor = await requireCapability("booking:manage");
+    const needsPatient = to !== "DIBATALKAN";
 
     const { count } = await prisma.appointment.updateMany({
-      where: { id, status: { in: from } },
+      where: { id, status: { in: from }, ...(needsPatient ? { patientId: { not: null } } : {}) },
       data: { status: to },
     });
-    if (count === 0) throw await staleStatusError(id);
+    if (count === 0) throw await rejectedChangeError(id, needsPatient);
 
     await recordAudit({ actor, action, entity: "Appointment", entityId: id, summary });
 
@@ -234,6 +236,7 @@ export async function listAppointments(filter: {
   date?: string;
 }) {
   await requireCapability("booking:manage");
+  await expireStaleSiteBookings();
 
   return prisma.appointment.findMany({
     where: {
@@ -249,7 +252,15 @@ export async function listAppointments(filter: {
           }
         : {}),
     },
-    include: { patient: true, staff: true, branch: true, service: true },
+    // Isian hanya membawa identitas: daftar booking juga dibuka resepsionis,
+    // yang tidak boleh menerima jawaban klinis (spec 6.2).
+    include: {
+      patient: true,
+      staff: true,
+      branch: true,
+      service: true,
+      intake: { select: { id: true, name: true, whatsapp: true, status: true } },
+    },
     orderBy: { startAt: "asc" },
   });
 }

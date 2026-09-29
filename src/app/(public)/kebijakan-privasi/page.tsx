@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { CLINIC_FULL_NAME, CLINIC_WHATSAPP_DISPLAY } from "@/lib/clinic";
+import { PRIVACY_POLICY_VERSION_LABEL } from "@/lib/privacy";
 
 export const metadata: Metadata = {
   title: "Kebijakan Privasi",
@@ -10,6 +11,7 @@ export default function PrivacyPolicyPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-14">
       <h1 className="font-display text-4xl text-brown-900">Kebijakan Privasi</h1>
+      <p className="mt-2 text-sm text-brown-600">Versi {PRIVACY_POLICY_VERSION_LABEL}</p>
 
       <div className="mt-8 space-y-6 leading-relaxed text-brown-700">
         <p>
@@ -21,10 +23,10 @@ export default function PrivacyPolicyPage() {
         <section>
           <h2 className="font-display text-2xl text-brown-900">Data yang kami kumpulkan</h2>
           <p className="mt-2">
-            Situs ini menampilkan informasi layanan dan tidak mengumpulkan data pribadi secara
-            otomatis. Data pribadi Anda kami terima hanya ketika Anda menghubungi kami lewat
-            WhatsApp atau datang ke klinik, berupa nama, nomor kontak, usia, jenis kelamin, dan
-            informasi kesehatan yang Anda sampaikan kepada dokter.
+            Kami menerima data pribadi Anda ketika Anda mendaftar lewat situs ini, menghubungi kami
+            lewat WhatsApp, atau datang ke klinik: nama, nomor WhatsApp, tanggal lahir, jenis
+            kelamin, pekerjaan, alamat, serta informasi kesehatan yang Anda isi di kuis pendaftaran
+            atau sampaikan kepada dokter. Situs ini tidak mengumpulkan data pribadi secara otomatis.
           </p>
         </section>
 
@@ -35,6 +37,28 @@ export default function PrivacyPolicyPage() {
             oleh dokter dan tenaga klinik yang berwenang, digunakan semata-mata untuk pelayanan
             kesehatan Anda, dan disimpan sesuai ketentuan Peraturan Menteri Kesehatan Nomor 24 Tahun
             2022 tentang Rekam Medis.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="font-display text-2xl text-brown-900">Kuis pendaftaran</h2>
+          <p className="mt-2">
+            Jawaban kuis — keluhan, tujuan, riwayat penyakit dan obat, alergi, riwayat diet, pola
+            makan, dan aktivitas harian — dikirim ke klinik hanya setelah Anda menekan tombol Kirim
+            dan menyetujui kebijakan ini. Sebelum itu jawaban hanya tersimpan sementara di browser
+            Anda dan terhapus saat tab ditutup. Jawaban dibaca dokter untuk mempersiapkan
+            konsultasi dan menjadi bagian dari rekam medis Anda. Petugas pendaftaran hanya melihat
+            data diri Anda, bukan jawaban kesehatan.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="font-display text-2xl text-brown-900">Biaya booking</h2>
+          <p className="mt-2">
+            Jadwal dari situs, WhatsApp, atau telepon dikunci dengan biaya booking yang
+            ditransfer ke rekening klinik. Biaya ini terpisah dari biaya layanan, tidak
+            dikembalikan, dan tetap berlaku bila Anda pindah jadwal paling lambat 2 jam sebelum
+            jadwal. Booking dari situs yang belum dikonfirmasi dalam 24 jam dibatalkan otomatis.
           </p>
         </section>
 

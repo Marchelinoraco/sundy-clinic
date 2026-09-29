@@ -32,6 +32,7 @@ describe("server action appointment", () => {
   let doctorOnlyServiceId: string;
 
   beforeEach(async () => {
+    await prisma.intake.deleteMany();
     await prisma.appointment.deleteMany();
     await prisma.auditLog.deleteMany();
     await prisma.patient.deleteMany({ where: { medicalRecordNumber: "SDY-2026-7777" } });
@@ -87,6 +88,7 @@ describe("server action appointment", () => {
     // beforeEach hanya membersihkan sebelum giliran berikutnya, bukan
     // setelah giliran terakhir — tanpa ini "cabang-appointment-uji" bocor
     // ke berkas lain yang berjalan sesudahnya.
+    await prisma.intake.deleteMany();
     await prisma.appointment.deleteMany();
     await prisma.auditLog.deleteMany();
     await prisma.patient.deleteMany({ where: { medicalRecordNumber: "SDY-2026-7777" } });
@@ -260,7 +262,7 @@ describe("server action appointment", () => {
 
     const list = await listAppointments({ branchId, status: "MENUNGGU_KONFIRMASI" });
     expect(list).toHaveLength(1);
-    expect(list[0].patient.name).toBe("Pasien Appointment");
+    expect(list[0].patient?.name).toBe("Pasien Appointment");
   });
 
   it("menolak layanan khusus dokter yang dijadwalkan ke terapis", async () => {

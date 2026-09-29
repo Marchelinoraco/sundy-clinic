@@ -5,6 +5,7 @@ import { BookingFilters } from "@/components/admin/booking-filters";
 import { Button } from "@/components/ui/button";
 import { isAppointmentStatus } from "@/lib/appointment-status";
 import { formatIndonesianDate } from "@/lib/format";
+import { can } from "@/lib/permissions";
 import {
   addDaysToDateString,
   combineWitaDateAndMinutes,
@@ -36,7 +37,7 @@ export default async function BookingListPage({
 }: {
   searchParams: Promise<{ tanggal?: string; status?: string; staf?: string; cabang?: string }>;
 }) {
-  await requireCapability("booking:manage");
+  const staff = await requireCapability("booking:manage");
   const params = await searchParams;
 
   const today = witaDateString(new Date());
@@ -60,10 +61,13 @@ export default async function BookingListPage({
   const rows: BookingRow[] = appointments.map((a) => {
     const serviceName = a.service?.name ?? (a.type === "KONSULTASI" ? "Konsultasi" : "Treatment");
     const start = timeLabel(a.startAt);
+    // Booking situs boleh belum punya pasien sampai admin mencocokkannya;
+    // CHECK di basis data menjamin booking terkonfirmasi selalu punya pasien.
+    const patient = a.patient;
     const confirmationText =
-      a.status === "TERKONFIRMASI"
+      a.status === "TERKONFIRMASI" && patient
         ? patientBookingConfirmationMessage({
-            patientName: a.patient.name,
+            patientName: patient.name,
             code: a.code,
             serviceName,
             staffName: a.staff.name,
@@ -78,19 +82,23 @@ export default async function BookingListPage({
       code: a.code,
       status: a.status,
       timeLabel: `${start}–${timeLabel(a.endAt)}`,
-      patientName: a.patient.name,
-      patientRecordNumber: a.patient.medicalRecordNumber,
+      patientName: patient?.name ?? a.intake?.name ?? "Tanpa nama",
+      patientRecordNumber: patient?.medicalRecordNumber ?? "—",
+      needsMatch: patient === null,
+      isSiteBooking: a.source === "SITUS" && a.intake !== null,
+      intakeId: a.intake?.id ?? null,
       serviceName,
       staffName: a.staff.name,
       branchName: a.branch.name,
       sourceLabel: SOURCE_LABEL[a.source] ?? a.source,
       notes: a.notes,
-      confirmation: confirmationText
-        ? {
-            text: confirmationText,
-            link: buildWhatsAppLinkTo(a.patient.whatsapp, confirmationText),
-          }
-        : null,
+      confirmation:
+        confirmationText && patient
+          ? {
+              text: confirmationText,
+              link: buildWhatsAppLinkTo(patient.whatsapp, confirmationText),
+            }
+          : null,
     };
   });
 
@@ -146,7 +154,7 @@ export default async function BookingListPage({
             Tidak ada booking{status ? " dengan status ini" : ""} pada tanggal ini.
           </p>
         ) : (
-          <AppointmentTable rows={rows} />
+          <AppointmentTable rows={rows} canReadRecords={can(staff.role, "record:read")} />
         )}
       </div>
     </>

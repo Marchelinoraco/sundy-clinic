@@ -1,7 +1,7 @@
 # PRD — Sistem Klinik SunDY (Situs Publik + Admin & Rekam Medis)
 
-- **Versi:** 1.6
-- **Tanggal:** 23 September 2026 (diperbarui 28 September 2026)
+- **Versi:** 1.7
+- **Tanggal:** 23 September 2026 (diperbarui 29 September 2026)
 - **Status:** Menunggu review pemilik
 - **Klinik:** SunDY — Nutrition, Slimming & Wellness Clinic, Manado
 - **Kontak resmi:** WhatsApp 0851-7222-8900 (+62 851-7222-8900) · Instagram @sundyclinic
@@ -27,6 +27,8 @@
 **Perubahan dari versi 1.3:** jadwal beralih dari "milik klinik" menjadi **milik tenaga** (F4a). Dua jenis booking dengan durasi berbeda, layanan ditandai `requiresDoctor`, dan `Doctor` digantikan `Staff` berperan DOKTER/TERAPIS. **Batasan unik (dokter, waktu mulai) dari v1.3 dicabut** — batasan itu meloloskan treatment 15.00–16.00 yang bertindihan dengan konsultasi 15.30, dan digantikan *exclusion constraint* atas rentang waktu.
 
 **Perubahan dari versi 1.5:** hosting pindah dari Vercel + Neon ke **VPS sendiri di Indonesia** (IDCloudHost Jakarta) dengan domain `sundyclinic.com` — lihat `docs/superpowers/specs/2026-09-26-migrasi-vps-sundy-design.md` dan runbook `docs/operasional/server-sundy.md`. Keputusan D6 (domain & email) selesai.
+
+**Perubahan dari versi 1.6:** pendaftaran pasien dirancang ulang sebagai **kuis bergaya BetterMe** — pasien memilih Slimming/Aesthetic lalu menjawab keluhan, tujuan, riwayat penyakit & obat, dan riwayat diet sebelum data pribadi. Booking situs disimpan bersama **Isian Pendaftaran** dan boleh belum terhubung ke pasien sampai **admin mencocokkannya**; sistem hanya menyarankan pasien yang mirip. **Biaya booking Rp 100.000** (terpisah dari biaya layanan, tidak dikembalikan, tetap berlaku bila pindah jadwal) menjawab D5. Rincian: `docs/superpowers/specs/2026-09-28-pendaftaran-pasien-design.md`.
 
 **Perubahan dari versi 1.4:** F9 diperluas — admin **membuat** janji temu sendiri, bukan hanya memverifikasi, karena mayoritas pasien akan tetap memesan lewat WhatsApp. Sumber booking dicatat (`SITUS` / `WHATSAPP` / `TELEPON` / `WALK_IN`), pasien baru dapat dibuat langsung dari form booking, dan ditegaskan bahwa booking **tidak pernah dihapus** — pembatalan adalah perubahan status.
 
@@ -193,21 +195,24 @@ Dasar usulan: tindakan yang menembus kulit (injeksi, infus, PRP, mesoterapi), me
 Situs publik **tidak** memeriksa status pasien dari nomor WhatsApp yang dimasukkan. Pemeriksaan semacam itu memungkinkan siapa pun menebak nomor untuk mengetahui apakah seseorang pernah berobat di sini — kebocoran privasi yang tidak sebanding dengan manfaatnya. Sebagai gantinya, form menawarkan kedua pilihan kepada semua orang, disertai keterangan bahwa treatment hanya untuk pasien yang sudah pernah konsultasi. Admin memverifikasinya pada langkah konfirmasi WhatsApp yang memang sudah ada, sehingga tidak menambah pekerjaan baru.
 
 ### F5. Pendaftaran Konsultasi
-Alur 4 langkah, mobile-first:
+Alur kuis mobile-first (rincian dan isi pertanyaan: spec pendaftaran pasien bagian 3):
 
-1. **Tujuan & lokasi** — Slimming / Aesthetic / Lainnya, opsional memilih layanan yang diminati, lalu memilih cabang. Cabang Citraland tampil dengan label **"Segera Hadir"** dan tidak dapat dipilih; di bawahnya tersedia tautan "Beri tahu saya saat buka" yang mengarah ke WhatsApp klinik. Selama hanya satu cabang aktif, langkah ini otomatis memilih Mahakeret dan tidak menambah klik bagi pasien.
-2. **Pilih dokter & jadwal** — pilih dokter tertentu atau "dokter mana saja yang tersedia" di cabang itu, lalu pilih tanggal & slot.
-3. **Data diri** — nama lengkap, nomor WhatsApp, tanggal lahir, jenis kelamin, pekerjaan, alamat, keluhan/tujuan. Untuk tujuan Slimming, ditambah **form skrining**: berat badan, tinggi badan, dan food recall harian (makanan utama, snack, minuman, cemilan) — konten diambil dari Google Form yang berjalan sekarang.
-4. **Konfirmasi** — sistem menampilkan ringkasan, persetujuan penggunaan data pribadi, lalu menerbitkan **kode booking** (format `SDY-XXXX`).
+1. **Kuis** — pernah berobat? → tujuan (Slimming / Aesthetic / Belum yakin) → pertanyaan jalur satu per layar (pasien lama: kuis pendek) → kesehatan & obat per penyakit.
+2. **Ringkasan** jawaban, bisa diubah per bagian.
+3. **Layanan & biaya** — pasien baru selalu Konsultasi Dokter; pasien Aesthetic lama boleh memilih treatment. Biaya layanan dibayar di klinik; **biaya booking** ditransfer setelah mendaftar.
+4. **Jadwal** — cabang (Citraland "Segera Hadir"), tenaga, tanggal & slot; slot ditahan 10 menit.
+5. **Data diri & persetujuan** — pasien baru: nama, WA, tanggal lahir, jenis kelamin, pekerjaan, alamat; pasien lama: nama, WA, tanggal lahir. Persetujuan data (UU PDP) dan aturan biaya booking wajib dicentang.
 
 Setelah submit, pasien diarahkan ke halaman sukses berisi kode booking, detail jadwal, instruksi pembayaran, dan tombol besar **"Konfirmasi via WhatsApp"**. Tombol ini membuka chat ke 0851-7222-8900 dengan pesan terisi otomatis:
 
-> *Halo SunDY Clinic, saya sudah booking konsultasi. Kode: SDY-8F3K, atas nama Siti Rahayu, dengan Dr. Diane Paparang, Sp.GK, AIFO-K di cabang Mahakeret, Kamis 25 Sep 2026 pukul 15.00. Berikut bukti transfernya.*
+> *Halo SunDY Clinic, saya sudah booking konsultasi. Kode: SDY-8F3K, atas nama Siti Rahayu, dengan Dr. Diane Paparang, Sp.GK, AIFO-K di cabang Mahakeret, Kamis 25 Sep 2026 pukul 15.00. Berikut bukti transfer biaya booking Rp 100.000.*
 
 Pasien mengirim bukti transfer di chat tersebut, admin memverifikasi di panel.
 
 ### F6. Cek Status Booking
 Halaman publik: masukkan **kode booking + 4 digit terakhir nomor WhatsApp** untuk melihat status (Menunggu Konfirmasi / Terkonfirmasi / Selesai / Dibatalkan), detail jadwal, dan tombol batalkan (paling lambat 2 jam sebelum jadwal, selaras dengan batas minimum pemesanan; di bawah itu pasien diarahkan menghubungi admin). Tidak ada data klinis yang ditampilkan di halaman ini.
+
+Booking terkonfirmasi menawarkan **Pindah jadwal via WhatsApp** (admin memindahkannya di panel; biaya booking tetap melekat). Sebelum membatalkan booking yang biayanya sudah dibayar, pasien diingatkan bahwa biaya booking tidak dikembalikan.
 
 ### F7. Halaman Lokasi & Pendukung
 
@@ -241,6 +246,7 @@ Daftar booking dengan filter (tanggal, **cabang**, tenaga, status), tersedia seb
 | **Ubah** | Ganti layanan, tenaga, atau catatan. Perubahan layanan ikut menyesuaikan durasi. |
 | **Jadwal ulang** | Pindah ke jam lain, tetap melewati pemeriksaan bentrok pada jam tujuan. |
 | **Verifikasi** | Menunggu Konfirmasi → Terkonfirmasi, setelah bukti transfer diterima. |
+| **Cocokkan pasien** | Booking dari situs: pilih pasien lama dari saran (WA sama, atau nama & tanggal lahir sama) atau buat pasien baru dari isian. Wajib sebelum Verifikasi, Hadir, atau Tidak Hadir. |
 | **Tandai hadir / tidak hadir** | Mengubah status pada hari kunjungan. |
 | **Batalkan** | Mengubah status menjadi Dibatalkan dan melepas slotnya. |
 
@@ -420,7 +426,7 @@ Bila pasien tidak datang, pengingat tetap berstatus `SUDAH_DIINGATKAN` dan muncu
 | Dua permintaan tiba pada milidetik yang sama | Penahanan slot berjalan di aplikasi dan punya celah baca-tulis. Batasan unik pada (dokter, waktu) di basis data menolak permintaan kedua; aplikasi menangkap penolakan itu dan menampilkan pesan yang sama seperti baris di atas, bukan galat mentah. |
 | Pasien tidak konfirmasi dalam 24 jam | Booking `KEDALUWARSA`, slot kembali tersedia. |
 | Dokter mendadak berhalangan | Admin menandai pengecualian tanggal; sistem menampilkan daftar booking terdampak untuk dijadwal ulang satu per satu. |
-| Pasien lama booking lagi | Sistem mengenali nomor WhatsApp dan menautkan ke rekam medis yang sudah ada, bukan membuat pasien baru. |
+| Pasien lama booking lagi | Situs tidak memeriksa nomor WA. Sistem **menyarankan** pasien yang cocok saat admin memverifikasi, dan **admin yang memutuskan** — satu nomor WA sering dipakai sekeluarga. |
 | Pasien walk-in | Admin membuat booking manual; bila slot penuh, dapat menambahkan di luar slot dengan penanda "walk-in". |
 | Pasien membuka kalender di tanggal merah | Tanggal ditampilkan nonaktif dengan keterangan nama hari liburnya (contoh: "Libur — Hari Natal"), bukan sekadar kosong tanpa penjelasan. |
 | Pasien mencoba booking di cabang Citraland | Cabang tidak dapat dipilih; muncul ajakan "Segera Hadir — beri tahu saya saat buka" yang mengarah ke WhatsApp klinik. |
@@ -558,7 +564,7 @@ Aplikasi dirancang portabel (Docker + PostgreSQL standar) sehingga perpindahan i
 | D2c | **Nomor WhatsApp cabang Citraland** | Sementara memakai nomor yang sama, 0851-7222-8900. | Bila nanti Citraland punya nomor sendiri, tinggal diisi di data cabang. |
 | D3 | **Harga Vitamin C** | Ditranskrip apa adanya dari materi promosi. | Materi menulis "1.299 JT" untuk Injek Vit C 2000mg. Bila maksudnya Rp 1.299.000 sudah benar; bila seharusnya Rp 299.000, mohon dikoreksi sebelum tayang. |
 | D4 | **Ketikan pada paket LUX T ACTIVE** | Diperbaiki menjadi "Kapsul **L**-Fat Burner". | Materi promosi menulis "Kapsul M-Fat Burner-Inject T" padahal paket LUX lain memakai Kapsul L. Kemungkinan salah ketik di desain. |
-| D5 | **Biaya konsultasi & DP** | Konsultasi Dokter Rp 200.000 ditampilkan; besaran DP untuk mengunci slot belum ditentukan. | Perlu keputusan: apakah pasien membayar penuh di muka, DP sebagian, atau bayar di klinik dengan bukti transfer hanya untuk booking berbayar. |
+| D5 | ~~Biaya konsultasi & DP~~ | **Selesai (28 Sep 2026).** Biaya booking **Rp 100.000** untuk booking situs, WhatsApp, dan telepon (walk-in tidak); terpisah dari biaya layanan, tidak dikembalikan, tetap berlaku bila pindah jadwal paling lambat 2 jam sebelumnya. Angka dan rekening diubah Super Admin di panel. | Konsultasi Dokter Rp 200.000 tetap dibayar di klinik. |
 | D6 | ~~Domain & email klinik~~ | **Selesai (26–28 Sep 2026).** Domain `sundyclinic.com` (Jetorbit, DNS Cloudflare). `@sundyclinic.com` hanya dipakai sebagai nama login staf, tanpa kotak masuk (null MX, SPF `-all`, DMARC `reject`). Login Super Admin: `admin@sundyclinic.com`. | Bila kelak butuh kotak masuk, cukup ganti record email di Cloudflare. |
 | D7 | **Jeda pengingat** | Kontrol setiap **7 hari**, pengingat tampil **H-1**, dimajukan bila jatuh di hari tutup. | Dikonfirmasi pemilik, 23 Sep 2026. Angka 7 hari disimpan sebagai pengaturan, bukan ditulis keras di kode, agar dapat diubah tanpa developer. |
 | D8 | **Pengingat otomatis terjadwal** | Tidak di MVP — admin menekan tombol secara manual. | Pengiriman otomatis memerlukan WhatsApp API berbayar. Ditinjau ulang di Fase 2 bila jumlah pasien slimming membuat pengiriman manual terlalu memberatkan. |
@@ -698,10 +704,4 @@ Harga dicoret adalah harga normal; harga tebal adalah harga promo berjalan.
 
 ## Lampiran C — Form Skrining Digital
 
-Menggantikan Google Form "Recall Form Sundy Clinic Manado". Jawaban tersimpan sebagai bagian rekam medis, bukan di spreadsheet terpisah.
-
-**Data dasar** — nama lengkap, pekerjaan, usia/tanggal lahir, berat badan (kg), tinggi badan (cm), jenis kelamin, tujuan konsultasi.
-
-**Food recall harian** — makanan utama (pagi, siang, malam), snack, minuman, dan cemilan yang biasa dikonsumsi.
-
-Field yang sudah ada di data pasien (nama, jenis kelamin, tanggal lahir, pekerjaan) terisi otomatis pada kunjungan berikutnya sehingga pasien lama tidak mengetik ulang. Berat badan dan tinggi badan yang diisi pasien masuk sebagai pengukuran mandiri dan dibedakan dari hasil Timbang BIA resmi di klinik.
+Digantikan kuis pendaftaran versi 1 — daftar pertanyaan lengkap di spec `2026-09-28-pendaftaran-pasien-design.md` bagian 3.2. Jawaban tersimpan sebagai Isian Pendaftaran per booking; berat & tinggi mandiri disimpan terpisah dan dibedakan dari hasil Timbang BIA.

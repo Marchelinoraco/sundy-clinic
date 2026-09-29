@@ -64,3 +64,6 @@ public/uploads/
 
 # Playwright
 /test-results/
+
+# Mockup brainstorming (companion visual superpowers)
+.superpowers/

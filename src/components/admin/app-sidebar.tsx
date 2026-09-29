@@ -5,6 +5,7 @@ import {
   Contact,
   LayoutDashboard,
   Scissors,
+  Settings,
   ShieldCheck,
   Users,
 } from "lucide-react";
@@ -43,6 +44,7 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
       { title: "Layanan & Harga", url: "/admin/layanan", icon: Scissors, needs: "content:manage" },
       { title: "Staf", url: "/admin/staf", icon: Users, needs: "staff:manage" },
       { title: "Jejak Audit", url: "/admin/audit", icon: ShieldCheck, needs: "audit:read" },
+      { title: "Pengaturan", url: "/admin/pengaturan", icon: Settings, needs: "content:manage" },
     ],
   },
 ];

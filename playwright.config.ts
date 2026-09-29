@@ -41,6 +41,9 @@ export default defineConfig({
       ...e2eDatabaseEnv(),
       BETTER_AUTH_URL: E2E_BASE_URL,
       NEXT_PUBLIC_SITE_URL: E2E_BASE_URL,
+      // Semua permintaan uji datang dari satu alamat; tanpa ini pembatas laju
+      // situs publik menolak uji kedua dan seterusnya.
+      RATE_LIMIT_DISABLED: "1",
     },
   },
 });
