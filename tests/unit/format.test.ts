@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { formatIndonesianDate, formatPrice, formatRupiah, formatShortIndonesianDate } from "@/lib/format";
+import {
+  formatDateColumn,
+  formatGender,
+  formatIndonesianDate,
+  formatPrice,
+  formatRupiah,
+  formatShortIndonesianDate,
+} from "@/lib/format";
 
 describe("formatRupiah", () => {
   it("memakai titik sebagai pemisah ribuan", () => {
@@ -60,3 +67,17 @@ describe("formatShortIndonesianDate", () => {
   });
 });
 
+describe("formatDateColumn", () => {
+  it("menulis kolom tanggal sebagai hari/bulan/tahun tanpa bergeser zona waktu", () => {
+    expect(formatDateColumn(new Date("1992-04-17T00:00:00Z"))).toBe("17/04/1992");
+    expect(formatDateColumn(null)).toBeNull();
+  });
+});
+
+describe("formatGender", () => {
+  it("menerjemahkan kode jenis kelamin", () => {
+    expect(formatGender("P")).toBe("Perempuan");
+    expect(formatGender("L")).toBe("Laki-laki");
+    expect(formatGender(null)).toBeNull();
+  });
+});

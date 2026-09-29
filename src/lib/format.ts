@@ -46,3 +46,13 @@ const shortIndonesianDateFormatter = new Intl.DateTimeFormat("id-ID", {
 export function formatShortIndonesianDate(date: Date): string {
   return shortIndonesianDateFormatter.format(date);
 }
+
+/** Kolom @db.Date (tanggal tanpa jam) → "17/04/1992". Dibaca dari UTC agar tidak bergeser. */
+export function formatDateColumn(date: Date | null): string | null {
+  return date ? date.toISOString().slice(0, 10).split("-").reverse().join("/") : null;
+}
+
+/** Kode jenis kelamin di basis data → label. */
+export function formatGender(gender: "L" | "P" | null): string | null {
+  return gender === "P" ? "Perempuan" : gender === "L" ? "Laki-laki" : null;
+}

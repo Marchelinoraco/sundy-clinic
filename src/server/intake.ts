@@ -3,7 +3,7 @@
 import type { Prisma } from "@prisma/client";
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
 import { prisma } from "@/lib/db";
-import { formatIndonesianDate } from "@/lib/format";
+import { formatDateColumn, formatGender, formatIndonesianDate } from "@/lib/format";
 import type { ActivityRow, IntakeSection } from "@/lib/kuis/v1/describe";
 import { activityTable, describeAnswers } from "@/lib/kuis/v1/describe";
 import { quizAnswersSchema, type QuizAnswers } from "@/lib/kuis/v1/answers";
@@ -30,11 +30,6 @@ export type MatchCandidates = {
   intake: { name: string; whatsapp: string; birthDateLabel: string | null; claimsReturning: boolean };
   candidates: MatchCandidate[];
 };
-
-/** Kolom @db.Date → "17/04/1992". */
-function dateLabel(date: Date | null): string | null {
-  return date ? date.toISOString().slice(0, 10).split("-").reverse().join("/") : null;
-}
 
 /** Hanya booking situs yang belum diverifikasi yang boleh dicocokkan (spec 6.1). */
 async function loadMatchable(appointmentId: string) {
@@ -124,7 +119,7 @@ export async function getMatchCandidates(appointmentId: string): Promise<ActionR
       intake: {
         name: intake.name ?? "",
         whatsapp: intake.whatsapp ?? "",
-        birthDateLabel: dateLabel(intake.birthDate),
+        birthDateLabel: formatDateColumn(intake.birthDate),
         claimsReturning: intake.claimsReturning ?? false,
       },
       candidates: patients.map((patient) => ({
@@ -132,7 +127,7 @@ export async function getMatchCandidates(appointmentId: string): Promise<ActionR
         medicalRecordNumber: patient.medicalRecordNumber,
         name: patient.name,
         whatsapp: patient.whatsapp,
-        birthDateLabel: dateLabel(patient.birthDate),
+        birthDateLabel: formatDateColumn(patient.birthDate),
         lastVisitLabel: patient.appointments[0] ? formatIndonesianDate(patient.appointments[0].startAt) : null,
       })),
     };
@@ -362,8 +357,8 @@ export async function getIntakeForStaff(intakeId: string): Promise<IntakeDetail 
     identity: {
       name: row.name,
       whatsapp: row.whatsapp,
-      birthDateLabel: dateLabel(row.birthDate),
-      genderLabel: row.gender === "P" ? "Perempuan" : row.gender === "L" ? "Laki-laki" : null,
+      birthDateLabel: formatDateColumn(row.birthDate),
+      genderLabel: formatGender(row.gender),
       occupation: row.occupation,
       address: row.address,
     },

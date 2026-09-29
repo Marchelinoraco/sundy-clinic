@@ -2,7 +2,11 @@
 
 import type { Patient } from "@prisma/client";
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
+import type { AppointmentStatusValue } from "@/lib/appointment-status";
 import { prisma } from "@/lib/db";
+import { formatDateColumn, formatGender } from "@/lib/format";
+import { PURPOSES } from "@/lib/kuis/v1/options";
+import { can } from "@/lib/permissions";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { normalizeWhatsapp } from "@/lib/whatsapp";
 import { recordAudit } from "@/server/audit";
@@ -99,4 +103,123 @@ export async function findPatientsByWhatsapp(whatsapp: string): Promise<Patient[
   const normalized = normalizeWhatsapp(whatsapp);
   if (!normalized) return [];
   return prisma.patient.findMany({ where: { whatsapp: normalized } });
+}
+
+export type PatientDetail = {
+  id: string;
+  medicalRecordNumber: string;
+  name: string;
+  whatsapp: string;
+  birthDateLabel: string | null;
+  genderLabel: string | null;
+  occupation: string | null;
+  address: string | null;
+  programStatus: "AKTIF" | "SELESAI" | "TIDAK_AKTIF";
+  /** Hanya untuk record:read (spec 6.2). */
+  record: { allergies: string | null; medicalHistory: string | null } | null;
+  appointments: {
+    id: string;
+    code: string;
+    startAt: Date;
+    status: AppointmentStatusValue;
+    serviceName: string;
+    staffName: string;
+    branchName: string;
+  }[];
+  intakes: {
+    id: string;
+    code: string;
+    submittedAt: Date | null;
+    status: "MENUNGGU_DIISI" | "TERISI" | "DIPERIKSA";
+    kind: "LENGKAP" | "PENDEK";
+    purposeLabel: string | null;
+    reviewerName: string | null;
+    reviewedAt: Date | null;
+  }[];
+};
+
+/**
+ * Identitas, riwayat booking, dan riwayat isian satu pasien (spec 6.5).
+ * Catatan medis dibaca dengan kueri terpisah hanya untuk record:read; jawaban
+ * kuis tidak pernah dipilih di sini — dokter membukanya di halaman isian.
+ */
+export async function getPatientDetail(id: string): Promise<PatientDetail | null> {
+  const staff = await requireCapability("booking:manage");
+  const patient = await prisma.patient.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      medicalRecordNumber: true,
+      name: true,
+      whatsapp: true,
+      birthDate: true,
+      gender: true,
+      occupation: true,
+      address: true,
+      programStatus: true,
+      appointments: {
+        orderBy: { startAt: "desc" },
+        select: {
+          id: true,
+          code: true,
+          type: true,
+          startAt: true,
+          status: true,
+          service: { select: { name: true } },
+          staff: { select: { name: true } },
+          branch: { select: { name: true } },
+        },
+      },
+      intakes: {
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          status: true,
+          kind: true,
+          purpose: true,
+          submittedAt: true,
+          reviewedAt: true,
+          reviewedBy: { select: { name: true } },
+          appointment: { select: { code: true } },
+        },
+      },
+    },
+  });
+  if (!patient) return null;
+
+  const record = can(staff.role, "record:read")
+    ? await prisma.patient.findUniqueOrThrow({ where: { id }, select: { allergies: true, medicalHistory: true } })
+    : null;
+
+  return {
+    id: patient.id,
+    medicalRecordNumber: patient.medicalRecordNumber,
+    name: patient.name,
+    whatsapp: patient.whatsapp,
+    birthDateLabel: formatDateColumn(patient.birthDate),
+    genderLabel: formatGender(patient.gender),
+    occupation: patient.occupation,
+    address: patient.address,
+    programStatus: patient.programStatus,
+    record,
+    appointments: patient.appointments.map((a) => ({
+      id: a.id,
+      code: a.code,
+      startAt: a.startAt,
+      status: a.status,
+      serviceName: a.service?.name ?? (a.type === "KONSULTASI" ? "Konsultasi" : "Treatment"),
+      staffName: a.staff.name,
+      branchName: a.branch.name,
+    })),
+    intakes: patient.intakes.map((intake) => ({
+      id: intake.id,
+      code: intake.appointment.code,
+      submittedAt: intake.submittedAt,
+      status: intake.status,
+      kind: intake.kind,
+      purposeLabel: intake.purpose ? PURPOSES[intake.purpose] : null,
+      reviewerName: intake.reviewedBy?.name ?? null,
+      reviewedAt: intake.reviewedAt,
+    })),
+  };
 }
