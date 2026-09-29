@@ -61,7 +61,7 @@ describe("pengaturan klinik", () => {
   });
 
   it("menolak biaya yang bukan rupiah bulat", async () => {
-    for (const bookingFee of [-1, 1.5, Number.NaN, 20_000_000]) {
+    for (const bookingFee of [-1, 0, 1.5, Number.NaN, 20_000_000]) {
       const result = await updateClinicSetting({ bookingFee, bankName: "", bankAccountNumber: "", bankAccountHolder: "" });
       expect(result).toEqual({ ok: false, error: expect.stringContaining("Biaya booking") });
     }

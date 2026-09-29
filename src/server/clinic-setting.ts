@@ -42,11 +42,11 @@ export async function updateClinicSetting(input: {
 
     if (
       !Number.isInteger(input.bookingFee) ||
-      input.bookingFee < 0 ||
+      input.bookingFee < 1 ||
       input.bookingFee > MAX_BOOKING_FEE
     ) {
       throw new UserFacingError(
-        "Biaya booking harus berupa angka rupiah bulat antara 0 dan 10.000.000.",
+        "Biaya booking harus berupa angka rupiah bulat antara 1 dan 10.000.000.",
       );
     }
 
