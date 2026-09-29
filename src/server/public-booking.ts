@@ -480,6 +480,11 @@ export type PublicBookingStatus = {
 const lookupLimiter = createRateLimiter({ limit: 10, windowMs: 10 * 60_000 });
 const cancelLimiter = createRateLimiter({ limit: 5, windowMs: 10 * 60_000 });
 
+// Tebakan 4 digit salah per kode booking, dipakai bersama oleh cek status dan
+// batal. Menghitung per kode (bukan per IP) menahan penebakan dari banyak
+// alamat; kode yang sudah habis jatahnya tampak persis seperti "tidak ditemukan".
+const wrongDigitsLimiter = createRateLimiter({ limit: 10, windowMs: 60 * 60_000 });
+
 const ACTIVE: AppointmentStatusValue[] = ["MENUNGGU_KONFIRMASI", "TERKONFIRMASI"];
 
 function parseLookup(input: { code: string; last4: string }) {
@@ -497,6 +502,7 @@ function parseLookup(input: { code: string; last4: string }) {
  * orang lain tidak bisa ditebak lewat perbedaan pesan (PRD F6).
  */
 async function findOwnBooking(code: string, last4: string) {
+  if (!wrongDigitsLimiter.peek(code)) return null;
   const appointment = await prisma.appointment.findUnique({
     where: { code },
     select: {
@@ -517,7 +523,10 @@ async function findOwnBooking(code: string, last4: string) {
   // situs tidak boleh membocorkan bahwa orang itu pasien lama (spec 1/K4).
   // Booking admin tidak punya isian, jadi memakai nomor pasiennya.
   const whatsapp = appointment?.intake?.whatsapp ?? appointment?.patient?.whatsapp;
-  if (!appointment || !whatsapp || !whatsapp.endsWith(last4)) return null;
+  if (!appointment || !whatsapp || !whatsapp.endsWith(last4)) {
+    wrongDigitsLimiter.take(code);
+    return null;
+  }
   return { ...appointment, whatsapp };
 }
 

@@ -171,4 +171,24 @@ describe("cek status dan batal dari situs", () => {
       maskedWhatsapp: "0812-****-7890",
     });
   });
+  it("setelah 10 tebakan digit salah, kode itu tampak tidak ditemukan bahkan untuk digit yang benar", async () => {
+    const code = await bookAt("13:30");
+    const other = await bookAt("14:00");
+
+    for (let attempt = 0; attempt < 10; attempt++) {
+      expect(await unwrap(findBookingStatus({ code, last4: "000" + (attempt % 10) }))).toBeNull();
+    }
+
+    // Persis sama dengan "tidak ditemukan": bentuk jawaban dan pesan tidak berubah.
+    expect(await findBookingStatus({ code, last4: "7890" })).toEqual({ ok: true, data: null });
+    expect(await cancelSiteBooking({ code, last4: "7890" })).toEqual({
+      ok: false,
+      error: "Booking tidak ditemukan. Periksa kode dan nomor WhatsApp.",
+    });
+    expect(await prisma.appointment.findUniqueOrThrow({ where: { code } })).toMatchObject({
+      status: "MENUNGGU_KONFIRMASI",
+    });
+    // Booking lain tidak terpengaruh.
+    expect(await unwrap(findBookingStatus({ code: other, last4: "7890" }))).toMatchObject({ code: other });
+  });
 });

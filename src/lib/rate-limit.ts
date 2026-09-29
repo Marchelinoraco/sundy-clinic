@@ -1,4 +1,9 @@
-export type RateLimiter = { take(key: string, now?: number): boolean };
+export type RateLimiter = {
+  /** Mencatat satu percobaan; false bila batas sudah tercapai. */
+  take(key: string, now?: number): boolean;
+  /** true bila satu percobaan lagi masih boleh — tanpa mencatat apa pun. */
+  peek(key: string, now?: number): boolean;
+};
 
 /**
  * Pembatas laju jendela geser di memori proses.
@@ -24,6 +29,10 @@ export function createRateLimiter(options: { limit: number; windowMs: number }):
   }
 
   return {
+    peek(key, now = Date.now()) {
+      const recent = (hits.get(key) ?? []).filter((time) => now - time < options.windowMs);
+      return recent.length < options.limit;
+    },
     take(key, now = Date.now()) {
       sweep(now);
       const recent = (hits.get(key) ?? []).filter((time) => now - time < options.windowMs);
