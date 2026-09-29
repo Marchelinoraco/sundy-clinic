@@ -2,23 +2,22 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import type { Patient } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { createPatient, findPatientsByWhatsapp } from "@/server/patient";
+import { createPatient, findPatientsByWhatsapp, type PatientSummary } from "@/server/patient";
 
 type Props = {
-  onCreated?: (patient: Patient) => void;
+  onCreated?: (patient: PatientSummary) => void;
   /** Bila diisi, peringatan duplikat menawarkan tombol untuk memakai pasien yang sudah ada. */
-  onPickExisting?: (patient: Patient) => void;
+  onPickExisting?: (patient: PatientSummary) => void;
 };
 
 export function NewPatientForm({ onCreated, onPickExisting }: Props) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
-  const [duplicates, setDuplicates] = useState<Patient[]>([]);
+  const [duplicates, setDuplicates] = useState<PatientSummary[]>([]);
   const [pending, startTransition] = useTransition();
   // Transition terpisah: pemeriksaan duplikat terpicu saat kolom WhatsApp
   // kehilangan fokus — tepat ketika admin mengklik "Buat Pasien". Bila
@@ -69,7 +68,7 @@ export function NewPatientForm({ onCreated, onPickExisting }: Props) {
     });
   }
 
-  function handlePickExisting(patient: Patient) {
+  function handlePickExisting(patient: PatientSummary) {
     onPickExisting?.(patient);
     close();
   }

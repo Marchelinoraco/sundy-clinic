@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import type { BookingSource, Patient } from "@prisma/client";
+import type { BookingSource } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +19,7 @@ import {
 import { formatIndonesianDate } from "@/lib/format";
 import type { SlotOption } from "@/lib/slot";
 import { createAppointment } from "@/server/appointment";
+import type { PatientSummary } from "@/server/patient";
 import { PatientPicker } from "./patient-picker";
 import { SlotPicker } from "./slot-picker";
 
@@ -60,7 +61,7 @@ export function AppointmentForm({
   today,
 }: Props) {
   const router = useRouter();
-  const [patient, setPatient] = useState<Patient | null>(null);
+  const [patient, setPatient] = useState<PatientSummary | null>(null);
   const [kind, setKind] = useState<BookingKind>("KONSULTASI");
   const [serviceId, setServiceId] = useState("");
   const [branchId, setBranchId] = useState(branches[0]?.id ?? "");

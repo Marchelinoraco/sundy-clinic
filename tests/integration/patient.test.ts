@@ -117,4 +117,23 @@ describe("data pasien", () => {
     const list = await listRecentPatients();
     expect(list.map((p) => p.name)).toEqual(["Pasien Baru", "Pasien Lama"]);
   });
+
+  it("fungsi yang dipanggil dari browser tidak pernah membawa catatan medis pasien (spec 6.2)", async () => {
+    const created = await unwrap(createPatient({ name: "Pasien Catatan", whatsapp: "6281200006660" }));
+    await prisma.patient.update({
+      where: { id: created.id },
+      data: { allergies: "Amoxicillin", medicalHistory: "Darah tinggi: Amlodipine" },
+    });
+
+    const results = [
+      created,
+      await searchPatients("catatan"),
+      await findPatientsByWhatsapp("081200006660"),
+      await listRecentPatients(),
+    ];
+
+    expect(JSON.stringify(results)).not.toMatch(/Amoxicillin|Amlodipine|allergies|medicalHistory/);
+    expect((await searchPatients("catatan"))[0]).toMatchObject({ id: created.id, name: "Pasien Catatan" });
+  });
 });
+
