@@ -1,6 +1,6 @@
-# Desain — Kuis Pendaftaran Versi 2: Gizi Klinik, Form Recall & Food Recall H-1
+# Desain — Kuis Pendaftaran Versi 2: Gizi Klinik & Form Recall
 
-- **Versi:** 1.0
+- **Versi:** 1.1 (food recall H-1 dipindah ke kedatangan di klinik)
 - **Tanggal:** 30 September 2026
 - **Status:** Disetujui pemilik per bagian (30 September 2026), menunggu tinjauan spec tertulis
 - **Melengkapi:** `docs/superpowers/specs/2026-09-28-pendaftaran-pasien-design.md`. Untuk isian baru, spec ini **menggantikan bagian 3.2 (isi kuis versi 1)**. Alur booking, pencocokan, persetujuan dokter, hak akses, dan kedaluwarsa tetap mengikuti spec itu.
@@ -20,9 +20,11 @@ Dokter membedakan dua pengumpulan data:
 
 Dokter membaca keduanya sebagai **tabel per jam**, persis seperti lembar kertas klinik.
 
+**Food recall H-1 tidak ditanyakan di kuis online** (keputusan V10). Ia harus menggambarkan hari sebelum *konsultasi*, sedangkan kuis online bisa diisi seminggu sebelum jadwal. Karena itu food recall ditanyakan saat customer tiba di klinik, lewat sub-proyek berikutnya: **Kedatangan di klinik (check-in front office)**. Sub-proyek itu juga mencakup NIK, pencocokan pasien dengan seluruh data diri, dan kuis di tablet/QR klinik. Sampai sub-proyek itu dirilis, dokter tetap memakai lembar kertas "JAM | Jenis dan Jumlah Pemberian".
+
 **Berhasil bila:**
-- customer baru Slimming dan gizi klinik mengisi form recall dan food recall H-1 dari HP, satu hal per layar;
-- dokter melihat keduanya sebagai tabel per jam;
+- customer baru Slimming dan gizi klinik mengisi form recall dari HP, satu hal per layar;
+- dokter melihat form recall sebagai tabel per jam;
 - isian versi 1 yang sudah ada tetap terbaca seperti sekarang.
 
 ## 2. Keputusan (dikonfirmasi pemilik, 30 Sep 2026)
@@ -30,14 +32,15 @@ Dokter membaca keduanya sebagai **tabel per jam**, persis seperti lembar kertas 
 | # | Keputusan | Pilihan |
 |---|---|---|
 | V1 | Tujuan konsultasi | Slimming · Aesthetic · Konsultasi dokter spesialis gizi klinik. "Belum yakin" dihapus |
-| V2 | Pertanyaan gizi klinik | Keluhan/tujuan singkat, berat & tinggi, form recall, food recall H-1, lalu kesehatan. Tanpa target kg, area tubuh, dan riwayat diet. Layanan yang dipesan: **Konsultasi Dokter** |
+| V2 | Pertanyaan gizi klinik | Keluhan/tujuan singkat, berat & tinggi, form recall, lalu kesehatan. Tanpa target kg, area tubuh, dan riwayat diet. Layanan yang dipesan: **Konsultasi Dokter** |
 | V3 | Form recall untuk Slimming | Ya. Slimming dan gizi klinik memakai blok form recall yang sama |
-| V4 | Siapa mengisi apa | Customer **baru** (Slimming/gizi klinik): form recall **dan** food recall H-1. Customer **lama**: food recall H-1 saja, seperti sekarang |
+| V4 | Siapa mengisi apa | Customer **baru** Slimming/gizi klinik mengisi form recall. Customer **lama** tidak mengisi form recall. Food recall H-1 untuk keduanya ditanyakan saat tiba di klinik (V10) |
 | V5 | Susunan layar makan | Satu layar per waktu makan (gaya BetterMe) |
-| V6 | Tampilan dokter | Kedua recall sebagai tabel per jam "Jam \| Jenis dan jumlah", seperti lembar kertas klinik |
+| V6 | Tampilan dokter | Form recall sebagai tabel per jam "Jam \| Jenis dan jumlah", seperti lembar kertas klinik |
 | V7 | Versi | Kuis **versi 2** baru. Versi 1 dibekukan hanya untuk membaca isian lama |
 | V8 | Nada | Customer disapa "Anda". Kata "pasien" dan "berobat" tidak dipakai di halaman customer. Bila perlu kata benda: **"customer"**. Panel admin/dokter tetap memakai "pasien" |
 | V9 | Aesthetic | Tidak berubah, dan tidak memakai form recall maupun food recall |
+| V10 | Food recall H-1 | **Tidak** di kuis online. Ditanyakan saat customer tiba di klinik (sub-proyek "Kedatangan di klinik"). Sampai itu dirilis: lembar kertas |
 
 ## 3. Alur kuis versi 2
 
@@ -49,22 +52,22 @@ Layar pembuka untuk semua customer:
 
 | Tujuan | Layar setelah U2 |
 |---|---|
-| Slimming | S1 tujuan utama → S2 target kg → S3 area tubuh → S4 riwayat diet → (S5 program, S6 hasil bila pernah/sedang diet) → **T1 berat & tinggi** → **F1–F7 form recall** → **R1 food recall H-1** → K1–K4 kesehatan |
-| Gizi klinik | **N1 keluhan/tujuan** → **T1 berat & tinggi** → **F1–F7 form recall** → **R1 food recall H-1** → K1–K4 kesehatan |
+| Slimming | S1 tujuan utama → S2 target kg → S3 area tubuh → S4 riwayat diet → (S5 program, S6 hasil bila pernah/sedang diet) → **T1 berat & tinggi** → **F1–F7 form recall** → K1–K4 kesehatan |
+| Gizi klinik | **N1 keluhan/tujuan** → **T1 berat & tinggi** → **F1–F7 form recall** → K1–K4 kesehatan |
 | Aesthetic | A1–A4 (tidak berubah) → K1–K4 kesehatan |
 
 **Customer lama**
 
 | Tujuan | Layar setelah U2 |
 |---|---|
-| Slimming, Gizi klinik | P1 cerita kunjungan ini → P2 ada perubahan kesehatan? → **R1 food recall H-1** → K1–K4 bila P2 = ada perubahan |
+| Slimming, Gizi klinik | P1 cerita kunjungan ini → P2 ada perubahan kesehatan? → K1–K4 bila P2 = ada perubahan. Tabel aktivitas kemarin (P3 versi 1) tidak ada lagi di kuis online (V10) |
 | Aesthetic | P1 → P2 → K1–K4 bila ada perubahan (tidak berubah) |
 
 Layar S7 dan S8 versi 1 tidak ada lagi di versi 2:
 - S7 (berat & tinggi) menjadi **T1**, dipakai Slimming dan gizi klinik;
 - S8 (Pagi/Siang/Malam/Snack/Minuman/Cemilan) digantikan F2–F5.
 
-Layar identitas, jadwal, dan konfirmasi tidak berubah. **Ringkasan jawaban** yang dilihat customer menampilkan form recall dan food recall sebagai baris singkat per layar (mis. "Sarapan 07.00: nasi 1 piring, …"), masing-masing dengan tombol "Ubah" seperti sekarang. Tabel per jam hanya untuk dokter.
+Layar identitas, jadwal, dan konfirmasi tidak berubah. **Ringkasan jawaban** yang dilihat customer menampilkan form recall sebagai baris singkat per layar (mis. "Sarapan 07.00: nasi 1 piring, …"), masing-masing dengan tombol "Ubah" seperti sekarang. Tabel per jam hanya untuk dokter.
 
 ## 4. Isi layar baru
 
@@ -81,7 +84,6 @@ Semua jam dipilih dari daftar **per jam** (mis. 07.00), sama dengan baris tabel 
 | F5 | "Cemilan" | Seberapa sering (wajib): Hampir setiap hari / 3–5× seminggu / 1–2× seminggu / Jarang atau tidak pernah. Bila bukan "Jarang": jam biasanya (daftar jam **atau** "Tidak tentu") dan "Cemilan apa, berapa banyak?" wajib |
 | F6 | "Olahraga" | Rutin? (wajib): Ya, rutin / Kadang-kadang / Tidak berolahraga. Bila bukan "Tidak": jenis (teks), berapa menit sekali olahraga (5–300), berapa kali seminggu (1–7), dan jam biasanya. Semuanya wajib |
 | F7 | "Rokok, alkohol, dan minuman bersoda" | Tiga pertanyaan, masing-masing Tidak / Kadang / Sering. Ketiganya wajib |
-| R1 | "Apa saja yang Anda makan, minum, dan lakukan kemarin?" | Tabel aktivitas versi 1 (jam 06.00–22.00, jenis: makan/minum, kapsul/obat, olahraga; isi). Minimal satu catatan. Petunjuk bertambah: *"Tulis juga porsinya, misalnya nasi 1 piring."* |
 
 Petunjuk informatif di layar makan dan aktivitas:
 - **F2–F4:** *"Tulis makanan dan minuman beserta porsinya. Contoh: nasi 1 piring, paha ayam goreng 1 potong, sayur kol tumis 1 centong, kopi hitam tanpa gula 1 gelas. Ini membantu dokter menyusun program yang pas untuk Anda."*
@@ -117,7 +119,7 @@ Aturan tabelnya:
 - Catatan "Tidak sarapan / tidak makan siang / tidak makan malam" dan cemilan "tidak tentu" atau "jarang" tampil di bawah tabel, tidak di baris jam.
 - Di bawah tabel juga tampil: **Rokok:** … · **Alkohol:** … · **Soda:** ….
 
-**Tabel "Makan & aktivitas kemarin (food recall H-1)"**, untuk customer baru dan lama Slimming/gizi klinik. Bentuknya tabel versi 1 yang sudah ada (06.00–22.00, jam kosong tetap tampil), dengan tanggal "kemarin" yang tersimpan. Judul kolomnya menjadi "Jenis dan jumlah".
+Isian **versi 1** customer lama tetap menampilkan tabel "Aktivitas kemarin" seperti sekarang. Isian versi 2 tidak memilikinya; food recall H-1 digital hadir lewat sub-proyek "Kedatangan di klinik".
 
 Bagian lain halaman isian tidak berubah: tujuan, target dan area (Slimming), riwayat diet, keluhan gizi klinik, berat/tinggi/IMT, kesehatan, dan formulir "Setujui ke data pasien". Usulan alergi dan riwayat penyakit memakai aturan versi 1, karena bagian kesehatan sama persis.
 
@@ -134,9 +136,8 @@ Bagian lain halaman isian tidak berubah: tujuan, target dan area (Slimming), riw
     - setiap makan: `{ none?: true, hour?, text? }`;
     - `snack`: `{ frequency, hour? | anytime?: true, text? }`;
     - `exercise`: `{ routine, kind?, minutes?, perWeek?, hour? }`;
-  - `foodRecall: { entries: [{ hour, kind, text }] }` (R1), untuk customer baru dan lama. `activityDate` diisi tanggal kemarin (WITA) bila ada catatan, seperti versi 1.
 
-  Bagian `unsure`, `slimming.foodRecall`, dan `returning.activities` versi 1 tidak ada di versi 2.
+  Bagian `unsure`, `slimming.foodRecall`, dan `returning.activities` versi 1 tidak ada di versi 2. Kolom `activityDate` tidak diisi oleh isian versi 2.
 - **Basis data:** satu migrasi aditif `ALTER TYPE "IntakePurpose" ADD VALUE 'GIZI_KLINIK'`. `BELUM_YAKIN` tetap ada untuk data versi 1. Kolom lain tidak berubah.
 - **Label tujuan** untuk panel (daftar, halaman pasien) dipindah ke satu peta yang tidak bergantung versi: SLIMMING "Slimming", AESTHETIC "Aesthetic", GIZI_KLINIK "Gizi klinik", BELUM_YAKIN "Belum yakin (kuis lama)".
 - **Layanan:** gizi klinik (baru maupun lama) hanya boleh memesan `konsultasi-dokter`. Aturan yang sudah ada (hanya customer lama Aesthetic yang boleh memilih treatment) tetap berlaku.
@@ -160,13 +161,13 @@ Bagian lain halaman isian tidak berubah: tujuan, target dan area (Slimming), riw
   - tabel kebiasaan, termasuk bangun 05.00, tidur 23.00 dan 01.00, beberapa catatan di jam yang sama, dan catatan di bawah tabel;
   - teks customer tidak memuat "pasien" atau "berobat".
 - **Integrasi:**
-  - kirim booking versi 2 (Slimming dan gizi klinik), dengan berat/tinggi dan `activityDate` di kolom bertipe;
+  - kirim booking versi 2 (Slimming dan gizi klinik), dengan berat/tinggi di kolom bertipe dan `activityDate` kosong;
   - dokter membaca isian versi 1 **dan** versi 2;
   - usulan "Setujui ke data pasien" dari kedua versi;
   - resepsionis tetap tanpa isi klinis;
   - gizi klinik tidak bisa memesan treatment;
   - migrasi `GIZI_KLINIK`.
-- **E2E:** alur Slimming baru diperbarui untuk layar T1, F1–F7, dan R1. Ditambah satu alur gizi klinik sampai kode booking. Dokter melihat tabel kebiasaan di halaman isian.
+- **E2E:** alur Slimming baru diperbarui untuk layar T1 dan F1–F7. Ditambah satu alur gizi klinik sampai kode booking. Dokter melihat tabel kebiasaan di halaman isian.
 
 ## 10. Dokumen yang ikut berubah
 
@@ -176,6 +177,14 @@ Bagian lain halaman isian tidak berubah: tujuan, target dan area (Slimming), riw
 
 ## 11. Di luar cakupan
 
-- Link WhatsApp/QR untuk booking admin (Plan 3b-2b) tetap mengikuti spec 2026-09-28 bagian 4, memakai kuis versi 2.
+- **Kedatangan di klinik (check-in front office)**, sub-proyek berikutnya dengan spec tersendiri:
+  - konfirmasi kedatangan oleh front office;
+  - **NIK** pasien, ditanyakan front office saat tiba dan tidak pernah di situs;
+  - pencocokan pasien lama/baru memakai NIK dan seluruh data diri, bukan hanya WA;
+  - kuis di tablet klinik atau QR, untuk customer yang belum punya isian;
+  - **food recall H-1** digital, dengan tabel per jam untuk dokter.
+
+  Bagian QR/tablet dari Plan 3b-2b pindah ke sub-proyek ini.
+- Link WhatsApp untuk booking admin (sisa Plan 3b-2b) tetap mengikuti spec 2026-09-28 bagian 4, memakai kuis versi 2.
 - Mencetak tabel dokter, dan mengubah isi tabel dari panel.
 - Mengubah jawaban isian versi 1 yang sudah tersimpan.
