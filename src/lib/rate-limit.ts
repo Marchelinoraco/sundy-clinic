@@ -3,6 +3,8 @@ export type RateLimiter = {
   take(key: string, now?: number): boolean;
   /** true bila satu percobaan lagi masih boleh — tanpa mencatat apa pun. */
   peek(key: string, now?: number): boolean;
+  /** Mengembalikan percobaan terakhir yang dicatat untuk kunci ini (mis. ternyata berhasil). */
+  undo(key: string): void;
 };
 
 /**
@@ -12,7 +14,7 @@ export type RateLimiter = {
  * (scripts/server/ecosystem.config.cjs). Bila kelak dijalankan sebagai
  * cluster, tiap proses punya hitungannya sendiri dan penghitung harus pindah
  * ke basis data. Hitungan hilang saat rilis/restart — dapat diterima karena
- * jendelanya pendek (≤ 10 menit).
+ * jendelanya pendek (≤ 1 jam).
  */
 export function createRateLimiter(options: { limit: number; windowMs: number }): RateLimiter {
   const hits = new Map<string, number[]>();
@@ -43,6 +45,12 @@ export function createRateLimiter(options: { limit: number; windowMs: number }):
       recent.push(now);
       hits.set(key, recent);
       return true;
+    },
+    undo(key) {
+      const times = hits.get(key);
+      if (!times?.length) return;
+      times.pop();
+      if (!times.length) hits.delete(key);
     },
   };
 }

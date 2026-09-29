@@ -31,4 +31,16 @@ describe("createRateLimiter", () => {
     expect(limiter.peek("b", 1)).toBe(true);
     expect(limiter.peek("a", 60_000)).toBe(true);
   });
+
+  it("undo mengembalikan satu percobaan terakhir", () => {
+    const limiter = createRateLimiter({ limit: 2, windowMs: 60_000 });
+    limiter.take("a", 0);
+    limiter.take("a", 0);
+    expect(limiter.peek("a", 1)).toBe(false);
+    limiter.undo("a");
+    expect(limiter.peek("a", 1)).toBe(true);
+    limiter.undo("tidak-ada");
+    expect(limiter.take("a", 1)).toBe(true);
+    expect(limiter.take("a", 1)).toBe(false);
+  });
 });

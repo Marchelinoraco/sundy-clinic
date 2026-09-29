@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CLINIC_FULL_NAME } from "@/lib/clinic";
 import { Logo } from "./logo";
+import { RegisterCta } from "./register-cta";
 
 const navLinks = [
   { href: "/layanan", label: "Layanan" },
@@ -29,6 +30,7 @@ export function SiteHeader() {
             </Link>
           ))}
         </nav>
+        <RegisterCta className="px-4 py-2 text-sm" />
       </div>
 
       {/* Navigasi mobile: baris yang dapat digulir horizontal, tanpa JavaScript. */}

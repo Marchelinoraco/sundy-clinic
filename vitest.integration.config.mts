@@ -23,6 +23,7 @@ export default defineConfig({
     globals: true,
     environment: "node",
     include: ["tests/integration/**/*.test.ts"],
+    globalSetup: ["tests/integration/global-setup.ts"],
     // Seluruh berkas memakai satu basis data dan sebagian mengosongkan tabel.
     // Berjalan paralel membuat satu berkas menghapus data berkas lain.
     fileParallelism: false,
