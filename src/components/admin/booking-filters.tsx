@@ -19,11 +19,12 @@ type Props = {
   status: string | null;
   staffId: string | null;
   branchId: string | null;
+  intake: string | null;
   staff: { id: string; name: string }[];
   branches: { id: string; name: string }[];
 };
 
-export function BookingFilters({ date, status, staffId, branchId, staff, branches }: Props) {
+export function BookingFilters({ date, status, staffId, branchId, intake, staff, branches }: Props) {
   const router = useRouter();
   const pathname = usePathname();
 
@@ -32,6 +33,7 @@ export function BookingFilters({ date, status, staffId, branchId, staff, branche
     if (status) params.set("status", status);
     if (staffId) params.set("staf", staffId);
     if (branchId) params.set("cabang", branchId);
+    if (intake) params.set("isian", intake);
     if (value && value !== ALL) params.set(key, value);
     else params.delete(key);
     router.push(`${pathname}?${params.toString()}`);
@@ -67,6 +69,21 @@ export function BookingFilters({ date, status, staffId, branchId, staff, branche
                 {STATUS_LABEL[s]}
               </SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-1">
+        <Label htmlFor="filter-intake" className="text-xs">
+          Isian
+        </Label>
+        <Select value={intake ?? ALL} onValueChange={(v) => update("isian", v)}>
+          <SelectTrigger id="filter-intake" className="w-48">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>Semua isian</SelectItem>
+            <SelectItem value="belum-diperiksa">Belum diperiksa</SelectItem>
           </SelectContent>
         </Select>
       </div>

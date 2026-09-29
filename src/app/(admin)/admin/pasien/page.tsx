@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AdminHeader } from "@/components/admin/admin-header";
 import { NewPatientForm } from "@/components/admin/new-patient-form";
 import { Button } from "@/components/ui/button";
@@ -64,7 +65,11 @@ export default async function PatientsPage({
                 {patients.map((p) => (
                   <TableRow key={p.id}>
                     <TableCell className="font-mono text-xs">{p.medicalRecordNumber}</TableCell>
-                    <TableCell className="font-medium">{p.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <Link href={`/admin/pasien/${p.id}`} className="underline-offset-4 hover:underline">
+                        {p.name}
+                      </Link>
+                    </TableCell>
                     <TableCell>{p.whatsapp}</TableCell>
                     <TableCell>{PROGRAM_STATUS_LABEL[p.programStatus] ?? p.programStatus}</TableCell>
                   </TableRow>

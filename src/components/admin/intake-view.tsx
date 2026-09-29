@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { formatIndonesianDate } from "@/lib/format";
 import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
 import type { IntakeDetail } from "@/server/intake";
+import { IntakeApprovalForm } from "./intake-approval-form";
 
 const STATUS_LABEL: Record<IntakeDetail["status"], string> = {
   MENUNGGU_DIISI: "Menunggu diisi pasien",
@@ -27,11 +29,18 @@ export function IntakeView({ intake }: { intake: IntakeDetail }) {
         <p>
           Pasien:{" "}
           {intake.patient ? (
-            `${intake.patient.name} (${intake.patient.medicalRecordNumber})`
+            <Link href={`/admin/pasien/${intake.patient.id}`} className="underline underline-offset-4">
+              {intake.patient.name} ({intake.patient.medicalRecordNumber})
+            </Link>
           ) : (
             <Badge variant="outline">Belum dicocokkan</Badge>
           )}
         </p>
+        {intake.review && (
+          <p className="text-muted-foreground">
+            Diperiksa oleh {intake.review.reviewerName}, {formatIndonesianDate(intake.review.reviewedAt)}
+          </p>
+        )}
       </section>
 
       <section className="space-y-1 text-sm">
@@ -82,6 +91,16 @@ export function IntakeView({ intake }: { intake: IntakeDetail }) {
                 </tbody>
               </table>
             </section>
+          )}
+
+          {intake.approval?.state === "ready" && (
+            // key: formulir dibuat ulang dengan isi awal baru setelah router.refresh().
+            <IntakeApprovalForm key={intake.approval.patientVersion} intakeId={intake.id} approval={intake.approval} />
+          )}
+          {intake.approval?.state === "needs-match" && (
+            <p className="rounded-lg border p-4 text-sm text-muted-foreground">
+              Cocokkan booking ini dengan pasien di menu Booking sebelum menyetujui isian ke data pasien.
+            </p>
           )}
         </>
       )}

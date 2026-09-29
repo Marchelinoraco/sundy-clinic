@@ -1,15 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Patient } from "@prisma/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { searchPatients } from "@/server/patient";
+import { searchPatients, type PatientSummary } from "@/server/patient";
 import { NewPatientForm } from "./new-patient-form";
 
-type SearchState = { query: string; patients: Patient[] };
+type SearchState = { query: string; patients: PatientSummary[] };
 
-export function PatientPicker({ onSelect }: { onSelect: (patient: Patient) => void }) {
+export function PatientPicker({ onSelect }: { onSelect: (patient: PatientSummary) => void }) {
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState<SearchState>({ query: "", patients: [] });
   const latestRequest = useRef(0);
