@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { getIP } from "@better-auth/core/utils/ip";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
@@ -65,4 +66,16 @@ describe("autentikasi staf", () => {
       }),
     ).rejects.toThrow();
   });
+
+  it("membaca IP pengunjung dari X-Real-IP yang dipasang Nginx, bukan dari X-Forwarded-For ganda", () => {
+    // Di produksi Nginx menambahkan alamat pengunjung ke X-Forwarded-For dari
+    // Cloudflare, sehingga header itu berisi dua alamat dan ditolak Better Auth:
+    // semua percobaan login lalu berbagi satu hitungan pembatas.
+    const request = new Request("https://sundyclinic.com/api/auth/sign-in/email", {
+      headers: { "x-real-ip": "203.0.113.7", "x-forwarded-for": "203.0.113.7, 203.0.113.7" },
+    });
+
+    expect(getIP(request, auth.options)).toBe("203.0.113.7");
+  });
 });
+

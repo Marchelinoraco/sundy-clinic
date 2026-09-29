@@ -32,4 +32,16 @@ export const auth = betterAuth({
       staffId: { type: "string", required: false, input: false },
     },
   },
+
+  advanced: {
+    ipAddress: {
+      // Nginx menimpa X-Real-IP dengan IP asli pengunjung (dari Cloudflare), dan
+      // aplikasi hanya menerima koneksi dari Nginx, jadi header ini tidak bisa
+      // dipalsukan — sama dengan clientIp() di server/request-guard.ts.
+      // X-Forwarded-For bawaan berisi dua alamat setelah Nginx menambahkan
+      // $remote_addr; Better Auth menolaknya, dan semua percobaan login lalu
+      // berbagi satu hitungan pembatas.
+      ipAddressHeaders: ["x-real-ip"],
+    },
+  },
 });
