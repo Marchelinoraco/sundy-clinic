@@ -437,10 +437,15 @@ export async function submitSiteBooking(input: SiteBookingInput): Promise<Action
         input.holdToken,
       );
     } catch (error) {
-      if (isExclusionViolation(error)) return { kind: "slot-taken" };
-      // Dua Kirim bersamaan dengan token yang sama: yang kalah mengembalikan booking pemenang.
-      const raced = isUniqueViolation(error) ? await findSubmitted(input.holdToken) : null;
+      // Dua Kirim bersamaan dengan token yang sama: yang kalah bisa gagal di
+      // batas unik isian (P2002) atau di exclusion constraint jadwal (23P01,
+      // karena jam itu sudah diambil pemenang), dan keduanya mengembalikan
+      // booking pemenang. Hanya bila tidak ada booking untuk token ini, jam itu
+      // memang direbut orang lain.
+      const conflict = isExclusionViolation(error) || isUniqueViolation(error);
+      const raced = conflict ? await findSubmitted(input.holdToken) : null;
       if (raced) return { kind: "booked", receipt: await buildReceipt(raced) };
+      if (isExclusionViolation(error)) return { kind: "slot-taken" };
       throw error;
     }
 

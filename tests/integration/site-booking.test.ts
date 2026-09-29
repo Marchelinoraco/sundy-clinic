@@ -121,6 +121,22 @@ describe("Kirim pendaftaran situs", () => {
     expect(await prisma.appointment.count({ where: { staffId: world.doctorId } })).toBe(1);
   });
 
+  it("dua Kirim bersamaan dengan token yang sama menghasilkan satu booking dan kode yang sama", async () => {
+    const token = await holdFor("14:00");
+
+    const [first, second] = await Promise.all([
+      unwrap(submitSiteBooking(input(token, "14:00"))),
+      unwrap(submitSiteBooking(input(token, "14:00"))),
+    ]);
+
+    expect(first.kind).toBe("booked");
+    expect(second.kind).toBe("booked");
+    if (first.kind === "booked" && second.kind === "booked") {
+      expect(second.receipt.code).toBe(first.receipt.code);
+    }
+    expect(await prisma.appointment.count({ where: { staffId: world.doctorId } })).toBe(1);
+  });
+
   it("hold yang sudah habis tetap menjadi booking bila jamnya masih kosong (Review Focus 3)", async () => {
     const token = await holdFor("12:00");
     await prisma.slotHold.update({ where: { token }, data: { expiresAt: new Date(Date.now() - 60_000) } });
