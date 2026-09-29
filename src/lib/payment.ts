@@ -16,3 +16,7 @@ export function formatBankAccount(account: BankAccount): string | null {
 export function bookingFeeFor(source: BookingSourceValue, fee: number): number | null {
   return source === "WALK_IN" ? null : fee;
 }
+
+/** Aturan biaya booking yang ditampilkan ke pasien (spec K15, K16). */
+export const BOOKING_FEE_TERMS =
+  "Biaya booking mengunci jadwal Anda. Biaya ini terpisah dari biaya layanan dan tidak dikembalikan, tetapi tetap berlaku bila Anda pindah jadwal paling lambat 2 jam sebelum jadwal.";
