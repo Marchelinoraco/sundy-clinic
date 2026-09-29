@@ -20,7 +20,17 @@ import {
   type MatchCandidates,
 } from "@/server/intake";
 
-export function MatchPatientDialog({ appointmentId, code }: { appointmentId: string; code: string }) {
+export function MatchPatientDialog({
+  appointmentId,
+  code,
+  triggerLabel = "Cocokkan pasien",
+  variant,
+}: {
+  appointmentId: string;
+  code: string;
+  triggerLabel?: string;
+  variant?: "outline";
+}) {
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<MatchCandidates | null>(null);
   const [pending, startTransition] = useTransition();
@@ -64,7 +74,7 @@ export function MatchPatientDialog({ appointmentId, code }: { appointmentId: str
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button size="sm">Cocokkan pasien</Button>
+        <Button size="sm" variant={variant}>{triggerLabel}</Button>
       </DialogTrigger>
       <DialogContent className="max-w-lg">
         <DialogHeader>

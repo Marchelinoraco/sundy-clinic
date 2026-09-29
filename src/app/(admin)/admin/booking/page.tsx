@@ -85,6 +85,7 @@ export default async function BookingListPage({
       patientName: patient?.name ?? a.intake?.name ?? "Tanpa nama",
       patientRecordNumber: patient?.medicalRecordNumber ?? "—",
       needsMatch: patient === null,
+      isSiteBooking: a.source === "SITUS" && a.intake !== null,
       intakeId: a.intake?.id ?? null,
       serviceName,
       staffName: a.staff.name,

@@ -46,6 +46,8 @@ export type BookingRow = {
   confirmation: { text: string; link: string | null } | null;
   /** Booking situs yang belum dicocokkan dengan data pasien (spec 6.1). */
   needsMatch: boolean;
+  /** Booking dari situs (punya isian): pencocokan pasien berlaku, dan boleh diganti sebelum diverifikasi (spec 6.1). */
+  isSiteBooking: boolean;
   /** Isian pendaftaran booking ini, bila ada. */
   intakeId: string | null;
 };
@@ -134,6 +136,9 @@ export function AppointmentTable({ rows, canReadRecords }: { rows: BookingRow[];
                 <div className="flex flex-wrap gap-1">
                   {row.status === "MENUNGGU_KONFIRMASI" && row.needsMatch && (
                     <MatchPatientDialog appointmentId={row.id} code={row.code} />
+                  )}
+                  {row.status === "MENUNGGU_KONFIRMASI" && !row.needsMatch && row.isSiteBooking && (
+                    <MatchPatientDialog appointmentId={row.id} code={row.code} triggerLabel="Ganti pasien" variant="outline" />
                   )}
                   {row.status === "MENUNGGU_KONFIRMASI" && !row.needsMatch && (
                     <Button
