@@ -512,7 +512,11 @@ async function findOwnBooking(code: string, last4: string) {
       intake: { select: { whatsapp: true } },
     },
   });
-  const whatsapp = appointment?.patient?.whatsapp ?? appointment?.intake?.whatsapp;
+  // Nomor yang diketik pemesan (isian) didahulukan: setelah admin mencocokkan
+  // booking dengan pasien lama bernomor lain, pemesan tidak boleh terkunci, dan
+  // situs tidak boleh membocorkan bahwa orang itu pasien lama (spec 1/K4).
+  // Booking admin tidak punya isian, jadi memakai nomor pasiennya.
+  const whatsapp = appointment?.intake?.whatsapp ?? appointment?.patient?.whatsapp;
   if (!appointment || !whatsapp || !whatsapp.endsWith(last4)) return null;
   return { ...appointment, whatsapp };
 }

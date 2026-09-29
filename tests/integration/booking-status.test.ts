@@ -19,13 +19,13 @@ describe("cek status dan batal dari situs", () => {
   let date: string;
 
   beforeEach(async () => {
-    await cleanupBookingWorld(SLUG, [PATIENT_WA]);
+    await cleanupBookingWorld(SLUG, [PATIENT_WA, "6285211112222"]);
     world = await createBookingWorld(SLUG);
     date = await bookableDate();
   });
 
   afterAll(async () => {
-    await cleanupBookingWorld(SLUG, [PATIENT_WA]);
+    await cleanupBookingWorld(SLUG, [PATIENT_WA, "6285211112222"]);
     await prisma.$disconnect();
   });
 
@@ -155,6 +155,19 @@ describe("cek status dan batal dari situs", () => {
 
     expect(await unwrap(findBookingStatus({ code: "STATUS-ADMIN", last4: "7890" }))).toMatchObject({
       code: "STATUS-ADMIN",
+      maskedWhatsapp: "0812-****-7890",
+    });
+  });
+  it("tetap memakai nomor yang diketik pemesan setelah booking dicocokkan dengan pasien bernomor lain", async () => {
+    const code = await bookAt("13:00");
+    const patient = await prisma.patient.create({
+      data: { medicalRecordNumber: "SDY-2026-6607", name: "Pasien Lama", whatsapp: "6285211112222" },
+    });
+    await prisma.appointment.update({ where: { code }, data: { patientId: patient.id } });
+
+    expect(await unwrap(findBookingStatus({ code, last4: "2222" }))).toBeNull();
+    expect(await unwrap(findBookingStatus({ code, last4: "7890" }))).toMatchObject({
+      code,
       maskedWhatsapp: "0812-****-7890",
     });
   });
