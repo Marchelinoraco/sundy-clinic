@@ -26,9 +26,9 @@
 
 **Perubahan dari versi 1.3:** jadwal beralih dari "milik klinik" menjadi **milik tenaga** (F4a). Dua jenis booking dengan durasi berbeda, layanan ditandai `requiresDoctor`, dan `Doctor` digantikan `Staff` berperan DOKTER/TERAPIS. **Batasan unik (dokter, waktu mulai) dari v1.3 dicabut** — batasan itu meloloskan treatment 15.00–16.00 yang bertindihan dengan konsultasi 15.30, dan digantikan *exclusion constraint* atas rentang waktu.
 
-**Perubahan dari versi 1.6:** pendaftaran pasien dirancang ulang sebagai **kuis bergaya BetterMe** — pasien memilih Slimming/Aesthetic lalu menjawab keluhan, tujuan, riwayat penyakit & obat, dan riwayat diet sebelum data pribadi. Booking situs disimpan bersama **Isian Pendaftaran** dan boleh belum terhubung ke pasien sampai **admin mencocokkannya**; sistem hanya menyarankan pasien yang mirip. **Biaya booking Rp 100.000** (terpisah dari biaya layanan, tidak dikembalikan, tetap berlaku bila pindah jadwal) menjawab D5. Rincian: `docs/superpowers/specs/2026-09-28-pendaftaran-pasien-design.md`.
-
 **Perubahan dari versi 1.5:** hosting pindah dari Vercel + Neon ke **VPS sendiri di Indonesia** (IDCloudHost Jakarta) dengan domain `sundyclinic.com` — lihat `docs/superpowers/specs/2026-09-26-migrasi-vps-sundy-design.md` dan runbook `docs/operasional/server-sundy.md`. Keputusan D6 (domain & email) selesai.
+
+**Perubahan dari versi 1.6:** pendaftaran pasien dirancang ulang sebagai **kuis bergaya BetterMe** — pasien memilih Slimming/Aesthetic lalu menjawab keluhan, tujuan, riwayat penyakit & obat, dan riwayat diet sebelum data pribadi. Booking situs disimpan bersama **Isian Pendaftaran** dan boleh belum terhubung ke pasien sampai **admin mencocokkannya**; sistem hanya menyarankan pasien yang mirip. **Biaya booking Rp 100.000** (terpisah dari biaya layanan, tidak dikembalikan, tetap berlaku bila pindah jadwal) menjawab D5. Rincian: `docs/superpowers/specs/2026-09-28-pendaftaran-pasien-design.md`.
 
 **Perubahan dari versi 1.4:** F9 diperluas — admin **membuat** janji temu sendiri, bukan hanya memverifikasi, karena mayoritas pasien akan tetap memesan lewat WhatsApp. Sumber booking dicatat (`SITUS` / `WHATSAPP` / `TELEPON` / `WALK_IN`), pasien baru dapat dibuat langsung dari form booking, dan ditegaskan bahwa booking **tidak pernah dihapus** — pembatalan adalah perubahan status.
 
