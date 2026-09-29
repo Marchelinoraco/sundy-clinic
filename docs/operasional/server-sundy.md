@@ -54,6 +54,10 @@ Aturan Nginx situs ada di aaPanel → situs → *URL rewrite*
 (`/www/server/panel/vhost/rewrite/sundyclinic.com.conf`, sumbernya `scripts/server/nginx/sundyclinic.com.conf`);
 IP asli pengunjung dari Cloudflare di `/www/server/panel/vhost/nginx/0.cloudflare-realip.conf`
 (buat ulang dengan `scripts/server/nginx/cloudflare-realip.sh` bila Cloudflare mengubah daftar IP-nya).
+aaPanel menyalakan `proxy_cache` untuk semua situs (`/www/server/nginx/conf/proxy.conf`); situs ini
+**harus** memuat `proxy_cache off;` di *URL rewrite*. Tanpa baris itu Nginx menyimpan halaman publik
+sampai setahun (mengikuti `s-maxage` dari Next) dan terus menyajikan versi rilis lama setelah deploy —
+terjadi pada rilis 29 Sep 2026. Cloudflare tidak menyimpan HTML (Cache Rules kosong), jadi tidak perlu di-purge.
 
 ## 4. Rilis & kembali ke rilis sebelumnya
 
