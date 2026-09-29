@@ -371,7 +371,7 @@ export async function submitSiteBooking(input: SiteBookingInput): Promise<Action
     // memesan langsung tanpa lewat pemeriksaan jadwal & lead time computeAvailability.
     const hold = await prisma.slotHold.findUnique({
       where: { token: input.holdToken },
-      select: { staffId: true, branchId: true, startAt: true, endAt: true },
+      select: { staffId: true, branchId: true, startAt: true, endAt: true, expiresAt: true },
     });
     if (hold) {
       const matchesHold =
@@ -382,9 +382,11 @@ export async function submitSiteBooking(input: SiteBookingInput): Promise<Action
       if (!matchesHold) {
         throw new UserFacingError("Jadwal tidak cocok dengan jam yang ditahan. Pilih jam lagi.");
       }
-    } else {
-      // Hold sudah kedaluwarsa dan dibersihkan (mis. oleh hold pasien lain):
-      // jam ini tetap boleh dibooking bila memang masih kosong (spec 5.4).
+    }
+    // Hold yang sudah habis (barisnya sudah dibersihkan atau belum) tidak lagi
+    // menjamin apa pun: jam ini tetap boleh dibooking bila memang masih kosong,
+    // termasuk jadwal, libur, dan lead time (spec 5.4).
+    if (!hold || hold.expiresAt <= now) {
       const offered = await computeAvailability(
         { staffId: staff.id, branchId: input.branchId, date: witaDateString(startAt), durationMinutes: service.durationMin },
         { minLeadMinutes: PUBLIC_MIN_LEAD_MINUTES, holds: { excludeToken: input.holdToken } },

@@ -128,6 +128,20 @@ describe("Kirim pendaftaran situs", () => {
     expect((await unwrap(submitSiteBooking(input(token, "12:00")))).kind).toBe("booked");
   });
 
+  it("hold habis yang barisnya masih ada tidak lolos bila harinya sudah ditandai libur", async () => {
+    const token = await holdFor("13:30");
+    await prisma.slotHold.update({ where: { token }, data: { expiresAt: new Date(Date.now() - 60_000) } });
+    const holiday = await prisma.holiday.create({
+      data: { date: new Date(`${date}T00:00:00Z`), name: "Libur uji", kind: "LIBUR_KLINIK" },
+    });
+    try {
+      expect(await unwrap(submitSiteBooking(input(token, "13:30")))).toEqual({ kind: "slot-taken" });
+      expect(await prisma.appointment.count({ where: { staffId: world.doctorId } })).toBe(0);
+    } finally {
+      await prisma.holiday.delete({ where: { id: holiday.id } });
+    }
+  });
+
   it("melaporkan slot terisi bila admin lebih dulu mengambil jam itu", async () => {
     const token = await holdFor("12:30");
     const patient = await prisma.patient.create({
