@@ -2,7 +2,7 @@
 
 - **Versi:** 1.0
 - **Tanggal:** 28 September 2026
-- **Status:** Menunggu tinjauan pemilik
+- **Status:** Disetujui pemilik (28 September 2026) · Plan 3b-1 terlaksana (29 September 2026) · Plan 3b-2 menyusul
 - **Melengkapi PRD:** F5 (Pendaftaran Konsultasi), F6 (Cek Status Booking), F9 (Manajemen Booking), Lampiran C
   (Form Skrining Digital), dan menjawab keputusan **D5** (biaya booking). Perubahan PRD yang diperlukan dirinci di
   bagian 11.

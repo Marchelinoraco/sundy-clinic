@@ -70,6 +70,7 @@ bash scripts/server/cek-situs.sh https://sundyclinic.com
   `sudo -u sundyapp -H bash -c "cd /home/sundyapp && nohup /www/sundy/current/scripts/server/deploy.sh > deploy.log 2>&1 < /dev/null &"`.
 - **Migrasi database dijalankan sebelum rilis baru aktif.** Perubahan skema harus tetap cocok dengan kode rilis
   sebelumnya (tambah kolom dulu, hapus di rilis berikutnya) — kalau tidak, "kembali" tidak menolong.
+- **Sejak Plan 3b-1 (pendaftaran situs), jangan `deploy.sh kembali` ke rilis sebelum 3b-1 setelah ada booking dari situs.** Booking situs boleh belum punya pasien, dan kode lama menganggap pasien selalu ada — daftar booking akan rusak. Bila terpaksa, cocokkan dulu semua booking berlabel "Belum dicocokkan".
 - Rilis gagal dihapus otomatis dan versi aktif tidak berubah.
 
 ## 5. Mode pemeliharaan
