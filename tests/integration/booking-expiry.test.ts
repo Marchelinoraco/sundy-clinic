@@ -17,6 +17,10 @@ vi.mock("@/server/session", () => ({
 
 const SLUG = "kedaluwarsa-uji";
 const HOUR = 60 * 60 * 1000;
+// Waktu tetap agar hasil tidak bergantung pada hari saat uji dijalankan.
+// Feb 2031: Sabtu 8, Minggu 9, Senin 10, Selasa 11, Rabu 12, Kamis 13. 12.00 WITA = 04.00 UTC.
+const WEDNESDAY_NOON = new Date(Date.UTC(2031, 1, 12, 4));
+const HOLIDAY_DATE = new Date("2031-02-12T00:00:00Z");
 
 async function cleanup() {
   await prisma.appointment.deleteMany({ where: { staff: { slug: SLUG } } });
@@ -24,6 +28,7 @@ async function cleanup() {
   await prisma.patient.deleteMany({ where: { medicalRecordNumber: "SDY-2026-6602" } });
   await prisma.staff.deleteMany({ where: { slug: SLUG } });
   await prisma.branch.deleteMany({ where: { slug: SLUG } });
+  await prisma.holiday.deleteMany({ where: { date: HOLIDAY_DATE } });
 }
 
 describe("kedaluwarsa booking situs", () => {
@@ -62,7 +67,8 @@ describe("kedaluwarsa booking situs", () => {
   function booking(input: {
     source: BookingSource;
     status: AppointmentStatus;
-    ageHours: number;
+    ageHours?: number;
+    createdAt?: Date;
     withPatient: boolean;
   }) {
     slot += 1;
@@ -77,7 +83,7 @@ describe("kedaluwarsa booking situs", () => {
         branchId,
         staffId,
         patientId: input.withPatient ? patientId : null,
-        createdAt: new Date(Date.now() - input.ageHours * HOUR),
+        createdAt: input.createdAt ?? new Date(WEDNESDAY_NOON.getTime() - (input.ageHours ?? 0) * HOUR),
       },
     });
   }
@@ -85,7 +91,7 @@ describe("kedaluwarsa booking situs", () => {
   it("menandai booking situs yang tidak dikonfirmasi 24 jam sebagai kedaluwarsa", async () => {
     const stale = await booking({ source: "SITUS", status: "MENUNGGU_KONFIRMASI", ageHours: 25, withPatient: false });
 
-    expect(await expireStaleSiteBookings()).toBe(1);
+    expect(await expireStaleSiteBookings(WEDNESDAY_NOON)).toBe(1);
 
     const after = await prisma.appointment.findUniqueOrThrow({ where: { id: stale.id } });
     expect(after.status).toBe("KEDALUWARSA");
@@ -96,7 +102,7 @@ describe("kedaluwarsa booking situs", () => {
   it("membiarkan booking situs yang belum 24 jam", async () => {
     const fresh = await booking({ source: "SITUS", status: "MENUNGGU_KONFIRMASI", ageHours: 23, withPatient: false });
 
-    expect(await expireStaleSiteBookings()).toBe(0);
+    expect(await expireStaleSiteBookings(WEDNESDAY_NOON)).toBe(0);
     expect((await prisma.appointment.findUniqueOrThrow({ where: { id: fresh.id } })).status).toBe(
       "MENUNGGU_KONFIRMASI",
     );
@@ -105,7 +111,7 @@ describe("kedaluwarsa booking situs", () => {
   it("tidak pernah menyentuh booking yang dicatat admin (K13)", async () => {
     const adminBooking = await booking({ source: "WHATSAPP", status: "MENUNGGU_KONFIRMASI", ageHours: 72, withPatient: true });
 
-    await expireStaleSiteBookings();
+    await expireStaleSiteBookings(WEDNESDAY_NOON);
 
     expect((await prisma.appointment.findUniqueOrThrow({ where: { id: adminBooking.id } })).status).toBe(
       "MENUNGGU_KONFIRMASI",
@@ -115,7 +121,7 @@ describe("kedaluwarsa booking situs", () => {
   it("tidak menyentuh booking situs yang sudah diverifikasi", async () => {
     const verified = await booking({ source: "SITUS", status: "TERKONFIRMASI", ageHours: 72, withPatient: true });
 
-    await expireStaleSiteBookings();
+    await expireStaleSiteBookings(WEDNESDAY_NOON);
 
     expect((await prisma.appointment.findUniqueOrThrow({ where: { id: verified.id } })).status).toBe(
       "TERKONFIRMASI",
@@ -123,10 +129,53 @@ describe("kedaluwarsa booking situs", () => {
   });
 
   it("dijalankan saat admin membuka daftar booking", async () => {
-    const stale = await booking({ source: "SITUS", status: "MENUNGGU_KONFIRMASI", ageHours: 30, withPatient: false });
+    // Memakai jam sungguhan: dua pekan cukup jauh melewati hari Minggu dan libur mana pun.
+    const stale = await booking({
+      source: "SITUS",
+      status: "MENUNGGU_KONFIRMASI",
+      createdAt: new Date(Date.now() - 14 * 24 * HOUR),
+      withPatient: false,
+    });
 
     await listAppointments({ date: "2031-02-03" });
 
     expect((await prisma.appointment.findUniqueOrThrow({ where: { id: stale.id } })).status).toBe("KEDALUWARSA");
+  });
+
+  it("tidak menghitung jam pada hari Minggu", async () => {
+    const mondayNoon = new Date(Date.UTC(2031, 1, 10, 4));
+    // Sabtu 13.00 WITA: 11 jam Sabtu + 12 jam Senin = 23 jam kerja.
+    const waiting = await booking({
+      source: "SITUS",
+      status: "MENUNGGU_KONFIRMASI",
+      createdAt: new Date(Date.UTC(2031, 1, 8, 5)),
+      withPatient: false,
+    });
+    // Sabtu 11.00 WITA: 13 jam Sabtu + 12 jam Senin = 25 jam kerja.
+    const stale = await booking({
+      source: "SITUS",
+      status: "MENUNGGU_KONFIRMASI",
+      createdAt: new Date(Date.UTC(2031, 1, 8, 3)),
+      withPatient: false,
+    });
+
+    expect(await expireStaleSiteBookings(mondayNoon)).toBe(1);
+    expect((await prisma.appointment.findUniqueOrThrow({ where: { id: waiting.id } })).status).toBe("MENUNGGU_KONFIRMASI");
+    expect((await prisma.appointment.findUniqueOrThrow({ where: { id: stale.id } })).status).toBe("KEDALUWARSA");
+  });
+
+  it("tidak menghitung jam pada tanggal libur", async () => {
+    await prisma.holiday.create({ data: { date: HOLIDAY_DATE, name: "Libur Uji", kind: "LIBUR_KLINIK" } });
+    const thursdayNoon = new Date(Date.UTC(2031, 1, 13, 4));
+    // Selasa 13.00 WITA: 11 jam Selasa + 12 jam Kamis = 23 jam kerja (Rabu libur).
+    const waiting = await booking({
+      source: "SITUS",
+      status: "MENUNGGU_KONFIRMASI",
+      createdAt: new Date(Date.UTC(2031, 1, 11, 5)),
+      withPatient: false,
+    });
+
+    expect(await expireStaleSiteBookings(thursdayNoon)).toBe(0);
+    expect((await prisma.appointment.findUniqueOrThrow({ where: { id: waiting.id } })).status).toBe("MENUNGGU_KONFIRMASI");
   });
 });

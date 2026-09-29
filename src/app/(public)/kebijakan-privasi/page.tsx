@@ -58,7 +58,8 @@ export default function PrivacyPolicyPage() {
             Jadwal dari situs, WhatsApp, atau telepon dikunci dengan biaya booking yang
             ditransfer ke rekening klinik. Biaya ini terpisah dari biaya layanan, tidak
             dikembalikan, dan tetap berlaku bila Anda pindah jadwal paling lambat 2 jam sebelum
-            jadwal. Booking dari situs yang belum dikonfirmasi dalam 24 jam dibatalkan otomatis.
+            jadwal. Booking dari situs yang belum dikonfirmasi dalam 24 jam (hari Minggu dan
+            hari libur tidak dihitung) dibatalkan otomatis.
           </p>
         </section>
 

@@ -1,12 +1,20 @@
+import { confirmationCutoff, MAX_LOOKBACK_DAYS } from "@/lib/confirmation-window";
 import { prisma } from "@/lib/db";
 import { recordAudit, SYSTEM_ACTOR } from "@/server/audit";
 
-/** Booking situs yang belum diverifikasi selama ini menjadi KEDALUWARSA (PRD bagian 8, spec K13). */
-export const SITE_BOOKING_CONFIRMATION_WINDOW_MS = 24 * 60 * 60 * 1000;
+/** Tanggal libur (WITA) yang mungkin jatuh di dalam jendela konfirmasi sebelum `now`. */
+async function closedDatesBefore(now: Date): Promise<Set<string>> {
+  const rows = await prisma.holiday.findMany({
+    where: { date: { gte: new Date(now.getTime() - (MAX_LOOKBACK_DAYS + 1) * 24 * 60 * 60 * 1000), lte: now } },
+    select: { date: true },
+  });
+  return new Set(rows.map((row) => row.date.toISOString().slice(0, 10)));
+}
 
 /**
  * Menandai booking situs yang melewati batas konfirmasi sebagai KEDALUWARSA,
- * sehingga slotnya lepas dari exclusion constraint.
+ * sehingga slotnya lepas dari exclusion constraint. Batasnya 24 jam di luar
+ * hari Minggu dan tanggal libur (lihat `confirmationCutoff`).
  *
  * Tidak ada cron. Fungsi ini dipanggil tepat sebelum slot dihitung, sebelum
  * booking atau hold dibuat, dan saat daftar booking dibuka — persis saat slot
@@ -17,7 +25,7 @@ export const SITE_BOOKING_CONFIRMATION_WINDOW_MS = 24 * 60 * 60 * 1000;
  * Modul biasa (bukan "use server") agar tidak bisa dipanggil dari browser.
  */
 export async function expireStaleSiteBookings(now: Date = new Date()): Promise<number> {
-  const cutoff = new Date(now.getTime() - SITE_BOOKING_CONFIRMATION_WINDOW_MS);
+  const cutoff = confirmationCutoff(now, await closedDatesBefore(now));
 
   const expired = await prisma.appointment.updateManyAndReturn({
     where: { source: "SITUS", status: "MENUNGGU_KONFIRMASI", createdAt: { lt: cutoff } },
