@@ -38,7 +38,10 @@ export function Receipt({ receipt, onRegisterAgain }: { receipt: BookingReceipt;
               WhatsApp.
             </p>
           )}
-          <p className="mt-2 text-brown-600">Booking yang belum dikonfirmasi dalam 24 jam dibatalkan otomatis.</p>
+          <p className="mt-2 text-brown-600">
+            Booking yang belum dikonfirmasi dalam 24 jam dibatalkan otomatis (hari Minggu dan hari libur tidak
+            dihitung).
+          </p>
         </div>
       )}
 
