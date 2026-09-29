@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DRAFT_STORAGE_KEY, RegistrationFlow } from "@/components/pendaftaran/registration-flow";
+import { DRAFT_STORAGE_KEY, RECEIPT_STORAGE_KEY, RegistrationFlow } from "@/components/pendaftaran/registration-flow";
 import type { BookingOptions } from "@/server/public-booking-data";
 import { slimmingNewPatient } from "../../fixtures/quiz-answers";
 
@@ -68,7 +68,7 @@ describe("RegistrationFlow", () => {
     expect(await screen.findByRole("heading", { name: "Apa tujuan utama Anda?" })).toBeInTheDocument();
   });
 
-  it("setelah Kirim berhasil, jawaban dihapus dan kunjungan berikutnya mulai dari awal", async () => {
+  it("setelah Kirim berhasil, jawaban dihapus dan kuitansi bertahan saat dimuat ulang sampai Daftar lagi", async () => {
     window.sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(readyDraft));
     actions.submitSiteBooking.mockResolvedValue({
       ok: true,
@@ -99,6 +99,25 @@ describe("RegistrationFlow", () => {
     );
     unmount();
 
+    // Muat ulang: kuitansi tampil lagi, bukan kuis dari awal.
+    const reloaded = render(<RegistrationFlow options={options} />);
+    expect(await screen.findByText("SDY-8F3K")).toBeInTheDocument();
+    expect(screen.getByText(/BCA 1234567890 a.n. SunDY Clinic/)).toBeInTheDocument();
+    expect(screen.getByText(/pukul 15.00 WITA/)).toBeInTheDocument();
+    // Tidak ada data klinis di kuitansi yang tersimpan.
+    expect(window.sessionStorage.getItem(RECEIPT_STORAGE_KEY)).not.toMatch(/answers|Amlodipine|weight/i);
+
+    await userEvent.click(screen.getByRole("button", { name: "Daftar lagi" }));
+    expect(await screen.findByRole("heading", { name: "Pernah berobat di SunDY Clinic?" })).toBeInTheDocument();
+    expect(window.sessionStorage.getItem(RECEIPT_STORAGE_KEY)).toBeNull();
+    reloaded.unmount();
+
+    render(<RegistrationFlow options={options} />);
+    expect(await screen.findByRole("heading", { name: "Pernah berobat di SunDY Clinic?" })).toBeInTheDocument();
+  });
+
+  it("mengabaikan kuitansi tersimpan yang bentuknya rusak", async () => {
+    window.sessionStorage.setItem(RECEIPT_STORAGE_KEY, JSON.stringify({ code: 42, startAt: "bukan tanggal" }));
     render(<RegistrationFlow options={options} />);
     expect(await screen.findByRole("heading", { name: "Pernah berobat di SunDY Clinic?" })).toBeInTheDocument();
   });

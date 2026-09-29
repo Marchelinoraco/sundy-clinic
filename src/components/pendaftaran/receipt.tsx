@@ -4,7 +4,7 @@ import { formatIndonesianDate, formatRupiah } from "@/lib/format";
 import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
 import type { BookingReceipt } from "@/server/public-booking";
 
-export function Receipt({ receipt }: { receipt: BookingReceipt }) {
+export function Receipt({ receipt, onRegisterAgain }: { receipt: BookingReceipt; onRegisterAgain?: () => void }) {
   const time = minutesToTimeLabel(witaMinutesOfDay(receipt.startAt));
   return (
     <div className="mx-auto max-w-md space-y-6 px-4 py-10 text-center">
@@ -50,6 +50,11 @@ export function Receipt({ receipt }: { receipt: BookingReceipt }) {
       <Link href="/cek-booking" className="block text-sm text-brown-700 underline underline-offset-4">
         Cek status booking
       </Link>
+      {onRegisterAgain && (
+        <button type="button" onClick={onRegisterAgain} className="block w-full text-sm text-brown-700 underline underline-offset-4">
+          Daftar lagi
+        </button>
+      )}
     </div>
   );
 }

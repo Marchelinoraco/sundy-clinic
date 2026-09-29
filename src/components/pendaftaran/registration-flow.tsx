@@ -28,6 +28,8 @@ type Draft = {
 
 /** Jawaban tersimpan per tab (sessionStorage), terhapus saat tab ditutup atau setelah Kirim (spec bagian 8). */
 export const DRAFT_STORAGE_KEY = `sundy-daftar-v${QUIZ_VERSION}`;
+/** Kuitansi terakhir, agar kode booking tidak hilang bila halaman dimuat ulang. Tanpa data klinis. */
+export const RECEIPT_STORAGE_KEY = `sundy-daftar-kuitansi-v${QUIZ_VERSION}`;
 const MODE = { askPatientType: true };
 const EMPTY_SCHEDULE: ScheduleDraft = { branchId: null, staffId: null, date: null, hold: null };
 
@@ -57,6 +59,62 @@ function writeDraft(draft: Draft | null) {
   }
 }
 
+function isReceiptShape(value: unknown): value is Omit<BookingReceipt, "startAt"> & { startAt: string } {
+  if (typeof value !== "object" || value === null) return false;
+  const r = value as Record<string, unknown>;
+  const text = (v: unknown) => typeof v === "string";
+  return (
+    text(r.code) &&
+    text(r.patientName) &&
+    text(r.serviceName) &&
+    text(r.staffName) &&
+    text(r.branchName) &&
+    text(r.startAt) &&
+    !Number.isNaN(new Date(r.startAt as string).getTime()) &&
+    (r.bookingFee === null || (typeof r.bookingFee === "number" && Number.isFinite(r.bookingFee))) &&
+    (r.bankAccount === null || text(r.bankAccount)) &&
+    text(r.confirmationLink)
+  );
+}
+
+function readReceipt(): BookingReceipt | null {
+  try {
+    const raw = window.sessionStorage.getItem(RECEIPT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    return isReceiptShape(parsed) ? { ...parsed, startAt: new Date(parsed.startAt) } : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeReceipt(receipt: BookingReceipt | null) {
+  try {
+    if (receipt) {
+      const { code, patientName, serviceName, staffName, branchName, startAt, bookingFee, bankAccount, confirmationLink } =
+        receipt;
+      window.sessionStorage.setItem(
+        RECEIPT_STORAGE_KEY,
+        JSON.stringify({
+          code,
+          patientName,
+          serviceName,
+          staffName,
+          branchName,
+          startAt: new Date(startAt).toISOString(),
+          bookingFee,
+          bankAccount,
+          confirmationLink,
+        }),
+      );
+    } else {
+      window.sessionStorage.removeItem(RECEIPT_STORAGE_KEY);
+    }
+  } catch {
+    // Penyimpanan tidak tersedia: kuitansi tetap tampil, hanya tidak bertahan saat refresh.
+  }
+}
+
 type HistoryState = { daftar?: Screen; depth?: number } | null;
 
 export function RegistrationFlow({ options }: { options: BookingOptions }) {
@@ -68,6 +126,8 @@ export function RegistrationFlow({ options }: { options: BookingOptions }) {
 
   // Pulihkan draf setelah hidrasi — server tidak tahu isi sessionStorage.
   useEffect(() => {
+    const savedReceipt = readReceipt();
+    if (savedReceipt) setReceipt(savedReceipt);
     const saved = readDraft();
     const initial = saved ?? emptyDraft();
     if (saved) setDraft(saved);
@@ -140,6 +200,12 @@ export function RegistrationFlow({ options }: { options: BookingOptions }) {
     window.history.replaceState({ daftar: "U1", depth: 0 }, "");
   }
 
+  function registerAgain() {
+    writeReceipt(null);
+    setReceipt(null);
+    window.history.replaceState({ daftar: "U1", depth: 0 }, "");
+  }
+
   function submit() {
     const hold = draft.schedule.hold;
     const branchId = draft.schedule.branchId;
@@ -172,6 +238,7 @@ export function RegistrationFlow({ options }: { options: BookingOptions }) {
           return;
         }
         writeDraft(null);
+        writeReceipt(result.data.receipt);
         setDraft(emptyDraft());
         setReceipt(result.data.receipt);
       } catch {
@@ -180,7 +247,7 @@ export function RegistrationFlow({ options }: { options: BookingOptions }) {
     });
   }
 
-  if (receipt) return <Receipt receipt={receipt} />;
+  if (receipt) return <Receipt receipt={receipt} onRegisterAgain={registerAgain} />;
   if (!ready) return <p className="px-4 py-16 text-center text-brown-600">Memuat…</p>;
 
   const common = { progress: (index + 1) / screens.length, onBack: index > 0 ? goBack : undefined };
