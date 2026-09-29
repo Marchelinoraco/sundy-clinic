@@ -28,4 +28,11 @@ describe("mergeRecordText", () => {
     expect(mergeRecordText("Asma\nUdang", null)).toBe("Asma\nUdang");
     expect(mergeRecordText(null, null)).toBe("");
   });
+
+  it("mempertahankan 'Tidak ada riwayat penyakit' dari isian walau ada baris obat/suplemen", () => {
+    expect(mergeRecordText(null, "Tidak ada riwayat penyakit\nObat/suplemen lain: Vitamin D")).toBe(
+      "Tidak ada riwayat penyakit\nObat/suplemen lain: Vitamin D",
+    );
+  });
 });
+

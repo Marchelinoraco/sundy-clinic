@@ -19,15 +19,22 @@ function linesOf(text: string | null): string[] {
  * sengaja oleh usulan dari satu isian.
  */
 export function mergeRecordText(current: string | null, proposal: string | null): string {
-  const kept = linesOf(current);
+  const isNone = (line: string) => NONE_LINES.has(normalize(line));
+  const currentLines = linesOf(current);
+  const proposalLines = linesOf(proposal);
+  const currentHasContent = currentLines.some((line) => !isNone(line));
+  const proposalHasContent = proposalLines.some((line) => !isNone(line));
+
+  // "Tidak ada" lama tidak berlaku lagi begitu isian membawa isi sungguhan.
+  const kept = currentLines.filter((line) => !(isNone(line) && proposalHasContent));
   const seen = new Set(kept.map(normalize));
-  for (const line of linesOf(proposal)) {
+  for (const line of proposalLines) {
     const key = normalize(line);
     if (seen.has(key)) continue;
+    // "Tidak ada" dari isian tidak ditambahkan ke catatan yang sudah berisi.
+    if (isNone(line) && currentHasContent) continue;
     kept.push(line);
     seen.add(key);
   }
-  // "Tidak ada" hanya bermakna bila tidak ada isi lain di catatan itu.
-  const meaningful = kept.filter((line) => !NONE_LINES.has(normalize(line)));
-  return (meaningful.length > 0 ? meaningful : kept).join("\n");
+  return kept.join("\n");
 }
