@@ -67,4 +67,23 @@ describe("BookingStatusLookup", () => {
     expect(await screen.findByText("Dibatalkan")).toBeInTheDocument();
     expect(actions.cancelSiteBooking).toHaveBeenCalledWith({ code: "SDY-8F3K", last4: "7890" });
   });
+  it("membatalkan dengan 4 digit yang dipakai saat pencarian, bukan isi kolom yang sudah diubah", async () => {
+    actions.findBookingStatus.mockResolvedValue({ ok: true, data: confirmed });
+    actions.cancelSiteBooking.mockResolvedValue({
+      ok: true,
+      data: { ...confirmed, status: "DIBATALKAN", statusLabel: "Dibatalkan", canCancel: false, canReschedule: false, rescheduleLink: null },
+    });
+    render(<BookingStatusLookup />);
+    await lookUp();
+    await screen.findByText("Terkonfirmasi");
+
+    const digits = screen.getByLabelText("4 digit terakhir nomor WhatsApp");
+    await userEvent.clear(digits);
+    await userEvent.type(digits, "1111");
+    await userEvent.click(screen.getByRole("button", { name: "Batalkan booking" }));
+    await userEvent.click(screen.getByRole("button", { name: "Ya, batalkan" }));
+
+    await screen.findByText("Dibatalkan");
+    expect(actions.cancelSiteBooking).toHaveBeenCalledWith({ code: "SDY-8F3K", last4: "7890" });
+  });
 });

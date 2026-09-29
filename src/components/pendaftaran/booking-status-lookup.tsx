@@ -27,6 +27,8 @@ export function BookingStatusLookup() {
   const [code, setCode] = useState("");
   const [last4, setLast4] = useState("");
   const [status, setStatus] = useState<PublicBookingStatus | null>(null);
+  // 4 digit yang dipakai pencarian berhasil — batal memakai ini, bukan isi kolom yang mungkin sudah diubah.
+  const [lookedUpLast4, setLookedUpLast4] = useState("");
   const [notFound, setNotFound] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -41,6 +43,7 @@ export function BookingStatusLookup() {
           return;
         }
         setStatus(result.data);
+        setLookedUpLast4(last4);
         setNotFound(result.data === null);
       } catch {
         toast.error("Gagal memeriksa status. Coba lagi.");
@@ -54,7 +57,7 @@ export function BookingStatusLookup() {
     setConfirming(false);
     startTransition(async () => {
       try {
-        const result = await cancelSiteBooking({ code: bookingCode, last4 });
+        const result = await cancelSiteBooking({ code: bookingCode, last4: lookedUpLast4 });
         if (!result.ok) {
           toast.error(result.error);
           return;
