@@ -391,7 +391,7 @@ Hari H
 
 `MENUNGGU_KONFIRMASI` → `TERKONFIRMASI` → `HADIR` → `SELESAI`
 
-Cabang: `DIBATALKAN` (oleh pasien atau admin) · `TIDAK_HADIR` (lewat jadwal tanpa kedatangan) · `KEDALUWARSA` (tidak dikonfirmasi dalam 24 jam, slot dilepas otomatis).
+Cabang: `DIBATALKAN` (oleh pasien atau admin) · `TIDAK_HADIR` (lewat jadwal tanpa kedatangan) · `KEDALUWARSA` (tidak dikonfirmasi dalam 24 jam — hari Minggu dan hari libur tidak dihitung — slot dilepas otomatis).
 
 ### Alur pengingat kontrol mingguan
 
@@ -424,7 +424,7 @@ Bila pasien tidak datang, pengingat tetap berstatus `SUDAH_DIINGATKAN` dan muncu
 |---|---|
 | Dua pasien memilih slot sama bersamaan | Slot pertama yang menahan (hold) menang; pasien kedua melihat pesan "slot baru saja terisi" dan kalender dimuat ulang. |
 | Dua permintaan tiba pada milidetik yang sama | Penahanan slot berjalan di aplikasi dan punya celah baca-tulis. Batasan unik pada (dokter, waktu) di basis data menolak permintaan kedua; aplikasi menangkap penolakan itu dan menampilkan pesan yang sama seperti baris di atas, bukan galat mentah. |
-| Pasien tidak konfirmasi dalam 24 jam | Booking `KEDALUWARSA`, slot kembali tersedia. |
+| Pasien tidak konfirmasi dalam 24 jam (hari Minggu dan hari libur tidak dihitung) | Booking `KEDALUWARSA`, slot kembali tersedia. |
 | Dokter mendadak berhalangan | Admin menandai pengecualian tanggal; sistem menampilkan daftar booking terdampak untuk dijadwal ulang satu per satu. |
 | Pasien lama booking lagi | Situs tidak memeriksa nomor WA. Sistem **menyarankan** pasien yang cocok saat admin memverifikasi, dan **admin yang memutuskan** — satu nomor WA sering dipakai sekeluarga. |
 | Pasien walk-in | Admin membuat booking manual; bila slot penuh, dapat menambahkan di luar slot dengan penanda "walk-in". |

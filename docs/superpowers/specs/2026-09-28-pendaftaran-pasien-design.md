@@ -45,7 +45,7 @@ konsultasinya (Slimming atau Aesthetic) **sebelum** data pribadi diminta.
 | K10 | Isi kuis | **Tetap di kode**, diberi nomor versi. Perubahan pertanyaan dikerjakan developer lewat rilis |
 | K11 | Penyimpanan | **Isian Pendaftaran** terpisah per booking. Booking situs boleh belum terhubung ke pasien sampai admin mencocokkan |
 | K12 | Persetujuan dokter (A1) | Jawaban klinis masuk ke data pasien hanya lewat tombol **"Setujui ke data pasien"** oleh dokter |
-| K13 | Kedaluwarsa | Booking **situs** yang belum diverifikasi dalam 24 jam menjadi Kedaluwarsa. Booking admin tidak ikut kedaluwarsa |
+| K13 | Kedaluwarsa | Booking **situs** yang belum diverifikasi dalam 24 jam menjadi Kedaluwarsa. Booking admin tidak ikut kedaluwarsa. Jam pada **hari Minggu dan hari libur tidak dihitung**, karena admin tidak memverifikasi booking pada hari itu (dijawab pemilik 29 Sep 2026) |
 | K14 | Link WA | Link pribadi acak, disimpan sebagai hash, berlaku sampai jam janji. Ada kode QR sebagai cadangan di klinik |
 | K15 | Biaya booking (menjawab D5) | **Rp 100.000** untuk semua jenis booking, **terpisah** dari biaya layanan (tidak dipotong dari tagihan) |
 | K16 | Pembatalan | Biaya booking **tidak dikembalikan**, tetapi **tetap berlaku bila pasien pindah jadwal** paling lambat 2 jam sebelum jadwal |
@@ -348,7 +348,7 @@ Halaman ini menampilkan jawaban yang sudah dirapikan per bagian sesuai versi kui
 
 | Kasus | Perilaku |
 |---|---|
-| Booking situs belum diverifikasi 24 jam | Menjadi `KEDALUWARSA` dan slotnya lepas. Pemeriksaan dijalankan tepat sebelum slot dihitung, sebelum booking/hold dibuat, dan saat daftar booking dibuka, lewat satu `UPDATE` bersyarat. Audit mencatat pelaku "Sistem" |
+| Booking situs belum diverifikasi 24 jam (hari Minggu dan hari libur tidak dihitung) | Menjadi `KEDALUWARSA` dan slotnya lepas. Pemeriksaan dijalankan tepat sebelum slot dihitung, sebelum booking/hold dibuat, dan saat daftar booking dibuka, lewat satu `UPDATE` bersyarat. Audit mencatat pelaku "Sistem" |
 | Booking dicatat admin belum diverifikasi | Tidak kedaluwarsa otomatis (K13). Admin yang memutuskan |
 | Hold habis saat pasien mengisi data diri | Booking tetap dibuat bila jamnya masih kosong (5.4) |
 | Kirim ditekan dua kali / dikirim ulang karena sinyal | Token hold hanya berlaku sekali, sehingga tidak ada booking ganda |
