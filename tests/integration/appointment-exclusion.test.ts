@@ -8,6 +8,7 @@ describe("exclusion constraint Appointment", () => {
   let branchId: string;
 
   beforeEach(async () => {
+    await prisma.intake.deleteMany();
     await prisma.appointment.deleteMany();
     await prisma.patient.deleteMany({ where: { medicalRecordNumber: "SDY-2026-8888" } });
     await prisma.staff.deleteMany({ where: { slug: { startsWith: "staf-exclusion-uji" } } });
@@ -38,6 +39,7 @@ describe("exclusion constraint Appointment", () => {
     // Sama seperti schedule.test.ts: beforeEach hanya membersihkan sebelum
     // giliran berikutnya, bukan setelah giliran terakhir. Tanpa ini,
     // "cabang-exclusion-uji" bocor ke berkas lain yang berjalan sesudahnya.
+    await prisma.intake.deleteMany();
     await prisma.appointment.deleteMany();
     await prisma.patient.deleteMany({ where: { medicalRecordNumber: "SDY-2026-8888" } });
     await prisma.staff.deleteMany({ where: { slug: { startsWith: "staf-exclusion-uji" } } });
