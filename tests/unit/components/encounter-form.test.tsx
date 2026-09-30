@@ -1,8 +1,9 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import Link from "next/link";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
-import { EncounterForm } from "@/components/admin/encounter-form";
+import { EncounterForm, type EncounterFormProps } from "@/components/admin/encounter-form";
 import { emptyDraftInput, type EncounterOptions } from "@/lib/encounter";
 import { discardEncounterDraft, finalizeEncounter, saveEncounterDraft } from "@/server/encounter";
 
@@ -32,7 +33,7 @@ const options: EncounterOptions = {
 // 02.42 UTC = 10.42 WITA.
 const saved = (version: string) => ({ ok: true as const, data: { version, savedAt: "2026-10-01T02:42:00.000Z" } });
 
-function renderForm() {
+function renderForm(props: Partial<EncounterFormProps> = {}) {
   return render(
     <EncounterForm
       encounterId="e1"
@@ -42,9 +43,17 @@ function renderForm() {
       intakeSlot={<p>Isian pasien</p>}
       autosaveDelayMs={50}
       retryDelaysMs={[300]}
+      {...props}
     />,
   );
 }
+
+// Tautan di dalam aplikasi; onClick mencegah jsdom benar-benar berpindah halaman.
+const appLink = (
+  <Link href="/admin/pasien/p1" onClick={(event) => event.preventDefault()}>
+    Data pasien
+  </Link>
+);
 
 const status = () => screen.getByRole("status");
 
@@ -184,5 +193,47 @@ describe("EncounterForm", () => {
     await userEvent.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Buang draf" }));
     await waitFor(() => expect(discardEncounterDraft).toHaveBeenCalledWith({ encounterId: "e1", version: "v1" }));
     await waitFor(() => expect(push).toHaveBeenCalledWith("/admin"));
+  });
+
+  it("ketikan terakhir tetap dikirim saat formulir ditinggalkan lewat navigasi di dalam aplikasi", async () => {
+    vi.mocked(saveEncounterDraft).mockResolvedValue(saved("v2"));
+    const { unmount } = renderForm({ autosaveDelayMs: 10_000 });
+    await userEvent.type(screen.getByLabelText("Penilaian / diagnosis"), "Obesitas");
+    expect(saveEncounterDraft).not.toHaveBeenCalled();
+
+    unmount();
+    await waitFor(() => expect(saveEncounterDraft).toHaveBeenCalledTimes(1));
+    expect(saveEncounterDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ version: "v1", draft: expect.objectContaining({ assessment: "Obesitas" }) }),
+    );
+  });
+
+  it("setelah formulir ditinggalkan, simpan yang gagal tidak dicoba ulang terus-menerus", async () => {
+    vi.mocked(saveEncounterDraft).mockRejectedValue(new Error("offline"));
+    const { unmount } = renderForm({ autosaveDelayMs: 10_000, retryDelaysMs: [20] });
+    await userEvent.type(screen.getByLabelText("Rencana, program, dan resep"), "Kontrol");
+    unmount();
+    await waitFor(() => expect(saveEncounterDraft).toHaveBeenCalledTimes(1));
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(saveEncounterDraft).toHaveBeenCalledTimes(1);
+  });
+
+  it("tautan di dalam aplikasi meminta konfirmasi selama ada perubahan yang tidak bisa disimpan", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    renderForm({ intakeSlot: appLink });
+    await userEvent.type(screen.getByLabelText("Sistolik (mmHg)"), "12");
+    await waitFor(() => expect(status()).toHaveTextContent("Belum tersimpan"));
+
+    fireEvent.click(screen.getByRole("link", { name: "Data pasien" }));
+    expect(confirm).toHaveBeenCalledWith("Ada perubahan yang belum tersimpan. Tinggalkan halaman ini?");
+    confirm.mockRestore();
+  });
+
+  it("tautan tidak meminta konfirmasi bila tidak ada perubahan yang tertahan", () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    renderForm({ intakeSlot: appLink });
+    fireEvent.click(screen.getByRole("link", { name: "Data pasien" }));
+    expect(confirm).not.toHaveBeenCalled();
+    confirm.mockRestore();
   });
 });

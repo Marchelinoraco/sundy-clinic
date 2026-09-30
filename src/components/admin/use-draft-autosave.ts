@@ -8,6 +8,8 @@ export const AUTOSAVE_RETRY_DELAYS_MS: readonly number[] = [2000, 4000, 8000, 16
 
 export type SavedDraft = { version: string; savedAt: string };
 
+export const LEAVE_WARNING = "Ada perubahan yang belum tersimpan. Tinggalkan halaman ini?";
+
 export type AutosaveStatus =
   | { kind: "idle" }
   | { kind: "pending" }
@@ -38,6 +40,7 @@ class DraftSaver<T> {
   private queue: Promise<void> = Promise.resolve();
   private timer: ReturnType<typeof setTimeout> | null = null;
   private failures = 0;
+  private disposed = false;
 
   constructor(
     options: Options<T>,
@@ -67,8 +70,15 @@ class DraftSaver<T> {
     this.report({ kind: "idle" });
   }
 
+  /**
+   * Formulir dilepas, mis. pindah halaman lewat tautan di dalam aplikasi, yang
+   * tidak memicu beforeunload. Ketikan terakhir tetap dikirim sekali; bila
+   * gagal, tidak dicoba ulang lagi setelah halaman ditinggalkan.
+   */
   dispose() {
     this.cancelTimer();
+    this.disposed = true;
+    if (this.unsaved) void this.flush();
   }
 
   private schedule(delay: number) {
@@ -112,7 +122,7 @@ class DraftSaver<T> {
       const delay = delays[Math.min(this.failures, delays.length - 1)];
       this.failures += 1;
       this.report({ kind: "retrying" });
-      this.schedule(delay);
+      if (!this.disposed) this.schedule(delay);
     }
   }
 }
@@ -135,6 +145,28 @@ export function useDraftAutosave<T>(options: Options<T>) {
     };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
+  }, [status.kind]);
+
+  // Tautan di dalam aplikasi (Next <Link>, menu samping) tidak memicu beforeunload.
+  // Ketikan yang menunggu dikirim saat formulir dilepas (dispose), jadi yang perlu
+  // ditanyakan hanya perubahan yang tidak bisa disimpan: ditolak atau jaringan putus.
+  useEffect(() => {
+    if (status.kind !== "rejected" && status.kind !== "retrying") return;
+    const guard = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0) return;
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const link = event.target instanceof Element ? event.target.closest("a[href]") : null;
+      if (!(link instanceof HTMLAnchorElement) || link.target === "_blank" || link.hasAttribute("download")) return;
+      const url = new URL(link.href, window.location.href);
+      if (url.origin !== window.location.origin) return;
+      if (url.pathname === window.location.pathname && url.search === window.location.search) return;
+      if (window.confirm(LEAVE_WARNING)) return;
+      event.preventDefault();
+      event.stopPropagation();
+    };
+    // Fase capture di document: berjalan sebelum onClick <Link> milik React.
+    document.addEventListener("click", guard, true);
+    return () => document.removeEventListener("click", guard, true);
   }, [status.kind]);
 
   return {
