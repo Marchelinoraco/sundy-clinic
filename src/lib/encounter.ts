@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { formatShortIndonesianDate } from "./format";
 
 /**
  * Aturan isian catatan kunjungan (spec catatan dokter, bagian 5). Formulir di
@@ -226,4 +227,113 @@ export function ageInYears(birthDate: Date, onDate: string): number {
   const [year, month, day] = onDate.split("-").map(Number);
   const beforeBirthday = month < birthMonth || (month === birthMonth && day < birthDay);
   return year - birthYear - (beforeBirthday ? 1 : 0);
+}
+
+/** Angka vital dari teks isian formulir; yang kosong atau tidak sah menjadi null. */
+export function parseVitalValues(inputs: Record<VitalKey, string>): Record<VitalKey, number | null> {
+  const values = {} as Record<VitalKey, number | null>;
+  for (const key of VITAL_KEYS) {
+    const parsed = parseVital(key, inputs[key]);
+    values[key] = parsed.ok ? parsed.value : null;
+  }
+  return values;
+}
+
+/** Satu kunjungan final sebagai sumber tren: tanggal booking dan angka vitalnya. */
+export type TrendSource = { date: Date; vitals: Record<VitalKey, number | null> };
+
+export type TrendRow = {
+  /** true untuk baris "Kunjungan ini" (angka dari formulir), selalu di urutan pertama. */
+  current: boolean;
+  date: Date | null;
+  weightKg: number | null;
+  bmi: number | null;
+  waistCm: number | null;
+  bloodPressure: string | null;
+  weightDelta: number | null;
+  waistDelta: number | null;
+};
+
+export type TrendChange = { delta: number; since: Date };
+
+export type VitalsTrend = { rows: TrendRow[]; summary: { weight: TrendChange | null; waist: TrendChange | null }; empty: boolean };
+
+const round1 = (value: number) => Math.round(value * 10) / 10;
+
+function bloodPressureText(vitals: Record<VitalKey, number | null>): string | null {
+  return vitals.systolic !== null && vitals.diastolic !== null ? `${vitals.systolic}/${vitals.diastolic}` : null;
+}
+
+/** Kunjungan yang punya minimal satu angka yang tampil di tabel Tren. */
+function hasShownVitals(vitals: Record<VitalKey, number | null>): boolean {
+  return vitals.weightKg !== null || vitals.waistCm !== null || bloodPressureText(vitals) !== null;
+}
+
+/**
+ * Tabel tab Tren (spec UI B bagian 4). Baris pertama selalu "Kunjungan ini",
+ * lalu kunjungan final (terbaru dulu) yang punya angka untuk ditampilkan.
+ * Selisih dihitung terhadap baris berikutnya yang punya angka yang sama.
+ */
+export function vitalsTrend(current: Record<VitalKey, number | null>, history: TrendSource[]): VitalsTrend {
+  const sources = [
+    { current: true, date: null as Date | null, vitals: current },
+    ...history.filter((visit) => hasShownVitals(visit.vitals)).map((visit) => ({ current: false, date: visit.date as Date | null, vitals: visit.vitals })),
+  ];
+
+  const deltaAt = (index: number, key: "weightKg" | "waistCm"): number | null => {
+    const value = sources[index].vitals[key];
+    if (value === null) return null;
+    const older = sources.slice(index + 1).find((source) => source.vitals[key] !== null);
+    return older ? round1(value - (older.vitals[key] as number)) : null;
+  };
+
+  const rows: TrendRow[] = sources.map((source, index) => ({
+    current: source.current,
+    date: source.date,
+    weightKg: source.vitals.weightKg,
+    bmi: bmi(source.vitals.weightKg, source.vitals.heightCm),
+    waistCm: source.vitals.waistCm,
+    bloodPressure: bloodPressureText(source.vitals),
+    weightDelta: deltaAt(index, "weightKg"),
+    waistDelta: deltaAt(index, "waistCm"),
+  }));
+
+  const change = (key: "weightKg" | "waistCm"): TrendChange | null => {
+    const withValue = sources.filter((source) => source.vitals[key] !== null);
+    if (withValue.length < 2) return null;
+    const newest = withValue[0];
+    const oldest = withValue[withValue.length - 1];
+    // Baris tertua selalu kunjungan final (punya tanggal), karena "Kunjungan ini" di urutan pertama.
+    return { delta: round1((newest.vitals[key] as number) - (oldest.vitals[key] as number)), since: oldest.date as Date };
+  };
+
+  return {
+    rows,
+    summary: { weight: change("weightKg"), waist: change("waistCm") },
+    empty: !hasShownVitals(current) && sources.length === 1,
+  };
+}
+
+/** "berat turun 0,8 kg dari Rab, 16 Sep" — dibandingkan dengan kunjungan final terakhir yang ditimbang. */
+export function weightChangeNote(currentWeightKg: number | null, history: TrendSource[]): string | null {
+  const previous = history.find((visit) => visit.vitals.weightKg !== null);
+  if (currentWeightKg === null || !previous) return null;
+  const delta = round1(currentWeightKg - (previous.vitals.weightKg as number));
+  const when = formatShortIndonesianDate(previous.date);
+  if (delta === 0) return `berat sama dengan ${when}`;
+  return `berat ${delta < 0 ? "turun" : "naik"} ${formatDecimal(Math.abs(delta))} kg dari ${when}`;
+}
+
+/** −0,8 / +2 / ±0 — selisih bertanda untuk tabel Tren. */
+export function formatSignedDecimal(value: number): string {
+  if (value === 0) return "±0";
+  return `${value < 0 ? "−" : "+"}${formatDecimal(Math.abs(value))}`;
+}
+
+export type ContextTab = "intake" | "previous" | "trend";
+
+/** Tab yang terbuka pertama kali di kolom kiri (spec UI B keputusan U5). */
+export function initialContextTab(input: { hasIntake: boolean; hasHistory: boolean }): ContextTab {
+  if (input.hasIntake) return "intake";
+  return input.hasHistory ? "previous" : "trend";
 }
