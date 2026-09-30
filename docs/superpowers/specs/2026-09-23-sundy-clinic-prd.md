@@ -284,6 +284,8 @@ Ditambah data yang melekat pada pasien (bukan per kunjungan): alergi, riwayat pe
 
 **Aturan integritas:** catatan klinis yang sudah difinalisasi tidak dapat dihapus. Koreksi dilakukan lewat **adendum** yang tercatat waktu dan penulisnya, mengikuti prinsip rekam medis.
 
+**Status pelaksanaan (September 2026):** kunjungan dan catatan SOAP, tanda vital, treatment per kunjungan, finalisasi, adendum, dan jejak audit dibangun lebih dulu sebagai rekam medis bagian 1 (`docs/superpowers/specs/2026-09-30-catatan-dokter-kunjungan-design.md`). Catatan final dikunci basis data. Check-in klinik (NIK, food recall H-1), hasil BIA dan grafik progres (F13), order obat, dan pengingat kontrol (F17) menyusul sebagai sub-proyek terpisah.
+
 ### F13. Grafik Progres Pasien
 Grafik garis dari seluruh pengukuran BIA pasien: berat badan, persen lemak tubuh, dan massa otot terhadap waktu, dengan penanda kapan program dimulai. Dapat ditampilkan ke pasien saat konsultasi dan diekspor sebagai gambar/PDF untuk dibagikan.
 

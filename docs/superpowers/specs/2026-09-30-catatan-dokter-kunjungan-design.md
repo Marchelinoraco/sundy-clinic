@@ -2,7 +2,7 @@
 
 - **Versi:** 1.0
 - **Tanggal:** 30 September 2026
-- **Status:** Disetujui pemilik (30 September 2026)
+- **Status:** Disetujui pemilik (30 September 2026) · terlaksana (30 September 2026)
 - **Bagian dari:** PRD F12 (Rekam Medis Elektronik) dan F15 (audit), untuk kunjungan dan catatan SOAP. BIA, grafik, order obat, dan pengingat kontrol dirancang di spec terpisah (bagian 2).
 - **Melengkapi:** `docs/superpowers/specs/2026-09-28-pendaftaran-pasien-design.md` (isian, Setujui ke data pasien, hak akses) dan `docs/superpowers/specs/2026-09-30-kuis-v2-form-recall-design.md` (tampilan isian untuk dokter).
 

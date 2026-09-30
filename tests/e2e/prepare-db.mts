@@ -5,6 +5,7 @@
 import "dotenv/config";
 import { auth } from "../../src/lib/auth";
 import { prisma } from "../../src/lib/db";
+import { combineWitaDateAndMinutes, witaDateString } from "../../src/lib/time";
 import { E2E_ADMIN, E2E_RESEPSIONIS } from "./credentials";
 import { purgeEncounters } from "../purge-encounters";
 
@@ -43,5 +44,41 @@ await prisma.clinicSetting.update({
   where: { id: 1 },
   data: { bookingFee: 100000, bankName: "BCA", bankAccountNumber: "1234567890", bankAccountHolder: "SunDY Clinic" },
 });
+
+// Kunjungan e2e (tests/e2e/kunjungan.spec.ts): satu pasien hadir HARI INI per
+// proyek (desktop/mobile), dibuat langsung karena admin tidak bisa memesan jam
+// yang sudah lewat. Jam 06.00/06.30 di luar jam buka agar tidak bentrok dengan
+// slot yang dipesan uji lain.
+const today = witaDateString(new Date());
+const visitBranch = await prisma.branch.findUniqueOrThrow({ where: { slug: "mahakeret" } });
+const visitDoctor = await prisma.staff.findUniqueOrThrow({ where: { slug: "diane-paparang" } });
+const visitService = await prisma.service.findUniqueOrThrow({ where: { slug: "konsultasi-dokter" } });
+for (const [index, project] of ["desktop", "mobile"].entries()) {
+  const patient = await prisma.patient.create({
+    data: {
+      medicalRecordNumber: `SDY-E2E-KUNJ-${index + 1}`,
+      name: `Pasien Kunjungan ${project}`,
+      whatsapp: `6281200077${index}01`,
+      birthDate: new Date("1990-05-17T00:00:00Z"),
+      gender: "P",
+      allergies: "Udang",
+    },
+  });
+  const startAt = combineWitaDateAndMinutes(today, 6 * 60 + index * 30);
+  await prisma.appointment.create({
+    data: {
+      code: `E2E-KUNJ-${index + 1}`,
+      type: "KONSULTASI",
+      startAt,
+      endAt: new Date(startAt.getTime() + 30 * 60_000),
+      status: "HADIR",
+      source: "WALK_IN",
+      branchId: visitBranch.id,
+      staffId: visitDoctor.id,
+      serviceId: visitService.id,
+      patientId: patient.id,
+    },
+  });
+}
 
 await prisma.$disconnect();
