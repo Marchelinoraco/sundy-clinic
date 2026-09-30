@@ -58,4 +58,14 @@ describe("batasan arsitektur", () => {
 
     expect(offenders).toEqual([]);
   });
+
+  it("setiap menu samping panel admin mengarah ke halaman yang ada", () => {
+    // Menu yang mengarah ke rute kosong memberi staf halaman "tidak ditemukan".
+    const sidebar = readFileSync("src/components/admin/app-sidebar.tsx", "utf8");
+    const urls = [...sidebar.matchAll(/url: "(\/admin[^"]*)"/g)].map((match) => match[1]);
+    expect(urls.length).toBeGreaterThan(0);
+
+    const missing = urls.filter((url) => !existsSync(`src/app/(admin)${url}/page.tsx`));
+    expect(missing).toEqual([]);
+  });
 });

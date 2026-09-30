@@ -34,8 +34,11 @@ export const metadata: Metadata = {
 // publik, bukan tampilan admin generik yang ditempel di atasnya.
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="id">
-      <body className={`${display.variable} ${sans.variable}`}>{children}</body>
+    // Kelas variabel font dipasang di <html>, bukan <body>: --font-sans dan
+    // --font-display (globals.css) dibaca di :root. Bila kelasnya di <body>,
+    // var(--font-jakarta) belum terdefinisi di :root dan seluruh situs jatuh ke Times.
+    <html lang="id" className={`${display.variable} ${sans.variable}`}>
+      <body>{children}</body>
     </html>
   );
 }
