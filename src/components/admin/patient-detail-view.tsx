@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { AppointmentStatusBadge } from "@/components/admin/appointment-status-badge";
+import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatIndonesianDate } from "@/lib/format";
 import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
 import type { PatientDetail } from "@/server/patient";
+import { ImportantNotesForm, PaperRecordNumberForm } from "./patient-note-forms";
 
 const PROGRAM_STATUS_LABEL: Record<PatientDetail["programStatus"], string> = {
   AKTIF: "Aktif",
@@ -26,7 +28,15 @@ function Field({ label, value }: { label: string; value: string | null }) {
   );
 }
 
-export function PatientDetailView({ patient, canReadRecords }: { patient: PatientDetail; canReadRecords: boolean }) {
+export function PatientDetailView({
+  patient,
+  canReadRecords,
+  canWriteRecords,
+}: {
+  patient: PatientDetail;
+  canReadRecords: boolean;
+  canWriteRecords: boolean;
+}) {
   return (
     <div className="max-w-4xl space-y-8">
       <section className="space-y-3">
@@ -40,6 +50,9 @@ export function PatientDetailView({ patient, canReadRecords }: { patient: Patien
           <Field label="Status program" value={PROGRAM_STATUS_LABEL[patient.programStatus]} />
           <Field label="Alamat" value={patient.address} />
         </dl>
+        <div className="text-sm">
+          <PaperRecordNumberForm patientId={patient.id} value={patient.paperRecordNumber} />
+        </div>
       </section>
 
       {patient.record && (
@@ -57,9 +70,65 @@ export function PatientDetailView({ patient, canReadRecords }: { patient: Patien
               <p className="whitespace-pre-line">{patient.record.medicalHistory ?? "Belum ada"}</p>
             </div>
           </div>
+          <div className="text-sm">
+            {canWriteRecords ? (
+              <ImportantNotesForm patientId={patient.id} value={patient.record.importantNotes} />
+            ) : (
+              <div>
+                <h3 className="text-xs text-muted-foreground">Catatan penting</h3>
+                <p className="whitespace-pre-line">{patient.record.importantNotes ?? "Belum ada"}</p>
+              </div>
+            )}
+          </div>
           <p className="text-xs text-muted-foreground">
             Diisi dokter lewat tombol “Setujui ke data pasien” di halaman isian.
           </p>
+        </section>
+      )}
+
+      {patient.encounters && (
+        <section aria-labelledby="riwayat-kunjungan" className="space-y-2">
+          <h2 id="riwayat-kunjungan" className="text-base font-medium">
+            Riwayat kunjungan
+          </h2>
+          {patient.encounters.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Belum ada kunjungan yang diperiksa.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Tanggal</TableHead>
+                  <TableHead>Cabang</TableHead>
+                  <TableHead>Penulis</TableHead>
+                  <TableHead>Penilaian</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Aksi</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {patient.encounters.map((encounter) => (
+                  <TableRow key={encounter.id}>
+                    <TableCell>
+                      {formatIndonesianDate(encounter.startAt)}, {minutesToTimeLabel(witaMinutesOfDay(encounter.startAt))}
+                    </TableCell>
+                    <TableCell>{encounter.branchName}</TableCell>
+                    <TableCell>{encounter.authorName}</TableCell>
+                    <TableCell className="max-w-xs whitespace-normal">{encounter.assessmentPreview ?? "—"}</TableCell>
+                    <TableCell>
+                      <Badge variant={encounter.status === "FINAL" ? "default" : "outline"}>
+                        {encounter.status === "FINAL" ? "Final" : "Draf"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Link href={`/admin/kunjungan/${encounter.id}`} className="text-sm underline underline-offset-4">
+                        Buka
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </section>
       )}
 
