@@ -84,3 +84,21 @@ test("setiap halaman publik punya judul yang berbeda", async ({ page }) => {
 
   expect(titles.size).toBe(6);
 });
+
+test("situs dan panel memakai huruf SunDY, bukan huruf bawaan browser", async ({ page }) => {
+  // Kelas next/font harus terpasang di <html>: --font-sans/--font-display dibaca di
+  // sana, dan tanpa itu seluruh situs jatuh ke Times.
+  for (const path of ["/", "/masuk"]) {
+    await page.goto(path);
+    const fonts = await page.evaluate(async () => {
+      await document.fonts.ready;
+      return {
+        body: getComputedStyle(document.body).fontFamily,
+        heading: getComputedStyle(document.querySelector("h1")!).fontFamily,
+      };
+    });
+    expect(fonts.body, path).toContain("Plus Jakarta Sans");
+    expect(fonts.heading, path).toContain("Cormorant Garamond");
+  }
+});
+
