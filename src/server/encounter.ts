@@ -198,6 +198,9 @@ export async function saveEncounterDraft(input: {
     );
 
     await recordAuditThrottled({ actor, action: "encounter.edit-draft", entity: "Encounter", entityId: encounterId });
+    // Membuang cache router: tanpa ini, tombol Kembali ke halaman kunjungan
+    // memunculkan isian lama beserta versinya, lalu ketikan berikutnya ditolak.
+    safeRevalidatePath(`/admin/kunjungan/${encounterId}`);
     return { version: saved.toISOString(), savedAt: saved.toISOString() };
   });
 }

@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { StaffRole } from "@prisma/client";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { emptyDraftInput, type EncounterDraftInput } from "@/lib/encounter";
 import { can } from "@/lib/permissions";
@@ -18,6 +19,7 @@ import { unwrap } from "./unwrap";
 import { at, bookableDate, cleanupBookingWorld, createBookingWorld, type BookingWorld } from "./public-booking-world";
 
 vi.mock("@/server/session", () => ({ requireCapability: vi.fn() }));
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 const SLUG = "aksi-kunjungan-uji";
 const PATIENT_WA = "6281200007710";
@@ -172,6 +174,14 @@ describe("aksi kunjungan", () => {
     // Simpan berikutnya mengganti seluruh baris treatment.
     await unwrap(saveEncounterDraft({ encounterId, version: saved.version, draft: draftWith({ subjective: "Berat naik 3 kg" }) }));
     expect(await prisma.encounterTreatment.count({ where: { encounterId } })).toBe(0);
+  });
+
+  it("simpan draf menyegarkan halaman kunjungan, agar tombol Kembali tidak menampilkan isian lama", async () => {
+    actAs("DOKTER");
+    const { encounterId, version } = await opened();
+    vi.mocked(revalidatePath).mockClear();
+    await unwrap(saveEncounterDraft({ encounterId, version, draft: draftWith({ plan: "Kontrol" }) }));
+    expect(revalidatePath).toHaveBeenCalledWith(`/admin/kunjungan/${encounterId}`);
   });
 
   it("menolak versi lama tanpa mengubah catatan yang lebih baru", async () => {
