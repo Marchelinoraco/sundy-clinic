@@ -4,6 +4,7 @@ import { clinicalView, type ClinicalSection } from "@/lib/kuis/clinical-view";
 import type { ActivityRow } from "@/lib/kuis/v1/describe";
 import type { HabitTable } from "@/lib/kuis/v2/describe";
 import type { RecordProposal } from "@/lib/kuis/v2/record-proposal";
+import { mergeRecordText } from "@/lib/record-text";
 
 /** Isi klinis sebuah isian untuk staf ber-record:read (spec pendaftaran 6.2). */
 export type IntakeClinical = {
@@ -44,5 +45,46 @@ export async function loadIntakeClinical(
       habits: view.habits,
       activityDateLabel: row.activityDate ? formatIndonesianDate(row.activityDate) : null,
     },
+  };
+}
+
+export type IntakeApproval =
+  | { state: "needs-match" }
+  | {
+      state: "ready";
+      patientId: string;
+      /** updatedAt pasien (ISO) saat halaman dibuka; simpan ditolak bila data pasien berubah sesudahnya. */
+      patientVersion: string;
+      current: { allergies: string | null; medicalHistory: string | null };
+      proposed: RecordProposal;
+      /** Isi awal kolom sunting. */
+      prefill: { allergies: string; medicalHistory: string };
+    };
+
+export type ReadyIntakeApproval = Extract<IntakeApproval, { state: "ready" }>;
+
+/**
+ * Usulan berdampingan dengan catatan pasien saat ini (spec pendaftaran 6.4).
+ * Isian yang sudah diperiksa tidak menggabungkan usulan lagi: baris yang
+ * sengaja dihapus dokter tidak boleh muncul kembali. Dipakai halaman isian
+ * dan halaman kunjungan; pemanggil wajib sudah memeriksa record:write.
+ */
+export async function loadApproval(patientId: string, proposed: RecordProposal, reviewed: boolean): Promise<ReadyIntakeApproval> {
+  const patient = await prisma.patient.findUniqueOrThrow({
+    where: { id: patientId },
+    select: { allergies: true, medicalHistory: true, updatedAt: true },
+  });
+  return {
+    state: "ready",
+    patientId,
+    patientVersion: patient.updatedAt.toISOString(),
+    current: { allergies: patient.allergies, medicalHistory: patient.medicalHistory },
+    proposed,
+    prefill: reviewed
+      ? { allergies: patient.allergies ?? "", medicalHistory: patient.medicalHistory ?? "" }
+      : {
+          allergies: mergeRecordText(patient.allergies, proposed.allergies),
+          medicalHistory: mergeRecordText(patient.medicalHistory, proposed.medicalHistory),
+        },
   };
 }

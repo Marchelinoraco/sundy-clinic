@@ -5,14 +5,14 @@ import { runAction, UserFacingError, type ActionResult } from "@/lib/action-resu
 import { prisma } from "@/lib/db";
 import { formatDateColumn, formatGender, formatIndonesianDate } from "@/lib/format";
 import { INTAKE_PURPOSE_LABEL } from "@/lib/intake-purpose";
-import type { RecordProposal } from "@/lib/kuis/v2/record-proposal";
 import { can } from "@/lib/permissions";
-import { mergeRecordText } from "@/lib/record-text";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { recordAudit } from "@/server/audit";
-import { loadIntakeClinical, type IntakeClinical } from "@/server/intake-clinical";
+import { loadApproval, loadIntakeClinical, type IntakeApproval, type IntakeClinical } from "@/server/intake-clinical";
 import { insertPatient } from "@/server/patient-store";
 import { requireCapability } from "@/server/session";
+
+export type { IntakeApproval } from "@/server/intake-clinical";
 
 export type MatchCandidate = {
   id: string;
@@ -211,19 +211,6 @@ export async function createPatientFromIntake(
   });
 }
 
-export type IntakeApproval =
-  | { state: "needs-match" }
-  | {
-      state: "ready";
-      patientId: string;
-      /** updatedAt pasien (ISO) saat halaman dibuka; simpan ditolak bila data pasien berubah sesudahnya. */
-      patientVersion: string;
-      current: { allergies: string | null; medicalHistory: string | null };
-      proposed: RecordProposal;
-      /** Isi awal kolom sunting. */
-      prefill: { allergies: string; medicalHistory: string };
-    };
-
 export type IntakeDetail = {
   id: string;
   status: "MENUNGGU_DIISI" | "TERISI" | "DIPERIKSA";
@@ -246,31 +233,6 @@ export type IntakeDetail = {
   /** Hanya untuk record:write, setelah pasien mengisi kuis (spec 6.4). */
   approval: IntakeApproval | null;
 };
-
-/**
- * Usulan berdampingan dengan catatan pasien saat ini (spec 6.4). Isian yang
- * sudah diperiksa tidak menggabungkan usulan lagi: baris yang sengaja dihapus
- * dokter tidak boleh muncul kembali.
- */
-async function loadApproval(patientId: string, proposed: RecordProposal, reviewed: boolean): Promise<IntakeApproval> {
-  const patient = await prisma.patient.findUniqueOrThrow({
-    where: { id: patientId },
-    select: { allergies: true, medicalHistory: true, updatedAt: true },
-  });
-  return {
-    state: "ready",
-    patientId,
-    patientVersion: patient.updatedAt.toISOString(),
-    current: { allergies: patient.allergies, medicalHistory: patient.medicalHistory },
-    proposed,
-    prefill: reviewed
-      ? { allergies: patient.allergies ?? "", medicalHistory: patient.medicalHistory ?? "" }
-      : {
-          allergies: mergeRecordText(patient.allergies, proposed.allergies),
-          medicalHistory: mergeRecordText(patient.medicalHistory, proposed.medicalHistory),
-        },
-  };
-}
 
 export async function getIntakeForStaff(intakeId: string): Promise<IntakeDetail | null> {
   const staff = await requireCapability("booking:manage");

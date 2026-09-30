@@ -1,10 +1,11 @@
 "use server";
 
-import type { IntakeStatus, Prisma } from "@prisma/client";
+import type { IntakeKind, IntakePurpose, IntakeStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import {
   VITAL_KEYS,
   ageInYears,
+  assessmentPreview,
   describeVitals,
   vitalInputValue,
   type EncounterDraftInput,
@@ -12,10 +13,12 @@ import {
   type VitalKey,
 } from "@/lib/encounter";
 import { formatGender } from "@/lib/format";
+import { INTAKE_PURPOSE_LABEL } from "@/lib/intake-purpose";
+import type { RecordProposal } from "@/lib/kuis/v2/record-proposal";
 import { can } from "@/lib/permissions";
 import { addDaysToDateString, combineWitaDateAndMinutes, witaDateString } from "@/lib/time";
 import { listAuditTrail, recordAuditThrottled, type AuditTrailRow } from "@/server/audit";
-import { loadIntakeClinical, type IntakeClinical } from "@/server/intake-clinical";
+import { loadApproval, loadIntakeClinical, type IntakeClinical, type ReadyIntakeApproval } from "@/server/intake-clinical";
 import { requireCapability } from "@/server/session";
 
 export type EncounterWarnings = {
@@ -30,7 +33,42 @@ export type EncounterWarnings = {
 export type EncounterIntake =
   | { id: string; state: "pending" }
   | { id: string; state: "error"; message: string }
-  | { id: string; state: "ready"; clinical: IntakeClinical; needsApproval: boolean };
+  | {
+      id: string;
+      state: "ready";
+      clinical: IntakeClinical;
+      needsApproval: boolean;
+      kind: "LENGKAP" | "PENDEK";
+      purposeLabel: string | null;
+      submittedAt: Date | null;
+    };
+
+export type EncounterTreatmentSummary = {
+  serviceName: string;
+  area: string | null;
+  dose: string | null;
+  performerName: string;
+  notes: string | null;
+};
+
+export type EncounterAddendumSummary = { id: string; text: string; authorName: string; createdAt: Date };
+
+/** Kunjungan final sebelumnya, untuk tab Sebelumnya dan Tren (spec UI B bagian 4–5). */
+export type EncounterHistoryItem = {
+  id: string;
+  startAt: Date;
+  branchName: string;
+  authorName: string;
+  subjective: string | null;
+  physicalExam: string | null;
+  assessment: string | null;
+  plan: string | null;
+  vitals: Record<VitalKey, number | null>;
+  vitalLines: string[];
+  assessmentPreview: string | null;
+  treatments: EncounterTreatmentSummary[];
+  addenda: EncounterAddendumSummary[];
+};
 
 export type EncounterDetail = {
   id: string;
@@ -47,31 +85,125 @@ export type EncounterDetail = {
   draft: EncounterDraftInput;
   /** Tanda vital yang diukur, siap dibaca (baca-saja). */
   vitalLines: string[];
-  treatments: { serviceName: string; area: string | null; dose: string | null; performerName: string; notes: string | null }[];
-  addenda: { id: string; text: string; authorName: string; createdAt: Date }[];
+  /** Angka vital tersimpan kunjungan ini (baris "Kunjungan ini" di Tren sebelum dokter mengetik). */
+  vitals: Record<VitalKey, number | null>;
+  treatments: EncounterTreatmentSummary[];
+  addenda: EncounterAddendumSummary[];
   options: EncounterOptions;
   /** Hanya untuk audit:read (Super Admin). */
   trail: AuditTrailRow[] | null;
+  /** Kunjungan final pasien ini yang lebih awal dari kunjungan ini, terbaru di atas, maks. 12. */
+  history: EncounterHistoryItem[];
+  hasMoreHistory: boolean;
+  /** Persetujuan isian ke data pasien; hanya untuk record:write bila isian sudah terisi. */
+  approval: ReadyIntakeApproval | null;
 };
 
 const UNKNOWN_QUIZ_VERSION = "Isian dengan kuis versi";
 
-/** Isian kuis booking ini untuk bagian S. Versi kuis yang tidak dikenal tidak menggagalkan halaman. */
+const HISTORY_LIMIT = 12;
+
+const VITAL_SELECT = {
+  systolic: true,
+  diastolic: true,
+  pulse: true,
+  temperatureC: true,
+  weightKg: true,
+  heightCm: true,
+  waistCm: true,
+} as const;
+
+const TREATMENT_SELECT = {
+  orderBy: { sortOrder: "asc" as const },
+  select: { serviceId: true, serviceName: true, area: true, dose: true, performerId: true, performerName: true, notes: true },
+};
+
+const ADDENDUM_SELECT = {
+  orderBy: { createdAt: "asc" as const },
+  select: { id: true, text: true, authorName: true, createdAt: true },
+};
+
+function vitalsOf(row: Record<VitalKey, number | Prisma.Decimal | null>): Record<VitalKey, number | null> {
+  const values = {} as Record<VitalKey, number | null>;
+  for (const key of VITAL_KEYS) values[key] = row[key] === null ? null : Number(row[key]);
+  return values;
+}
+
+function findHistory(patientId: string, before: Date, excludeId: string) {
+  return prisma.encounter.findMany({
+    where: { status: "FINAL", id: { not: excludeId }, appointment: { patientId, startAt: { lt: before } } },
+    orderBy: { appointment: { startAt: "desc" } },
+    take: HISTORY_LIMIT + 1,
+    select: {
+      id: true,
+      subjective: true,
+      physicalExam: true,
+      assessment: true,
+      plan: true,
+      ...VITAL_SELECT,
+      createdByName: true,
+      finalizedByName: true,
+      treatments: TREATMENT_SELECT,
+      addenda: ADDENDUM_SELECT,
+      appointment: { select: { startAt: true, branch: { select: { name: true } } } },
+    },
+  });
+}
+
+function toHistoryItem(row: Awaited<ReturnType<typeof findHistory>>[number]): EncounterHistoryItem {
+  const vitals = vitalsOf(row);
+  return {
+    id: row.id,
+    startAt: row.appointment.startAt,
+    branchName: row.appointment.branch.name,
+    authorName: row.finalizedByName ?? row.createdByName,
+    subjective: row.subjective,
+    physicalExam: row.physicalExam,
+    assessment: row.assessment,
+    plan: row.plan,
+    vitals,
+    vitalLines: describeVitals(vitals),
+    assessmentPreview: assessmentPreview(row.assessment),
+    treatments: row.treatments.map(toTreatmentSummary),
+    addenda: row.addenda,
+  };
+}
+
+function toTreatmentSummary(row: {
+  serviceName: string;
+  area: string | null;
+  dose: string | null;
+  performerName: string;
+  notes: string | null;
+}): EncounterTreatmentSummary {
+  return { serviceName: row.serviceName, area: row.area, dose: row.dose, performerName: row.performerName, notes: row.notes };
+}
+
+/** Isian kuis booking ini untuk tab Isian. Versi kuis yang tidak dikenal tidak menggagalkan halaman. */
 async function loadEncounterIntake(
-  intake: { id: string; status: IntakeStatus } | null,
-): Promise<{ intake: EncounterIntake | null; pregnancy: boolean }> {
-  if (!intake) return { intake: null, pregnancy: false };
-  if (intake.status === "MENUNGGU_DIISI") return { intake: { id: intake.id, state: "pending" }, pregnancy: false };
+  intake: { id: string; status: IntakeStatus; kind: IntakeKind; purpose: IntakePurpose | null; submittedAt: Date | null } | null,
+): Promise<{ intake: EncounterIntake | null; pregnancy: boolean; proposal: RecordProposal | null }> {
+  if (!intake) return { intake: null, pregnancy: false, proposal: null };
+  if (intake.status === "MENUNGGU_DIISI") return { intake: { id: intake.id, state: "pending" }, pregnancy: false, proposal: null };
   try {
     const loaded = await loadIntakeClinical(intake.id);
-    if (!loaded) return { intake: { id: intake.id, state: "pending" }, pregnancy: false };
+    if (!loaded) return { intake: { id: intake.id, state: "pending" }, pregnancy: false, proposal: null };
     return {
-      intake: { id: intake.id, state: "ready", clinical: loaded.clinical, needsApproval: intake.status === "TERISI" },
+      intake: {
+        id: intake.id,
+        state: "ready",
+        clinical: loaded.clinical,
+        needsApproval: intake.status === "TERISI",
+        kind: intake.kind,
+        purposeLabel: intake.purpose ? INTAKE_PURPOSE_LABEL[intake.purpose] : null,
+        submittedAt: intake.submittedAt,
+      },
       pregnancy: loaded.pregnancy,
+      proposal: loaded.proposal,
     };
   } catch (error) {
     if (error instanceof Error && error.message.startsWith(UNKNOWN_QUIZ_VERSION)) {
-      return { intake: { id: intake.id, state: "error", message: error.message }, pregnancy: false };
+      return { intake: { id: intake.id, state: "error", message: error.message }, pregnancy: false, proposal: null };
     }
     throw error;
   }
@@ -122,21 +254,12 @@ export async function getEncounterForStaff(encounterId: string): Promise<Encount
       physicalExam: true,
       assessment: true,
       plan: true,
-      systolic: true,
-      diastolic: true,
-      pulse: true,
-      temperatureC: true,
-      weightKg: true,
-      heightCm: true,
-      waistCm: true,
+      ...VITAL_SELECT,
       createdByName: true,
       finalizedByName: true,
       finalizedAt: true,
-      treatments: {
-        orderBy: { sortOrder: "asc" },
-        select: { serviceId: true, serviceName: true, area: true, dose: true, performerId: true, performerName: true, notes: true },
-      },
-      addenda: { orderBy: { createdAt: "asc" }, select: { id: true, text: true, authorName: true, createdAt: true } },
+      treatments: TREATMENT_SELECT,
+      addenda: ADDENDUM_SELECT,
       appointment: {
         select: {
           id: true,
@@ -148,7 +271,7 @@ export async function getEncounterForStaff(encounterId: string): Promise<Encount
           service: { select: { name: true } },
           staff: { select: { name: true } },
           branch: { select: { name: true } },
-          intake: { select: { id: true, status: true } },
+          intake: { select: { id: true, status: true, kind: true, purpose: true, submittedAt: true } },
           patient: {
             select: {
               id: true,
@@ -171,23 +294,33 @@ export async function getEncounterForStaff(encounterId: string): Promise<Encount
   const patient = appointment.patient!;
 
   await recordAuditThrottled({ actor: staff, action: "encounter.view", entity: "Encounter", entityId: row.id, summary: appointment.code });
+  // Halaman ini juga menampilkan isi kunjungan lain milik pasien (tab Sebelumnya).
+  await recordAuditThrottled({
+    actor: staff,
+    action: "patient.view-records",
+    entity: "Patient",
+    entityId: patient.id,
+    summary: patient.medicalRecordNumber,
+  });
 
-  const vitals = {} as Record<VitalKey, number | null>;
+  const vitals = vitalsOf(row);
   const vitalInputs = {} as Record<VitalKey, string>;
-  for (const key of VITAL_KEYS) {
-    const value = row[key] === null ? null : Number(row[key]);
-    vitals[key] = value;
-    vitalInputs[key] = vitalInputValue(key, value);
-  }
+  for (const key of VITAL_KEYS) vitalInputs[key] = vitalInputValue(key, vitals[key]);
 
-  const [{ intake, pregnancy }, options, trail] = await Promise.all([
+  const [{ intake, pregnancy, proposal }, options, trail, historyRows] = await Promise.all([
     loadEncounterIntake(appointment.intake),
     loadOptions(
       { serviceIds: row.treatments.map((t) => t.serviceId), performerIds: row.treatments.map((t) => t.performerId) },
       { serviceId: appointment.serviceId, staffId: appointment.staffId },
     ),
     can(staff.role, "audit:read") ? listAuditTrail("Encounter", row.id) : Promise.resolve(null),
+    findHistory(patient.id, appointment.startAt, row.id),
   ]);
+
+  const approval =
+    proposal && appointment.intake && can(staff.role, "record:write")
+      ? await loadApproval(patient.id, proposal, appointment.intake.status === "DIPERIKSA")
+      : null;
 
   return {
     id: row.id,
@@ -233,16 +366,14 @@ export async function getEncounterForStaff(encounterId: string): Promise<Encount
       })),
     },
     vitalLines: describeVitals(vitals),
-    treatments: row.treatments.map((t) => ({
-      serviceName: t.serviceName,
-      area: t.area,
-      dose: t.dose,
-      performerName: t.performerName,
-      notes: t.notes,
-    })),
+    vitals,
+    treatments: row.treatments.map(toTreatmentSummary),
     addenda: row.addenda,
     options,
     trail,
+    history: historyRows.slice(0, HISTORY_LIMIT).map(toHistoryItem),
+    hasMoreHistory: historyRows.length > HISTORY_LIMIT,
+    approval,
   };
 }
 

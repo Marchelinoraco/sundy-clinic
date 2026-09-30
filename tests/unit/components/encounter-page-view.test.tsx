@@ -36,6 +36,10 @@ const base: EncounterDetail = {
   addenda: [],
   options: { services: [{ id: "s1", name: "Konsultasi Dokter" }], performers: [{ id: "d1", name: "dr. Diane" }], defaultServiceId: "s1", defaultPerformerId: "d1" },
   trail: null,
+  vitals: { systolic: null, diastolic: null, pulse: null, temperatureC: null, weightKg: null, heightCm: null, waistCm: null },
+  history: [],
+  hasMoreHistory: false,
+  approval: null,
 };
 
 const final: EncounterDetail = {
@@ -131,6 +135,9 @@ describe("EncounterPageView", () => {
             id: "i1",
             state: "ready",
             needsApproval: true,
+            kind: "LENGKAP",
+            purposeLabel: "Slimming",
+            submittedAt: null,
             clinical: { sections: [{ title: "Kesehatan", lines: ["Diabetes: Metformin"] }], activities: null, activityDateLabel: null, habits: null },
           },
         }}
