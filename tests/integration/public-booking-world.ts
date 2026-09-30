@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { addDaysToDateString, combineWitaDateAndMinutes, witaDateString } from "@/lib/time";
+import { purgeEncounters } from "../purge-encounters";
 
 export type BookingWorld = {
   branchId: string;
@@ -97,6 +98,10 @@ export async function createBookingWorld(slug: string): Promise<BookingWorld> {
 }
 
 export async function cleanupBookingWorld(slug: string, patientWhatsapps: string[] = []) {
+  // Kunjungan menahan booking (FK Restrict) dan kunjungan final tidak bisa dihapus
+  // biasa. Berkas uji berjalan berurutan (fileParallelism: false), jadi aman
+  // mengosongkan semuanya.
+  await purgeEncounters(prisma);
   const staff = { staff: { slug: { startsWith: slug } } };
   await prisma.intake.deleteMany({ where: { appointment: staff } });
   await prisma.appointment.deleteMany({ where: staff });

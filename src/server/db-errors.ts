@@ -20,3 +20,18 @@ export function isExclusionViolation(error: unknown): boolean {
 export function isUniqueViolation(error: unknown): boolean {
   return error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002";
 }
+
+/** Awalan pesan trigger penguncian rekam medis (migrasi kunjungan_dokter). */
+export const RECORD_LOCKED_MARKER = "rekam_medis_terkunci";
+
+/**
+ * Trigger menolak perubahan pada kunjungan final, treatment-nya, atau adendum.
+ * Pesannya ada di `message` (kueri mentah maupun kueri model lewat adapter-pg);
+ * `meta` diperiksa juga untuk berjaga bila bentuk galat Prisma berubah.
+ */
+export function isRecordLockedError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  if (error.message.includes(RECORD_LOCKED_MARKER)) return true;
+  const meta = (error as { meta?: unknown }).meta;
+  return meta !== undefined && JSON.stringify(meta).includes(RECORD_LOCKED_MARKER);
+}

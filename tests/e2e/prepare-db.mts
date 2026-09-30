@@ -6,9 +6,11 @@ import "dotenv/config";
 import { auth } from "../../src/lib/auth";
 import { prisma } from "../../src/lib/db";
 import { E2E_ADMIN, E2E_RESEPSIONIS } from "./credentials";
+import { purgeEncounters } from "../purge-encounters";
 
 // Booking dan pasien dari putaran sebelumnya dibuang agar slot yang
 // ditawarkan selalu sama di setiap putaran.
+await purgeEncounters(prisma);
 await prisma.slotHold.deleteMany();
 await prisma.intake.deleteMany();
 await prisma.appointment.deleteMany();

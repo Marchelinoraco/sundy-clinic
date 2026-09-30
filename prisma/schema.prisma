@@ -344,6 +344,11 @@ model Patient {
   address             String?
   allergies           String?
   medicalHistory      String?
+  /// Catatan penting dari dokter (mis. "takut jarum"), tampil sebagai peringatan
+  /// di setiap kunjungan. Hanya untuk record:read.
+  importantNotes      String?
+  /// Nomor rekam medis kertas lama, agar front office tahu ada berkas di lemari.
+  paperRecordNumber   String?
   programStatus       PatientProgramStatus @default(AKTIF)
   activePackageId     String?
   lastVisitAt         DateTime?
@@ -398,6 +403,7 @@ model Appointment {
   /// Perubahan pengaturan tidak mengubah booking lama.
   bookingFee Int?
   intake     Intake?
+  encounter  Encounter?
 
   branchId  String
   branch    Branch   @relation(fields: [branchId], references: [id])
@@ -525,4 +531,83 @@ model ClinicSetting {
   bankAccountHolder String?
 
   updatedAt DateTime @updatedAt
+}
+
+enum EncounterStatus {
+  DRAF
+  FINAL
+}
+
+/// Kunjungan: catatan SOAP dokter untuk satu booking yang sudah hadir. Pasien
+/// dan cabang dibaca dari booking-nya, tidak disalin. Catatan FINAL dikunci
+/// trigger PostgreSQL di migrasi kunjungan_dokter: tidak bisa diubah atau
+/// dihapus, koreksi hanya lewat EncounterAddendum. Spec:
+/// docs/superpowers/specs/2026-09-30-catatan-dokter-kunjungan-design.md.
+model Encounter {
+  id     String          @id @default(cuid())
+  status EncounterStatus @default(DRAF)
+
+  subjective   String?
+  physicalExam String?
+  assessment   String?
+  plan         String?
+
+  systolic     Int?
+  diastolic    Int?
+  pulse        Int?
+  temperatureC Decimal? @db.Decimal(3, 1)
+  weightKg     Decimal? @db.Decimal(5, 1)
+  heightCm     Decimal? @db.Decimal(5, 1)
+  waistCm      Decimal? @db.Decimal(5, 1)
+
+  /// Id dan nama staf disalin seperti AuditLog, tanpa relasi: catatan tetap
+  /// terbaca walau staf kelak dinonaktifkan.
+  createdById     String
+  createdByName   String
+  finalizedById   String?
+  finalizedByName String?
+  finalizedAt     DateTime?
+
+  appointmentId String      @unique
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
+
+  treatments EncounterTreatment[]
+  addenda    EncounterAddendum[]
+
+  createdAt DateTime @default(now())
+  /// Juga dipakai sebagai versi: simpan draf ditolak bila berbeda dari yang dibaca halaman.
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+/// Treatment yang dilakukan pada satu kunjungan. Layanan dan pelaksana dirujuk
+/// tanpa relasi dan namanya disalin, agar catatan lama tidak ikut berubah.
+model EncounterTreatment {
+  id            String    @id @default(cuid())
+  encounterId   String
+  encounter     Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  serviceId     String
+  serviceName   String
+  area          String?
+  dose          String?
+  performerId   String
+  performerName String
+  notes         String?
+  sortOrder     Int       @default(0)
+
+  @@index([encounterId])
+}
+
+/// Koreksi atas kunjungan final. Hanya bisa ditambahkan, tidak pernah diubah atau dihapus.
+model EncounterAddendum {
+  id          String    @id @default(cuid())
+  encounterId String
+  encounter   Encounter @relation(fields: [encounterId], references: [id], onDelete: Restrict)
+  text        String
+  authorId    String
+  authorName  String
+  createdAt   DateTime  @default(now())
+
+  @@index([encounterId])
 }
