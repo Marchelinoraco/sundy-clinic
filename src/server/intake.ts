@@ -5,14 +5,12 @@ import { runAction, UserFacingError, type ActionResult } from "@/lib/action-resu
 import { prisma } from "@/lib/db";
 import { formatDateColumn, formatGender, formatIndonesianDate } from "@/lib/format";
 import { INTAKE_PURPOSE_LABEL } from "@/lib/intake-purpose";
-import { clinicalView, type ClinicalSection } from "@/lib/kuis/clinical-view";
-import type { ActivityRow } from "@/lib/kuis/v1/describe";
-import type { HabitTable } from "@/lib/kuis/v2/describe";
 import type { RecordProposal } from "@/lib/kuis/v2/record-proposal";
 import { can } from "@/lib/permissions";
 import { mergeRecordText } from "@/lib/record-text";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { recordAudit } from "@/server/audit";
+import { loadIntakeClinical, type IntakeClinical } from "@/server/intake-clinical";
 import { insertPatient } from "@/server/patient-store";
 import { requireCapability } from "@/server/session";
 
@@ -244,43 +242,10 @@ export type IntakeDetail = {
     address: string | null;
   };
   /** null untuk peran tanpa record:read, atau bila pasien belum mengisi. */
-  clinical: {
-    sections: ClinicalSection[];
-    activities: ActivityRow[] | null;
-    activityDateLabel: string | null;
-    /** Tabel kebiasaan (form recall) — isian kuis versi 2. */
-    habits: HabitTable | null;
-  } | null;
+  clinical: IntakeClinical | null;
   /** Hanya untuk record:write, setelah pasien mengisi kuis (spec 6.4). */
   approval: IntakeApproval | null;
 };
-
-/** Kolom klinis dibaca dengan kueri terpisah, hanya untuk yang berhak (spec 6.2). */
-async function loadClinical(
-  intakeId: string,
-): Promise<{ clinical: NonNullable<IntakeDetail["clinical"]>; proposal: RecordProposal } | null> {
-  const row = await prisma.intake.findUniqueOrThrow({
-    where: { id: intakeId },
-    select: { quizVersion: true, answers: true, selfWeightKg: true, selfHeightCm: true, activityDate: true },
-  });
-  if (row.answers === null) return null;
-
-  const view = clinicalView({
-    quizVersion: row.quizVersion,
-    answers: row.answers,
-    weightKg: row.selfWeightKg === null ? null : Number(row.selfWeightKg),
-    heightCm: row.selfHeightCm === null ? null : Number(row.selfHeightCm),
-  });
-  return {
-    proposal: view.proposal,
-    clinical: {
-      sections: view.sections,
-      activities: view.activities,
-      habits: view.habits,
-      activityDateLabel: row.activityDate ? formatIndonesianDate(row.activityDate) : null,
-    },
-  };
-}
 
 /**
  * Usulan berdampingan dengan catatan pasien saat ini (spec 6.4). Isian yang
@@ -339,7 +304,7 @@ export async function getIntakeForStaff(intakeId: string): Promise<IntakeDetail 
   });
   if (!row) return null;
 
-  const loaded = can(staff.role, "record:read") ? await loadClinical(row.id) : null;
+  const loaded = can(staff.role, "record:read") ? await loadIntakeClinical(row.id) : null;
   let approval: IntakeApproval | null = null;
   if (loaded && can(staff.role, "record:write")) {
     approval = row.patient

@@ -37,4 +37,13 @@ describe("clinicalView", () => {
       "Isian dengan kuis versi 3 belum bisa ditampilkan.",
     );
   });
+
+  it("menandai hamil/menyusui hanya bila K4 dijawab Ya, di versi 1 maupun 2", () => {
+    const pregnantV2 = { ...v2.slimmingNewPatient, health: { ...v2.slimmingNewPatient.health, pregnancy: "YA" } };
+    expect(clinicalView({ quizVersion: 2, answers: pregnantV2, weightKg: null, heightCm: null }).pregnancy).toBe(true);
+    expect(clinicalView({ quizVersion: 2, answers: v2.slimmingNewPatient, weightKg: null, heightCm: null }).pregnancy).toBe(false);
+    expect(clinicalView({ quizVersion: 1, answers: v1.slimmingReturningPatient, weightKg: null, heightCm: null }).pregnancy).toBe(false);
+    const pregnantV1 = { ...v1.slimmingNewPatient, health: { ...v1.slimmingNewPatient.health, pregnancy: "YA" } };
+    expect(clinicalView({ quizVersion: 1, answers: pregnantV1, weightKg: null, heightCm: null }).pregnancy).toBe(true);
+  });
 });

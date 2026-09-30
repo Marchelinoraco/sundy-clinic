@@ -1,3 +1,5 @@
+import { auditActionLabel, auditRoleLabel } from "@/lib/audit-labels";
+import { AUDIT_REPEAT_WINDOW_MS, shouldRecordRepeat } from "@/lib/audit-window";
 import { prisma } from "@/lib/db";
 import type { CurrentStaff } from "@/server/session";
 
@@ -45,4 +47,40 @@ export async function recordAudit(input: AuditInput): Promise<void> {
       summary: input.summary,
     },
   });
+}
+
+/**
+ * Seperti recordAudit, tetapi paling banyak sekali per pelaku, aksi, dan
+ * catatan dalam jendela 30 menit (spec R12): membuka kunjungan dan menyimpan
+ * draf otomatis tidak membanjiri jejak audit.
+ */
+export async function recordAuditThrottled(input: AuditInput, windowMs = AUDIT_REPEAT_WINDOW_MS): Promise<void> {
+  const last = await prisma.auditLog.findFirst({
+    where: { actorStaffId: input.actor.staffId, action: input.action, entity: input.entity, entityId: input.entityId },
+    orderBy: { createdAt: "desc" },
+    select: { createdAt: true },
+  });
+  if (!shouldRecordRepeat(last?.createdAt ?? null, new Date(), windowMs)) return;
+  await recordAudit(input);
+}
+
+export type AuditTrailRow = { id: string; at: Date; actorName: string; roleLabel: string; actionLabel: string };
+
+/**
+ * Jejak satu catatan, terbaru di atas. Tidak memeriksa hak akses sendiri:
+ * pemanggil wajib memastikan staf punya audit:read.
+ */
+export async function listAuditTrail(entity: string, entityId: string): Promise<AuditTrailRow[]> {
+  const rows = await prisma.auditLog.findMany({
+    where: { entity, entityId },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, createdAt: true, actorName: true, actorRole: true, action: true },
+  });
+  return rows.map((row) => ({
+    id: row.id,
+    at: row.createdAt,
+    actorName: row.actorName,
+    roleLabel: auditRoleLabel(row.actorRole),
+    actionLabel: auditActionLabel(row.action),
+  }));
 }

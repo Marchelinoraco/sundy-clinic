@@ -15,7 +15,11 @@ export default async function PatientDetailPage({ params }: { params: Promise<{ 
     <>
       <AdminHeader title="Data Pasien" />
       <div className="p-6">
-        <PatientDetailView patient={patient} canReadRecords={can(staff.role, "record:read")} />
+        <PatientDetailView
+          patient={patient}
+          canReadRecords={can(staff.role, "record:read")}
+          canWriteRecords={can(staff.role, "record:write")}
+        />
       </div>
     </>
   );

@@ -9,7 +9,8 @@ import { INTAKE_PURPOSE_LABEL } from "@/lib/intake-purpose";
 import { can } from "@/lib/permissions";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { normalizeWhatsapp } from "@/lib/whatsapp";
-import { recordAudit } from "@/server/audit";
+import { assessmentPreview, IMPORTANT_NOTES_MAX, PAPER_RECORD_NUMBER_MAX } from "@/lib/encounter";
+import { recordAudit, recordAuditThrottled } from "@/server/audit";
 import { insertPatient } from "@/server/patient-store";
 import { requireCapability } from "@/server/session";
 
@@ -142,9 +143,11 @@ export type PatientDetail = {
   genderLabel: string | null;
   occupation: string | null;
   address: string | null;
+  /** Nomor rekam medis kertas lama; boleh dilihat dan diubah resepsionis (spec R11). */
+  paperRecordNumber: string | null;
   programStatus: "AKTIF" | "SELESAI" | "TIDAK_AKTIF";
   /** Hanya untuk record:read (spec 6.2). */
-  record: { allergies: string | null; medicalHistory: string | null } | null;
+  record: { allergies: string | null; medicalHistory: string | null; importantNotes: string | null } | null;
   appointments: {
     id: string;
     code: string;
@@ -164,6 +167,18 @@ export type PatientDetail = {
     reviewerName: string | null;
     reviewedAt: Date | null;
   }[];
+  /** Riwayat kunjungan, terbaru di atas. Hanya untuk record:read. */
+  encounters:
+    | {
+        id: string;
+        code: string;
+        startAt: Date;
+        branchName: string;
+        authorName: string;
+        assessmentPreview: string | null;
+        status: "DRAF" | "FINAL";
+      }[]
+    | null;
 };
 
 /**
@@ -184,6 +199,7 @@ export async function getPatientDetail(id: string): Promise<PatientDetail | null
       gender: true,
       occupation: true,
       address: true,
+      paperRecordNumber: true,
       programStatus: true,
       appointments: {
         orderBy: { startAt: "desc" },
@@ -215,9 +231,36 @@ export async function getPatientDetail(id: string): Promise<PatientDetail | null
   });
   if (!patient) return null;
 
-  const record = can(staff.role, "record:read")
-    ? await prisma.patient.findUniqueOrThrow({ where: { id }, select: { allergies: true, medicalHistory: true } })
+  const canRead = can(staff.role, "record:read");
+  const record = canRead
+    ? await prisma.patient.findUniqueOrThrow({
+        where: { id },
+        select: { allergies: true, medicalHistory: true, importantNotes: true },
+      })
     : null;
+  const encounters = canRead
+    ? await prisma.encounter.findMany({
+        where: { appointment: { patientId: id } },
+        orderBy: { appointment: { startAt: "desc" } },
+        select: {
+          id: true,
+          status: true,
+          assessment: true,
+          createdByName: true,
+          finalizedByName: true,
+          appointment: { select: { code: true, startAt: true, branch: { select: { name: true } } } },
+        },
+      })
+    : null;
+  if (canRead) {
+    await recordAuditThrottled({
+      actor: staff,
+      action: "patient.view-records",
+      entity: "Patient",
+      entityId: id,
+      summary: patient.medicalRecordNumber,
+    });
+  }
 
   return {
     id: patient.id,
@@ -228,6 +271,7 @@ export async function getPatientDetail(id: string): Promise<PatientDetail | null
     genderLabel: formatGender(patient.gender),
     occupation: patient.occupation,
     address: patient.address,
+    paperRecordNumber: patient.paperRecordNumber,
     programStatus: patient.programStatus,
     record,
     appointments: patient.appointments.map((a) => ({
@@ -249,5 +293,64 @@ export async function getPatientDetail(id: string): Promise<PatientDetail | null
       reviewerName: intake.reviewedBy?.name ?? null,
       reviewedAt: intake.reviewedAt,
     })),
+    encounters:
+      encounters?.map((encounter) => ({
+        id: encounter.id,
+        code: encounter.appointment.code,
+        startAt: encounter.appointment.startAt,
+        branchName: encounter.appointment.branch.name,
+        authorName: encounter.finalizedByName ?? encounter.createdByName,
+        assessmentPreview: assessmentPreview(encounter.assessment),
+        status: encounter.status,
+      })) ?? null,
   };
+}
+
+/** Catatan penting dokter, tampil di peringatan setiap kunjungan (spec R6). */
+export async function updatePatientImportantNotes(input: { patientId: string; text: string }): Promise<ActionResult<void>> {
+  return runAction(async () => {
+    const actor = await requireCapability("record:write");
+    const text = String(input?.text ?? "").trim();
+    if (text.length > IMPORTANT_NOTES_MAX) throw new UserFacingError("Catatan penting terlalu panjang (maks. 2.000 karakter).");
+    const patient = await prisma.patient.findUnique({
+      where: { id: String(input?.patientId ?? "") },
+      select: { id: true, medicalRecordNumber: true },
+    });
+    if (!patient) throw new UserFacingError("Pasien tidak ditemukan.");
+
+    await prisma.patient.update({ where: { id: patient.id }, data: { importantNotes: text || null } });
+    // Tanpa isi catatan: jejak audit untuk siapa dan kapan, bukan apa.
+    await recordAudit({
+      actor,
+      action: "patient.update-important-notes",
+      entity: "Patient",
+      entityId: patient.id,
+      summary: patient.medicalRecordNumber,
+    });
+    safeRevalidatePath(`/admin/pasien/${patient.id}`);
+  });
+}
+
+/** No. RM kertas lama (spec R11): front office yang mengambil berkas dari lemari, jadi booking:manage. */
+export async function updatePaperRecordNumber(input: { patientId: string; text: string }): Promise<ActionResult<void>> {
+  return runAction(async () => {
+    const actor = await requireCapability("booking:manage");
+    const text = String(input?.text ?? "").trim();
+    if (text.length > PAPER_RECORD_NUMBER_MAX) throw new UserFacingError("No. RM kertas lama terlalu panjang (maks. 50 karakter).");
+    const patient = await prisma.patient.findUnique({
+      where: { id: String(input?.patientId ?? "") },
+      select: { id: true, medicalRecordNumber: true },
+    });
+    if (!patient) throw new UserFacingError("Pasien tidak ditemukan.");
+
+    await prisma.patient.update({ where: { id: patient.id }, data: { paperRecordNumber: text || null } });
+    await recordAudit({
+      actor,
+      action: "patient.update-paper-record-number",
+      entity: "Patient",
+      entityId: patient.id,
+      summary: `${patient.medicalRecordNumber}: ${text || "dikosongkan"}`,
+    });
+    safeRevalidatePath(`/admin/pasien/${patient.id}`);
+  });
 }
