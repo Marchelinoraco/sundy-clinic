@@ -76,7 +76,7 @@ bash scripts/server/cek-situs.sh https://sundyclinic.com
   sebelumnya (tambah kolom dulu, hapus di rilis berikutnya) — kalau tidak, "kembali" tidak menolong.
 - **Sejak Plan 3b-1 (pendaftaran situs), jangan `deploy.sh kembali` ke rilis sebelum 3b-1 setelah ada booking dari situs.** Booking situs boleh belum punya pasien, dan kode lama menganggap pasien selalu ada — daftar booking akan rusak. Bila terpaksa, cocokkan dulu semua booking berlabel "Belum dicocokkan".
 - **Sejak kuis v2, jangan `deploy.sh kembali` ke rilis sebelum kuis v2 setelah ada isian versi 2.** Rilis lama hanya bisa membaca isian versi 1, sehingga halaman isian versi 2 akan menampilkan galat.
-- **Sejak catatan dokter per kunjungan, jangan `deploy.sh kembali` ke rilis sebelumnya setelah ada kunjungan di produksi.** Rilis lama tidak menampilkan kunjungan, dan tidak tahu bahwa booking Selesai berasal dari catatan dokter. Tabel kunjungan dan trigger penguncinya tetap utuh di basis data; jangan pernah mematikan trigger `encounter_*` di produksi.
+- **Sejak catatan dokter per kunjungan, jangan `deploy.sh kembali` ke rilis sebelumnya setelah ada kunjungan di produksi.** Rilis lama tidak menampilkan kunjungan, dan tidak tahu bahwa booking Selesai berasal dari catatan dokter. Tabel kunjungan dan trigger penguncinya tetap utuh di basis data; jangan pernah mematikan trigger `encounter_*` maupun `appointment_record_locked` di produksi.
 - Rilis gagal dihapus otomatis dan versi aktif tidak berubah.
 
 ## 5. Mode pemeliharaan
