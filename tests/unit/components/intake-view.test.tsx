@@ -2,8 +2,10 @@ import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { IntakeView } from "@/components/admin/intake-view";
 import { activityTable, describeAnswers } from "@/lib/kuis/v1/describe";
+import { habitTable } from "@/lib/kuis/v2/describe";
 import type { IntakeDetail } from "@/server/intake";
 import { slimmingReturningPatient } from "../../fixtures/quiz-answers";
+import { nutritionNewPatient } from "../../fixtures/quiz-answers-v2";
 
 // IntakeView memuat formulir persetujuan, yang mengimpor server action ini.
 vi.mock("@/server/intake", () => ({ approveIntakeToPatient: vi.fn() }));
@@ -69,5 +71,23 @@ describe("IntakeView", () => {
   it("meminta pencocokan dulu bila booking belum punya pasien", () => {
     render(<IntakeView intake={{ ...intake, approval: { state: "needs-match" } }} />);
     expect(screen.getByText(/Cocokkan booking ini dengan pasien di menu Booking/)).toBeInTheDocument();
+  });
+
+  it("menampilkan form recall sebagai tabel per jam, dengan catatan di bawahnya", () => {
+    render(
+      <IntakeView
+        intake={{
+          ...intake,
+          clinical: { sections: [], activities: null, activityDateLabel: null, habits: habitTable(nutritionNewPatient.habits) },
+        }}
+      />,
+    );
+    const table = screen.getByRole("table", { name: "Kebiasaan sehari" });
+    const rows = within(table).getAllByRole("row");
+    expect(rows).toHaveLength(18); // judul + 06.00–22.00
+    expect(within(table).getByRole("columnheader", { name: "Jenis dan jumlah" })).toBeInTheDocument();
+    expect(rows[2]).toHaveTextContent("07.00");
+    expect(rows[2]).toHaveTextContent("Sarapan: Nasi kuning 1 piring, teh manis 1 gelas");
+    expect(screen.getByText("Rokok: Tidak · Alkohol: Tidak · Soda: Kadang")).toBeInTheDocument();
   });
 });
