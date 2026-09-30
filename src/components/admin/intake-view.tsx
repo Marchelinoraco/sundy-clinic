@@ -4,6 +4,7 @@ import { formatIndonesianDate } from "@/lib/format";
 import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
 import type { IntakeDetail } from "@/server/intake";
 import { IntakeApprovalForm } from "./intake-approval-form";
+import { IntakeClinicalContent } from "./intake-clinical-content";
 
 const STATUS_LABEL: Record<IntakeDetail["status"], string> = {
   MENUNGGU_DIISI: "Menunggu diisi pasien",
@@ -54,73 +55,7 @@ export function IntakeView({ intake }: { intake: IntakeDetail }) {
         <p className="text-sm text-muted-foreground">Pasien belum mengisi kuis.</p>
       ) : (
         <>
-          {clinical.sections.map((section) => (
-            <section key={section.title} className="space-y-1">
-              <h2 className="text-base font-medium">{section.title}</h2>
-              <ul className="list-disc space-y-0.5 pl-5 text-sm">
-                {section.lines.map((line) => (
-                  <li key={line}>{line}</li>
-                ))}
-              </ul>
-            </section>
-          ))}
-
-          {clinical.habits && (
-            <section className="space-y-2">
-              <h2 className="text-base font-medium">Kebiasaan sehari (form recall)</h2>
-              <table aria-label="Kebiasaan sehari" className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-muted-foreground">
-                    <th className="w-16 py-1">Jam</th>
-                    <th className="py-1">Jenis dan jumlah</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {clinical.habits.rows.map((row) => (
-                    <tr key={row.label} className="border-b align-top">
-                      <td className="py-1 tabular-nums text-muted-foreground">{row.label}</td>
-                      <td className="py-1">{row.entries.join(" · ")}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {clinical.habits.notes.length > 0 && (
-                <ul className="list-disc space-y-0.5 pl-5 text-sm">
-                  {clinical.habits.notes.map((note) => (
-                    <li key={note}>{note}</li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          )}
-
-          {clinical.activities && (
-            <section className="space-y-2">
-              <h2 className="text-base font-medium">Aktivitas {clinical.activityDateLabel ?? "kemarin"}</h2>
-              <table aria-label={`Aktivitas ${clinical.activityDateLabel ?? "kemarin"}`} className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-muted-foreground">
-                    <th className="w-16 py-1">Jam</th>
-                    <th className="py-1">Catatan</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {clinical.activities.map((row) => (
-                    <tr key={row.hour} className="border-b align-top">
-                      <td className="py-1 tabular-nums text-muted-foreground">{row.label}</td>
-                      <td className="py-1">
-                        {row.entries.map((entry, index) => (
-                          <span key={index} className="mr-2 inline-block">
-                            <span className="text-muted-foreground">{entry.kindLabel}:</span> {entry.text}
-                          </span>
-                        ))}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </section>
-          )}
+          <IntakeClinicalContent clinical={clinical} />
 
           {intake.approval?.state === "ready" && (
             // key: formulir dibuat ulang dengan isi awal baru setelah router.refresh().
