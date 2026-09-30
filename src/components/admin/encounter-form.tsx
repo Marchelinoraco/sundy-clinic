@@ -23,6 +23,7 @@ import {
   TREATMENT_TEXT_MAX,
   VITALS,
   VITAL_KEYS,
+  bloodPressureProblem,
   bmi,
   formatDecimal,
   parseEncounterDraft,
@@ -34,6 +35,7 @@ import {
   type VitalKey,
 } from "@/lib/encounter";
 import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
+import { cn } from "@/lib/utils";
 import { discardEncounterDraft, finalizeEncounter, saveEncounterDraft } from "@/server/encounter";
 import { useDraftAutosave, type AutosaveStatus } from "./use-draft-autosave";
 
@@ -74,9 +76,9 @@ function TextField({ label, value, onChange, rows = 3 }: { label: string; value:
   );
 }
 
-function VitalField({ vital, value, onChange }: { vital: VitalKey; value: string; onChange: (value: string) => void }) {
+function VitalField(props: { vital: VitalKey; value: string; error: string | null; onChange: (value: string) => void }) {
   const id = useId();
-  const spec = VITALS[vital];
+  const spec = VITALS[props.vital];
   return (
     <div className="space-y-1">
       <Label htmlFor={id}>
@@ -85,9 +87,16 @@ function VitalField({ vital, value, onChange }: { vital: VitalKey; value: string
       <Input
         id={id}
         inputMode={spec.decimals === 0 ? "numeric" : "decimal"}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+        value={props.value}
+        aria-invalid={props.error ? true : undefined}
+        aria-describedby={props.error ? `${id}-error` : undefined}
+        onChange={(e) => props.onChange(e.target.value)}
       />
+      {props.error && (
+        <p id={`${id}-error`} className="text-xs text-destructive">
+          {props.error}
+        </p>
+      )}
     </div>
   );
 }
@@ -221,9 +230,21 @@ export function EncounterForm(props: EncounterFormProps) {
   const removeTreatment = (index: number) =>
     update({ ...draft, treatments: draft.treatments.filter((_, i) => i !== index) });
 
-  const weight = parseVital("weightKg", draft.vitals.weightKg);
-  const height = parseVital("heightCm", draft.vitals.heightCm);
-  const index = weight.ok && height.ok ? bmi(weight.value, height.value) : null;
+  // Angka yang tidak sah menahan simpan otomatis; tandai kolomnya begitu simpan ditolak,
+  // bukan di setiap ketikan, agar "1" dalam perjalanan ke "120" tidak langsung merah.
+  const rejected = autosave.status.kind === "rejected";
+  const vitalValues = {} as Record<VitalKey, number | null>;
+  const vitalErrors = {} as Record<VitalKey, string | null>;
+  for (const key of VITAL_KEYS) {
+    const parsed = parseVital(key, draft.vitals[key]);
+    vitalValues[key] = parsed.ok ? parsed.value : null;
+    vitalErrors[key] = rejected && !parsed.ok ? parsed.message : null;
+  }
+  const pressureError =
+    rejected && VITAL_KEYS.every((key) => vitalErrors[key] === null)
+      ? bloodPressureProblem(vitalValues.systolic, vitalValues.diastolic)
+      : null;
+  const index = bmi(vitalValues.weightKg, vitalValues.heightCm);
 
   function requestFinalize() {
     const parsed = parseEncounterDraft(draft);
@@ -294,9 +315,16 @@ export function EncounterForm(props: EncounterFormProps) {
         </h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {VITAL_KEYS.map((key) => (
-            <VitalField key={key} vital={key} value={draft.vitals[key]} onChange={(v) => setVital(key, v)} />
+            <VitalField
+              key={key}
+              vital={key}
+              value={draft.vitals[key]}
+              error={vitalErrors[key]}
+              onChange={(v) => setVital(key, v)}
+            />
           ))}
         </div>
+        {pressureError && <p className="text-sm text-destructive">{pressureError}</p>}
         <p className="text-sm">IMT {index === null ? "—" : formatDecimal(index)}</p>
         <TextField label={TEXT_FIELDS.physicalExam} value={draft.physicalExam} onChange={(v) => setText("physicalExam", v)} />
       </section>
@@ -344,7 +372,11 @@ export function EncounterForm(props: EncounterFormProps) {
         <Button variant="outline" onClick={() => setConfirm("discard")} disabled={busy}>
           Buang draf
         </Button>
-        <p role="status" aria-live="polite" className="text-sm text-muted-foreground">
+        <p
+          role="status"
+          aria-live="polite"
+          className={cn("text-sm", rejected ? "font-medium text-destructive" : "text-muted-foreground")}
+        >
           {statusText(autosave.status)}
         </p>
       </div>

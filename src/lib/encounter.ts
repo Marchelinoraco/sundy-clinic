@@ -129,6 +129,13 @@ export function parseVital(key: VitalKey, raw: string): Parsed<number | null> {
   return { ok: true, value: number };
 }
 
+/** Tensi selalu berpasangan, dan diastolik lebih kecil dari sistolik (juga CHECK di basis data). */
+export function bloodPressureProblem(systolic: number | null, diastolic: number | null): string | null {
+  if ((systolic === null) !== (diastolic === null)) return "Isi sistolik dan diastolik bersamaan.";
+  if (systolic !== null && diastolic !== null && diastolic >= systolic) return "Diastolik harus lebih kecil dari sistolik.";
+  return null;
+}
+
 /** Memeriksa seluruh isian. Pesan pertama yang ditemukan dikembalikan apa adanya ke pengguna. */
 export function parseEncounterDraft(input: EncounterDraftInput): Parsed<EncounterDraft> {
   const texts = {} as Record<TextKey, string | null>;
@@ -144,12 +151,8 @@ export function parseEncounterDraft(input: EncounterDraftInput): Parsed<Encounte
     if (!parsed.ok) return parsed;
     vitals[key] = parsed.value;
   }
-  if ((vitals.systolic === null) !== (vitals.diastolic === null)) {
-    return { ok: false, message: "Isi sistolik dan diastolik bersamaan." };
-  }
-  if (vitals.systolic !== null && vitals.diastolic !== null && vitals.diastolic >= vitals.systolic) {
-    return { ok: false, message: "Diastolik harus lebih kecil dari sistolik." };
-  }
+  const pressure = bloodPressureProblem(vitals.systolic, vitals.diastolic);
+  if (pressure) return { ok: false, message: pressure };
 
   if (input.treatments.length > TREATMENTS_MAX) {
     return { ok: false, message: `Paling banyak ${TREATMENTS_MAX} treatment per kunjungan.` };

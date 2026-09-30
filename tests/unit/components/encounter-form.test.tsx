@@ -108,6 +108,22 @@ describe("EncounterForm", () => {
     expect(saveEncounterDraft).not.toHaveBeenCalled();
   });
 
+  it("angka yang tidak sah ditandai di kolomnya, dan status tampil sebagai galat", async () => {
+    renderForm();
+    const systolic = screen.getByLabelText("Sistolik (mmHg)");
+    await userEvent.type(systolic, "12");
+    await waitFor(() => expect(systolic).toHaveAttribute("aria-invalid", "true"));
+    expect(screen.getByText("Sistolik harus 50–260 mmHg.")).toBeInTheDocument();
+    expect(status()).toHaveClass("text-destructive");
+  });
+
+  it("tensi yang tidak berpasangan ditandai di bagian O", async () => {
+    renderForm();
+    await userEvent.type(screen.getByLabelText("Sistolik (mmHg)"), "120");
+    await waitFor(() => expect(screen.getByText("Isi sistolik dan diastolik bersamaan.")).toBeInTheDocument());
+    expect(saveEncounterDraft).not.toHaveBeenCalled();
+  });
+
   it("galat jaringan dicoba ulang sampai tersimpan", async () => {
     vi.mocked(saveEncounterDraft).mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce(saved("v2"));
     renderForm();
