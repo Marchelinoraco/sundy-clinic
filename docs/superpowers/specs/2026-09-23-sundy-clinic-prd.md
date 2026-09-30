@@ -704,4 +704,4 @@ Harga dicoret adalah harga normal; harga tebal adalah harga promo berjalan.
 
 ## Lampiran C — Form Skrining Digital
 
-Digantikan kuis pendaftaran versi 1 — daftar pertanyaan lengkap di spec `2026-09-28-pendaftaran-pasien-design.md` bagian 3.2. Jawaban tersimpan sebagai Isian Pendaftaran per booking; berat & tinggi mandiri disimpan terpisah dan dibedakan dari hasil Timbang BIA.
+Digantikan kuis pendaftaran. **Versi 1** (28 Sep 2026): spec `2026-09-28-pendaftaran-pasien-design.md` bagian 3.2. **Versi 2** (sejak rilis kuis v2): spec `2026-09-30-kuis-v2-form-recall-design.md`, dengan tujuan gizi klinik dan form recall (kebiasaan) yang dibaca dokter sebagai tabel per jam. Jawaban tersimpan sebagai Isian Pendaftaran per booking beserta nomor versinya; berat & tinggi mandiri disimpan terpisah dan dibedakan dari hasil Timbang BIA. Food recall H-1 ditanyakan saat customer tiba di klinik (sub-proyek "Kedatangan di klinik").

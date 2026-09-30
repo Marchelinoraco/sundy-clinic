@@ -2,7 +2,7 @@
 
 - **Versi:** 1.1 (food recall H-1 dipindah ke kedatangan di klinik)
 - **Tanggal:** 30 September 2026
-- **Status:** Disetujui pemilik per bagian (30 September 2026), menunggu tinjauan spec tertulis
+- **Status:** Disetujui pemilik (30 September 2026) · terlaksana (30 September 2026)
 - **Melengkapi:** `docs/superpowers/specs/2026-09-28-pendaftaran-pasien-design.md`. Untuk isian baru, spec ini **menggantikan bagian 3.2 (isi kuis versi 1)**. Alur booking, pencocokan, persetujuan dokter, hak akses, dan kedaluwarsa tetap mengikuti spec itu.
 - **Acuan isi:** formulir Google dokter (22 kolom: identitas, tujuan, jam bangun, jam dan isi+porsi sarapan/siang/malam, cemilan, olahraga, rokok/alkohol/soda, alergi makanan, riwayat penyakit & obat rutin, jam tidur), dan lembar kertas klinik "JAM | Jenis dan Jumlah Pemberian" 06.00–22.00.
 
