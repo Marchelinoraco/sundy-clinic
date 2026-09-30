@@ -2,7 +2,7 @@
 
 - **Versi:** 1.0
 - **Tanggal:** 30 September 2026
-- **Status:** Menunggu tinjauan pemilik
+- **Status:** Disetujui pemilik (30 September 2026)
 - **Bagian dari:** PRD F12 (Rekam Medis Elektronik) dan F15 (audit), untuk kunjungan dan catatan SOAP. BIA, grafik, order obat, dan pengingat kontrol dirancang di spec terpisah (bagian 2).
 - **Melengkapi:** `docs/superpowers/specs/2026-09-28-pendaftaran-pasien-design.md` (isian, Setujui ke data pasien, hak akses) dan `docs/superpowers/specs/2026-09-30-kuis-v2-form-recall-design.md` (tampilan isian untuk dokter).
 
@@ -36,7 +36,7 @@ Bagian 1 dikerjakan lebih dulu karena bagian 3–5 semuanya menempel pada kunjun
 |---|---|---|
 | R1 | Urutan | Catatan dokter dulu, lalu check-in, BIA, order, dan pengingat |
 | R2 | Format catatan | SOAP standar PRD. Belum ada format kertas tetap yang harus ditiru |
-| R3 | Bagian O | Kolom angka: tekanan darah (sistolik/diastolik), nadi, suhu, berat, tinggi, lingkar pinggang/perut. BMI dihitung. Ditambah teks pemeriksaan fisik |
+| R3 | Bagian O | Kolom angka: tekanan darah (sistolik/diastolik), nadi, suhu, berat, tinggi, lingkar pinggang/perut. IMT (BMI) dihitung. Ditambah teks pemeriksaan fisik |
 | R4 | Kunjungan treatment | Dicatat oleh dokter atau Super Admin di halaman yang sama. Pelaksana dipilih dari daftar staf. Terapis tetap tanpa akses panel |
 | R5 | Finalisasi | Dokter menekan **Finalisasi**. Sebelumnya draf tersimpan otomatis dan bisa diubah |
 | R6 | Peringatan | Alergi, riwayat penyakit & obat, **catatan penting** (kolom baru), **hamil/menyusui** dari isian kunjungan ini, dan **no. RM kertas lama** (kolom baru) |
@@ -98,7 +98,7 @@ Urutan dari atas ke bawah:
 | Lingkar pinggang/perut | cm | 40,0–200,0 | 1 desimal |
 
 - Semua kolom boleh kosong. Sistolik dan diastolik harus diisi berpasangan.
-- **BMI** dihitung dan ditampilkan (1 desimal) bila berat dan tinggi terisi, tetapi tidak disimpan.
+- **IMT (BMI)** dihitung dan ditampilkan (1 desimal, mis. "IMT 28,3", sama dengan halaman isian) bila berat dan tinggi terisi, tetapi tidak disimpan.
 - **Tinggi badan diisikan awal** dari kunjungan final terakhir pasien saat kunjungan dibuat, karena tinggi orang dewasa jarang diukur ulang. Dokter bisa mengubah atau mengosongkannya.
 - Kotak teks **Pemeriksaan fisik**.
 - Isian menerima koma maupun titik sebagai pemisah desimal.
@@ -111,7 +111,7 @@ Urutan dari atas ke bawah:
 - **treatment:** pilih dari layanan aktif, dengan layanan booking sebagai usulan pertama; namanya disalin saat dipilih;
 - **area** (opsional);
 - **dosis** (opsional), mis. "12 unit";
-- **pelaksana:** pilih dari staf aktif berperan DOKTER atau TERAPIS; namanya disalin;
+- **pelaksana:** pilih dari staf aktif berperan DOKTER atau TERAPIS, dengan tenaga yang dijadwalkan di booking sebagai usulan pertama; namanya disalin;
 - **catatan pasca-tindakan** (opsional).
 
 Tombol **Tambah treatment**, dan tombol hapus per baris selama masih draf.
@@ -148,7 +148,7 @@ Tombol **Tambah treatment**, dan tombol hapus per baris selama masih draf.
 - **Pasien dan cabang tidak disalin** ke kunjungan, tetapi dibaca dari booking-nya. Dengan begitu keduanya tidak mungkin berbeda dari booking.
 - Pasien booking sudah tidak bisa diganti sejak booking diverifikasi (aturan pencocokan yang ada), dan kunjungan hanya dibuat dari booking Hadir.
 
-**`EncounterTreatment`:** `id`, `encounterId` (`onDelete: Cascade`, hanya berlaku untuk draf; lihat trigger), `serviceId` (boleh null, `onDelete: SetNull`), `serviceName`, `area`, `dose`, `performerId`, `performerName`, `notes`, `sortOrder`.
+**`EncounterTreatment`:** `id`, `encounterId` (`onDelete: Cascade`, hanya berlaku untuk draf; lihat trigger), `serviceId` (tanpa relasi: layanan hanya dinonaktifkan, tidak pernah dihapus), `serviceName`, `area`, `dose`, `performerId`, `performerName`, `notes`, `sortOrder`.
 
 **`EncounterAddendum`:** `id`, `encounterId` (`onDelete: Restrict`), `text`, `authorId`, `authorName`, `createdAt`.
 
@@ -165,6 +165,9 @@ Tombol **Tambah treatment**, dan tombol hapus per baris selama masih draf.
 2. `Encounter`, BEFORE DELETE: tolak bila `OLD.status = 'FINAL'`.
 3. `EncounterTreatment`, BEFORE INSERT/UPDATE/DELETE: tolak bila kunjungan induknya FINAL. Bila induknya sudah tidak ada, penghapusan diizinkan: itu cascade dari draf yang dibuang, karena kunjungan final tidak pernah bisa dihapus (trigger 2).
 4. `EncounterAddendum`, BEFORE INSERT: tolak bila kunjungan induknya bukan FINAL. BEFORE UPDATE/DELETE: selalu tolak.
+5. Ketiga tabel, BEFORE TRUNCATE: selalu tolak, karena `TRUNCATE` melewati trigger per baris.
+
+Trigger hanya bisa dimatikan oleh pemilik tabel lewat DDL. Aplikasi tidak pernah melakukannya. Uji memakai pembersih khusus basis data uji yang mematikannya sementara di dalam satu transaksi.
 
 Pesan trigger memakai awalan tetap (mis. `rekam_medis_terkunci`), sehingga server bisa menerjemahkannya menjadi pesan untuk pengguna.
 
@@ -245,7 +248,7 @@ Memakai tabel `AuditLog` dan `recordAudit` yang sudah ada.
 
 **Unit:**
 - skema zod tanda vital: batas bawah/atas, desimal koma, pasangan sistolik/diastolik, diastolik < sistolik;
-- hitung BMI;
+- hitung IMT;
 - keputusan batas audit 30 menit;
 - label peringatan hamil/menyusui dari isian v1 dan v2;
 - cuplikan penilaian 80 karakter.
