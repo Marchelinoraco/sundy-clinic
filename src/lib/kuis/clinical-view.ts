@@ -14,6 +14,8 @@ export type ClinicalView = {
   /** Tabel kebiasaan (form recall) — hanya isian versi 2. */
   habits: HabitTable | null;
   proposal: RecordProposal;
+  /** Jawaban K4 "Ya": hamil, merencanakan kehamilan, atau menyusui (peringatan kunjungan, spec R6). */
+  pregnancy: boolean;
 };
 
 /**
@@ -39,6 +41,7 @@ export function clinicalView(input: {
       activities: answers.returning?.activities ? activityTable(answers.returning.activities) : null,
       habits: null,
       proposal: proposeV1(answers),
+      pregnancy: answers.health?.pregnancy === "YA",
     };
   }
   if (input.quizVersion === 2) {
@@ -51,6 +54,7 @@ export function clinicalView(input: {
       activities: null,
       habits: answers.habits ? habitTable(answers.habits) : null,
       proposal: proposeV2(answers),
+      pregnancy: answers.health?.pregnancy === "YA",
     };
   }
   throw new Error(`Isian dengan kuis versi ${input.quizVersion} belum bisa ditampilkan.`);
