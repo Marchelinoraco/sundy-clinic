@@ -2,7 +2,7 @@
 
 - **Versi:** 1.0
 - **Tanggal:** 30 September 2026
-- **Status:** Menunggu tinjauan pemilik
+- **Status:** Disetujui pemilik (30 September 2026) · terlaksana (30 September 2026)
 - **Melengkapi:** `docs/superpowers/specs/2026-09-30-catatan-dokter-kunjungan-design.md`. Aturan simpan otomatis, finalisasi, adendum, penguncian, audit, dan hak akses di spec itu tetap berlaku. Spec ini hanya mengubah **susunan halaman kunjungan** dan menambah data yang ditampilkan di sampingnya.
 - **Mockup:** companion visual 30 September 2026. Pilihan tata letak "A" dan isi kolom kiri disetujui pemilik. Berkasnya disimpan lokal di `.superpowers/brainstorm/` (tidak masuk git).
 
