@@ -1,11 +1,39 @@
+"use client";
+
+import { useState } from "react";
 import type { IntakeClinical } from "@/server/intake-clinical";
 
 /**
  * Jawaban kuis untuk staf: bagian jawaban, tabel kebiasaan (form recall), dan
- * tabel aktivitas kemarin. Dipakai halaman isian dan bagian S halaman kunjungan.
+ * tabel aktivitas kemarin. Dipakai halaman isian dan tab Isian halaman kunjungan.
+ * Mode ringkas dipakai halaman kunjungan.
  */
-export function IntakeClinicalContent({ clinical, level = 2 }: { clinical: IntakeClinical; level?: 2 | 3 }) {
+export function IntakeClinicalContent({
+  clinical,
+  level = 2,
+  compact = false,
+}: {
+  clinical: IntakeClinical;
+  level?: 2 | 3;
+  /** Halaman kunjungan: hanya jam yang berisi, dengan tombol untuk membuka tabel penuh. */
+  compact?: boolean;
+}) {
   const Heading = level === 2 ? "h2" : "h3";
+  const [showAll, setShowAll] = useState(!compact);
+  const habitRows = clinical.habits?.rows.filter((row) => showAll || row.entries.length > 0) ?? [];
+  const activityRows = clinical.activities?.filter((row) => showAll || row.entries.length > 0) ?? [];
+  const hasEmptyHours =
+    (clinical.habits?.rows.some((row) => row.entries.length === 0) ?? false) ||
+    (clinical.activities?.some((row) => row.entries.length === 0) ?? false);
+  const toggle = compact && hasEmptyHours && (
+    <button
+      type="button"
+      className="text-xs text-muted-foreground underline underline-offset-4"
+      onClick={() => setShowAll((value) => !value)}
+    >
+      {showAll ? "Sembunyikan jam kosong" : "Tampilkan 06.00–22.00"}
+    </button>
+  );
   return (
     <>
       {clinical.sections.map((section) => (
@@ -30,7 +58,7 @@ export function IntakeClinicalContent({ clinical, level = 2 }: { clinical: Intak
               </tr>
             </thead>
             <tbody>
-              {clinical.habits.rows.map((row) => (
+              {habitRows.map((row) => (
                 <tr key={row.label} className="border-b align-top">
                   <td className="py-1 tabular-nums text-muted-foreground">{row.label}</td>
                   <td className="py-1">{row.entries.join(" · ")}</td>
@@ -38,6 +66,7 @@ export function IntakeClinicalContent({ clinical, level = 2 }: { clinical: Intak
               ))}
             </tbody>
           </table>
+          {toggle}
           {clinical.habits.notes.length > 0 && (
             <ul className="list-disc space-y-0.5 pl-5 text-sm">
               {clinical.habits.notes.map((note) => (
@@ -59,7 +88,7 @@ export function IntakeClinicalContent({ clinical, level = 2 }: { clinical: Intak
               </tr>
             </thead>
             <tbody>
-              {clinical.activities.map((row) => (
+              {activityRows.map((row) => (
                 <tr key={row.hour} className="border-b align-top">
                   <td className="py-1 tabular-nums text-muted-foreground">{row.label}</td>
                   <td className="py-1">
@@ -73,6 +102,7 @@ export function IntakeClinicalContent({ clinical, level = 2 }: { clinical: Intak
               ))}
             </tbody>
           </table>
+          {toggle}
         </section>
       )}
     </>
