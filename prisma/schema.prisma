@@ -455,6 +455,7 @@ enum IntakePurpose {
   SLIMMING
   AESTHETIC
   BELUM_YAKIN
+  GIZI_KLINIK
 }
 
 /// Isian Pendaftaran: jawaban kuis & data diri pasien untuk satu booking.

@@ -5,7 +5,7 @@ import { runAction, UserFacingError, type ActionResult } from "@/lib/action-resu
 import type { AppointmentStatusValue } from "@/lib/appointment-status";
 import { prisma } from "@/lib/db";
 import { formatDateColumn, formatGender } from "@/lib/format";
-import { PURPOSES } from "@/lib/kuis/v1/options";
+import { INTAKE_PURPOSE_LABEL } from "@/lib/intake-purpose";
 import { can } from "@/lib/permissions";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { normalizeWhatsapp } from "@/lib/whatsapp";
@@ -245,7 +245,7 @@ export async function getPatientDetail(id: string): Promise<PatientDetail | null
       submittedAt: intake.submittedAt,
       status: intake.status,
       kind: intake.kind,
-      purposeLabel: intake.purpose ? PURPOSES[intake.purpose] : null,
+      purposeLabel: intake.purpose ? INTAKE_PURPOSE_LABEL[intake.purpose] : null,
       reviewerName: intake.reviewedBy?.name ?? null,
       reviewedAt: intake.reviewedAt,
     })),

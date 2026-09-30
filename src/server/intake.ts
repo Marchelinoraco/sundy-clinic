@@ -4,10 +4,11 @@ import type { Prisma } from "@prisma/client";
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
 import { prisma } from "@/lib/db";
 import { formatDateColumn, formatGender, formatIndonesianDate } from "@/lib/format";
+import { INTAKE_PURPOSE_LABEL } from "@/lib/intake-purpose";
 import type { ActivityRow, IntakeSection } from "@/lib/kuis/v1/describe";
 import { activityTable, describeAnswers } from "@/lib/kuis/v1/describe";
 import { quizAnswersSchema, type QuizAnswers } from "@/lib/kuis/v1/answers";
-import { PURPOSES, QUIZ_VERSION } from "@/lib/kuis/v1/options";
+import { QUIZ_VERSION } from "@/lib/kuis/v1/options";
 import { proposeRecordFromAnswers, type RecordProposal } from "@/lib/kuis/v1/record-proposal";
 import { can } from "@/lib/permissions";
 import { mergeRecordText } from "@/lib/record-text";
@@ -354,7 +355,7 @@ export async function getIntakeForStaff(intakeId: string): Promise<IntakeDetail 
     id: row.id,
     status: row.status,
     kind: row.kind,
-    purposeLabel: row.purpose ? PURPOSES[row.purpose] : null,
+    purposeLabel: row.purpose ? INTAKE_PURPOSE_LABEL[row.purpose] : null,
     submittedAt: row.submittedAt,
     appointment: {
       code: row.appointment.code,

@@ -16,7 +16,7 @@ import {
 import { prisma } from "@/lib/db";
 import { formatIndonesianDate } from "@/lib/format";
 import type { QuizAnswers } from "@/lib/kuis/v1/answers";
-import { validateIdentity } from "@/lib/kuis/v1/identity";
+import { validateIdentity } from "@/lib/kuis/identity";
 import { QUIZ_VERSION } from "@/lib/kuis/v1/options";
 import { validateQuizAnswers } from "@/lib/kuis/v1/steps";
 import { bookingFeeFor, formatBankAccount } from "@/lib/payment";
