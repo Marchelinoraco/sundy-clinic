@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateIdentity } from "@/lib/kuis/v1/identity";
+import { validateIdentity } from "@/lib/kuis/identity";
 import { newPatientIdentity, returningPatientIdentity } from "../../fixtures/quiz-answers";
 
 const NOW = new Date("2026-09-28T03:00:00Z");

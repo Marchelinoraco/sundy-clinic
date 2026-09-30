@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DRAFT_STORAGE_KEY, RECEIPT_STORAGE_KEY, RegistrationFlow } from "@/components/pendaftaran/registration-flow";
 import type { BookingOptions } from "@/server/public-booking-data";
-import { slimmingNewPatient } from "../../fixtures/quiz-answers";
+import { slimmingNewPatient } from "../../fixtures/quiz-answers-v2";
 
 const actions = vi.hoisted(() => ({
   getPublicSlots: vi.fn().mockResolvedValue({ ok: true, data: [] }),
@@ -11,6 +11,8 @@ const actions = vi.hoisted(() => ({
   submitSiteBooking: vi.fn(),
 }));
 vi.mock("@/server/public-booking", () => actions);
+const toasts = vi.hoisted(() => ({ info: vi.fn(), error: vi.fn(), success: vi.fn() }));
+vi.mock("sonner", () => ({ toast: toasts }));
 
 const options: BookingOptions = {
   branches: [
@@ -108,18 +110,18 @@ describe("RegistrationFlow", () => {
     expect(window.sessionStorage.getItem(RECEIPT_STORAGE_KEY)).not.toMatch(/answers|Amlodipine|weight/i);
 
     await userEvent.click(screen.getByRole("button", { name: "Daftar lagi" }));
-    expect(await screen.findByRole("heading", { name: "Pernah berobat di SunDY Clinic?" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Pernah konsultasi atau treatment di SunDY Clinic?" })).toBeInTheDocument();
     expect(window.sessionStorage.getItem(RECEIPT_STORAGE_KEY)).toBeNull();
     reloaded.unmount();
 
     render(<RegistrationFlow options={options} />);
-    expect(await screen.findByRole("heading", { name: "Pernah berobat di SunDY Clinic?" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Pernah konsultasi atau treatment di SunDY Clinic?" })).toBeInTheDocument();
   });
 
   it("mengabaikan kuitansi tersimpan yang bentuknya rusak", async () => {
     window.sessionStorage.setItem(RECEIPT_STORAGE_KEY, JSON.stringify({ code: 42, startAt: "bukan tanggal" }));
     render(<RegistrationFlow options={options} />);
-    expect(await screen.findByRole("heading", { name: "Pernah berobat di SunDY Clinic?" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Pernah konsultasi atau treatment di SunDY Clinic?" })).toBeInTheDocument();
   });
 
   it("slot yang terisi mengembalikan pasien ke langkah jadwal tanpa kehilangan jawaban", async () => {
@@ -133,5 +135,19 @@ describe("RegistrationFlow", () => {
     const saved = JSON.parse(window.sessionStorage.getItem(DRAFT_STORAGE_KEY)!);
     expect(saved.answers).toEqual(slimmingNewPatient);
     expect(saved.schedule.hold).toBeNull();
+  });
+
+  it("draf kuis versi lama dibuang dengan pesan, dan customer mulai dari awal", async () => {
+    window.sessionStorage.setItem("sundy-daftar-v1", JSON.stringify({ answers: { purpose: "BELUM_YAKIN" }, screen: "B1" }));
+    render(<RegistrationFlow options={options} />);
+
+    expect(await screen.findByRole("heading", { name: "Pernah konsultasi atau treatment di SunDY Clinic?" })).toBeInTheDocument();
+    expect(toasts.info).toHaveBeenCalledWith("Kuis kami baru saja diperbarui. Silakan isi dari awal.");
+    expect(window.sessionStorage.getItem("sundy-daftar-v1")).toBeNull();
+  });
+
+  it("kuitansi yang tersimpan sebelum kuis v2 tetap dibaca dari kunci yang sama", () => {
+    expect(DRAFT_STORAGE_KEY).toBe("sundy-daftar-v2");
+    expect(RECEIPT_STORAGE_KEY).toBe("sundy-daftar-kuitansi-v1");
   });
 });

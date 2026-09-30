@@ -2,7 +2,7 @@
 
 import { SingleChoice } from "@/components/kuis/choice";
 import { formatRupiah } from "@/lib/format";
-import type { QuizAnswers } from "@/lib/kuis/v1/answers";
+import type { QuizAnswers } from "@/lib/kuis/v2/answers";
 import { BOOKING_FEE_TERMS } from "@/lib/payment";
 import type { BookingOptions, PublicService } from "@/server/public-booking-data";
 

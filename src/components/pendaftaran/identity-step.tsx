@@ -6,7 +6,7 @@ import { Segmented } from "@/components/kuis/choice";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatRupiah } from "@/lib/format";
-import { validateIdentity } from "@/lib/kuis/v1/identity";
+import { validateIdentity } from "@/lib/kuis/identity";
 import { BOOKING_FEE_TERMS } from "@/lib/payment";
 import { witaDateString } from "@/lib/time";
 

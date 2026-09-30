@@ -65,6 +65,35 @@ export function IntakeView({ intake }: { intake: IntakeDetail }) {
             </section>
           ))}
 
+          {clinical.habits && (
+            <section className="space-y-2">
+              <h2 className="text-base font-medium">Kebiasaan sehari (form recall)</h2>
+              <table aria-label="Kebiasaan sehari" className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-muted-foreground">
+                    <th className="w-16 py-1">Jam</th>
+                    <th className="py-1">Jenis dan jumlah</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clinical.habits.rows.map((row) => (
+                    <tr key={row.label} className="border-b align-top">
+                      <td className="py-1 tabular-nums text-muted-foreground">{row.label}</td>
+                      <td className="py-1">{row.entries.join(" · ")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {clinical.habits.notes.length > 0 && (
+                <ul className="list-disc space-y-0.5 pl-5 text-sm">
+                  {clinical.habits.notes.map((note) => (
+                    <li key={note}>{note}</li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )}
+
           {clinical.activities && (
             <section className="space-y-2">
               <h2 className="text-base font-medium">Aktivitas {clinical.activityDateLabel ?? "kemarin"}</h2>

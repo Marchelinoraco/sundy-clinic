@@ -1,5 +1,6 @@
-import { expect, test, type Page, type TestInfo } from "@playwright/test";
+import { expect, test, type TestInfo } from "@playwright/test";
 import { E2E_ADMIN, E2E_RESEPSIONIS } from "./credentials";
+import { choose, fillFormRecall, inGroup, next, signIn, tick, upcomingWeekday } from "./helpers/quiz";
 
 // Satu cerita berurutan: pasien mendaftar → admin mencocokkan & memverifikasi
 // → resepsionis tidak melihat isi klinis → pasien membatalkan. Proyek desktop
@@ -9,12 +10,7 @@ test.describe.configure({ mode: "serial" });
 test.setTimeout(180_000);
 
 function bookingDate(testInfo: TestInfo): string {
-  const weekday = testInfo.project.name === "mobile" ? 4 : 3;
-  const nowWita = new Date(Date.now() + 8 * 60 * 60 * 1000);
-  const date = new Date(Date.UTC(nowWita.getUTCFullYear(), nowWita.getUTCMonth(), nowWita.getUTCDate()));
-  do date.setUTCDate(date.getUTCDate() + 1);
-  while (date.getUTCDay() !== weekday);
-  return date.toISOString().slice(0, 10);
+  return upcomingWeekday(testInfo.project.name === "mobile" ? 4 : 3);
 }
 
 function patientFor(testInfo: TestInfo) {
@@ -26,21 +22,6 @@ function patientFor(testInfo: TestInfo) {
 let booking: { code: string; date: string } | null = null;
 let intakeUrl: string | null = null;
 let patientUrl: string | null = null;
-
-const choose = (page: Page, name: string | RegExp) =>
-  page.getByRole("radio", typeof name === "string" ? { name, exact: true } : { name }).click();
-const tick = (page: Page, name: string) => page.getByRole("checkbox", { name, exact: true }).click();
-const next = (page: Page) => page.getByRole("button", { name: "Lanjut", exact: true }).click();
-const inGroup = (page: Page, group: string, option: string) =>
-  page.getByRole("radiogroup", { name: group, exact: true }).getByRole("radio", { name: option, exact: true }).click();
-
-async function signIn(page: Page, account: { email: string; password: string }) {
-  await page.goto("/masuk");
-  await page.getByLabel("Email").fill(account.email);
-  await page.getByLabel("Kata Sandi").fill(account.password);
-  await page.getByRole("button", { name: "Masuk" }).click();
-  await expect(page).toHaveURL(/\/admin$/, { timeout: 30_000 });
-}
 
 test("pasien baru Slimming mendaftar sampai mendapat kode booking", async ({ page }, testInfo) => {
   const date = bookingDate(testInfo);
@@ -64,8 +45,7 @@ test("pasien baru Slimming mendaftar sampai mendapat kode booking", async ({ pag
   await page.getByLabel("Tinggi badan").fill("158");
   await expect(page.getByText(/IMT Anda ± 28,8/)).toBeVisible();
   await next(page);
-  await page.getByLabel("Pagi", { exact: true }).fill("Nasi kuning, teh manis");
-  await next(page);
+  await fillFormRecall(page);
   await tick(page, "Darah tinggi");
   await next(page);
   await page.getByLabel("Obat untuk Darah tinggi").fill("Amlodipine 5 mg, 1× sehari");
@@ -76,6 +56,8 @@ test("pasien baru Slimming mendaftar sampai mendapat kode booking", async ({ pag
   await choose(page, "Tidak");
 
   await expect(page.getByRole("heading", { name: "Ringkasan jawaban Anda" })).toBeVisible();
+  await expect(page.getByText("Slimming · pertama kali ke SunDY")).toBeVisible();
+  await expect(page.locator("main").getByText(/pasien|berobat/i)).toHaveCount(0);
   await expect(page.getByText("Darah tinggi: Amlodipine 5 mg, 1× sehari")).toBeVisible();
   await page.getByRole("button", { name: "Pilih layanan & jadwal" }).click();
 
@@ -141,6 +123,10 @@ test("admin mencocokkan pasien, memverifikasi, lalu membaca isiannya", async ({ 
   // dari batas waktu bawaan (lihat catatan di playwright.config.ts).
   await expect(page.getByText("Darah tinggi: Amlodipine 5 mg, 1× sehari").first()).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("72 kg · 158 cm · IMT 28,8")).toBeVisible();
+  const habits = page.getByRole("table", { name: "Kebiasaan sehari" });
+  await expect(habits.getByRole("row").filter({ hasText: "07.00" })).toContainText(
+    "Sarapan: Nasi kuning 1 piring, teh manis 1 gelas",
+  );
   intakeUrl = page.url();
 
   // Super Admin memegang record:write: menyetujui ke data pasien dengan sedikit suntingan.

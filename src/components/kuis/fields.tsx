@@ -3,21 +3,35 @@
 import { useId, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { HealthAnswers, SlimmingAnswers } from "@/lib/kuis/v1/answers";
-import { bodyMassIndex, formatDecimal } from "@/lib/kuis/v1/describe";
+import type { HabitAnswers, HealthAnswers, MealAnswer, SlimmingAnswers } from "@/lib/kuis/v2/answers";
+import { bodyMassIndex, formatDecimal } from "@/lib/kuis/v2/describe";
 import {
   CONDITIONS,
   DIET_OUTCOMES,
   DIET_PROGRAMS,
+  EXERCISE_HOURS,
+  EXERCISE_ROUTINES,
+  HABIT_LEVELS,
+  HABITS,
+  MEAL_HOURS,
+  MEAL_NONE,
   MEALS,
   MEASURE_LIMITS,
+  SLEEP_HOURS,
+  SNACK_FREQUENCIES,
+  SNACK_HOURS,
   TEXT_LIMITS,
+  WAKE_HOURS,
   WEIGHT_AFTER_DIET,
-} from "@/lib/kuis/v1/options";
-import { Segmented, optionsOf } from "./choice";
+} from "@/lib/kuis/v2/options";
+import { minutesToTimeLabel } from "@/lib/time";
+import { Segmented, SingleChoice, optionsOf } from "./choice";
 
 const textareaClass =
   "w-full rounded-xl border border-cream-300 bg-white px-3 py-2 text-base text-brown-900 focus:border-gold-500 focus:outline-none";
+
+const selectClass =
+  "w-full max-w-40 rounded-xl border border-cream-300 bg-white px-3 py-2 text-base text-brown-900 focus:border-gold-500 focus:outline-none";
 
 export function TextAnswer({
   label,
@@ -117,6 +131,50 @@ export function NumberInput({
         />
         <span className="text-sm text-brown-600">{unit}</span>
       </div>
+    </div>
+  );
+}
+
+/** Pilihan jam per jam (mis. 07.00), sama dengan baris tabel dokter. */
+export function HourSelect({
+  label,
+  hours,
+  value,
+  onChange,
+  anytimeLabel,
+  anytime = false,
+}: {
+  label: string;
+  hours: readonly number[];
+  value: number | undefined;
+  onChange: (next: { hour?: number; anytime?: true }) => void;
+  /** Bila diisi, daftar mendapat pilihan tambahan tanpa jam (mis. "Tidak tentu"). */
+  anytimeLabel?: string;
+  anytime?: boolean;
+}) {
+  const id = useId();
+  const current = anytime ? "tidak-tentu" : value === undefined ? "" : String(value);
+  return (
+    <div className="space-y-1">
+      <Label htmlFor={id}>{label}</Label>
+      <select
+        id={id}
+        className={selectClass}
+        value={current}
+        onChange={(e) => {
+          const next = e.target.value;
+          if (next === "tidak-tentu") onChange({ anytime: true });
+          else onChange({ hour: next === "" ? undefined : Number(next) });
+        }}
+      >
+        <option value="">Pilih jam</option>
+        {hours.map((hour) => (
+          <option key={hour} value={hour}>
+            {minutesToTimeLabel(hour * 60)}
+          </option>
+        ))}
+        {anytimeLabel && <option value="tidak-tentu">{anytimeLabel}</option>}
+      </select>
     </div>
   );
 }
@@ -258,7 +316,7 @@ export function DietResultFields({
   );
 }
 
-/** S7: berat & tinggi mandiri, dengan IMT sebagai gambaran awal. */
+/** T1: berat & tinggi mandiri, dengan IMT sebagai gambaran awal. */
 export function MeasureFields({
   weightKg,
   heightCm,
@@ -296,25 +354,187 @@ export function MeasureFields({
   );
 }
 
-/** S8: food recall seperti Google Form lama (PRD Lampiran C). */
-export function FoodRecallFields({
+/** F1: jam bangun dan jam tidur pada hari biasa. */
+export function WakeSleepFields({
+  wakeHour,
+  sleepHour,
+  onChange,
+}: {
+  wakeHour: number | undefined;
+  sleepHour: number | undefined;
+  onChange: (next: { wakeHour?: number; sleepHour?: number }) => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <HourSelect label="Jam bangun" hours={WAKE_HOURS} value={wakeHour} onChange={({ hour }) => onChange({ wakeHour: hour, sleepHour })} />
+      <HourSelect label="Jam tidur" hours={SLEEP_HOURS} value={sleepHour} onChange={({ hour }) => onChange({ wakeHour, sleepHour: hour })} />
+    </div>
+  );
+}
+
+type MealKey = keyof typeof MEALS;
+
+/** F2–F4: jam makan (atau "tidak …"), lalu makanan & minuman beserta porsinya. */
+export function MealFields({
+  meal,
   value,
   onChange,
 }: {
-  value: SlimmingAnswers["foodRecall"];
-  onChange: (next: NonNullable<SlimmingAnswers["foodRecall"]>) => void;
+  meal: MealKey;
+  value: MealAnswer | undefined;
+  onChange: (next: MealAnswer) => void;
 }) {
   const current = value ?? {};
   return (
-    <div className="space-y-3">
-      {(Object.keys(MEALS) as (keyof typeof MEALS)[]).map((meal) => (
-        <ShortText
-          key={meal}
-          label={MEALS[meal]}
-          maxLength={TEXT_LIMITS.long}
-          value={current[meal]}
-          onChange={(text) => onChange({ ...current, [meal]: text })}
+    <div className="space-y-4">
+      <label className="flex items-center gap-2 text-sm text-brown-700">
+        <input
+          type="checkbox"
+          checked={current.none ?? false}
+          onChange={(e) => onChange(e.target.checked ? { none: true } : {})}
         />
+        {MEAL_NONE[meal]}
+      </label>
+      {!current.none && (
+        <>
+          <HourSelect
+            label={`Jam ${MEALS[meal].toLowerCase()}`}
+            hours={MEAL_HOURS[meal]}
+            value={current.hour}
+            onChange={({ hour }) => onChange({ ...current, hour })}
+          />
+          <TextAnswer
+            label="Apa yang Anda makan & minum, berapa porsinya?"
+            rows={3}
+            maxLength={TEXT_LIMITS.long}
+            placeholder="Nasi 1 piring, telur dadar 1, teh manis 1 gelas"
+            value={current.text}
+            onChange={(text) => onChange({ ...current, text })}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+/** F5: seberapa sering, jam biasanya (atau "Tidak tentu"), lalu jenis & jumlahnya. */
+export function SnackFields({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: HabitAnswers["snack"];
+  onChange: (next: NonNullable<HabitAnswers["snack"]>) => void;
+}) {
+  const current = value ?? {};
+  return (
+    <div className="space-y-4">
+      <SingleChoice
+        label={label}
+        options={optionsOf(SNACK_FREQUENCIES)}
+        value={current.frequency}
+        onChange={(frequency) => onChange({ ...current, frequency })}
+      />
+      {current.frequency && current.frequency !== "JARANG" && (
+        <>
+          <HourSelect
+            label="Jam cemilan"
+            hours={SNACK_HOURS}
+            value={current.hour}
+            anytime={current.anytime ?? false}
+            anytimeLabel="Tidak tentu"
+            onChange={(next) => onChange({ frequency: current.frequency, text: current.text, ...next })}
+          />
+          <TextAnswer
+            label="Cemilan apa, berapa banyak?"
+            rows={3}
+            maxLength={TEXT_LIMITS.long}
+            placeholder="Pisang goreng 2 potong, kerupuk 1 bungkus"
+            value={current.text}
+            onChange={(text) => onChange({ ...current, text })}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+const PER_WEEK = ["1", "2", "3", "4", "5", "6", "7"] as const;
+
+/** F6: rutin atau tidak; bila berolahraga: jenis, menit, kali seminggu, dan jam biasanya. */
+export function ExerciseFields({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: HabitAnswers["exercise"];
+  onChange: (next: NonNullable<HabitAnswers["exercise"]>) => void;
+}) {
+  const current = value ?? {};
+  return (
+    <div className="space-y-4">
+      <SingleChoice
+        label={label}
+        options={optionsOf(EXERCISE_ROUTINES)}
+        value={current.routine}
+        onChange={(routine) => onChange(routine === "TIDAK" ? { routine } : { ...current, routine })}
+      />
+      {current.routine && current.routine !== "TIDAK" && (
+        <>
+          <ShortText
+            label="Jenis olahraga"
+            maxLength={TEXT_LIMITS.short}
+            placeholder="Jalan kaki, gym, renang, senam"
+            value={current.kind}
+            onChange={(kind) => onChange({ ...current, kind })}
+          />
+          <NumberInput
+            label="Berapa menit sekali olahraga"
+            unit="menit"
+            min={MEASURE_LIMITS.exerciseMinutes.min}
+            max={MEASURE_LIMITS.exerciseMinutes.max}
+            value={current.minutes}
+            onChange={(minutes) => onChange({ ...current, minutes: minutes === undefined ? undefined : Math.round(minutes) })}
+          />
+          <div className="space-y-1">
+            <p className="text-sm text-brown-700">Berapa kali seminggu?</p>
+            <Segmented
+              label="Berapa kali seminggu"
+              options={PER_WEEK.map((n) => ({ value: n, label: `${n}×` }))}
+              value={current.perWeek === undefined ? undefined : (String(current.perWeek) as (typeof PER_WEEK)[number])}
+              onChange={(n) => onChange({ ...current, perWeek: Number(n) })}
+            />
+          </div>
+          <HourSelect
+            label="Jam olahraga"
+            hours={EXERCISE_HOURS}
+            value={current.hour}
+            onChange={({ hour }) => onChange({ ...current, hour })}
+          />
+        </>
+      )}
+    </div>
+  );
+}
+
+type HabitLevels = Pick<HabitAnswers, "smoking" | "alcohol" | "soda">;
+
+/** F7: merokok, minum alkohol, dan minuman bersoda — masing-masing Tidak / Kadang / Sering. */
+export function HabitLevelFields({ value, onChange }: { value: HabitLevels; onChange: (next: HabitLevels) => void }) {
+  return (
+    <div className="space-y-4">
+      {(Object.keys(HABITS) as (keyof typeof HABITS)[]).map((key) => (
+        <fieldset key={key} className="space-y-2">
+          <legend className="text-sm font-semibold text-brown-900">{HABITS[key]}</legend>
+          <Segmented
+            label={HABITS[key]}
+            options={optionsOf(HABIT_LEVELS)}
+            value={value[key]}
+            onChange={(level) => onChange({ ...value, [key]: level })}
+          />
+        </fieldset>
       ))}
     </div>
   );

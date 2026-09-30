@@ -86,4 +86,15 @@ describe("BookingStatusLookup", () => {
     await screen.findByText("Dibatalkan");
     expect(actions.cancelSiteBooking).toHaveBeenCalledWith({ code: "SDY-8F3K", last4: "7890" });
   });
+
+  it("booking yang belum dibayar: pesan pembatalan tidak menyebut 'pasien'", async () => {
+    actions.findBookingStatus.mockResolvedValue({
+      ok: true,
+      data: { ...confirmed, status: "MENUNGGU_KONFIRMASI", statusLabel: "Menunggu konfirmasi" },
+    });
+    render(<BookingStatusLookup />);
+    await lookUp();
+    await userEvent.click(await screen.findByRole("button", { name: "Batalkan booking" }));
+    expect(screen.getByText("Jam Anda akan dilepas agar bisa dipesan orang lain.")).toBeInTheDocument();
+  });
 });

@@ -4,10 +4,10 @@ import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } f
 import { toast } from "sonner";
 import { QuizScreen } from "@/components/kuis/quiz-screen";
 import { AUTO_ADVANCE_STEPS, QuizStep, type AnswerPatch } from "@/components/kuis/quiz-step";
-import type { QuizAnswers } from "@/lib/kuis/v1/answers";
-import { QUIZ_VERSION } from "@/lib/kuis/v1/options";
-import { pruneAnswers, stepError, visibleSteps, type StepId } from "@/lib/kuis/v1/steps";
-import { stepText } from "@/lib/kuis/v1/texts";
+import type { QuizAnswers } from "@/lib/kuis/v2/answers";
+import { QUIZ_VERSION } from "@/lib/kuis/v2/options";
+import { pruneAnswers, stepError, visibleSteps, type StepId } from "@/lib/kuis/v2/steps";
+import { stepText } from "@/lib/kuis/v2/texts";
 import { submitSiteBooking, type BookingReceipt } from "@/server/public-booking";
 import type { BookingOptions } from "@/server/public-booking-data";
 import { EMPTY_IDENTITY, IdentityStep, identityError, identityPayload, type IdentityDraft } from "./identity-step";
@@ -28,8 +28,13 @@ type Draft = {
 
 /** Jawaban tersimpan per tab (sessionStorage), terhapus saat tab ditutup atau setelah Kirim (spec bagian 8). */
 export const DRAFT_STORAGE_KEY = `sundy-daftar-v${QUIZ_VERSION}`;
-/** Kuitansi terakhir, agar kode booking tidak hilang bila halaman dimuat ulang. Tanpa data klinis. */
-export const RECEIPT_STORAGE_KEY = `sundy-daftar-kuitansi-v${QUIZ_VERSION}`;
+/**
+ * Kuitansi terakhir, agar kode booking tidak hilang bila halaman dimuat ulang. Tanpa data klinis.
+ * Tidak ikut versi kuis: kuitansi yang tersimpan sebelum kuis v2 harus tetap tampil.
+ */
+export const RECEIPT_STORAGE_KEY = "sundy-daftar-kuitansi-v1";
+/** Draf kuis versi sebelumnya — bentuknya tidak cocok lagi, jadi dibuang saat halaman dibuka. */
+const LEGACY_DRAFT_KEYS = ["sundy-daftar-v1"];
 const MODE = { askPatientType: true };
 const EMPTY_SCHEDULE: ScheduleDraft = { branchId: null, staffId: null, date: null, hold: null };
 
@@ -56,6 +61,22 @@ function writeDraft(draft: Draft | null) {
     else window.sessionStorage.removeItem(DRAFT_STORAGE_KEY);
   } catch {
     // Mode privat atau penyimpanan penuh: kuis tetap jalan, hanya tidak bertahan saat refresh.
+  }
+}
+
+/** true bila ada draf kuis versi lama yang dibuang (spec kuis v2, bagian 8). */
+function discardLegacyDrafts(): boolean {
+  try {
+    let found = false;
+    for (const key of LEGACY_DRAFT_KEYS) {
+      if (window.sessionStorage.getItem(key) !== null) {
+        window.sessionStorage.removeItem(key);
+        found = true;
+      }
+    }
+    return found;
+  } catch {
+    return false;
   }
 }
 
@@ -126,6 +147,7 @@ export function RegistrationFlow({ options }: { options: BookingOptions }) {
 
   // Pulihkan draf setelah hidrasi — server tidak tahu isi sessionStorage.
   useEffect(() => {
+    if (discardLegacyDrafts()) toast.info("Kuis kami baru saja diperbarui. Silakan isi dari awal.");
     const savedReceipt = readReceipt();
     if (savedReceipt) setReceipt(savedReceipt);
     const saved = readDraft();

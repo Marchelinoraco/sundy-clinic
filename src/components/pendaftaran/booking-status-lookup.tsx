@@ -169,7 +169,7 @@ export function BookingStatusLookup() {
             <AlertDialogDescription>
               {paidFee
                 ? `Biaya booking ${formatRupiah(paidFee)} tidak dikembalikan. Ingin pindah jadwal saja? Biaya tetap berlaku bila jadwal dipindah paling lambat 2 jam sebelumnya.`
-                : "Jam Anda akan dilepas untuk pasien lain."}
+                : "Jam Anda akan dilepas agar bisa dipesan orang lain."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
