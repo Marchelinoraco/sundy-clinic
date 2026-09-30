@@ -1,6 +1,6 @@
 "use client";
 
-import type { QuizAnswers } from "@/lib/kuis/v1/answers";
+import type { QuizAnswers } from "@/lib/kuis/v2/answers";
 import {
   BODY_AREAS,
   COMPLAINT_DURATIONS,
@@ -19,18 +19,21 @@ import {
   SLIMMING_GOALS,
   TEXT_LIMITS,
   WEIGHT_TARGETS,
-} from "@/lib/kuis/v1/options";
-import { conditionName, dietProgramName, selectedConditions, type StepId } from "@/lib/kuis/v1/steps";
-import { stepText } from "@/lib/kuis/v1/texts";
-import { ActivityList } from "./activity-list";
+} from "@/lib/kuis/v2/options";
+import { conditionName, dietProgramName, selectedConditions, type StepId } from "@/lib/kuis/v2/steps";
+import { stepText } from "@/lib/kuis/v2/texts";
 import { MultiChoice, SingleChoice, optionsOf } from "./choice";
 import {
   DietResultFields,
-  FoodRecallFields,
+  ExerciseFields,
+  HabitLevelFields,
+  MealFields,
   MeasureFields,
   MedicationFields,
   ShortText,
+  SnackFields,
   TextAnswer,
+  WakeSleepFields,
   YesNoWithText,
 } from "./fields";
 
@@ -40,11 +43,15 @@ export type AnswerPatch = (answers: QuizAnswers) => QuizAnswers;
 export const AUTO_ADVANCE_STEPS: readonly StepId[] = ["U1", "U2", "S1", "S2", "S4", "A2", "A3", "K4", "P2"];
 
 type Slimming = NonNullable<QuizAnswers["slimming"]>;
+type Body = NonNullable<QuizAnswers["body"]>;
+type Habits = NonNullable<QuizAnswers["habits"]>;
 type Aesthetic = NonNullable<QuizAnswers["aesthetic"]>;
 type Health = NonNullable<QuizAnswers["health"]>;
 type Returning = NonNullable<QuizAnswers["returning"]>;
 
 const slimming = (patch: Partial<Slimming>): AnswerPatch => (a) => ({ ...a, slimming: { ...a.slimming, ...patch } });
+const body = (patch: Partial<Body>): AnswerPatch => (a) => ({ ...a, body: { ...a.body, ...patch } });
+const habits = (patch: Partial<Habits>): AnswerPatch => (a) => ({ ...a, habits: { ...a.habits, ...patch } });
 const aesthetic = (patch: Partial<Aesthetic>): AnswerPatch => (a) => ({ ...a, aesthetic: { ...a.aesthetic, ...patch } });
 const health = (patch: Partial<Health>): AnswerPatch => (a) => ({ ...a, health: { ...a.health, ...patch } });
 const returning = (patch: Partial<Returning>): AnswerPatch => (a) => ({ ...a, returning: { ...a.returning, ...patch } });
@@ -142,19 +149,48 @@ export function QuizStep({ step, answers: a, onChange, onChoose }: Props) {
           onChange={(dietResults) => onChange(slimming({ dietResults }))}
         />
       );
-    case "S7":
+    case "N1":
       return (
-        <MeasureFields
-          weightKg={a.slimming?.weightKg}
-          heightCm={a.slimming?.heightCm}
-          onChange={(measures) => onChange(slimming(measures))}
+        <TextAnswer
+          label="Jawaban Anda"
+          maxLength={TEXT_LIMITS.story}
+          value={a.nutrition?.story}
+          onChange={(story) => onChange((x) => ({ ...x, nutrition: { story } }))}
         />
       );
-    case "S8":
+    case "T1":
       return (
-        <FoodRecallFields
-          value={a.slimming?.foodRecall}
-          onChange={(foodRecall) => onChange(slimming({ foodRecall }))}
+        <MeasureFields
+          weightKg={a.body?.weightKg}
+          heightCm={a.body?.heightCm}
+          onChange={(measures) => onChange(body(measures))}
+        />
+      );
+    case "F1":
+      return (
+        <WakeSleepFields
+          wakeHour={a.habits?.wakeHour}
+          sleepHour={a.habits?.sleepHour}
+          onChange={(hours) => onChange(habits(hours))}
+        />
+      );
+    case "F2":
+      return <MealFields meal="breakfast" value={a.habits?.breakfast} onChange={(breakfast) => onChange(habits({ breakfast }))} />;
+    case "F3":
+      return <MealFields meal="lunch" value={a.habits?.lunch} onChange={(lunch) => onChange(habits({ lunch }))} />;
+    case "F4":
+      return <MealFields meal="dinner" value={a.habits?.dinner} onChange={(dinner) => onChange(habits({ dinner }))} />;
+    case "F5":
+      return <SnackFields label={label} value={a.habits?.snack} onChange={(snack) => onChange(habits({ snack }))} />;
+    case "F6":
+      return (
+        <ExerciseFields label={label} value={a.habits?.exercise} onChange={(exercise) => onChange(habits({ exercise }))} />
+      );
+    case "F7":
+      return (
+        <HabitLevelFields
+          value={{ smoking: a.habits?.smoking, alcohol: a.habits?.alcohol, soda: a.habits?.soda }}
+          onChange={(levels) => onChange(habits(levels))}
         />
       );
     case "A1":
@@ -220,15 +256,6 @@ export function QuizStep({ step, answers: a, onChange, onChoose }: Props) {
             onChange={(skincare) => onChange(aesthetic({ skincare }))}
           />
         </>
-      );
-    case "B1":
-      return (
-        <TextAnswer
-          label="Jawaban Anda"
-          maxLength={TEXT_LIMITS.story}
-          value={a.unsure?.story}
-          onChange={(story) => onChange((x) => ({ ...x, unsure: { story } }))}
-        />
       );
     case "K1":
       return (
@@ -300,13 +327,6 @@ export function QuizStep({ step, answers: a, onChange, onChoose }: Props) {
           options={optionsOf(HEALTH_CHANGE)}
           value={a.returning?.healthChanged === undefined ? undefined : a.returning.healthChanged ? "ADA" : "TIDAK"}
           onChange={(choice) => onChoose(returning({ healthChanged: choice === "ADA" }))}
-        />
-      );
-    case "P3":
-      return (
-        <ActivityList
-          entries={a.returning?.activities ?? []}
-          onChange={(activities) => onChange(returning({ activities }))}
         />
       );
   }

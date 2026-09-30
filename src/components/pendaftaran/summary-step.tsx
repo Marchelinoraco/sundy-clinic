@@ -1,12 +1,12 @@
 "use client";
 
-import type { QuizAnswers } from "@/lib/kuis/v1/answers";
-import { describeAnswers } from "@/lib/kuis/v1/describe";
-import { pruneAnswers, type StepId } from "@/lib/kuis/v1/steps";
+import type { QuizAnswers } from "@/lib/kuis/v2/answers";
+import { describeAnswers } from "@/lib/kuis/v2/describe";
+import { pruneAnswers, type StepId } from "@/lib/kuis/v2/steps";
 
 /** Layar R (K8): jawaban diulang per bagian, masing-masing bisa diubah. Tanpa diagnosis, tanpa janji hasil. */
 export function SummaryStep({ answers, onEdit }: { answers: QuizAnswers; onEdit: (step: StepId) => void }) {
-  const sections = describeAnswers(pruneAnswers(answers));
+  const sections = describeAnswers(pruneAnswers(answers), "customer");
   return (
     <div className="space-y-3">
       {sections.map((section) => (
