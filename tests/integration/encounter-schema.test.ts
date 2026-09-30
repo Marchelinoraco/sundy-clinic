@@ -7,6 +7,7 @@ import { at, bookableDate, cleanupBookingWorld, createBookingWorld, type Booking
 
 const SLUG = "skema-kunjungan-uji";
 const PATIENT_WA = "6281200007700";
+const OTHER_WA = "6281200007701";
 
 describe("skema kunjungan dan trigger penguncian", () => {
   let world: BookingWorld;
@@ -58,7 +59,7 @@ describe("skema kunjungan dan trigger penguncian", () => {
   }
 
   beforeAll(async () => {
-    await cleanupBookingWorld(SLUG, [PATIENT_WA]);
+    await cleanupBookingWorld(SLUG, [PATIENT_WA, OTHER_WA]);
     world = await createBookingWorld(SLUG);
     date = await bookableDate();
     patientId = (
@@ -67,7 +68,7 @@ describe("skema kunjungan dan trigger penguncian", () => {
   });
 
   afterAll(async () => {
-    await cleanupBookingWorld(SLUG, [PATIENT_WA]);
+    await cleanupBookingWorld(SLUG, [PATIENT_WA, OTHER_WA]);
     await prisma.$disconnect();
   });
 
@@ -173,6 +174,34 @@ describe("skema kunjungan dan trigger penguncian", () => {
     ).rejects.toThrow();
     const unsigned = await encounter("DRAF");
     await expect(prisma.encounter.update({ where: { id: unsigned }, data: { status: "FINAL" } })).rejects.toThrow();
+  });
+
+  it("booking milik kunjungan final tidak bisa dipindah pasien, jadwal, tenaga, atau status lewat SQL langsung", async () => {
+    const id = await encounter("FINAL");
+    const { appointmentId } = await prisma.encounter.findUniqueOrThrow({ where: { id } });
+    const other = await prisma.patient.create({ data: { medicalRecordNumber: "SDY-2026-7701", name: "Pasien Lain", whatsapp: OTHER_WA } });
+
+    for (const sql of [
+      `UPDATE "Appointment" SET "patientId" = '${other.id}' WHERE "id" = $1`,
+      `UPDATE "Appointment" SET "startAt" = "startAt" + interval '1 day', "endAt" = "endAt" + interval '1 day' WHERE "id" = $1`,
+      `UPDATE "Appointment" SET "staffId" = '${world.therapistId}' WHERE "id" = $1`,
+      `UPDATE "Appointment" SET "status" = 'DIBATALKAN' WHERE "id" = $1`,
+    ]) {
+      await expect(prisma.$executeRawUnsafe(sql, appointmentId)).rejects.toThrow(/rekam_medis_terkunci/);
+    }
+    const booking = await prisma.appointment.findUniqueOrThrow({ where: { id: appointmentId } });
+    expect(booking).toMatchObject({ patientId, staffId: world.doctorId, status: "HADIR" });
+
+    // Finalisasi menandai booking Selesai, dan catatan booking tetap boleh diubah.
+    await prisma.$executeRawUnsafe(`UPDATE "Appointment" SET "status" = 'SELESAI', "notes" = 'catatan' WHERE "id" = $1`, appointmentId);
+    expect((await prisma.appointment.findUniqueOrThrow({ where: { id: appointmentId } })).status).toBe("SELESAI");
+  });
+
+  it("booking milik draf tetap bisa diubah di basis data", async () => {
+    const id = await encounter("DRAF");
+    const { appointmentId } = await prisma.encounter.findUniqueOrThrow({ where: { id } });
+    await prisma.$executeRawUnsafe(`UPDATE "Appointment" SET "staffId" = $2 WHERE "id" = $1`, appointmentId, world.therapistId);
+    expect((await prisma.appointment.findUniqueOrThrow({ where: { id: appointmentId } })).staffId).toBe(world.therapistId);
   });
 
   it("purgeEncounters mengosongkan kunjungan uji lalu menyalakan trigger lagi", async () => {
