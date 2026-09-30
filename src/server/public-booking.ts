@@ -15,16 +15,16 @@ import {
 } from "@/lib/booking-rules";
 import { prisma } from "@/lib/db";
 import { formatIndonesianDate } from "@/lib/format";
-import type { QuizAnswers } from "@/lib/kuis/v1/answers";
 import { validateIdentity } from "@/lib/kuis/identity";
-import { QUIZ_VERSION } from "@/lib/kuis/v1/options";
-import { validateQuizAnswers } from "@/lib/kuis/v1/steps";
+import type { QuizAnswers } from "@/lib/kuis/v2/answers";
+import { QUIZ_VERSION } from "@/lib/kuis/v2/options";
+import { validateQuizAnswers } from "@/lib/kuis/v2/steps";
 import { bookingFeeFor, formatBankAccount } from "@/lib/payment";
 import { PRIVACY_POLICY_VERSION } from "@/lib/privacy";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import type { SlotOption } from "@/lib/slot";
-import { addDaysToDateString, minutesToTimeLabel, witaDateString, witaMinutesOfDay } from "@/lib/time";
+import { minutesToTimeLabel, witaDateString, witaMinutesOfDay } from "@/lib/time";
 import { buildWhatsAppLink, maskWhatsapp, rescheduleRequestMessage, siteBookingWhatsAppMessage } from "@/lib/whatsapp";
 import { recordAudit, SITE_PATIENT_ACTOR } from "@/server/audit";
 import { computeAvailability } from "@/server/availability";
@@ -274,7 +274,7 @@ function assertServiceFits(service: { slug: string; category: { slug: string } }
   const mayChooseTreatment = answers.patientType === "LAMA" && answers.purpose === "AESTHETIC";
   if (!mayChooseTreatment || service.category.slug === SLIMMING_CATEGORY_SLUG) {
     throw new UserFacingError(
-      "Pasien baru mendaftar untuk Konsultasi Dokter lebih dulu. Treatment ditentukan dokter setelah pemeriksaan.",
+      "Silakan pilih Konsultasi Dokter. Treatment ditentukan dokter setelah pemeriksaan.",
     );
   }
 }
@@ -282,10 +282,7 @@ function assertServiceFits(service: { slug: string; category: { slug: string } }
 /** Berat & tinggi disimpan di kolom bertipe, bukan di JSON jawaban (spec 5.1). */
 function storedAnswers(answers: QuizAnswers): Prisma.InputJsonValue {
   const copy = structuredClone(answers);
-  if (copy.slimming) {
-    delete copy.slimming.weightKg;
-    delete copy.slimming.heightCm;
-  }
+  delete copy.body;
   return copy as Prisma.InputJsonValue;
 }
 
@@ -424,11 +421,8 @@ export async function submitSiteBooking(input: SiteBookingInput): Promise<Action
           gender: identity.gender,
           occupation: identity.occupation,
           address: identity.address,
-          selfWeightKg: answers.slimming?.weightKg,
-          selfHeightCm: answers.slimming?.heightCm,
-          activityDate: answers.returning?.activities
-            ? new Date(`${addDaysToDateString(witaDateString(now), -1)}T00:00:00Z`)
-            : null,
+          selfWeightKg: answers.body?.weightKg,
+          selfHeightCm: answers.body?.heightCm,
           consentAt: now,
           consentVersion: PRIVACY_POLICY_VERSION,
           submittedAt: now,

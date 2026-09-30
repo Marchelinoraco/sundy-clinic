@@ -5,11 +5,10 @@ import { runAction, UserFacingError, type ActionResult } from "@/lib/action-resu
 import { prisma } from "@/lib/db";
 import { formatDateColumn, formatGender, formatIndonesianDate } from "@/lib/format";
 import { INTAKE_PURPOSE_LABEL } from "@/lib/intake-purpose";
-import type { ActivityRow, IntakeSection } from "@/lib/kuis/v1/describe";
-import { activityTable, describeAnswers } from "@/lib/kuis/v1/describe";
-import { quizAnswersSchema, type QuizAnswers } from "@/lib/kuis/v1/answers";
-import { QUIZ_VERSION } from "@/lib/kuis/v1/options";
-import { proposeRecordFromAnswers, type RecordProposal } from "@/lib/kuis/v1/record-proposal";
+import { clinicalView, type ClinicalSection } from "@/lib/kuis/clinical-view";
+import type { ActivityRow } from "@/lib/kuis/v1/describe";
+import type { HabitTable } from "@/lib/kuis/v2/describe";
+import type { RecordProposal } from "@/lib/kuis/v2/record-proposal";
 import { can } from "@/lib/permissions";
 import { mergeRecordText } from "@/lib/record-text";
 import { safeRevalidatePath } from "@/lib/revalidate";
@@ -246,9 +245,11 @@ export type IntakeDetail = {
   };
   /** null untuk peran tanpa record:read, atau bila pasien belum mengisi. */
   clinical: {
-    sections: IntakeSection[];
+    sections: ClinicalSection[];
     activities: ActivityRow[] | null;
     activityDateLabel: string | null;
+    /** Tabel kebiasaan (form recall) — isian kuis versi 2. */
+    habits: HabitTable | null;
   } | null;
   /** Hanya untuk record:write, setelah pasien mengisi kuis (spec 6.4). */
   approval: IntakeApproval | null;
@@ -257,29 +258,25 @@ export type IntakeDetail = {
 /** Kolom klinis dibaca dengan kueri terpisah, hanya untuk yang berhak (spec 6.2). */
 async function loadClinical(
   intakeId: string,
-): Promise<{ clinical: NonNullable<IntakeDetail["clinical"]>; answers: QuizAnswers } | null> {
+): Promise<{ clinical: NonNullable<IntakeDetail["clinical"]>; proposal: RecordProposal } | null> {
   const row = await prisma.intake.findUniqueOrThrow({
     where: { id: intakeId },
     select: { quizVersion: true, answers: true, selfWeightKg: true, selfHeightCm: true, activityDate: true },
   });
   if (row.answers === null) return null;
-  if (row.quizVersion !== QUIZ_VERSION) {
-    throw new Error(`Isian dengan kuis versi ${row.quizVersion} belum bisa ditampilkan.`);
-  }
 
-  const answers = quizAnswersSchema.parse(row.answers);
-  // Berat & tinggi disimpan di kolom bertipe, bukan di JSON (spec 5.1).
-  if (answers.slimming && row.selfWeightKg !== null && row.selfHeightCm !== null) {
-    answers.slimming.weightKg = Number(row.selfWeightKg);
-    answers.slimming.heightCm = Number(row.selfHeightCm);
-  }
-
+  const view = clinicalView({
+    quizVersion: row.quizVersion,
+    answers: row.answers,
+    weightKg: row.selfWeightKg === null ? null : Number(row.selfWeightKg),
+    heightCm: row.selfHeightCm === null ? null : Number(row.selfHeightCm),
+  });
   return {
-    answers,
+    proposal: view.proposal,
     clinical: {
-      // Aktivitas tampil sebagai tabel 06.00–22.00, bukan daftar baris.
-      sections: describeAnswers(answers).filter((section) => section.step !== "P3"),
-      activities: answers.returning?.activities ? activityTable(answers.returning.activities) : null,
+      sections: view.sections,
+      activities: view.activities,
+      habits: view.habits,
       activityDateLabel: row.activityDate ? formatIndonesianDate(row.activityDate) : null,
     },
   };
@@ -290,12 +287,11 @@ async function loadClinical(
  * sudah diperiksa tidak menggabungkan usulan lagi: baris yang sengaja dihapus
  * dokter tidak boleh muncul kembali.
  */
-async function loadApproval(patientId: string, answers: QuizAnswers, reviewed: boolean): Promise<IntakeApproval> {
+async function loadApproval(patientId: string, proposed: RecordProposal, reviewed: boolean): Promise<IntakeApproval> {
   const patient = await prisma.patient.findUniqueOrThrow({
     where: { id: patientId },
     select: { allergies: true, medicalHistory: true, updatedAt: true },
   });
-  const proposed = proposeRecordFromAnswers(answers);
   return {
     state: "ready",
     patientId,
@@ -347,7 +343,7 @@ export async function getIntakeForStaff(intakeId: string): Promise<IntakeDetail 
   let approval: IntakeApproval | null = null;
   if (loaded && can(staff.role, "record:write")) {
     approval = row.patient
-      ? await loadApproval(row.patient.id, loaded.answers, row.status === "DIPERIKSA")
+      ? await loadApproval(row.patient.id, loaded.proposal, row.status === "DIPERIKSA")
       : { state: "needs-match" };
   }
 

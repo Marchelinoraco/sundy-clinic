@@ -2,7 +2,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { StaffRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import type { QuizAnswers } from "@/lib/kuis/v1/answers";
+import type { QuizAnswers } from "@/lib/kuis/v2/answers";
 import { can } from "@/lib/permissions";
 import {
   approveIntakeToPatient,
@@ -13,7 +13,7 @@ import {
 } from "@/server/intake";
 import { holdSlot, submitSiteBooking } from "@/server/public-booking";
 import { requireCapability } from "@/server/session";
-import { aestheticNewPatient, newPatientIdentity, slimmingNewPatient } from "../fixtures/quiz-answers";
+import { aestheticNewPatient, newPatientIdentity, slimmingNewPatient } from "../fixtures/quiz-answers-v2";
 import { unwrap } from "./unwrap";
 import { at, bookableDate, cleanupBookingWorld, createBookingWorld, type BookingWorld } from "./public-booking-world";
 

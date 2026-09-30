@@ -30,6 +30,7 @@ const intake: IntakeDetail = {
     sections: describeAnswers(slimmingReturningPatient).filter((s) => s.step !== "P3"),
     activities: activityTable(slimmingReturningPatient.returning.activities),
     activityDateLabel: "Minggu, 27 September 2026",
+    habits: null,
   },
 };
 

@@ -2,7 +2,7 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
 import { cancelSiteBooking, findBookingStatus, holdSlot, submitSiteBooking } from "@/server/public-booking";
-import { newPatientIdentity, slimmingNewPatient } from "../fixtures/quiz-answers";
+import { newPatientIdentity, slimmingNewPatient } from "../fixtures/quiz-answers-v2";
 import { unwrap } from "./unwrap";
 import { at, bookableDate, cleanupBookingWorld, createBookingWorld, type BookingWorld } from "./public-booking-world";
 

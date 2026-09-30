@@ -2,16 +2,17 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
 import { PRIVACY_POLICY_VERSION } from "@/lib/privacy";
-import { addDaysToDateString, witaDateString } from "@/lib/time";
 import { holdSlot, submitSiteBooking, type SiteBookingInput } from "@/server/public-booking";
+import * as v1 from "../fixtures/quiz-answers";
 import {
   aestheticNewPatient,
   aestheticReturningPatient,
   newPatientIdentity,
+  nutritionNewPatient,
   returningPatientIdentity,
   slimmingNewPatient,
   slimmingReturningPatient,
-} from "../fixtures/quiz-answers";
+} from "../fixtures/quiz-answers-v2";
 import { unwrap } from "./unwrap";
 import { at, bookableDate, cleanupBookingWorld, createBookingWorld, type BookingWorld } from "./public-booking-world";
 
@@ -96,7 +97,7 @@ describe("Kirim pendaftaran situs", () => {
       kind: "LENGKAP",
       purpose: "SLIMMING",
       claimsReturning: false,
-      quizVersion: 1,
+      quizVersion: 2,
       name: "Siti Rahayu",
       whatsapp: PATIENT_WA,
       gender: "P",
@@ -105,7 +106,7 @@ describe("Kirim pendaftaran situs", () => {
     });
     expect(Number(intake.selfWeightKg)).toBe(72);
     expect(Number(intake.selfHeightCm)).toBe(158);
-    expect((intake.answers as { slimming: Record<string, unknown> }).slimming.weightKg).toBeUndefined();
+    expect(intake.answers).not.toHaveProperty("body");
     expect(await prisma.slotHold.count({ where: { token } })).toBe(0);
 
     const audit = await prisma.auditLog.findFirstOrThrow({ where: { entityId: appointment.id } });
@@ -211,14 +212,14 @@ describe("Kirim pendaftaran situs", () => {
     expect((await unwrap(submitSiteBooking(input(token, "17:30")))).kind).toBe("booked");
   });
 
-  it("pasien baru hanya boleh memesan Konsultasi Dokter", async () => {
+  it("customer baru hanya boleh memesan Konsultasi Dokter", async () => {
     const token = await holdFor("13:00", world.treatmentId, world.therapistId);
     const result = await submitSiteBooking(
       input(token, "13:00", { serviceId: world.treatmentId, staffId: world.therapistId }),
     );
     expect(result).toEqual({
       ok: false,
-      error: "Pasien baru mendaftar untuk Konsultasi Dokter lebih dulu. Treatment ditentukan dokter setelah pemeriksaan.",
+      error: "Silakan pilih Konsultasi Dokter. Treatment ditentukan dokter setelah pemeriksaan.",
     });
   });
 
@@ -256,16 +257,14 @@ describe("Kirim pendaftaran situs", () => {
     expect(result).toMatchObject({ ok: false });
   });
 
-  it("menyimpan tanggal 'kemarin' untuk aktivitas pasien Slimming lama", async () => {
+  it("isian versi 2 customer lama tidak mengisi tanggal aktivitas kemarin (food recall pindah ke klinik)", async () => {
     const token = await holdFor("14:30");
-    const outcome = await unwrap(
+    await unwrap(
       submitSiteBooking(input(token, "14:30", { answers: slimmingReturningPatient, identity: returningPatientIdentity })),
     );
-    if (outcome.kind !== "booked") throw new Error("seharusnya terbooking");
 
     const intake = await prisma.intake.findFirstOrThrow({ where: { submissionKey: token } });
-    const yesterday = addDaysToDateString(witaDateString(new Date()), -1);
-    expect(intake.activityDate?.toISOString().slice(0, 10)).toBe(yesterday);
+    expect(intake).toMatchObject({ kind: "PENDEK", quizVersion: 2, activityDate: null });
   });
 
   it("hanya menyimpan jawaban jalur yang akhirnya dipilih (Review Focus 1)", async () => {
@@ -291,6 +290,41 @@ describe("Kirim pendaftaran situs", () => {
       error: "Pilih salah satu.",
     });
     expect(await submitSiteBooking(input(token, "15:30", { website: "http://spam" }))).toMatchObject({ ok: false });
+    expect(await prisma.appointment.count({ where: { staffId: world.doctorId } })).toBe(0);
+  });
+
+  it("gizi klinik: memesan Konsultasi Dokter dengan tujuan GIZI_KLINIK, berat & tinggi di kolom bertipe", async () => {
+    const token = await holdFor("16:00");
+    await unwrap(submitSiteBooking(input(token, "16:00", { answers: nutritionNewPatient })));
+
+    const intake = await prisma.intake.findFirstOrThrow({ where: { submissionKey: token } });
+    expect(intake).toMatchObject({ purpose: "GIZI_KLINIK", quizVersion: 2, kind: "LENGKAP", activityDate: null });
+    expect(Number(intake.selfWeightKg)).toBe(65);
+    expect(Number(intake.selfHeightCm)).toBe(160);
+    expect(intake.answers).toMatchObject({
+      nutrition: { story: "Gula darah tinggi, ingin atur pola makan." },
+      habits: { breakfast: { hour: 7 }, soda: "KADANG" },
+    });
+    expect(intake.answers).not.toHaveProperty("body");
+  });
+
+  it("customer gizi klinik tidak bisa memesan treatment, walau permintaannya dirakit sendiri", async () => {
+    const token = await holdFor("13:30", world.treatmentId, world.therapistId);
+    const result = await submitSiteBooking(
+      input(token, "13:30", { serviceId: world.treatmentId, staffId: world.therapistId, answers: nutritionNewPatient }),
+    );
+    expect(result).toEqual({
+      ok: false,
+      error: "Silakan pilih Konsultasi Dokter. Treatment ditentukan dokter setelah pemeriksaan.",
+    });
+  });
+
+  it("menolak jawaban berbentuk versi 1 dari tab yang terbuka sebelum rilis", async () => {
+    const token = await holdFor("16:30");
+    expect(await submitSiteBooking(input(token, "16:30", { answers: v1.slimmingNewPatient }))).toEqual({
+      ok: false,
+      error: "Jawaban tidak sah. Muat ulang halaman lalu coba lagi.",
+    });
     expect(await prisma.appointment.count({ where: { staffId: world.doctorId } })).toBe(0);
   });
 });
