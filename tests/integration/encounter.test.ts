@@ -99,6 +99,25 @@ describe("aksi kunjungan", () => {
     expect(await auditCount("encounter.create", first.encounterId)).toBe(1);
   });
 
+  it("tinggi badan diisikan dari kunjungan final terakhir pasien, bukan dari draf", async () => {
+    actAs("DOKTER");
+    const first = await opened();
+    await unwrap(
+      finalizeEncounter({
+        encounterId: first.encounterId,
+        version: first.version,
+        draft: draftWith({ assessment: "Kontrol", vitals: { heightCm: "160" } }),
+      }),
+    );
+    // Draf yang lebih baru dengan tinggi lain tidak boleh menjadi sumber isian awal.
+    const later = await opened();
+    await unwrap(saveEncounterDraft({ encounterId: later.encounterId, version: later.version, draft: draftWith({ vitals: { heightCm: "170" } }) }));
+
+    const next = await opened();
+    const row = await prisma.encounter.findUniqueOrThrow({ where: { id: next.encounterId } });
+    expect(Number(row.heightCm)).toBe(160);
+  });
+
   it("dua klik Periksa bersamaan tetap satu kunjungan", async () => {
     actAs("DOKTER");
     const appointment = await booking();
