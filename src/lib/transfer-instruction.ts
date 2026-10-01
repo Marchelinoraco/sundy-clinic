@@ -1,6 +1,6 @@
 import { CLINIC_NAME } from "./clinic";
 import { confirmationDeadline } from "./confirmation-window";
-import { formatIndonesianDate, formatRupiah, formatShortIndonesianDate } from "./format";
+import { formatRupiah, formatScheduleForMessage, formatShortIndonesianDate } from "./format";
 import { formatBankAccount, type BankAccount, type BookingSourceValue } from "./payment";
 import { minutesToTimeLabel, witaMinutesOfDay } from "./time";
 import { buildWhatsAppLinkTo } from "./whatsapp";
@@ -47,10 +47,6 @@ export function transferDeadline(createdAt: Date, startAt: Date, closedDates: Re
   return deadline.getTime() < startAt.getTime() ? deadline : startAt;
 }
 
-function longDateTime(date: Date): string {
-  return `${formatIndonesianDate(date)} pukul ${minutesToTimeLabel(witaMinutesOfDay(date))} WITA`;
-}
-
 export function transferInstructionText(input: {
   patientName: string;
   code: string;
@@ -67,10 +63,10 @@ export function transferInstructionText(input: {
     `Halo ${input.patientName}, booking Anda di ${CLINIC_NAME} sudah kami catat.`,
     `Kode: ${input.code}`,
     `Layanan: ${input.serviceName}`,
-    `Jadwal: ${longDateTime(input.startAt)}`,
+    `Jadwal: ${formatScheduleForMessage(input.startAt)}`,
     `Tenaga: ${input.staffName} · ${input.branchName}`,
     "",
-    `Mohon transfer biaya booking ${formatRupiah(input.fee)} paling lambat ${longDateTime(input.deadline)} ke:`,
+    `Mohon transfer biaya booking ${formatRupiah(input.fee)} paling lambat ${formatScheduleForMessage(input.deadline)} ke:`,
     input.bankAccount ?? MISSING_BANK_ACCOUNT_LINE,
     "lalu kirim bukti transfer di chat ini.",
     "",

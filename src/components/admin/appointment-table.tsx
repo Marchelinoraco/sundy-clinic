@@ -144,6 +144,8 @@ export function AppointmentTable({
         return { onSelect: () => run(() => markAttended(row.id), `${row.patientName} hadir.`) };
       case "NO_SHOW":
         return { onSelect: () => run(() => markNoShow(row.id), `${row.patientName} ditandai tidak hadir.`) };
+      case "RESCHEDULE":
+        return { onSelect: () => toast.info("Pindah jadwal belum tersedia.") };
       case "CANCEL":
         return { onSelect: () => setCancelTarget(row) };
       case "MATCH":

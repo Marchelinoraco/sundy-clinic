@@ -110,6 +110,7 @@ describe("AppointmentTable aksi per baris (spec C1 5.2)", () => {
       "Salin instruksi transfer",
       "Hadir",
       "Tidak hadir",
+      "Pindah jadwal",
       "Batalkan",
     ]);
   });
