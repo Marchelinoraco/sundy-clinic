@@ -100,4 +100,15 @@ describe("EncounterContextPanel", () => {
     expect(rows[1].textContent).not.toMatch(/NaN/);
     expect(screen.queryByText(/Total:/)).not.toBeInTheDocument();
   });
+
+  it("suntingan di kotak persetujuan tetap ada setelah pindah tab dan kembali", async () => {
+    render(<EncounterContextPanel encounter={encounterDetail({ intake: readyIntake, approval })} currentVitals={NO_VITALS} />);
+    const allergies = screen.getByLabelText("Alergi");
+    await userEvent.clear(allergies);
+    await userEvent.type(allergies, "Udang saja");
+
+    await userEvent.click(tab("Tren"));
+    await userEvent.click(tab("Isian kuis"));
+    expect(screen.getByLabelText("Alergi")).toHaveValue("Udang saja");
+  });
 });

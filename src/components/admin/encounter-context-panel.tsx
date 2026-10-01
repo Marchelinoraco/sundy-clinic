@@ -46,7 +46,7 @@ export function EncounterContextPanel({
               role="tab"
               id={`${id}-${item.key}`}
               aria-selected={tab === item.key}
-              aria-controls={`${id}-panel`}
+              aria-controls={`${id}-${item.key}-panel`}
               onClick={() => setTab(item.key)}
               className={cn(
                 "rounded-full border px-3 py-1 text-sm",
@@ -57,13 +57,24 @@ export function EncounterContextPanel({
             </button>
           ))}
         </div>
-        <div role="tabpanel" id={`${id}-panel`} aria-labelledby={`${id}-${tab}`} className="rounded-lg border bg-background p-4">
-          {tab === "intake" && <EncounterIntakeTab intake={encounter.intake} approval={encounter.approval} />}
-          {tab === "previous" && (
-            <PreviousVisitsTab history={encounter.history} hasMore={encounter.hasMoreHistory} patientId={encounter.patient.id} />
-          )}
-          {tab === "trend" && <VitalsTrendTab current={currentVitals} history={trendSource} />}
-        </div>
+        {/* Ketiga panel tetap terpasang dan yang tidak aktif disembunyikan: berpindah tab
+            tidak boleh membuang suntingan di kotak persetujuan atau tabel yang sudah dibuka. */}
+        {TABS.map((item) => (
+          <div
+            key={item.key}
+            role="tabpanel"
+            id={`${id}-${item.key}-panel`}
+            aria-labelledby={`${id}-${item.key}`}
+            hidden={tab !== item.key}
+            className="rounded-lg border bg-background p-4"
+          >
+            {item.key === "intake" && <EncounterIntakeTab intake={encounter.intake} approval={encounter.approval} />}
+            {item.key === "previous" && (
+              <PreviousVisitsTab history={encounter.history} hasMore={encounter.hasMoreHistory} patientId={encounter.patient.id} />
+            )}
+            {item.key === "trend" && <VitalsTrendTab current={currentVitals} history={trendSource} />}
+          </div>
+        ))}
       </details>
     </div>
   );
