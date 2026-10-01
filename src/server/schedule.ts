@@ -168,17 +168,18 @@ export async function getStaffAvailability(input: AvailabilityInput): Promise<Sl
  * Untuk admin yang mencatat booking: tanpa batas 2 jam, karena pasien
  * walk-in dan penelepon sering minta jam terdekat (PRD F9). Slot yang
  * sudah lewat tetap tidak ditawarkan. Hold pasien tidak mengikat admin.
+ * `excludeAppointmentId`: saat pindah jadwal, jam booking itu sendiri tidak dihitung terisi.
  */
 export async function getStaffAvailabilityForAdmin(
-  input: AvailabilityInput,
+  input: AvailabilityInput & { excludeAppointmentId?: string },
 ): Promise<SlotOption[]> {
   await requireCapability("booking:manage");
-  return computeAvailability(input, { minLeadMinutes: 0 });
+  return computeAvailability(input, { minLeadMinutes: 0, excludeAppointmentId: input.excludeAppointmentId });
 }
 
 /**
- * Strip tanggal Booking Baru: ringkasan per hari dengan aturan jam yang sama
- * seperti getStaffAvailabilityForAdmin (tanpa batas 2 jam, hold diabaikan).
+ * Strip tanggal Booking Baru dan Pindah jadwal: ringkasan per hari dengan aturan
+ * jam yang sama seperti getStaffAvailabilityForAdmin (tanpa batas 2 jam, hold diabaikan).
  */
 export async function getStaffAvailabilityRange(input: {
   staffId: string;
@@ -186,7 +187,8 @@ export async function getStaffAvailabilityRange(input: {
   durationMinutes: number;
   from: string;
   days: number;
+  excludeAppointmentId?: string;
 }): Promise<DayAvailability[]> {
   await requireCapability("booking:manage");
-  return computeAvailabilityRange(input, { minLeadMinutes: 0 });
+  return computeAvailabilityRange(input, { minLeadMinutes: 0, excludeAppointmentId: input.excludeAppointmentId });
 }
