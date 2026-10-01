@@ -29,7 +29,7 @@ konsultasinya (Slimming atau Aesthetic) **sebelum** data pribadi diminta.
 - Pasien lama tidak perlu mengisi ulang data yang sudah ada. Di sisi lain, situs tidak pernah membocorkan
   apakah seseorang pernah berobat di SunDY.
 
-## 2. Keputusan (dikonfirmasi pemilik, 28 Sep 2026)
+## 2. Keputusan (dikonfirmasi pemilik, 28 Sep 2026) 
 
 | # | Keputusan | Pilihan |
 |---|---|---|
