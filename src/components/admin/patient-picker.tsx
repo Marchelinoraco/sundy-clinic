@@ -3,8 +3,28 @@
 import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { formatShortIndonesianDate } from "@/lib/format";
+import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
 import { searchPatients, type PatientSummary } from "@/server/patient";
 import { NewPatientForm } from "./new-patient-form";
+
+/** Kunjungan terakhir dan booking aktif berikutnya: booking ganda ketahuan sebelum dibuat (spec C1 bagian 3). */
+export function PatientBookingInfo({ patient }: { patient: PatientSummary }) {
+  return (
+    <span className="block text-xs text-muted-foreground">
+      Kunjungan terakhir {patient.lastVisitAt ? formatShortIndonesianDate(patient.lastVisitAt) : "belum pernah"}
+      {patient.nextBookingAt && (
+        <>
+          {" · "}
+          <span className="font-medium text-amber-700">
+            booking berikutnya {formatShortIndonesianDate(patient.nextBookingAt)}{" "}
+            {minutesToTimeLabel(witaMinutesOfDay(patient.nextBookingAt))}
+          </span>
+        </>
+      )}
+    </span>
+  );
+}
 
 type SearchState = { query: string; patients: PatientSummary[] };
 
@@ -66,6 +86,7 @@ export function PatientPicker({ onSelect }: { onSelect: (patient: PatientSummary
                 <span className="ml-2 text-muted-foreground">
                   {patient.medicalRecordNumber} · {patient.whatsapp}
                 </span>
+                <PatientBookingInfo patient={patient} />
               </button>
             </li>
           ))}
