@@ -22,6 +22,8 @@ type Props = {
   onSelect: (date: string) => void;
   /** Dinaikkan oleh form untuk memaksa muat ulang, misal setelah jam direbut booking lain. */
   refreshKey: number;
+  /** Pindah jadwal: jam milik booking ini tidak dihitung terisi. */
+  excludeAppointmentId?: string;
 };
 
 type LoadState = { key: string; days: DayAvailability[]; failed: boolean };
@@ -38,22 +40,38 @@ function noon(date: string): Date {
 }
 
 /** Strip 14 hari mulai hari ini, dan isian untuk tanggal di luarnya (spec C1 bagian 3). */
-export function DateStrip({ staffId, branchId, durationMinutes, today, selected, onSelect, refreshKey }: Props) {
-  const requestKey = `${staffId}|${branchId}|${durationMinutes}|${today}|${refreshKey}`;
+export function DateStrip({
+  staffId,
+  branchId,
+  durationMinutes,
+  today,
+  selected,
+  onSelect,
+  refreshKey,
+  excludeAppointmentId,
+}: Props) {
+  const requestKey = `${staffId}|${branchId}|${durationMinutes}|${today}|${refreshKey}|${excludeAppointmentId ?? ""}`;
   const [loaded, setLoaded] = useState<LoadState>({ key: "", days: [], failed: false });
   const [showOtherDate, setShowOtherDate] = useState(false);
   const latestKey = useRef(requestKey);
 
   useEffect(() => {
     latestKey.current = requestKey;
-    getStaffAvailabilityRange({ staffId, branchId, durationMinutes, from: today, days: STRIP_DAYS })
+    getStaffAvailabilityRange({
+      staffId,
+      branchId,
+      durationMinutes,
+      from: today,
+      days: STRIP_DAYS,
+      ...(excludeAppointmentId ? { excludeAppointmentId } : {}),
+    })
       .then((days) => {
         if (latestKey.current === requestKey) setLoaded({ key: requestKey, days, failed: false });
       })
       .catch(() => {
         if (latestKey.current === requestKey) setLoaded({ key: requestKey, days: [], failed: true });
       });
-  }, [requestKey, staffId, branchId, durationMinutes, today]);
+  }, [requestKey, staffId, branchId, durationMinutes, today, excludeAppointmentId]);
 
   const ready = loaded.key === requestKey;
   const inStrip = loaded.days.some((day) => day.date === selected);
