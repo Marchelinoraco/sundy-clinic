@@ -215,7 +215,7 @@ Dibuka dari menu ⋯ di daftar Booking, atau dari baris "Minta pindah" di halama
 - bila ada beberapa catatan berlaku dengan jenis yang sama, yang dipakai adalah yang terakhir.
 
 **Aksi server** (semuanya `booking:manage`, tanpa data klinis):
-- **mencatat pengiriman** `{ appointmentId, kind }`. Jenis pesan harus cocok dengan keadaan booking:
+- **mencatat pengiriman** `{ appointmentId, kind, scheduledFor }`. `scheduledFor` adalah jadwal yang tertulis di teks yang dikirim. Bila booking sudah dipindah sejak teks itu disusun (tab lama, admin lain), pencatatan ditolak dengan pesan "Jadwal booking ini sudah berubah. Muat ulang halaman lalu kirim ulang." Jenis pesan harus cocok dengan keadaan booking:
   - instruksi transfer hanya untuk booking yang menunggu transfer (aturan C1);
   - konfirmasi dan pengingat hanya untuk booking Terkonfirmasi;
 - **membatalkan tanda** sebuah catatan;
