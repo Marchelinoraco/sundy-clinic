@@ -83,5 +83,17 @@ test("dokter menyetujui isian kuis ke data pasien langsung dari halaman kunjunga
   }
 
   await page.getByRole("tabpanel").getByRole("button", { name: "Setujui ke data pasien" }).click();
+  // Toast tidak boleh menutupi bar aksi yang menempel di bawah: Finalisasi harus tetap terlihat.
+  await expect(page.getByText("Data pasien diperbarui.")).toBeVisible({ timeout: 30_000 });
+  const toastBox = (await page.locator("[data-sonner-toast]").first().boundingBox())!;
+  const finalizeBox = (await page.getByRole("button", { name: "Finalisasi" }).boundingBox())!;
+  const overlaps =
+    toastBox.x < finalizeBox.x + finalizeBox.width &&
+    finalizeBox.x < toastBox.x + toastBox.width &&
+    toastBox.y < finalizeBox.y + finalizeBox.height &&
+    finalizeBox.y < toastBox.y + toastBox.height;
+  expect(overlaps, "toast menutupi tombol Finalisasi").toBe(false);
+  await page.getByRole("button", { name: "Finalisasi" }).click({ timeout: 2_000 });
+  await expect(page.getByText("Isi penilaian (A) sebelum finalisasi.")).toBeVisible();
   await expect(page.getByRole("region", { name: "Peringatan" })).toContainText("Amoxicillin", { timeout: 30_000 });
 });
