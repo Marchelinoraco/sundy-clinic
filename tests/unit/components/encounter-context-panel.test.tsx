@@ -111,4 +111,20 @@ describe("EncounterContextPanel", () => {
     await userEvent.click(tab("Isian kuis"));
     expect(screen.getByLabelText("Alergi")).toHaveValue("Udang saja");
   });
+
+  it("kepala tab Isian menyebut apakah isian sudah disetujui ke data pasien", () => {
+    const { unmount } = render(
+      <EncounterContextPanel encounter={encounterDetail({ intake: readyIntake, approval })} currentVitals={NO_VITALS} />,
+    );
+    expect(within(screen.getByRole("tabpanel")).getByText(/belum disetujui ke data pasien/)).toBeInTheDocument();
+    unmount();
+
+    render(
+      <EncounterContextPanel
+        encounter={encounterDetail({ intake: { ...readyIntake, needsApproval: false }, approval })}
+        currentVitals={NO_VITALS}
+      />,
+    );
+    expect(within(screen.getByRole("tabpanel")).getByText(/sudah disetujui ke data pasien/)).toBeInTheDocument();
+  });
 });

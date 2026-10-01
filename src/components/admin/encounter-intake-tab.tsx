@@ -27,6 +27,8 @@ export function EncounterIntakeTab({ intake, approval }: { intake: EncounterInta
     intake.purposeLabel,
     intake.kind === "LENGKAP" ? "pasien baru" : "pasien lama",
     intake.submittedAt ? `dikirim ${formatShortIndonesianDate(intake.submittedAt)}` : null,
+    // Spec UI B bagian 4: status ini ikut berubah setelah dokter menyetujui isian.
+    intake.needsApproval ? "belum disetujui ke data pasien" : "sudah disetujui ke data pasien",
   ]
     .filter(Boolean)
     .join(" · ");
