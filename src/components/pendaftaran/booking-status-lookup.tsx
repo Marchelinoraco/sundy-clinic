@@ -23,8 +23,8 @@ import { cancelSiteBooking, findBookingStatus, type PublicBookingStatus } from "
 
 const ACTIVE = ["MENUNGGU_KONFIRMASI", "TERKONFIRMASI"];
 
-export function BookingStatusLookup() {
-  const [code, setCode] = useState("");
+export function BookingStatusLookup({ initialCode = "" }: { initialCode?: string } = {}) {
+  const [code, setCode] = useState(initialCode);
   const [last4, setLast4] = useState("");
   const [status, setStatus] = useState<PublicBookingStatus | null>(null);
   // 4 digit yang dipakai pencarian berhasil — batal memakai ini, bukan isi kolom yang mungkin sudah diubah.
