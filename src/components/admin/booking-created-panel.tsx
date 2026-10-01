@@ -4,6 +4,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { MISSING_BANK_ACCOUNT_LINE, type TransferInstruction } from "@/lib/transfer-instruction";
+import { WhatsAppSendButton } from "./whatsapp-send-button";
 
 export type CreatedBooking = {
   id: string;
@@ -56,11 +57,14 @@ export function BookingCreatedPanel({
             </p>
           )}
           {instruction.link ? (
-            <Button asChild className="w-full bg-emerald-700 text-white hover:bg-emerald-800">
-              <a href={instruction.link} target="_blank" rel="noopener noreferrer">
-                Kirim instruksi transfer via WA
-              </a>
-            </Button>
+            <WhatsAppSendButton
+              href={instruction.link}
+              appointmentId={booking.id}
+              kind="INSTRUKSI_TRANSFER"
+              className="w-full bg-emerald-700 text-white hover:bg-emerald-800"
+            >
+              Kirim instruksi transfer via WA
+            </WhatsAppSendButton>
           ) : (
             <p className="text-sm text-muted-foreground">Nomor WhatsApp pasien tidak dikenali.</p>
           )}

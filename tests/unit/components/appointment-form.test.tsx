@@ -9,6 +9,9 @@ import { searchPatients, type PatientSummary } from "@/server/patient";
 import { getStaffAvailabilityForAdmin, getStaffAvailabilityRange, type DayAvailability } from "@/server/schedule";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("@/server/appointment-message", () => ({
+  recordAppointmentMessage: vi.fn().mockResolvedValue({ ok: true, data: { id: "m1" } }),
+}));
 vi.mock("@/server/appointment", () => ({ createAppointment: vi.fn(), getTransferInstruction: vi.fn() }));
 vi.mock("@/server/patient", () => ({
   searchPatients: vi.fn(),

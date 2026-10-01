@@ -27,7 +27,13 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { ActionResult } from "@/lib/action-result";
 import type { AppointmentStatusValue } from "@/lib/appointment-status";
-import { BOOKING_ACTION_LABEL, bookingRowActions, type BookingAction } from "@/lib/booking-actions";
+import {
+  BOOKING_ACTION_LABEL,
+  bookingRowActions,
+  type BookingAction,
+  type RescheduleTarget,
+} from "@/lib/booking-actions";
+import type { BookingMessage, MessageKind } from "@/lib/booking-messages";
 import type { BookingSourceValue } from "@/lib/payment";
 import { cn } from "@/lib/utils";
 import {
@@ -36,8 +42,12 @@ import {
   markNoShow,
   verifyAppointment,
 } from "@/server/appointment";
+import { getBookingMessage } from "@/server/appointment-message";
 import { AppointmentStatusBadge } from "./appointment-status-badge";
 import { MatchPatientDialog } from "./match-patient-dialog";
+import { RescheduleDialog } from "./reschedule-dialog";
+import { SendMessageDialog } from "./send-message-dialog";
+import { recordSentMessage, WhatsAppSendButton } from "./whatsapp-send-button";
 
 /** Hanya kolom yang dibutuhkan tabel — data klinis pasien tidak pernah dikirim ke browser. */
 export type BookingRow = {
@@ -53,7 +63,7 @@ export type BookingRow = {
   source: BookingSourceValue;
   sourceLabel: string;
   notes: string | null;
-  /** Hanya untuk booking terkonfirmasi (PRD F9). */
+  /** Hanya untuk booking terkonfirmasi (PRD F9, spec C2 3.2). */
   confirmation: { text: string; link: string | null } | null;
   /** Booking WA/telepon berbiaya yang belum diverifikasi (spec C1 bagian 4). */
   transferInstruction: { text: string; link: string | null } | null;
@@ -71,6 +81,10 @@ export type BookingRow = {
   intakeStatus: "MENUNGGU_DIISI" | "TERISI" | "DIPERIKSA" | null;
   /** Pasien yang sudah dicocokkan; null untuk booking situs yang belum dicocokkan. */
   patientId: string | null;
+  /** "Konfirmasi terkirim 10.12 · Rina" dan sejenisnya (spec C2 4.5). */
+  messageNotes: string[];
+  /** Data dialog Pindah jadwal; tombolnya diatur bookingRowActions. */
+  reschedule: RescheduleTarget;
 };
 
 const INTAKE_STATUS_LABEL: Record<NonNullable<BookingRow["intakeStatus"]>, string> = {
@@ -79,16 +93,22 @@ const INTAKE_STATUS_LABEL: Record<NonNullable<BookingRow["intakeStatus"]>, strin
   DIPERIKSA: "diperiksa",
 };
 
-/** Aksi membuka tautan, atau dijalankan di halaman ini. */
-type ActionTarget = { href: string; external: boolean } | { onSelect: () => void };
+/** Aksi membuka tautan biasa, mengirim WA (dan mencatatnya), atau dijalankan di halaman ini. */
+type ActionTarget =
+  | { href: string; external: boolean }
+  | { send: string; kind: MessageKind }
+  | { onSelect: () => void };
 
 export function AppointmentTable({
   rows,
   canReadRecords,
+  today,
   highlightId = null,
 }: {
   rows: BookingRow[];
   canReadRecords: boolean;
+  /** Hari ini dalam WITA, dari server; dipakai strip tanggal Pindah jadwal. */
+  today: string;
   /** Baris yang disorot dan digulir ke tengah, dari "Lihat di daftar" (spec C1 5.4). */
   highlightId?: string | null;
 }) {
@@ -96,6 +116,10 @@ export function AppointmentTable({
   const [cancelTarget, setCancelTarget] = useState<BookingRow | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [matchTarget, setMatchTarget] = useState<BookingRow | null>(null);
+  const [confirmTarget, setConfirmTarget] = useState<{ row: BookingRow; message: BookingMessage | null } | null>(
+    null,
+  );
+  const [rescheduleTarget, setRescheduleTarget] = useState<RescheduleTarget | null>(null);
   const highlightRef = useRef<HTMLTableRowElement>(null);
 
   // Sekali per sorotan. Dipanggil bersyarat karena jsdom tidak punya scrollIntoView.
@@ -103,7 +127,7 @@ export function AppointmentTable({
     highlightRef.current?.scrollIntoView?.({ block: "center" });
   }, [highlightId]);
 
-  function run(action: () => Promise<ActionResult<unknown>>, successMessage: string) {
+  function run(action: () => Promise<ActionResult<unknown>>, successMessage: string, onSuccess?: () => void) {
     startTransition(async () => {
       try {
         const result = await action();
@@ -112,10 +136,25 @@ export function AppointmentTable({
           return;
         }
         toast.success(successMessage);
+        onSuccess?.();
       } catch {
         toast.error("Aksi gagal. Coba lagi.");
       }
     });
+  }
+
+  /** Setelah Verifikasi: tombol kirim konfirmasi langsung tersedia (spec C2 3.1). */
+  async function openConfirmation(row: BookingRow) {
+    try {
+      const result = await getBookingMessage(row.id);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setConfirmTarget({ row, message: result.data });
+    } catch {
+      toast.error("Konfirmasi gagal dimuat. Kirim dari halaman Pengingat.");
+    }
   }
 
   async function copy(text: string, successMessage: string) {
@@ -139,24 +178,27 @@ export function AppointmentTable({
   function actionTarget(action: BookingAction, row: BookingRow): ActionTarget {
     switch (action) {
       case "VERIFY":
-        return { onSelect: () => run(() => verifyAppointment(row.id), `Booking ${row.code} terkonfirmasi.`) };
+        return {
+          onSelect: () =>
+            run(() => verifyAppointment(row.id), `Booking ${row.code} terkonfirmasi.`, () => void openConfirmation(row)),
+        };
       case "ATTEND":
         return { onSelect: () => run(() => markAttended(row.id), `${row.patientName} hadir.`) };
       case "NO_SHOW":
         return { onSelect: () => run(() => markNoShow(row.id), `${row.patientName} ditandai tidak hadir.`) };
       case "RESCHEDULE":
-        return { onSelect: () => toast.info("Pindah jadwal belum tersedia.") };
+        return { onSelect: () => setRescheduleTarget(row.reschedule) };
       case "CANCEL":
         return { onSelect: () => setCancelTarget(row) };
       case "MATCH":
       case "CHANGE_PATIENT":
         return { onSelect: () => setMatchTarget(row) };
       case "SEND_TRANSFER":
-        return { href: row.transferInstruction?.link ?? "", external: true };
+        return { send: row.transferInstruction?.link ?? "", kind: "INSTRUKSI_TRANSFER" };
       case "COPY_TRANSFER":
         return { onSelect: () => copy(row.transferInstruction?.text ?? "", "Instruksi transfer disalin.") };
       case "SEND_CONFIRMATION":
-        return { href: row.confirmation?.link ?? "", external: true };
+        return { send: row.confirmation?.link ?? "", kind: "KONFIRMASI" };
       case "COPY_CONFIRMATION":
         return { onSelect: () => copy(row.confirmation?.text ?? "", "Teks konfirmasi disalin.") };
       case "VIEW_INTAKE":
@@ -178,6 +220,13 @@ export function AppointmentTable({
     const target = actionTarget(action, row);
     const label = BOOKING_ACTION_LABEL[action];
     const variant = action === "VERIFY" || action === "MATCH" ? "default" : "outline";
+    if ("send" in target) {
+      return (
+        <WhatsAppSendButton key={action} href={target.send} appointmentId={row.id} kind={target.kind} size="sm" variant={variant}>
+          {label}
+        </WhatsAppSendButton>
+      );
+    }
     if ("href" in target) {
       return (
         <Button key={action} size="sm" variant={variant} asChild>
@@ -195,6 +244,20 @@ export function AppointmentTable({
   function menuAction(action: BookingAction, row: BookingRow) {
     const target = actionTarget(action, row);
     const label = BOOKING_ACTION_LABEL[action];
+    if ("send" in target) {
+      return (
+        <DropdownMenuItem key={action} asChild>
+          <a
+            href={target.send}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => void recordSentMessage(row.id, target.kind)}
+          >
+            {label}
+          </a>
+        </DropdownMenuItem>
+      );
+    }
     if ("href" in target) {
       return (
         <DropdownMenuItem key={action} asChild>
@@ -284,6 +347,11 @@ export function AppointmentTable({
                       Isian: {INTAKE_STATUS_LABEL[row.intakeStatus]}
                     </div>
                   )}
+                  {row.messageNotes.map((note) => (
+                    <div key={note} className="mt-1 text-xs text-muted-foreground">
+                      {note}
+                    </div>
+                  ))}
                 </TableCell>
                 <TableCell className="align-top">
                   <div className="flex flex-wrap items-center gap-1">
@@ -317,6 +385,33 @@ export function AppointmentTable({
           open
           onOpenChange={(open) => {
             if (!open) setMatchTarget(null);
+          }}
+        />
+      )}
+
+      {confirmTarget && (
+        <SendMessageDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setConfirmTarget(null);
+          }}
+          title={`✓ Booking ${confirmTarget.row.code} terkonfirmasi`}
+          description={`${confirmTarget.row.patientName} · ${confirmTarget.row.timeLabel} · ${confirmTarget.row.staffName}`}
+          appointmentId={confirmTarget.row.id}
+          message={confirmTarget.message}
+          sendLabel="Kirim konfirmasi via WA"
+          laterNote="Booking ini tetap tercatat di Pengingat → Konfirmasi belum dikirim."
+        />
+      )}
+
+      {rescheduleTarget && (
+        <RescheduleDialog
+          key={rescheduleTarget.appointmentId}
+          target={rescheduleTarget}
+          today={today}
+          open
+          onOpenChange={(open) => {
+            if (!open) setRescheduleTarget(null);
           }}
         />
       )}
