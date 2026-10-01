@@ -1,9 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import type { BookingSource } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,11 +14,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatIndonesianDate } from "@/lib/format";
+import { formatShortIndonesianDate } from "@/lib/format";
 import type { SlotOption } from "@/lib/slot";
-import { createAppointment } from "@/server/appointment";
+import { combineWitaDateAndMinutes, witaDateString } from "@/lib/time";
+import type { TransferInstruction } from "@/lib/transfer-instruction";
+import { createAppointment, getTransferInstruction } from "@/server/appointment";
 import type { PatientSummary } from "@/server/patient";
-import { PatientPicker } from "./patient-picker";
+import { BookingCreatedPanel, type CreatedBooking } from "./booking-created-panel";
+import {
+  ADMIN_SOURCE_LABEL,
+  ADMIN_SOURCES,
+  BookingSummary,
+  bookingSummaryItems,
+  type AdminBookingSource,
+} from "./booking-summary";
+import { DateStrip } from "./date-strip";
+import { PatientBookingInfo, PatientPicker } from "./patient-picker";
 import { SlotPicker } from "./slot-picker";
 
 export type BookingStaffOption = { id: string; name: string; role: "DOKTER" | "TERAPIS" };
@@ -40,37 +49,38 @@ type Props = {
   consultationServiceId: string | null;
   /** Tanggal hari ini dalam WITA, dihitung di server agar tidak bergantung jam perangkat. */
   today: string;
+  /** Biaya booking dari Pengaturan, untuk ringkasan. Biaya yang tersimpan disalin server saat booking dibuat. */
+  bookingFee: number;
 };
 
 type BookingKind = "KONSULTASI" | "TREATMENT";
-type AdminSource = Exclude<BookingSource, "SITUS">;
 
 const CONSULTATION_MINUTES = 30;
 
-const SOURCE_LABEL: Record<AdminSource, string> = {
-  TELEPON: "Telepon",
-  WHATSAPP: "WhatsApp",
-  WALK_IN: "Walk-in",
-};
-
+/**
+ * Booking Baru (spec C1 bagian 3–4): langkah di kiri boleh diisi dalam urutan
+ * apa pun; ringkasan di kanan menempel saat menggulir, lalu menampilkan panel
+ * "Booking dibuat". Halaman tidak pindah setelah simpan.
+ */
 export function AppointmentForm({
   branches,
   staff,
   treatmentGroups,
   consultationServiceId,
   today,
+  bookingFee,
 }: Props) {
-  const router = useRouter();
   const [patient, setPatient] = useState<PatientSummary | null>(null);
   const [kind, setKind] = useState<BookingKind>("KONSULTASI");
   const [serviceId, setServiceId] = useState("");
   const [branchId, setBranchId] = useState(branches[0]?.id ?? "");
   const [staffId, setStaffId] = useState("");
-  const [source, setSource] = useState<AdminSource>("TELEPON");
-  const [date, setDate] = useState(today);
+  const [source, setSource] = useState<AdminBookingSource>("WHATSAPP");
+  const [date, setDate] = useState("");
   const [slot, setSlot] = useState<SlotOption | null>(null);
   const [notes, setNotes] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [created, setCreated] = useState<CreatedBooking | null>(null);
   const [pending, startTransition] = useTransition();
 
   const treatment = treatmentGroups
@@ -89,10 +99,28 @@ export function AppointmentForm({
       ? eligibleStaff[0].id
       : "";
 
-  const canPickSlot = Boolean(effectiveStaffId && branchId && date && durationMinutes);
+  const canPickDate = Boolean(effectiveStaffId && branchId && durationMinutes);
+  const serviceName = kind === "KONSULTASI" ? "Konsultasi Dokter" : (treatment?.name ?? null);
+  const staffName = staff.find((s) => s.id === effectiveStaffId)?.name ?? null;
+  const branchName = branches.find((b) => b.id === branchId)?.name ?? null;
 
+  // Layanan, tenaga, atau cabang berganti: strip dihitung ulang dari kuncinya
+  // sendiri, dan jam yang sudah dipilih dikosongkan.
   function resetSlot() {
     setSlot(null);
+  }
+
+  function startNew() {
+    setCreated(null);
+    setPatient(null);
+    setKind("KONSULTASI");
+    setServiceId("");
+    setStaffId("");
+    setDate("");
+    setSlot(null);
+    setNotes("");
+    setRefreshKey((k) => k + 1);
+    // Sumber dan cabang tetap: admin biasanya mencatat beberapa booking WA berturut-turut.
   }
 
   function handleSubmit() {
@@ -105,7 +133,7 @@ export function AppointmentForm({
       return;
     }
     if (!effectiveStaffId || !slot) {
-      toast.error("Pilih tenaga dan jam terlebih dahulu.");
+      toast.error("Pilih tenaga, tanggal, dan jam terlebih dahulu.");
       return;
     }
 
@@ -124,15 +152,29 @@ export function AppointmentForm({
         });
         if (!result.ok) {
           toast.error(result.error);
-          // Slot yang baru saja direbut booking lain harus hilang dari pilihan.
+          // Jam yang baru saja direbut booking lain harus hilang dari pilihan.
           setSlot(null);
           setRefreshKey((k) => k + 1);
           return;
         }
-        toast.success(
-          `Booking ${result.data.code} dibuat — ${patient.name}, ${formatIndonesianDate(slot.startAt)} pukul ${slot.label}.`,
-        );
-        router.push("/admin/booking");
+
+        // Booking sudah tersimpan; instruksi yang gagal dimuat tidak membatalkannya.
+        let instruction: TransferInstruction | null = null;
+        let instructionFailed = false;
+        try {
+          const transfer = await getTransferInstruction(result.data.id);
+          if (transfer.ok) instruction = transfer.data;
+          else instructionFailed = true;
+        } catch {
+          instructionFailed = true;
+        }
+        setCreated({
+          id: result.data.id,
+          code: result.data.code,
+          date: witaDateString(result.data.startAt),
+          instruction,
+          instructionFailed,
+        });
       } catch {
         toast.error("Gagal membuat booking. Coba lagi.");
       }
@@ -140,192 +182,225 @@ export function AppointmentForm({
   }
 
   return (
-    <div className="max-w-2xl space-y-8">
-      <section className="space-y-2">
-        <h2 className="text-sm font-medium">1. Pasien</h2>
-        {patient ? (
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm">
-            <span>
-              <span className="font-medium">{patient.name}</span>{" "}
-              <span className="text-muted-foreground">
-                ({patient.medicalRecordNumber} · {patient.whatsapp})
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+      <fieldset disabled={created !== null} className="min-w-0 space-y-8 disabled:opacity-60">
+        <section className="space-y-2">
+          <h2 className="text-sm font-medium">1 · Pasien</h2>
+          {patient ? (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm">
+              <span>
+                <span className="font-medium">{patient.name}</span>{" "}
+                <span className="text-muted-foreground">
+                  ({patient.medicalRecordNumber} · {patient.whatsapp})
+                </span>
+                <PatientBookingInfo patient={patient} />
               </span>
-            </span>
-            <Button type="button" variant="ghost" size="sm" onClick={() => setPatient(null)}>
-              Ganti pasien
-            </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setPatient(null)}>
+                Ganti pasien
+              </Button>
+            </div>
+          ) : (
+            <PatientPicker onSelect={setPatient} />
+          )}
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium">2 · Layanan & tenaga</h2>
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Jenis booking">
+            {(["KONSULTASI", "TREATMENT"] as const).map((k) => (
+              <Button
+                key={k}
+                type="button"
+                size="sm"
+                variant={kind === k ? "default" : "outline"}
+                aria-pressed={kind === k}
+                onClick={() => {
+                  setKind(k);
+                  resetSlot();
+                }}
+              >
+                {k === "KONSULTASI" ? "Konsultasi Dokter (30 menit)" : "Treatment"}
+              </Button>
+            ))}
           </div>
-        ) : (
-          <PatientPicker onSelect={setPatient} />
-        )}
-      </section>
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium">2. Jenis & Layanan</h2>
-        <div className="flex flex-wrap gap-2" role="group" aria-label="Jenis booking">
-          {(["KONSULTASI", "TREATMENT"] as const).map((k) => (
-            <Button
-              key={k}
-              type="button"
-              size="sm"
-              variant={kind === k ? "default" : "outline"}
-              aria-pressed={kind === k}
-              onClick={() => {
-                setKind(k);
-                resetSlot();
-              }}
-            >
-              {k === "KONSULTASI" ? "Konsultasi Dokter (30 menit)" : "Treatment"}
-            </Button>
-          ))}
-        </div>
+          {kind === "TREATMENT" && (
+            <div className="space-y-1">
+              <Label htmlFor="booking-service">Layanan</Label>
+              <Select
+                value={serviceId}
+                onValueChange={(v) => {
+                  setServiceId(v);
+                  resetSlot();
+                }}
+              >
+                <SelectTrigger id="booking-service" className="w-full sm:w-96">
+                  <SelectValue placeholder="Pilih layanan" />
+                </SelectTrigger>
+                <SelectContent>
+                  {treatmentGroups.map((group) => (
+                    <SelectGroup key={group.name}>
+                      <SelectLabel>{group.name}</SelectLabel>
+                      {group.services.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name} · {s.durationMin} menit{s.requiresDoctor ? " · dokter" : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
-        {kind === "TREATMENT" && (
-          <div className="space-y-1">
-            <Label htmlFor="booking-service">Layanan</Label>
-            <Select
-              value={serviceId}
-              onValueChange={(v) => {
-                setServiceId(v);
-                resetSlot();
-              }}
-            >
-              <SelectTrigger id="booking-service" className="w-full sm:w-96">
-                <SelectValue placeholder="Pilih layanan" />
-              </SelectTrigger>
-              <SelectContent>
-                {treatmentGroups.map((group) => (
-                  <SelectGroup key={group.name}>
-                    <SelectLabel>{group.name}</SelectLabel>
-                    {group.services.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.name} · {s.durationMin} menit{s.requiresDoctor ? " · dokter" : ""}
+          <div className="grid gap-4 sm:grid-cols-2">
+            {branches.length > 1 && (
+              <div className="space-y-1">
+                <Label htmlFor="booking-branch">Cabang</Label>
+                <Select
+                  value={branchId}
+                  onValueChange={(v) => {
+                    setBranchId(v);
+                    resetSlot();
+                  }}
+                >
+                  <SelectTrigger id="booking-branch" className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {branches.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.name}
                       </SelectItem>
                     ))}
-                  </SelectGroup>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-      </section>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
-      <section className="grid gap-4 sm:grid-cols-2">
-        <h2 className="text-sm font-medium sm:col-span-2">3. Tempat & Tenaga</h2>
-        {branches.length > 1 && (
+            <div className="space-y-1">
+              <Label htmlFor="booking-staff">Tenaga</Label>
+              <Select
+                value={effectiveStaffId}
+                onValueChange={(v) => {
+                  setStaffId(v);
+                  resetSlot();
+                }}
+              >
+                <SelectTrigger id="booking-staff" className="w-full">
+                  <SelectValue placeholder="Pilih tenaga" />
+                </SelectTrigger>
+                <SelectContent>
+                  {eligibleStaff.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {needsDoctor && (
+                <p className="text-xs text-muted-foreground">Hanya dokter yang ditampilkan.</p>
+              )}
+            </div>
+          </div>
+
           <div className="space-y-1">
-            <Label htmlFor="booking-branch">Cabang</Label>
-            <Select
-              value={branchId}
-              onValueChange={(v) => {
-                setBranchId(v);
+            <p id="booking-source-label" className="text-sm font-medium">
+              Sumber booking
+            </p>
+            <div className="flex flex-wrap gap-2" role="group" aria-labelledby="booking-source-label">
+              {ADMIN_SOURCES.map((value) => (
+                <Button
+                  key={value}
+                  type="button"
+                  size="sm"
+                  variant={source === value ? "default" : "outline"}
+                  aria-pressed={source === value}
+                  onClick={() => setSource(value)}
+                >
+                  {ADMIN_SOURCE_LABEL[value]}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium">3 · Tanggal</h2>
+          {canPickDate ? (
+            <DateStrip
+              staffId={effectiveStaffId}
+              branchId={branchId}
+              durationMinutes={durationMinutes!}
+              today={today}
+              selected={date}
+              onSelect={(d) => {
+                setDate(d);
                 resetSlot();
               }}
-            >
-              <SelectTrigger id="booking-branch" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {branches.map((b) => (
-                  <SelectItem key={b.id} value={b.id}>
-                    {b.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+              refreshKey={refreshKey}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">Pilih layanan dan tenaga dulu.</p>
+          )}
+        </section>
 
-        <div className="space-y-1">
-          <Label htmlFor="booking-staff">Tenaga</Label>
-          <Select
-            value={effectiveStaffId}
-            onValueChange={(v) => {
-              setStaffId(v);
-              resetSlot();
-            }}
-          >
-            <SelectTrigger id="booking-staff" className="w-full">
-              <SelectValue placeholder="Pilih tenaga" />
-            </SelectTrigger>
-            <SelectContent>
-              {eligibleStaff.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {needsDoctor && (
-            <p className="text-xs text-muted-foreground">Hanya dokter yang ditampilkan.</p>
+        <section className="space-y-3">
+          <h2 className="text-sm font-medium">4 · Jam</h2>
+          {canPickDate && date ? (
+            <SlotPicker
+              staffId={effectiveStaffId}
+              branchId={branchId}
+              date={date}
+              durationMinutes={durationMinutes!}
+              selected={slot}
+              onSelect={setSlot}
+              refreshKey={refreshKey}
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">Pilih tanggal dulu.</p>
+          )}
+        </section>
+
+        <section className="space-y-1">
+          <Label htmlFor="booking-notes">Catatan (opsional)</Label>
+          <Input
+            id="booking-notes"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Misal: keluhan utama, permintaan khusus"
+          />
+        </section>
+      </fieldset>
+
+      <aside aria-label="Ringkasan booking" className="space-y-4 lg:sticky lg:top-4">
+        <div className="space-y-3 rounded-lg border bg-card p-4">
+          <h2 className="font-medium">Ringkasan</h2>
+          <BookingSummary
+            items={bookingSummaryItems({
+              patientName: patient?.name ?? null,
+              serviceName,
+              startAt: slot?.startAt ?? null,
+              staffName,
+              branchName,
+              source,
+              bookingFee,
+            })}
+          />
+          {!created && (
+            <Button type="button" className="w-full" disabled={pending} onClick={handleSubmit}>
+              {pending ? "Menyimpan…" : "Buat Booking"}
+            </Button>
           )}
         </div>
-
-        <div className="space-y-1">
-          <Label htmlFor="booking-source">Sumber Booking</Label>
-          <Select value={source} onValueChange={(v) => setSource(v as AdminSource)}>
-            <SelectTrigger id="booking-source" className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {(Object.keys(SOURCE_LABEL) as AdminSource[]).map((value) => (
-                <SelectItem key={value} value={value}>
-                  {SOURCE_LABEL[value]}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-sm font-medium">4. Tanggal & Jam</h2>
-        <div className="space-y-1">
-          <Label htmlFor="booking-date">Tanggal</Label>
-          <Input
-            id="booking-date"
-            type="date"
-            min={today}
-            value={date}
-            onChange={(e) => {
-              setDate(e.target.value);
-              resetSlot();
-            }}
-            className="w-44"
+        {created && (
+          <BookingCreatedPanel
+            booking={created}
+            dateLabel={formatShortIndonesianDate(combineWitaDateAndMinutes(created.date, 12 * 60))}
+            onNew={startNew}
           />
-        </div>
-        {canPickSlot ? (
-          <SlotPicker
-            staffId={effectiveStaffId}
-            branchId={branchId}
-            date={date}
-            durationMinutes={durationMinutes!}
-            selected={slot}
-            onSelect={setSlot}
-            refreshKey={refreshKey}
-          />
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            {kind === "TREATMENT" && !treatment
-              ? "Pilih layanan untuk melihat jam kosong."
-              : "Pilih tenaga dan tanggal untuk melihat jam kosong."}
-          </p>
         )}
-      </section>
-
-      <section className="space-y-1">
-        <Label htmlFor="booking-notes">Catatan (opsional)</Label>
-        <Input
-          id="booking-notes"
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="Misal: keluhan utama, permintaan khusus"
-        />
-      </section>
-
-      <Button type="button" disabled={pending} onClick={handleSubmit}>
-        {pending ? "Menyimpan…" : "Buat Booking"}
-      </Button>
+      </aside>
     </div>
   );
 }
