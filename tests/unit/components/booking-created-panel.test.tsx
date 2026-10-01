@@ -4,12 +4,16 @@ import { describe, expect, it, vi } from "vitest";
 import { BookingCreatedPanel, type CreatedBooking } from "@/components/admin/booking-created-panel";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+vi.mock("@/server/appointment-message", () => ({
+  recordAppointmentMessage: vi.fn().mockResolvedValue({ ok: true, data: { id: "m1" } }),
+}));
 
 const TEXT = "Halo Maria Wenas, booking Anda di SunDY Clinic sudah kami catat.\nKode: SDY-7KQ2";
 const created: CreatedBooking = {
   id: "a1",
   code: "SDY-7KQ2",
   date: "2026-10-05",
+  startAt: new Date("2026-10-05T03:00:00Z"),
   instruction: {
     text: TEXT,
     link: `https://wa.me/6281234567001?text=${encodeURIComponent(TEXT)}`,

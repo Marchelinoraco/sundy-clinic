@@ -5,7 +5,6 @@ import {
   buildWhatsAppLink,
   buildWhatsAppLinkTo,
   normalizeWhatsapp,
-  patientBookingConfirmationMessage,
   productInquiryMessage,
   serviceInquiryMessage,
 } from "@/lib/whatsapp";
@@ -99,29 +98,5 @@ describe("buildWhatsAppLinkTo", () => {
 
   it("mengembalikan null bila nomor pasien tidak sah", () => {
     expect(buildWhatsAppLinkTo("0812", "Halo")).toBeNull();
-  });
-});
-
-describe("patientBookingConfirmationMessage", () => {
-  it("menyusun konfirmasi dari klinik ke pasien", () => {
-    expect(
-      patientBookingConfirmationMessage({
-        patientName: "Siti Rahayu",
-        code: "SDY-8F3K",
-        serviceName: "Konsultasi Dokter",
-        staffName: "Dr. Diane Paparang, Sp.GK, AIFO-K",
-        branchName: "SunDY Mahakeret",
-        dateLabel: "Kamis, 25 September 2026",
-        timeLabel: "15.00",
-      }),
-    ).toBe(
-      "Halo Siti Rahayu, booking Anda di SunDY Clinic sudah terkonfirmasi.\n\n" +
-        "Kode booking: SDY-8F3K\n" +
-        "Layanan: Konsultasi Dokter\n" +
-        "Dengan: Dr. Diane Paparang, Sp.GK, AIFO-K\n" +
-        "Cabang: SunDY Mahakeret\n" +
-        "Jadwal: Kamis, 25 September 2026 pukul 15.00 WITA\n\n" +
-        "Sampai jumpa di klinik. Terima kasih.",
-    );
   });
 });

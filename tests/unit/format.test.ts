@@ -5,6 +5,7 @@ import {
   formatIndonesianDate,
   formatPrice,
   formatRupiah,
+  formatScheduleForMessage,
   formatShortIndonesianDate,
 } from "@/lib/format";
 
@@ -79,5 +80,14 @@ describe("formatGender", () => {
     expect(formatGender("P")).toBe("Perempuan");
     expect(formatGender("L")).toBe("Laki-laki");
     expect(formatGender(null)).toBeNull();
+  });
+});
+
+describe("formatScheduleForMessage", () => {
+  it("menulis hari, tanggal, dan jam WITA untuk pesan WhatsApp", () => {
+    // 03.00 UTC = 11.00 WITA.
+    expect(formatScheduleForMessage(new Date("2031-02-17T03:00:00Z"))).toBe(
+      "Senin, 17 Februari 2031 pukul 11.00 WITA",
+    );
   });
 });

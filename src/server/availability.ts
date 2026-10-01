@@ -23,6 +23,12 @@ export type AvailabilityOptions = {
    * mengabaikan hold — hold tidak mengikat admin (spec bagian 7).
    */
   holds?: { excludeToken: string | null };
+  /**
+   * Pindah jadwal (spec C2 bagian 5): jam milik booking ini tidak dihitung
+   * terisi, sehingga booking bisa digeser ke jam yang tumpang tindih dengan
+   * jam lamanya. Exclusion constraint tetap menjaga bentrok dengan booking lain.
+   */
+  excludeAppointmentId?: string;
 };
 
 /**
@@ -56,6 +62,7 @@ export async function computeAvailability(
         status: { in: [...BLOCKING_STATUSES] },
         startAt: { lt: dayEnd },
         endAt: { gt: dayStart },
+        ...(options.excludeAppointmentId ? { id: { not: options.excludeAppointmentId } } : {}),
       },
       select: { startAt: true, endAt: true },
     }),
@@ -111,7 +118,7 @@ const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
  */
 export async function computeAvailabilityRange(
   input: { staffId: string; branchId: string; durationMinutes: number; from: string; days: number },
-  options: { minLeadMinutes: number },
+  options: Pick<AvailabilityOptions, "minLeadMinutes" | "excludeAppointmentId">,
 ): Promise<DayAvailability[]> {
   if (!Number.isInteger(input.days) || input.days < 1 || input.days > MAX_AVAILABILITY_RANGE_DAYS) {
     throw new Error(`Rentang harus 1–${MAX_AVAILABILITY_RANGE_DAYS} hari.`);
@@ -140,6 +147,7 @@ export async function computeAvailabilityRange(
         status: { in: [...BLOCKING_STATUSES] },
         startAt: { lt: rangeEnd },
         endAt: { gt: rangeStart },
+        ...(options.excludeAppointmentId ? { id: { not: options.excludeAppointmentId } } : {}),
       },
       select: { startAt: true, endAt: true },
     }),

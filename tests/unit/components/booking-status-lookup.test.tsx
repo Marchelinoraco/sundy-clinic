@@ -30,6 +30,12 @@ async function lookUp() {
 }
 
 describe("BookingStatusLookup", () => {
+  it("kode dari tautan konfirmasi sudah terisi; customer cukup mengetik 4 digit", () => {
+    render(<BookingStatusLookup initialCode="SDY-8F3K" />);
+    expect(screen.getByLabelText("Kode booking")).toHaveValue("SDY-8F3K");
+    expect(screen.getByLabelText("4 digit terakhir nomor WhatsApp")).toHaveValue("");
+  });
+
   it("menampilkan status, jadwal, dan tawaran pindah jadwal", async () => {
     actions.findBookingStatus.mockResolvedValue({ ok: true, data: confirmed });
     render(<BookingStatusLookup />);

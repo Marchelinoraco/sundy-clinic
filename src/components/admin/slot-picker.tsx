@@ -14,6 +14,8 @@ type Props = {
   onSelect: (slot: SlotOption) => void;
   /** Dinaikkan oleh form untuk memaksa muat ulang, misal setelah slot direbut booking lain. */
   refreshKey: number;
+  /** Pindah jadwal: jam milik booking ini tidak dihitung terisi. */
+  excludeAppointmentId?: string;
 };
 
 type LoadState = { key: string; slots: SlotOption[]; failed: boolean };
@@ -26,21 +28,28 @@ export function SlotPicker({
   selected,
   onSelect,
   refreshKey,
+  excludeAppointmentId,
 }: Props) {
-  const requestKey = `${staffId}|${branchId}|${date}|${durationMinutes}|${refreshKey}`;
+  const requestKey = `${staffId}|${branchId}|${date}|${durationMinutes}|${refreshKey}|${excludeAppointmentId ?? ""}`;
   const [loaded, setLoaded] = useState<LoadState>({ key: "", slots: [], failed: false });
   const latestKey = useRef(requestKey);
 
   useEffect(() => {
     latestKey.current = requestKey;
-    getStaffAvailabilityForAdmin({ staffId, branchId, date, durationMinutes })
+    getStaffAvailabilityForAdmin({
+      staffId,
+      branchId,
+      date,
+      durationMinutes,
+      ...(excludeAppointmentId ? { excludeAppointmentId } : {}),
+    })
       .then((slots) => {
         if (latestKey.current === requestKey) setLoaded({ key: requestKey, slots, failed: false });
       })
       .catch(() => {
         if (latestKey.current === requestKey) setLoaded({ key: requestKey, slots: [], failed: true });
       });
-  }, [requestKey, staffId, branchId, date, durationMinutes]);
+  }, [requestKey, staffId, branchId, date, durationMinutes, excludeAppointmentId]);
 
   if (loaded.key !== requestKey) {
     return <p className="text-sm text-muted-foreground">Memuat slot…</p>;

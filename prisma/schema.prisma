@@ -404,6 +404,7 @@ model Appointment {
   bookingFee Int?
   intake     Intake?
   encounter  Encounter?
+  messages   AppointmentMessage[]
 
   branchId  String
   branch    Branch   @relation(fields: [branchId], references: [id])
@@ -423,6 +424,49 @@ model Appointment {
   @@index([branchId, startAt])
   @@index([patientId])
   @@index([status])
+}
+
+enum AppointmentMessageKind {
+  INSTRUKSI_TRANSFER
+  KONFIRMASI
+  PENGINGAT
+}
+
+enum ReminderReply {
+  AKAN_DATANG
+  MINTA_PINDAH
+  TIDAK_MEMBALAS
+}
+
+/// Pesan WhatsApp yang dicatat terkirim oleh admin untuk satu booking (spec C2
+/// bagian 6). Catatan berlaku hanya bila belum dibatalkan dan scheduledFor sama
+/// dengan startAt booking saat ini — pindah jadwal membuat catatan lama gugur.
+model AppointmentMessage {
+  id           String                 @id @default(cuid())
+  kind         AppointmentMessageKind
+  /// startAt booking saat pesan dicatat.
+  scheduledFor DateTime
+
+  /// Pengirim disalin seperti jejak audit, agar tetap terbaca bila staf dihapus.
+  sentById   String
+  sentByName String
+  sentAt     DateTime @default(now())
+
+  /// "Batalkan tanda": WA ternyata tidak terkirim. Baris tidak pernah dihapus.
+  revokedAt     DateTime?
+  revokedById   String?
+  revokedByName String?
+
+  /// Balasan pasien; khusus PENGINGAT.
+  reply         ReminderReply?
+  repliedAt     DateTime?
+  repliedById   String?
+  repliedByName String?
+
+  appointmentId String
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@index([appointmentId, kind])
 }
 
 /// Penahanan sementara slot selama pasien mengisi form pendaftaran mandiri

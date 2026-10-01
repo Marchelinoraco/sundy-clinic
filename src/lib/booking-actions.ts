@@ -12,6 +12,7 @@ export type BookingAction =
   | "SEND_CONFIRMATION"
   | "COPY_CONFIRMATION"
   | "NO_SHOW"
+  | "RESCHEDULE"
   | "CANCEL";
 
 export const BOOKING_ACTION_LABEL: Record<BookingAction, string> = {
@@ -25,6 +26,7 @@ export const BOOKING_ACTION_LABEL: Record<BookingAction, string> = {
   SEND_CONFIRMATION: "Kirim konfirmasi",
   COPY_CONFIRMATION: "Salin konfirmasi",
   NO_SHOW: "Tidak hadir",
+  RESCHEDULE: "Pindah jadwal",
   CANCEL: "Batalkan",
 };
 
@@ -38,11 +40,25 @@ export type BookingActionRow = {
   confirmation: { link: string | null } | null;
 };
 
+/** Data yang dibutuhkan dialog Pindah jadwal (spec C2 bagian 5). Tenaga, cabang, dan durasi tetap. */
+export type RescheduleTarget = {
+  appointmentId: string;
+  code: string;
+  patientName: string;
+  startAt: Date;
+  durationMinutes: number;
+  staffId: string;
+  staffName: string;
+  branchId: string;
+  branchName: string;
+};
+
 /**
  * Aksi per baris daftar booking (spec C1 5.2): paling banyak dua terlihat,
  * sisanya di menu ⋯. Hadir dan Tidak hadir tetap ada di menu untuk booking
  * yang belum diverifikasi, seperti sebelumnya: pasien kadang datang sebelum
- * bukti transfernya diperiksa.
+ * bukti transfernya diperiksa. Pindah jadwal (spec C2 bagian 5) selalu tepat
+ * sebelum Batalkan.
  */
 export function bookingRowActions(
   row: BookingActionRow,
@@ -53,17 +69,22 @@ export function bookingRowActions(
   if (row.status === "MENUNGGU_KONFIRMASI") {
     if (row.needsMatch) return { primary: ["MATCH"], menu: [...intake, "CANCEL"] };
     if (row.isSiteBooking) {
-      return { primary: ["VERIFY"], menu: [...intake, "CHANGE_PATIENT", "ATTEND", "NO_SHOW", "CANCEL"] };
+      return {
+        primary: ["VERIFY"],
+        menu: [...intake, "CHANGE_PATIENT", "ATTEND", "NO_SHOW", "RESCHEDULE", "CANCEL"],
+      };
     }
     // Walk-in: pasiennya sudah di klinik, tidak ada transfer yang ditunggu.
-    if (row.source === "WALK_IN") return { primary: ["ATTEND", "VERIFY"], menu: [...intake, "NO_SHOW", "CANCEL"] };
+    if (row.source === "WALK_IN") {
+      return { primary: ["ATTEND", "VERIFY"], menu: [...intake, "NO_SHOW", "RESCHEDULE", "CANCEL"] };
+    }
     if (row.transferInstruction) {
       return {
         primary: row.transferInstruction.link ? ["VERIFY", "SEND_TRANSFER"] : ["VERIFY"],
-        menu: ["COPY_TRANSFER", ...intake, "ATTEND", "NO_SHOW", "CANCEL"],
+        menu: ["COPY_TRANSFER", ...intake, "ATTEND", "NO_SHOW", "RESCHEDULE", "CANCEL"],
       };
     }
-    return { primary: ["VERIFY"], menu: [...intake, "ATTEND", "NO_SHOW", "CANCEL"] };
+    return { primary: ["VERIFY"], menu: [...intake, "ATTEND", "NO_SHOW", "RESCHEDULE", "CANCEL"] };
   }
 
   if (row.status === "TERKONFIRMASI") {
@@ -71,7 +92,7 @@ export function bookingRowActions(
     if (row.confirmation?.link) primary.push("SEND_CONFIRMATION");
     const menu: BookingAction[] = [];
     if (row.confirmation) menu.push("COPY_CONFIRMATION");
-    menu.push(...intake, "NO_SHOW", "CANCEL");
+    menu.push(...intake, "NO_SHOW", "RESCHEDULE", "CANCEL");
     return { primary, menu };
   }
 

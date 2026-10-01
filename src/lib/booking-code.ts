@@ -9,3 +9,14 @@ export function generateBookingCode(): string {
   }
   return `SDY-${suffix}`;
 }
+
+/**
+ * Kode booking dari `?kode=` di tautan konfirmasi (spec C2 3.3). Kode saja tidak
+ * membuka status — customer tetap mengetik 4 digit akhir WhatsApp-nya. Nilai yang
+ * tidak mirip kode, atau parameter ganda, menghasilkan kolom kosong.
+ */
+export function bookingCodeFromParam(value: string | string[] | undefined): string {
+  if (typeof value !== "string") return "";
+  const code = value.trim().toUpperCase();
+  return /^[A-Z0-9-]{1,20}$/.test(code) ? code : "";
+}

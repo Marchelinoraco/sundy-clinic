@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  BellRing,
   CalendarClock,
   CalendarDays,
   Contact,
@@ -34,6 +35,7 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
     items: [
       { title: "Dasbor", url: "/admin", icon: LayoutDashboard },
       { title: "Booking", url: "/admin/booking", icon: CalendarClock, needs: "booking:manage" },
+      { title: "Pengingat", url: "/admin/pengingat", icon: BellRing, needs: "booking:manage" },
       { title: "Pasien", url: "/admin/pasien", icon: Contact, needs: "booking:manage" },
       { title: "Jadwal", url: "/admin/jadwal", icon: CalendarDays, needs: "schedule:manage" },
     ],
@@ -51,11 +53,19 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
 export function AppSidebar({
   staff,
   pendingBookings = 0,
+  reminderWork = 0,
 }: {
   staff: CurrentStaff;
-  /** Booking situs yang menunggu konfirmasi, ditampilkan sebagai angka di menu Booking. */
+  /** Booking yang menunggu konfirmasi (situs dan WA/telepon), angka di menu Booking. */
   pendingBookings?: number;
+  /** Pesan WA yang masih harus dikirim (kotak 1 + 2 halaman Pengingat). */
+  reminderWork?: number;
 }) {
+  const badges: Record<string, { count: number; label: string }> = {
+    "/admin/booking": { count: pendingBookings, label: `${pendingBookings} booking menunggu konfirmasi` },
+    "/admin/pengingat": { count: reminderWork, label: `${reminderWork} pesan WhatsApp belum dikirim` },
+  };
+
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
@@ -93,24 +103,27 @@ export function AppSidebar({
               <SidebarGroupLabel>{group.title}</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {visible.map((item) => (
-                    <SidebarMenuItem key={item.url}>
-                      <SidebarMenuButton asChild tooltip={item.title}>
-                        <Link href={item.url}>
-                          <item.icon />
-                          <span>{item.title}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                      {item.url === "/admin/booking" && pendingBookings > 0 && (
-                        <SidebarMenuBadge
-                          aria-label={`${pendingBookings} booking menunggu konfirmasi`}
-                          className="bg-amber-500 text-white peer-hover/menu-button:text-white"
-                        >
-                          {pendingBookings}
-                        </SidebarMenuBadge>
-                      )}
-                    </SidebarMenuItem>
-                  ))}
+                  {visible.map((item) => {
+                    const badge = badges[item.url];
+                    return (
+                      <SidebarMenuItem key={item.url}>
+                        <SidebarMenuButton asChild tooltip={item.title}>
+                          <Link href={item.url}>
+                            <item.icon />
+                            <span>{item.title}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                        {badge && badge.count > 0 && (
+                          <SidebarMenuBadge
+                            aria-label={badge.label}
+                            className="bg-amber-500 text-white peer-hover/menu-button:text-white"
+                          >
+                            {badge.count}
+                          </SidebarMenuBadge>
+                        )}
+                      </SidebarMenuItem>
+                    );
+                  })}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>

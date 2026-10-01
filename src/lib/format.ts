@@ -1,4 +1,5 @@
 import { CLINIC_TIMEZONE } from "./clinic";
+import { minutesToTimeLabel, witaMinutesOfDay } from "./time";
 
 const rupiahFormatter = new Intl.NumberFormat("id-ID", {
   style: "currency",
@@ -45,6 +46,11 @@ const shortIndonesianDateFormatter = new Intl.DateTimeFormat("id-ID", {
 /** Tanggal singkat dalam WITA untuk tabel, misal "Rab, 7 Okt". */
 export function formatShortIndonesianDate(date: Date): string {
   return shortIndonesianDateFormatter.format(date);
+}
+
+/** Jadwal di pesan WhatsApp ke pasien, misal "Senin, 5 Oktober 2026 pukul 11.00 WITA". */
+export function formatScheduleForMessage(date: Date): string {
+  return `${formatIndonesianDate(date)} pukul ${minutesToTimeLabel(witaMinutesOfDay(date))} WITA`;
 }
 
 /** Kolom @db.Date (tanggal tanpa jam) → "17/04/1992". Dibaca dari UTC agar tidak bergeser. */

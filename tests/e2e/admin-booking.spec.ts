@@ -70,12 +70,20 @@ function uniqueWhatsapp(prefix: string) {
   return `08${prefix}${Date.now().toString().slice(-8)}`;
 }
 
+/** wa.me dibalas lokal: uji tidak bergantung pada WhatsApp sungguhan. */
+async function stubWhatsApp(page: Page) {
+  await page
+    .context()
+    .route("https://wa.me/**", (route) => route.fulfill({ status: 200, contentType: "text/html", body: "WhatsApp" }));
+}
+
 test("admin mencatat booking WA lewat strip tanggal, mengirim instruksi transfer, lalu menemukannya lagi", async ({
   page,
 }, testInfo) => {
   const date = bookingDate(testInfo);
   const patientName = `Pasien E2E ${Date.now().toString().slice(-6)}`;
 
+  await stubWhatsApp(page);
   await signIn(page);
   await page.goto("/admin/booking/baru");
   await createPatientInForm(page, patientName, uniqueWhatsapp("12"));
@@ -118,9 +126,19 @@ test("admin mencatat booking WA lewat strip tanggal, mengirim instruksi transfer
     .filter({ hasText: code });
   await expect(pendingRow).toContainText("Batas transfer");
 
-  // Verifikasi dari baris tersorot; booking keluar dari daftar menunggu.
+  // Verifikasi dari baris tersorot: dialog konfirmasi langsung muncul (spec C2 3.1).
   await row.getByRole("button", { name: "Verifikasi" }).click();
+  const confirmDialog = page.getByRole("dialog", { name: `✓ Booking ${code} terkonfirmasi` });
+  await expect(confirmDialog).toBeVisible({ timeout: 30_000 });
+  const sendConfirmation = confirmDialog.getByRole("link", { name: "Kirim konfirmasi via WA" });
+  await expect(sendConfirmation).toHaveAttribute("href", /^https:\/\/wa\.me\/628/);
+  await expect(sendConfirmation).toHaveAttribute("href", /cek-booking%3Fkode%3D/);
+  const popup = page.waitForEvent("popup");
+  await sendConfirmation.click();
+  await (await popup).close();
+  await expect(confirmDialog).toBeHidden({ timeout: 30_000 });
   await expect(row).toContainText("Terkonfirmasi", { timeout: 30_000 });
+  await expect(row).toContainText("Konfirmasi terkirim", { timeout: 30_000 });
   await expect(pendingRow).toHaveCount(0);
   const confirmLink = row.getByRole("link", { name: "Kirim konfirmasi" });
   await expect(confirmLink).toHaveAttribute("href", /^https:\/\/wa\.me\/628/);
