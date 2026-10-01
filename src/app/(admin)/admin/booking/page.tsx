@@ -5,6 +5,7 @@ import { BookingFilters } from "@/components/admin/booking-filters";
 import { Button } from "@/components/ui/button";
 import { isAppointmentStatus } from "@/lib/appointment-status";
 import { formatIndonesianDate, formatShortIndonesianDate } from "@/lib/format";
+import type { BankAccount } from "@/lib/payment";
 import { can } from "@/lib/permissions";
 import {
   addDaysToDateString,
@@ -13,10 +14,11 @@ import {
   witaDateString,
   witaMinutesOfDay,
 } from "@/lib/time";
+import { bookingServiceName, pendingDeadlineLabel, transferInstructionFor } from "@/lib/transfer-instruction";
 import { buildWhatsAppLinkTo, patientBookingConfirmationMessage } from "@/lib/whatsapp";
-import { pendingDeadlineLabel } from "@/lib/transfer-instruction";
 import { listAppointments, listPendingBookings } from "@/server/appointment";
 import { getBranches } from "@/server/catalog";
+import { getClinicSetting } from "@/server/clinic-setting";
 import { listSchedulableStaff } from "@/server/schedule";
 import { requireCapability } from "@/server/session";
 
@@ -35,8 +37,8 @@ function timeLabel(date: Date): string {
 
 type ListedAppointment = Awaited<ReturnType<typeof listAppointments>>[number];
 
-function toRow(a: ListedAppointment): BookingRow {
-  const serviceName = a.service?.name ?? (a.type === "KONSULTASI" ? "Konsultasi" : "Treatment");
+function toRow(a: ListedAppointment, bank: BankAccount): BookingRow {
+  const serviceName = bookingServiceName(a);
   const start = timeLabel(a.startAt);
   // Booking situs boleh belum punya pasien sampai admin mencocokkannya;
   // CHECK di basis data menjamin booking terkonfirmasi selalu punya pasien.
@@ -53,6 +55,7 @@ function toRow(a: ListedAppointment): BookingRow {
           timeLabel: start,
         })
       : null;
+  const transfer = transferInstructionFor(a, bank);
 
   return {
     id: a.id,
@@ -69,6 +72,7 @@ function toRow(a: ListedAppointment): BookingRow {
     serviceName,
     staffName: a.staff.name,
     branchName: a.branch.name,
+    source: a.source,
     sourceLabel: SOURCE_LABEL[a.source] ?? a.source,
     notes: a.notes,
     confirmation:
@@ -78,6 +82,7 @@ function toRow(a: ListedAppointment): BookingRow {
             link: buildWhatsAppLinkTo(patient.whatsapp, confirmationText),
           }
         : null,
+    transferInstruction: transfer ? { text: transfer.text, link: transfer.link } : null,
   };
 }
 
@@ -95,7 +100,7 @@ export default async function BookingListPage({
   // Filter isian berlaku untuk semua tanggal: isian lama pun harus terlihat (spec 6.5).
   const unreviewedOnly = params.isian === "belum-diperiksa";
 
-  const [appointments, pending, staffList, branches] = await Promise.all([
+  const [appointments, pending, staffList, branches, setting] = await Promise.all([
     listAppointments({
       date: unreviewedOnly ? undefined : date,
       status: status ?? undefined,
@@ -106,23 +111,25 @@ export default async function BookingListPage({
     listPendingBookings(),
     listSchedulableStaff(),
     getBranches(),
+    getClinicSetting(),
   ]);
 
   // Label tanggal dari tengah hari WITA, agar tidak bergeser ke hari lain.
   const dateLabel = formatIndonesianDate(combineWitaDateAndMinutes(date, 12 * 60));
 
   const rows = appointments.map((a) => {
-    const row = toRow(a);
+    const row = toRow(a, setting);
     // Tanpa batas tanggal: jam jadwal ditulis bersama tanggalnya.
     return unreviewedOnly ? { ...row, timeLabel: `${formatShortIndonesianDate(a.startAt)} · ${row.timeLabel}` } : row;
   });
   // Semua tanggal sekaligus: jam jadwal ditulis bersama tanggalnya.
   const pendingRows: BookingRow[] = pending.map((a) => {
-    const row = toRow(a);
+    const row = toRow(a, setting);
     return {
       ...row,
       timeLabel: `${formatShortIndonesianDate(a.startAt)} · ${row.timeLabel}`,
       deadlineLabel: pendingDeadlineLabel({ kind: a.deadlineKind, deadline: a.deadline, overdue: a.overdue }),
+      deadlineOverdue: a.overdue,
     };
   });
 
