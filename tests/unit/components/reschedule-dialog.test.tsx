@@ -57,7 +57,7 @@ beforeEach(() => {
   vi.mocked(rescheduleAppointment).mockResolvedValue({ ok: true, data: {} as never });
   vi.mocked(getBookingMessage).mockResolvedValue({
     ok: true,
-    data: { kind: "KONFIRMASI", text: "Halo Maria", link: "https://wa.me/6281234567001?text=Halo" },
+    data: { kind: "KONFIRMASI", text: "Halo Maria", link: "https://wa.me/6281234567001?text=Halo", scheduledFor: NEW_START },
   });
 });
 
@@ -105,7 +105,12 @@ describe("RescheduleDialog", () => {
   it("booking yang belum transfer: tombol instruksi transfer", async () => {
     vi.mocked(getBookingMessage).mockResolvedValue({
       ok: true,
-      data: { kind: "INSTRUKSI_TRANSFER", text: "Mohon transfer", link: "https://wa.me/6281234567001?text=T" },
+      data: {
+        kind: "INSTRUKSI_TRANSFER",
+        text: "Mohon transfer",
+        link: "https://wa.me/6281234567001?text=T",
+        scheduledFor: NEW_START,
+      },
     });
     const user = userEvent.setup();
     renderDialog();

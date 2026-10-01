@@ -12,6 +12,7 @@ const MESSAGE: BookingMessage = {
   kind: "KONFIRMASI",
   text: "Halo Maria, booking Anda sudah terkonfirmasi.",
   link: "https://wa.me/6281234567001?text=Halo",
+  scheduledFor: new Date("2026-10-05T03:00:00Z"),
 };
 
 function renderDialog(message: BookingMessage | null = MESSAGE) {
@@ -46,7 +47,11 @@ describe("SendMessageDialog", () => {
     fireEvent.click(link);
 
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
-    expect(recordAppointmentMessage).toHaveBeenCalledWith({ appointmentId: "a1", kind: "KONFIRMASI" });
+    expect(recordAppointmentMessage).toHaveBeenCalledWith({
+      appointmentId: "a1",
+      kind: "KONFIRMASI",
+      scheduledFor: MESSAGE.scheduledFor,
+    });
   });
 
   it("Salin teks menyalin pesan tanpa mencatatnya sebagai terkirim", async () => {

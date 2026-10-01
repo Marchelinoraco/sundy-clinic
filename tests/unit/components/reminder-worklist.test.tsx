@@ -104,7 +104,11 @@ describe("ReminderWorklistView", () => {
     link.addEventListener("click", (event) => event.preventDefault());
     fireEvent.click(link);
     await waitFor(() =>
-      expect(recordAppointmentMessage).toHaveBeenCalledWith({ appointmentId: "001", kind: "KONFIRMASI" }),
+      expect(recordAppointmentMessage).toHaveBeenCalledWith({
+        appointmentId: "001",
+        kind: "KONFIRMASI",
+        scheduledFor: WORKLIST.confirm[0].startAt,
+      }),
     );
   });
 
@@ -119,7 +123,11 @@ describe("ReminderWorklistView", () => {
     link.addEventListener("click", (event) => event.preventDefault());
     fireEvent.click(link);
     await waitFor(() =>
-      expect(recordAppointmentMessage).toHaveBeenCalledWith({ appointmentId: "003", kind: "PENGINGAT" }),
+      expect(recordAppointmentMessage).toHaveBeenCalledWith({
+        appointmentId: "003",
+        kind: "PENGINGAT",
+        scheduledFor: WORKLIST.remind[1].startAt,
+      }),
     );
   });
 

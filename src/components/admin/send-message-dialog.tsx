@@ -44,6 +44,7 @@ export function SendMessageDialog({
             appointmentId={appointmentId}
             kind={message.kind}
             message={message}
+            scheduledFor={message.scheduledFor}
             sendLabel={sendLabel}
             onSent={() => onOpenChange(false)}
           />

@@ -7,9 +7,11 @@ import { recordAppointmentMessage } from "@/server/appointment-message";
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/server/appointment-message", () => ({ recordAppointmentMessage: vi.fn() }));
 
+const SHOWN = new Date("2026-10-05T03:00:00Z");
+
 function renderButton(onRecorded = vi.fn()) {
   render(
-    <WhatsAppSendButton href="https://wa.me/6281234567001?text=Halo" appointmentId="a1" kind="PENGINGAT" onRecorded={onRecorded}>
+    <WhatsAppSendButton href="https://wa.me/6281234567001?text=Halo" appointmentId="a1" kind="PENGINGAT" scheduledFor={SHOWN} onRecorded={onRecorded}>
       Ingatkan via WA
     </WhatsAppSendButton>,
   );
@@ -31,14 +33,16 @@ describe("WhatsAppSendButton", () => {
     fireEvent.click(link);
 
     await waitFor(() => expect(onRecorded).toHaveBeenCalled());
-    expect(recordAppointmentMessage).toHaveBeenCalledWith({ appointmentId: "a1", kind: "PENGINGAT" });
+    expect(recordAppointmentMessage).toHaveBeenCalledWith({ appointmentId: "a1", kind: "PENGINGAT", scheduledFor: SHOWN });
   });
 
   it("pencatatan ditolak server: pesan galatnya tampil", async () => {
     vi.mocked(recordAppointmentMessage).mockResolvedValue({ ok: false, error: "Booking ini belum terkonfirmasi." });
     const { link, onRecorded } = renderButton();
     fireEvent.click(link);
-    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Booking ini belum terkonfirmasi."));
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith("Pengiriman belum tercatat: Booking ini belum terkonfirmasi."),
+    );
     expect(onRecorded).not.toHaveBeenCalled();
   });
 

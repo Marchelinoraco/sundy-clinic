@@ -11,11 +11,11 @@ import { recordAppointmentMessage } from "@/server/appointment-message";
  * di tab baru saat ini dipanggil, jadi kegagalan hanya bisa dilaporkan: admin
  * menekan lagi bila pesannya memang terkirim.
  */
-export async function recordSentMessage(appointmentId: string, kind: MessageKind): Promise<boolean> {
+export async function recordSentMessage(appointmentId: string, kind: MessageKind, scheduledFor: Date): Promise<boolean> {
   try {
-    const result = await recordAppointmentMessage({ appointmentId, kind });
+    const result = await recordAppointmentMessage({ appointmentId, kind, scheduledFor });
     if (!result.ok) {
-      toast.error(result.error);
+      toast.error(`Pengiriman belum tercatat: ${result.error}`);
       return false;
     }
     return true;
@@ -30,6 +30,7 @@ export function WhatsAppSendButton({
   href,
   appointmentId,
   kind,
+  scheduledFor,
   children,
   onRecorded,
   ...buttonProps
@@ -37,11 +38,13 @@ export function WhatsAppSendButton({
   href: string;
   appointmentId: string;
   kind: MessageKind;
+  /** Jadwal yang tertulis di teks pesan (lihat recordAppointmentMessage). */
+  scheduledFor: Date;
   children: ReactNode;
   onRecorded?: () => void;
 } & Pick<ComponentProps<typeof Button>, "size" | "variant" | "className">) {
   async function handleClick() {
-    if (await recordSentMessage(appointmentId, kind)) onRecorded?.();
+    if (await recordSentMessage(appointmentId, kind, scheduledFor)) onRecorded?.();
   }
 
   return (

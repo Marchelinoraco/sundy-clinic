@@ -99,6 +99,7 @@ export function ReminderWorklistView({ worklist }: { worklist: ReminderWorklist 
                 appointmentId={row.appointmentId}
                 kind="KONFIRMASI"
                 message={row.confirmation}
+                scheduledFor={row.startAt}
                 sendLabel="Kirim konfirmasi"
                 layout="inline"
               />
@@ -121,6 +122,7 @@ export function ReminderWorklistView({ worklist }: { worklist: ReminderWorklist 
                 appointmentId={row.appointmentId}
                 kind="PENGINGAT"
                 message={row.reminder}
+                scheduledFor={row.startAt}
                 sendLabel="Ingatkan via WA"
                 layout="inline"
               />

@@ -47,24 +47,30 @@ export async function getBookingMessage(appointmentId: string): Promise<ActionRe
 
     if (booking.status === "TERKONFIRMASI") {
       const message = confirmationMessageFor(booking, publicSiteUrl());
-      return message ? { kind: "KONFIRMASI", ...message } : null;
+      return message ? { kind: "KONFIRMASI", scheduledFor: booking.startAt, ...message } : null;
     }
     if (needsTransfer(booking)) {
       const [transferDeadline] = await transferDeadlines([booking]);
       const instruction = transferInstructionFor({ ...booking, transferDeadline }, await getClinicSetting());
-      return instruction ? { kind: "INSTRUKSI_TRANSFER", text: instruction.text, link: instruction.link } : null;
+      return instruction
+        ? { kind: "INSTRUKSI_TRANSFER", scheduledFor: booking.startAt, text: instruction.text, link: instruction.link }
+        : null;
     }
     return null;
   });
 }
 
 /**
- * Dipanggil saat tombol WA ditekan. Jadwal booking saat itu ikut disimpan,
- * sehingga pindah jadwal menggugurkan catatan ini (spec C2 bagian 6).
+ * Dipanggil saat tombol WA ditekan. `scheduledFor` adalah jadwal yang tertulis
+ * di teks yang dikirim; bila booking sudah dipindah sejak teks itu disusun
+ * (tab lama, admin lain), pencatatan ditolak agar catatan tidak mengaku pasien
+ * sudah menerima jadwal barunya. Catatan menggugurkan diri saat jadwal berubah
+ * lagi (spec C2 bagian 6).
  */
 export async function recordAppointmentMessage(input: {
   appointmentId: string;
   kind: MessageKind;
+  scheduledFor: Date;
 }): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
     const actor = await requireCapability("booking:manage");
@@ -80,6 +86,10 @@ export async function recordAppointmentMessage(input: {
       if (!needsTransfer(booking)) throw new UserFacingError("Booking ini tidak sedang menunggu transfer.");
     } else if (booking.status !== "TERKONFIRMASI") {
       throw new UserFacingError("Booking ini belum terkonfirmasi.");
+    }
+    const shown = input.scheduledFor instanceof Date ? input.scheduledFor.getTime() : Number.NaN;
+    if (shown !== booking.startAt.getTime()) {
+      throw new UserFacingError("Jadwal booking ini sudah berubah. Muat ulang halaman lalu kirim ulang.");
     }
 
     const created = await prisma.appointmentMessage.create({

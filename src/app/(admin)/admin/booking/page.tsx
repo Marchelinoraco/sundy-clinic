@@ -2,6 +2,7 @@ import Form from "next/form";
 import Link from "next/link";
 import { AdminHeader } from "@/components/admin/admin-header";
 import { AppointmentTable, type BookingRow } from "@/components/admin/appointment-table";
+import { BookingDialogsProvider } from "@/components/admin/booking-dialogs";
 import { BookingFilters } from "@/components/admin/booking-filters";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -155,6 +156,8 @@ export default async function BookingListPage({
   return (
     <>
       <AdminHeader title="Booking" />
+      {/* Dialog setelah Verifikasi dan Pindah jadwal tetap terbuka walau barisnya keluar dari daftar. */}
+      <BookingDialogsProvider today={today}>
       <div className="space-y-6 p-6">
         {pendingRows.length > 0 && (
           <section
@@ -171,7 +174,7 @@ export default async function BookingListPage({
                 Hari Minggu dan hari libur tidak dihitung.
               </p>
             </div>
-            <AppointmentTable rows={pendingRows} canReadRecords={canReadRecords} today={today} />
+            <AppointmentTable rows={pendingRows} canReadRecords={canReadRecords} />
           </section>
         )}
 
@@ -210,7 +213,7 @@ export default async function BookingListPage({
             {foundRows.length === 0 ? (
               <p className="text-sm text-muted-foreground">Tidak ada booking yang cocok.</p>
             ) : (
-              <AppointmentTable rows={foundRows} canReadRecords={canReadRecords} today={today} />
+              <AppointmentTable rows={foundRows} canReadRecords={canReadRecords} />
             )}
           </section>
         ) : (
@@ -260,13 +263,13 @@ export default async function BookingListPage({
               <AppointmentTable
                 rows={rows}
                 canReadRecords={canReadRecords}
-                today={today}
                 highlightId={params.sorot ?? null}
               />
             )}
           </>
         )}
       </div>
+      </BookingDialogsProvider>
     </>
   );
 }

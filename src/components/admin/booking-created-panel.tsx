@@ -11,6 +11,8 @@ export type CreatedBooking = {
   code: string;
   /** Tanggal jadwal (WITA, "YYYY-MM-DD"), untuk "Lihat di daftar". */
   date: string;
+  /** Jadwal yang tertulis di instruksi transfer, untuk mencatat pengirimannya. */
+  startAt: Date;
   /** null untuk walk-in atau booking tanpa biaya. */
   instruction: TransferInstruction | null;
   /** Booking tersimpan, tetapi instruksinya gagal dimuat. */
@@ -61,6 +63,7 @@ export function BookingCreatedPanel({
               href={instruction.link}
               appointmentId={booking.id}
               kind="INSTRUKSI_TRANSFER"
+              scheduledFor={booking.startAt}
               className="w-full bg-emerald-700 text-white hover:bg-emerald-800"
             >
               Kirim instruksi transfer via WA

@@ -13,6 +13,7 @@ const created: CreatedBooking = {
   id: "a1",
   code: "SDY-7KQ2",
   date: "2026-10-05",
+  startAt: new Date("2026-10-05T03:00:00Z"),
   instruction: {
     text: TEXT,
     link: `https://wa.me/6281234567001?text=${encodeURIComponent(TEXT)}`,

@@ -11,6 +11,7 @@ export function MessageActions({
   appointmentId,
   kind,
   message,
+  scheduledFor,
   sendLabel,
   onSent,
   layout = "stack",
@@ -18,6 +19,8 @@ export function MessageActions({
   appointmentId: string;
   kind: MessageKind;
   message: WhatsAppMessage;
+  /** Jadwal yang tertulis di teks pesan. */
+  scheduledFor: Date;
   sendLabel: string;
   onSent?: () => void;
   layout?: "stack" | "inline";
@@ -40,6 +43,7 @@ export function MessageActions({
           href={message.link}
           appointmentId={appointmentId}
           kind={kind}
+          scheduledFor={scheduledFor}
           size={stack ? "default" : "sm"}
           className={cn(stack && "w-full", "bg-emerald-700 text-white hover:bg-emerald-800")}
           onRecorded={onSent}

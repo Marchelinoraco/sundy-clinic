@@ -88,7 +88,7 @@ describe("catatan pesan booking", () => {
 
   it("mencatat konfirmasi untuk jadwal saat itu, beserta pengirimnya", async () => {
     const confirmed = await booking({});
-    const { id } = await unwrap(recordAppointmentMessage({ appointmentId: confirmed.id, kind: "KONFIRMASI" }));
+    const { id } = await unwrap(recordAppointmentMessage({ appointmentId: confirmed.id, kind: "KONFIRMASI", scheduledFor: confirmed.startAt }));
 
     const saved = await prisma.appointmentMessage.findUniqueOrThrow({ where: { id } });
     expect(saved).toMatchObject({
@@ -106,24 +106,42 @@ describe("catatan pesan booking", () => {
     const waiting = await booking({ status: "MENUNGGU_KONFIRMASI" });
     const confirmed = await booking({});
 
-    expect(await recordAppointmentMessage({ appointmentId: waiting.id, kind: "KONFIRMASI" })).toEqual({
+    expect(await recordAppointmentMessage({ appointmentId: waiting.id, kind: "KONFIRMASI", scheduledFor: waiting.startAt })).toEqual({
       ok: false,
       error: "Booking ini belum terkonfirmasi.",
     });
-    expect(await recordAppointmentMessage({ appointmentId: confirmed.id, kind: "INSTRUKSI_TRANSFER" })).toEqual({
+    expect(await recordAppointmentMessage({ appointmentId: confirmed.id, kind: "INSTRUKSI_TRANSFER", scheduledFor: confirmed.startAt })).toEqual({
       ok: false,
       error: "Booking ini tidak sedang menunggu transfer.",
     });
-    expect(await recordAppointmentMessage({ appointmentId: confirmed.id, kind: "LAIN" as never })).toEqual({
+    expect(await recordAppointmentMessage({ appointmentId: confirmed.id, kind: "LAIN" as never, scheduledFor: confirmed.startAt })).toEqual({
       ok: false,
       error: "Jenis pesan tidak dikenal.",
     });
-    await unwrap(recordAppointmentMessage({ appointmentId: waiting.id, kind: "INSTRUKSI_TRANSFER" }));
+    await unwrap(recordAppointmentMessage({ appointmentId: waiting.id, kind: "INSTRUKSI_TRANSFER", scheduledFor: waiting.startAt }));
+  });
+
+  it("menolak pencatatan bila jadwal booking berubah sejak teks pesannya disusun", async () => {
+    const confirmed = await booking({});
+    const shownSchedule = confirmed.startAt;
+    // Admin lain memindah jadwal setelah halaman ini dimuat.
+    await prisma.appointment.update({
+      where: { id: confirmed.id },
+      data: {
+        startAt: new Date(confirmed.startAt.getTime() + 24 * HOUR),
+        endAt: new Date(confirmed.endAt.getTime() + 24 * HOUR),
+      },
+    });
+
+    expect(
+      await recordAppointmentMessage({ appointmentId: confirmed.id, kind: "KONFIRMASI", scheduledFor: shownSchedule }),
+    ).toEqual({ ok: false, error: "Jadwal booking ini sudah berubah. Muat ulang halaman lalu kirim ulang." });
+    expect(await prisma.appointmentMessage.count({ where: { appointmentId: confirmed.id } })).toBe(0);
   });
 
   it("membatalkan tanda sekali saja, tanpa menghapus catatannya", async () => {
     const confirmed = await booking({});
-    const { id } = await unwrap(recordAppointmentMessage({ appointmentId: confirmed.id, kind: "PENGINGAT" }));
+    const { id } = await unwrap(recordAppointmentMessage({ appointmentId: confirmed.id, kind: "PENGINGAT", scheduledFor: confirmed.startAt }));
 
     await unwrap(revokeAppointmentMessage(id));
     const revoked = await prisma.appointmentMessage.findUniqueOrThrow({ where: { id } });
@@ -138,7 +156,7 @@ describe("catatan pesan booking", () => {
 
   it("mencatat dan mengubah balasan untuk pengingat yang berlaku", async () => {
     const confirmed = await booking({});
-    const { id } = await unwrap(recordAppointmentMessage({ appointmentId: confirmed.id, kind: "PENGINGAT" }));
+    const { id } = await unwrap(recordAppointmentMessage({ appointmentId: confirmed.id, kind: "PENGINGAT", scheduledFor: confirmed.startAt }));
 
     await unwrap(recordReminderReply({ messageId: id, reply: "AKAN_DATANG" }));
     await unwrap(recordReminderReply({ messageId: id, reply: "MINTA_PINDAH" }));
@@ -152,18 +170,18 @@ describe("catatan pesan booking", () => {
   it("menolak balasan untuk konfirmasi, pengingat yang dibatalkan admin lain, atau jadwal lama", async () => {
     const stale = "Pengingat ini sudah tidak berlaku. Muat ulang halaman.";
     const confirmed = await booking({});
-    const confirmation = await unwrap(recordAppointmentMessage({ appointmentId: confirmed.id, kind: "KONFIRMASI" }));
+    const confirmation = await unwrap(recordAppointmentMessage({ appointmentId: confirmed.id, kind: "KONFIRMASI", scheduledFor: confirmed.startAt }));
     expect(await recordReminderReply({ messageId: confirmation.id, reply: "AKAN_DATANG" })).toEqual({
       ok: false,
       error: stale,
     });
 
-    const revoked = await unwrap(recordAppointmentMessage({ appointmentId: confirmed.id, kind: "PENGINGAT" }));
+    const revoked = await unwrap(recordAppointmentMessage({ appointmentId: confirmed.id, kind: "PENGINGAT", scheduledFor: confirmed.startAt }));
     await unwrap(revokeAppointmentMessage(revoked.id));
     expect(await recordReminderReply({ messageId: revoked.id, reply: "AKAN_DATANG" })).toEqual({ ok: false, error: stale });
     expect((await prisma.appointmentMessage.findUniqueOrThrow({ where: { id: revoked.id } })).reply).toBeNull();
 
-    const moved = await unwrap(recordAppointmentMessage({ appointmentId: confirmed.id, kind: "PENGINGAT" }));
+    const moved = await unwrap(recordAppointmentMessage({ appointmentId: confirmed.id, kind: "PENGINGAT", scheduledFor: confirmed.startAt }));
     await prisma.appointment.update({
       where: { id: confirmed.id },
       data: {
@@ -200,7 +218,7 @@ describe("catatan pesan booking", () => {
   it("semua aksi memakai booking:manage, yang dimiliki resepsionis", async () => {
     const confirmed = await booking({});
     vi.mocked(requireCapability).mockClear();
-    const { id } = await unwrap(recordAppointmentMessage({ appointmentId: confirmed.id, kind: "PENGINGAT" }));
+    const { id } = await unwrap(recordAppointmentMessage({ appointmentId: confirmed.id, kind: "PENGINGAT", scheduledFor: confirmed.startAt }));
     await recordReminderReply({ messageId: id, reply: "AKAN_DATANG" });
     await revokeAppointmentMessage(id);
     await getBookingMessage(confirmed.id);

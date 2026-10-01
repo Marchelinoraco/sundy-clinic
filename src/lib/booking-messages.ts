@@ -20,8 +20,12 @@ export const REMINDER_REPLY_LABEL: Record<ReminderReplyValue, string> = {
 /** Pesan siap kirim; `link` null bila nomor WhatsApp pasien tidak sah. */
 export type WhatsAppMessage = { text: string; link: string | null };
 
-/** Pesan lanjutan setelah Verifikasi atau Pindah jadwal (spec C2 3.1, bagian 5). */
-export type BookingMessage = WhatsAppMessage & { kind: "KONFIRMASI" | "INSTRUKSI_TRANSFER" };
+/**
+ * Pesan lanjutan setelah Verifikasi atau Pindah jadwal (spec C2 3.1, bagian 5).
+ * `scheduledFor` adalah jadwal yang tertulis di teks; pencatatan kirim menolak
+ * bila jadwal booking sudah berubah sejak itu.
+ */
+export type BookingMessage = WhatsAppMessage & { kind: "KONFIRMASI" | "INSTRUKSI_TRANSFER"; scheduledFor: Date };
 
 const ARRIVE_EARLY = "Mohon datang 10 menit sebelum jadwal.";
 

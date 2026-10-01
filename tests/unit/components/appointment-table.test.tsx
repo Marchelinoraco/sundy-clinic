@@ -1,7 +1,9 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppointmentTable, type BookingRow } from "@/components/admin/appointment-table";
+import { BookingDialogsProvider } from "@/components/admin/booking-dialogs";
 import { combineWitaDateAndMinutes } from "@/lib/time";
 import { verifyAppointment } from "@/server/appointment";
 import { getBookingMessage, recordAppointmentMessage } from "@/server/appointment-message";
@@ -81,12 +83,9 @@ const waRow: BookingRow = {
 
 function renderTable(rows: BookingRow[], options: { canReadRecords?: boolean; highlightId?: string } = {}) {
   return render(
-    <AppointmentTable
-      rows={rows}
-      canReadRecords={options.canReadRecords ?? false}
-      highlightId={options.highlightId}
-      today={TODAY}
-    />,
+    <BookingDialogsProvider today={TODAY}>
+      <AppointmentTable rows={rows} canReadRecords={options.canReadRecords ?? false} highlightId={options.highlightId} />
+    </BookingDialogsProvider>,
   );
 }
 
@@ -160,7 +159,11 @@ describe("AppointmentTable aksi per baris", () => {
     link.addEventListener("click", (event) => event.preventDefault());
     fireEvent.click(link);
     await waitFor(() =>
-      expect(recordAppointmentMessage).toHaveBeenCalledWith({ appointmentId: "a2", kind: "INSTRUKSI_TRANSFER" }),
+      expect(recordAppointmentMessage).toHaveBeenCalledWith({
+        appointmentId: "a2",
+        kind: "INSTRUKSI_TRANSFER",
+        scheduledFor: waRow.reschedule.startAt,
+      }),
     );
   });
 
@@ -200,7 +203,11 @@ describe("AppointmentTable aksi per baris", () => {
     link.addEventListener("click", (event) => event.preventDefault());
     fireEvent.click(link);
     await waitFor(() =>
-      expect(recordAppointmentMessage).toHaveBeenCalledWith({ appointmentId: "a1", kind: "KONFIRMASI" }),
+      expect(recordAppointmentMessage).toHaveBeenCalledWith({
+        appointmentId: "a1",
+        kind: "KONFIRMASI",
+        scheduledFor: base.reschedule.startAt,
+      }),
     );
   });
 
@@ -223,11 +230,49 @@ describe("AppointmentTable aksi per baris", () => {
 });
 
 describe("AppointmentTable setelah Verifikasi (spec C2 3.1)", () => {
+  it("dialog tetap muncul walau booking yang diverifikasi adalah yang terakhir menunggu", async () => {
+    let dropRows = () => {};
+    vi.mocked(verifyAppointment).mockImplementation(async () => {
+      // Seperti halaman booking: revalidasi mengosongkan "Menunggu konfirmasi", dan bagiannya hilang.
+      dropRows();
+      return { ok: true, data: {} as never };
+    });
+    vi.mocked(getBookingMessage).mockResolvedValue({
+      ok: true,
+      data: {
+        kind: "KONFIRMASI",
+        text: "Halo Siti",
+        link: "https://wa.me/6281234567890?text=Halo%20Siti",
+        scheduledFor: waRow.reschedule.startAt,
+      },
+    });
+    function PendingSection() {
+      const [rows, setRows] = useState([waRow]);
+      dropRows = () => setRows([]);
+      return rows.length > 0 ? <AppointmentTable rows={rows} canReadRecords={false} /> : <p>Kosong</p>;
+    }
+    const user = userEvent.setup();
+    render(
+      <BookingDialogsProvider today={TODAY}>
+        <PendingSection />
+      </BookingDialogsProvider>,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Verifikasi" }));
+
+    expect(await screen.findByRole("dialog", { name: "✓ Booking SDY-WA01 terkonfirmasi" })).toBeInTheDocument();
+  });
+
   it("dialog konfirmasi langsung muncul dengan tautan WA ke pasien", async () => {
     vi.mocked(verifyAppointment).mockResolvedValue({ ok: true, data: {} as never });
     vi.mocked(getBookingMessage).mockResolvedValue({
       ok: true,
-      data: { kind: "KONFIRMASI", text: "Halo Siti", link: "https://wa.me/6281234567890?text=Halo%20Siti" },
+      data: {
+        kind: "KONFIRMASI",
+        text: "Halo Siti",
+        link: "https://wa.me/6281234567890?text=Halo%20Siti",
+        scheduledFor: waRow.reschedule.startAt,
+      },
     });
     const user = userEvent.setup();
     renderTable([waRow]);

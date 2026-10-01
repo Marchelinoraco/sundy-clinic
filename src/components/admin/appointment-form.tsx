@@ -175,6 +175,7 @@ export function AppointmentForm({
           id: result.data.id,
           code: result.data.code,
           date: witaDateString(result.data.startAt),
+          startAt: result.data.startAt,
           instruction,
           instructionFailed,
         });

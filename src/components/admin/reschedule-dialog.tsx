@@ -103,6 +103,7 @@ export function RescheduleDialog({
                 appointmentId={target.appointmentId}
                 kind={done.message.kind}
                 message={done.message}
+                scheduledFor={done.message.scheduledFor}
                 sendLabel={SEND_LABEL[done.message.kind]}
                 onSent={() => onOpenChange(false)}
               />
