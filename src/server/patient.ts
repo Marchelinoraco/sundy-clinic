@@ -1,6 +1,6 @@
 "use server";
 
-import type { Patient, PatientProgramStatus } from "@prisma/client";
+import type { AppointmentStatus, Patient, PatientProgramStatus } from "@prisma/client";
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
 import type { AppointmentStatusValue } from "@/lib/appointment-status";
 import { prisma } from "@/lib/db";
@@ -26,23 +26,45 @@ export type PatientSummary = {
   name: string;
   whatsapp: string;
   programStatus: PatientProgramStatus;
+  /** Jadwal kunjungan terakhir (diisi saat kunjungan difinalisasi). */
+  lastVisitAt: Date | null;
+  /** Booking aktif terdekat yang belum lewat, agar booking ganda ketahuan (spec C1 bagian 3). */
+  nextBookingAt: Date | null;
 };
 
-const SUMMARY_SELECT = {
-  id: true,
-  medicalRecordNumber: true,
-  name: true,
-  whatsapp: true,
-  programStatus: true,
-} as const;
+const NEXT_BOOKING_STATUSES: AppointmentStatus[] = ["MENUNGGU_KONFIRMASI", "TERKONFIRMASI"];
 
-function toSummary(patient: Patient): PatientSummary {
+function summarySelect(now: Date) {
   return {
-    id: patient.id,
-    medicalRecordNumber: patient.medicalRecordNumber,
-    name: patient.name,
-    whatsapp: patient.whatsapp,
-    programStatus: patient.programStatus,
+    id: true,
+    medicalRecordNumber: true,
+    name: true,
+    whatsapp: true,
+    programStatus: true,
+    lastVisitAt: true,
+    appointments: {
+      where: { status: { in: NEXT_BOOKING_STATUSES }, startAt: { gte: now } },
+      orderBy: { startAt: "asc" },
+      take: 1,
+      select: { startAt: true },
+    },
+  } as const;
+}
+
+type SummaryRow = Pick<
+  Patient,
+  "id" | "medicalRecordNumber" | "name" | "whatsapp" | "programStatus" | "lastVisitAt"
+> & { appointments: { startAt: Date }[] };
+
+function toSummary(row: SummaryRow): PatientSummary {
+  return {
+    id: row.id,
+    medicalRecordNumber: row.medicalRecordNumber,
+    name: row.name,
+    whatsapp: row.whatsapp,
+    programStatus: row.programStatus,
+    lastVisitAt: row.lastVisitAt,
+    nextBookingAt: row.appointments[0]?.startAt ?? null,
   };
 }
 
@@ -85,13 +107,19 @@ export async function createPatient(input: {
     });
 
     safeRevalidatePath("/admin/pasien");
-    return toSummary(patient);
+    // Pasien yang baru dibuat belum punya booking.
+    return toSummary({ ...patient, appointments: [] });
   });
 }
 
 export async function listRecentPatients(limit = 50): Promise<PatientSummary[]> {
   await requireCapability("booking:manage");
-  return prisma.patient.findMany({ orderBy: { createdAt: "desc" }, take: limit, select: SUMMARY_SELECT });
+  const rows = await prisma.patient.findMany({
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    select: summarySelect(new Date()),
+  });
+  return rows.map(toSummary);
 }
 
 /** Cocok terhadap nama (sebagian, tanpa peduli huruf besar/kecil) atau nomor WhatsApp. */
@@ -111,7 +139,7 @@ export async function searchPatients(query: string): Promise<PatientSummary[]> {
     }
   }
 
-  return prisma.patient.findMany({
+  const rows = await prisma.patient.findMany({
     where: {
       OR: [
         { name: { contains: trimmed, mode: "insensitive" } },
@@ -122,8 +150,9 @@ export async function searchPatients(query: string): Promise<PatientSummary[]> {
     },
     orderBy: { name: "asc" },
     take: 20,
-    select: SUMMARY_SELECT,
+    select: summarySelect(new Date()),
   });
+  return rows.map(toSummary);
 }
 
 /** Dipakai saat membuat pasien baru untuk menawarkan penggabungan bila nomor sudah terdaftar. */
@@ -131,7 +160,8 @@ export async function findPatientsByWhatsapp(whatsapp: string): Promise<PatientS
   await requireCapability("booking:manage");
   const normalized = normalizeWhatsapp(whatsapp);
   if (!normalized) return [];
-  return prisma.patient.findMany({ where: { whatsapp: normalized }, select: SUMMARY_SELECT });
+  const rows = await prisma.patient.findMany({ where: { whatsapp: normalized }, select: summarySelect(new Date()) });
+  return rows.map(toSummary);
 }
 
 export type PatientDetail = {

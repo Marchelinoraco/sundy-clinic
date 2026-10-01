@@ -1,5 +1,7 @@
 import { confirmationCutoff, confirmationDeadline, MAX_LOOKBACK_DAYS } from "@/lib/confirmation-window";
 import { prisma } from "@/lib/db";
+import type { BookingSourceValue } from "@/lib/payment";
+import { needsTransfer, transferDeadline } from "@/lib/transfer-instruction";
 import { recordAudit, SYSTEM_ACTOR } from "@/server/audit";
 
 const LOOKBACK_MS = (MAX_LOOKBACK_DAYS + 1) * 24 * 60 * 60 * 1000;
@@ -25,6 +27,22 @@ export async function confirmationDeadlines(createdAts: Date[]): Promise<Date[]>
   const latest = new Date(Math.max(...createdAts.map((date) => date.getTime())) + LOOKBACK_MS);
   const closed = await closedDatesBetween(earliest, latest);
   return createdAts.map((createdAt) => confirmationDeadline(createdAt, closed));
+}
+
+/**
+ * Batas transfer untuk booking WA/telepon yang menunggu transfer, atau null
+ * untuk booking lain (satu kueri libur untuk semua). Hanya pengingat: tidak
+ * ada yang dibatalkan saat batas ini lewat (spec C1, B5).
+ */
+export async function transferDeadlines(
+  bookings: { source: BookingSourceValue; status: string; bookingFee: number | null; createdAt: Date; startAt: Date }[],
+): Promise<(Date | null)[]> {
+  const due = bookings.filter(needsTransfer);
+  if (due.length === 0) return bookings.map(() => null);
+  const earliest = new Date(Math.min(...due.map((b) => b.createdAt.getTime())));
+  const latest = new Date(Math.max(...due.map((b) => b.createdAt.getTime())) + LOOKBACK_MS);
+  const closed = await closedDatesBetween(earliest, latest);
+  return bookings.map((b) => (needsTransfer(b) ? transferDeadline(b.createdAt, b.startAt, closed) : null));
 }
 
 /**

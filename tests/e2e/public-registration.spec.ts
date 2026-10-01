@@ -92,12 +92,12 @@ test("admin mencocokkan pasien, memverifikasi, lalu membaca isiannya", async ({ 
   await signIn(page, E2E_ADMIN);
   // Booking situs langsung terlihat di daftar "menunggu konfirmasi" tanpa membuka tanggal jadwalnya.
   await page.goto("/admin/booking");
-  const pending = page.getByRole("region", { name: /Booking situs menunggu konfirmasi/ });
+  const pending = page.getByRole("region", { name: /^Menunggu konfirmasi/ });
   const pendingRow = pending.getByRole("row").filter({ hasText: booking!.code });
   await expect(pendingRow.getByText(/^Kedaluwarsa /)).toBeVisible();
   if (testInfo.project.name !== "mobile") {
     // Menu samping tersembunyi di ponsel; di desktop angkanya tampil di menu Booking.
-    await expect(page.getByLabel(/^\d+ booking situs menunggu konfirmasi$/)).toBeVisible();
+    await expect(page.getByLabel(/^\d+ booking menunggu konfirmasi$/)).toBeVisible();
   }
 
   await expect(pendingRow.getByText("Belum dicocokkan", { exact: true })).toBeVisible();
@@ -117,7 +117,8 @@ test("admin mencocokkan pasien, memverifikasi, lalu membaca isiannya", async ({ 
   await expect(row.getByText("Isian: belum diperiksa")).toBeVisible();
   await expect(row.getByText("Terkonfirmasi", { exact: true })).toBeVisible();
 
-  await row.getByRole("link", { name: "Lihat isian" }).click();
+  await row.getByRole("button", { name: /^Aksi lain/ }).click();
+  await page.getByRole("menuitem", { name: "Lihat isian" }).click();
   // Rute /admin/isian/[id] belum pernah dikompilasi next dev di uji manapun
   // sebelumnya; dengan worker paralel navigasi pertama bisa lebih lambat
   // dari batas waktu bawaan (lihat catatan di playwright.config.ts).
@@ -160,7 +161,10 @@ test("resepsionis melihat booking tanpa isi klinis isian", async ({ page }, test
 
   const row = page.getByRole("row").filter({ hasText: booking!.code });
   await expect(row).toBeVisible();
-  await expect(row.getByRole("link", { name: "Lihat isian" })).toHaveCount(0);
+  await row.getByRole("button", { name: /^Aksi lain/ }).click();
+  await expect(page.getByRole("menuitem", { name: "Batalkan" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Lihat isian" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
 
   await page.goto(intakeUrl!);
   await expect(page.getByText(/Amlodipine/)).toHaveCount(0);

@@ -65,9 +65,9 @@ export function SlotPicker({
           <Button
             key={slot.startAt.toISOString()}
             type="button"
-            size="sm"
             variant={isSelected ? "default" : "outline"}
             aria-pressed={isSelected}
+            className="min-w-20"
             onClick={() => onSelect(slot)}
           >
             {slot.label}

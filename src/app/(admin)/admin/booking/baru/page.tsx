@@ -2,6 +2,7 @@ import { AdminHeader } from "@/components/admin/admin-header";
 import { AppointmentForm, type BookingServiceGroup } from "@/components/admin/appointment-form";
 import { witaDateString } from "@/lib/time";
 import { getBranches, getServiceCategoriesWithServices } from "@/server/catalog";
+import { getClinicSetting } from "@/server/clinic-setting";
 import { listSchedulableStaff } from "@/server/schedule";
 import { requireCapability } from "@/server/session";
 
@@ -10,10 +11,11 @@ const CONSULTATION_SERVICE_SLUG = "konsultasi-dokter";
 export default async function NewAppointmentPage() {
   await requireCapability("booking:manage");
 
-  const [branches, categories, staffList] = await Promise.all([
+  const [branches, categories, staffList, setting] = await Promise.all([
     getBranches(),
     getServiceCategoriesWithServices(),
     listSchedulableStaff(),
+    getClinicSetting(),
   ]);
 
   const activeBranches = branches.filter((b) => b.status === "AKTIF");
@@ -54,6 +56,7 @@ export default async function NewAppointmentPage() {
             treatmentGroups={treatmentGroups}
             consultationServiceId={consultation?.id ?? null}
             today={witaDateString(new Date())}
+            bookingFee={setting.bookingFee}
           />
         )}
       </div>
