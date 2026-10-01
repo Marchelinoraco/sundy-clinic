@@ -105,6 +105,8 @@ test("admin mencatat booking WA lewat strip tanggal, mengirim instruksi transfer
   await expect(page).toHaveURL(new RegExp(`/admin/booking\\?tanggal=${date}&sorot=`), { timeout: 30_000 });
   const row = page.locator('tr[data-highlighted="true"]');
   await expect(row).toHaveCount(1);
+  // Digulir ke tengah layar sekali saat halaman dibuka (spec C1 5.4).
+  await expect(row).toBeInViewport();
   await expect(row).toContainText(code);
   await expect(row).toContainText(slotLabel);
   await expect(row).toContainText("Menunggu Konfirmasi");

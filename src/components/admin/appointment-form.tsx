@@ -100,6 +100,9 @@ export function AppointmentForm({
       : "";
 
   const canPickDate = Boolean(effectiveStaffId && branchId && durationMinutes);
+  // Setelah booking dibuat semua isian dikunci. Fieldset mengunci tombol dan isian biasa;
+  // Select Radix terbuka lewat pointerdown, jadi perlu dikunci lewat prop disabled-nya sendiri.
+  const locked = created !== null;
   const serviceName = kind === "KONSULTASI" ? "Konsultasi Dokter" : (treatment?.name ?? null);
   const staffName = staff.find((s) => s.id === effectiveStaffId)?.name ?? null;
   const branchName = branches.find((b) => b.id === branchId)?.name ?? null;
@@ -183,7 +186,7 @@ export function AppointmentForm({
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
-      <fieldset disabled={created !== null} className="min-w-0 space-y-8 disabled:opacity-60">
+      <fieldset disabled={locked} className="min-w-0 space-y-8 disabled:opacity-60">
         <section className="space-y-2">
           <h2 className="text-sm font-medium">1 · Pasien</h2>
           {patient ? (
@@ -229,6 +232,7 @@ export function AppointmentForm({
               <Label htmlFor="booking-service">Layanan</Label>
               <Select
                 value={serviceId}
+                disabled={locked}
                 onValueChange={(v) => {
                   setServiceId(v);
                   resetSlot();
@@ -259,6 +263,7 @@ export function AppointmentForm({
                 <Label htmlFor="booking-branch">Cabang</Label>
                 <Select
                   value={branchId}
+                  disabled={locked}
                   onValueChange={(v) => {
                     setBranchId(v);
                     resetSlot();
@@ -282,6 +287,7 @@ export function AppointmentForm({
               <Label htmlFor="booking-staff">Tenaga</Label>
               <Select
                 value={effectiveStaffId}
+                disabled={locked}
                 onValueChange={(v) => {
                   setStaffId(v);
                   resetSlot();
