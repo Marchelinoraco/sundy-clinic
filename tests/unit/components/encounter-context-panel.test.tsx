@@ -127,4 +127,44 @@ describe("EncounterContextPanel", () => {
     );
     expect(within(screen.getByRole("tabpanel")).getByText(/sudah disetujui ke data pasien/)).toBeInTheDocument();
   });
+
+  it("peringatan keselamatan: hamil/menyusui, berkas kertas, dan catatan medis yang belum ada", () => {
+    const { unmount } = render(<EncounterContextPanel encounter={encounterDetail()} currentVitals={NO_VITALS} />);
+    const warnings = screen.getByRole("region", { name: "Peringatan" });
+    expect(within(warnings).getByText("Hamil, merencanakan kehamilan, atau menyusui (dari isian kunjungan ini)")).toBeInTheDocument();
+    expect(within(warnings).getByText("Ada berkas kertas: RM-0457")).toBeInTheDocument();
+    unmount();
+
+    render(
+      <EncounterContextPanel
+        encounter={encounterDetail({ warnings: { allergies: null, medicalHistory: null, importantNotes: null, paperRecordNumber: null, pregnancy: false } })}
+        currentVitals={NO_VITALS}
+      />,
+    );
+    expect(screen.getByText("Alergi dan riwayat penyakit belum dicatat.")).toBeInTheDocument();
+    expect(screen.queryByText(/Hamil, merencanakan kehamilan/)).not.toBeInTheDocument();
+  });
+
+  it("tab Isian: belum diisi, versi kuis tidak dikenal, dan tanpa isian", async () => {
+    const { unmount } = render(
+      <EncounterContextPanel encounter={encounterDetail({ intake: { id: "i1", state: "pending" } })} currentVitals={NO_VITALS} />,
+    );
+    expect(within(screen.getByRole("tabpanel")).getByText("Isian belum diisi pasien.")).toBeInTheDocument();
+    unmount();
+
+    const second = render(
+      <EncounterContextPanel
+        encounter={encounterDetail({ intake: { id: "i1", state: "error", message: "Isian dengan kuis versi 9 belum bisa ditampilkan." } })}
+        currentVitals={NO_VITALS}
+      />,
+    );
+    const panel = screen.getByRole("tabpanel");
+    expect(within(panel).getByText(/Isian dengan kuis versi 9 belum bisa ditampilkan\./)).toBeInTheDocument();
+    expect(within(panel).getByRole("link", { name: "Buka halaman isian" })).toHaveAttribute("href", "/admin/isian/i1");
+    second.unmount();
+
+    render(<EncounterContextPanel encounter={encounterDetail()} currentVitals={NO_VITALS} />);
+    await userEvent.click(tab("Isian kuis"));
+    expect(within(screen.getByRole("tabpanel")).getByText("Tidak ada isian kuis untuk kunjungan ini.")).toBeInTheDocument();
+  });
 });
