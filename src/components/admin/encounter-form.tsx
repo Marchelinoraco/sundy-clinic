@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useId, useState, useTransition, type ReactNode } from "react";
+import { useId, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -28,10 +28,13 @@ import {
   formatDecimal,
   parseEncounterDraft,
   parseVital,
+  parseVitalValues,
+  weightChangeNote,
   type EncounterDraftInput,
   type EncounterOptions,
   type TextKey,
   type TreatmentInput,
+  type TrendSource,
   type VitalKey,
 } from "@/lib/encounter";
 import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
@@ -187,8 +190,10 @@ export type EncounterFormProps = {
   initialVersion: string;
   initialDraft: EncounterDraftInput;
   options: EncounterOptions;
-  /** Isian kuis kunjungan ini, ditampilkan di bagian S. */
-  intakeSlot: ReactNode;
+  /** Kunjungan final sebelumnya (terbaru dulu), untuk selisih berat di baris IMT. */
+  weightHistory?: TrendSource[];
+  /** Dipanggil setiap angka vital berubah, agar tab Tren ikut berubah. */
+  onVitalsChange?: (values: Record<VitalKey, number | null>) => void;
   autosaveDelayMs?: number;
   retryDelaysMs?: readonly number[];
 };
@@ -216,7 +221,11 @@ export function EncounterForm(props: EncounterFormProps) {
     autosave.change(next);
   }
   const setText = (key: TextKey, value: string) => update({ ...draft, [key]: value });
-  const setVital = (key: VitalKey, value: string) => update({ ...draft, vitals: { ...draft.vitals, [key]: value } });
+  const setVital = (key: VitalKey, value: string) => {
+    const next = { ...draft, vitals: { ...draft.vitals, [key]: value } };
+    update(next);
+    props.onVitalsChange?.(parseVitalValues(next.vitals));
+  };
   const setTreatment = (index: number, patch: Partial<TreatmentInput>) =>
     update({ ...draft, treatments: draft.treatments.map((row, i) => (i === index ? { ...row, ...patch } : row)) });
   const addTreatment = () =>
@@ -245,6 +254,7 @@ export function EncounterForm(props: EncounterFormProps) {
       ? bloodPressureProblem(vitalValues.systolic, vitalValues.diastolic)
       : null;
   const index = bmi(vitalValues.weightKg, vitalValues.heightCm);
+  const weightNote = weightChangeNote(vitalValues.weightKg, props.weightHistory ?? []);
 
   function requestFinalize() {
     const parsed = parseEncounterDraft(draft);
@@ -305,7 +315,6 @@ export function EncounterForm(props: EncounterFormProps) {
         <h2 id="bagian-s" className="text-base font-medium">
           S — Subjective
         </h2>
-        {props.intakeSlot}
         <TextField label={TEXT_FIELDS.subjective} value={draft.subjective} onChange={(v) => setText("subjective", v)} rows={4} />
       </section>
 
@@ -325,7 +334,10 @@ export function EncounterForm(props: EncounterFormProps) {
           ))}
         </div>
         {pressureError && <p className="text-sm text-destructive">{pressureError}</p>}
-        <p className="text-sm">IMT {index === null ? "—" : formatDecimal(index)}</p>
+        <p className="text-sm">
+          IMT {index === null ? "—" : formatDecimal(index)}
+          {weightNote ? ` · ${weightNote}` : ""}
+        </p>
         <TextField label={TEXT_FIELDS.physicalExam} value={draft.physicalExam} onChange={(v) => setText("physicalExam", v)} />
       </section>
 
@@ -365,20 +377,23 @@ export function EncounterForm(props: EncounterFormProps) {
         </Button>
       </section>
 
-      <div className="flex flex-wrap items-center gap-3 border-t pt-4">
-        <Button onClick={requestFinalize} disabled={busy}>
-          Finalisasi
-        </Button>
-        <Button variant="outline" onClick={() => setConfirm("discard")} disabled={busy}>
-          Buang draf
-        </Button>
+      <div
+        data-slot="encounter-actions"
+        className="sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t bg-background/95 py-3 backdrop-blur"
+      >
         <p
           role="status"
           aria-live="polite"
-          className={cn("text-sm", rejected ? "font-medium text-destructive" : "text-muted-foreground")}
+          className={cn("mr-auto text-sm", rejected ? "font-medium text-destructive" : "text-muted-foreground")}
         >
           {statusText(autosave.status)}
         </p>
+        <Button variant="outline" onClick={() => setConfirm("discard")} disabled={busy}>
+          Buang draf
+        </Button>
+        <Button onClick={requestFinalize} disabled={busy}>
+          Finalisasi
+        </Button>
       </div>
 
       <AlertDialog open={confirm === "finalize"} onOpenChange={(open) => !open && setConfirm(null)}>

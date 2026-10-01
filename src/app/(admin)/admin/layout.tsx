@@ -22,7 +22,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <SidebarProvider>
         <AppSidebar staff={staff} pendingSiteBookings={pendingSiteBookings} />
         <SidebarInset>{children}</SidebarInset>
-        <Toaster />
+        {/* Kanan atas: bar aksi halaman kunjungan menempel di bawah, dan toast di sana menutupi Finalisasi. */}
+        <Toaster position="top-right" />
       </SidebarProvider>
     </TooltipProvider>
   );

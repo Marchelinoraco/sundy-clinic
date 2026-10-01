@@ -2,10 +2,10 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { StaffRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { emptyDraftInput } from "@/lib/encounter";
+import { emptyDraftInput, type EncounterDraftInput } from "@/lib/encounter";
 import { can } from "@/lib/permissions";
 import { addDaysToDateString, witaDateString } from "@/lib/time";
-import { finalizeEncounter, openEncounter, saveEncounterDraft } from "@/server/encounter";
+import { addEncounterAddendum, finalizeEncounter, openEncounter, saveEncounterDraft } from "@/server/encounter";
 import { getEncounterForStaff, listDoctorWorklist } from "@/server/encounter-read";
 import { requireCapability } from "@/server/session";
 import { slimmingNewPatient } from "../fixtures/quiz-answers-v2";
@@ -16,6 +16,8 @@ vi.mock("@/server/session", () => ({ requireCapability: vi.fn() }));
 
 const SLUG = "baca-kunjungan-uji";
 const PATIENT_WA = "6281200007720";
+const HISTORY_WA = "6281200007721";
+const ROUTINE_WA = "6281200007722";
 
 describe("membaca kunjungan dan daftar kerja dokter", () => {
   let world: BookingWorld;
@@ -30,7 +32,7 @@ describe("membaca kunjungan dan daftar kerja dokter", () => {
     });
   }
 
-  async function booking(day: string, time: string, status: "HADIR" | "TERKONFIRMASI" = "HADIR") {
+  async function booking(day: string, time: string, status: "HADIR" | "TERKONFIRMASI" = "HADIR", patient = patientId) {
     serial += 1;
     const startAt = at(day, time);
     return prisma.appointment.create({
@@ -44,7 +46,7 @@ describe("membaca kunjungan dan daftar kerja dokter", () => {
         branchId: world.branchId,
         staffId: world.doctorId,
         serviceId: world.consultationId,
-        patientId,
+        patientId: patient,
       },
     });
   }
@@ -58,8 +60,25 @@ describe("membaca kunjungan dan daftar kerja dokter", () => {
     return encounterId;
   }
 
+  async function finalizedWith(
+    appointment: { id: string },
+    patch: { assessment: string; plan?: string; vitals?: Partial<EncounterDraftInput["vitals"]> },
+  ) {
+    const { encounterId } = await unwrap(openEncounter(appointment.id));
+    const { updatedAt } = await prisma.encounter.findUniqueOrThrow({ where: { id: encounterId } });
+    const base = emptyDraftInput();
+    await unwrap(
+      finalizeEncounter({
+        encounterId,
+        version: updatedAt.toISOString(),
+        draft: { ...base, assessment: patch.assessment, plan: patch.plan ?? "", vitals: { ...base.vitals, ...patch.vitals } },
+      }),
+    );
+    return encounterId;
+  }
+
   beforeAll(async () => {
-    await cleanupBookingWorld(SLUG, [PATIENT_WA]);
+    await cleanupBookingWorld(SLUG, [PATIENT_WA, HISTORY_WA, ROUTINE_WA]);
     world = await createBookingWorld(SLUG);
     patientId = (
       await prisma.patient.create({
@@ -79,7 +98,7 @@ describe("membaca kunjungan dan daftar kerja dokter", () => {
   });
 
   afterAll(async () => {
-    await cleanupBookingWorld(SLUG, [PATIENT_WA]);
+    await cleanupBookingWorld(SLUG, [PATIENT_WA, HISTORY_WA, ROUTINE_WA]);
     await prisma.$disconnect();
   });
 
@@ -199,5 +218,101 @@ describe("membaca kunjungan dan daftar kerja dokter", () => {
 
     const unfinishedCodes = worklist.unfinished.map((row) => row.code);
     expect(unfinishedCodes.indexOf(oldDraft.code)).toBeLessThan(unfinishedCodes.indexOf(lateYesterday.code));
+  });
+
+  it("riwayat: hanya kunjungan final pasien yang sama sebelum kunjungan ini, terbaru di atas", async () => {
+    actAs("DOKTER");
+    const other = (
+      await prisma.patient.create({ data: { medicalRecordNumber: "SDY-2026-7721", name: "Pasien Riwayat", whatsapp: HISTORY_WA } })
+    ).id;
+    const oldest = await finalizedWith(await booking(addDaysToDateString(today, -20), "09:00", "HADIR", other), {
+      assessment: "Konsultasi awal",
+      vitals: { weightKg: "75" },
+    });
+    const previous = await finalizedWith(await booking(addDaysToDateString(today, -13), "09:00", "HADIR", other), {
+      assessment: "Obesitas derajat 1",
+      plan: "Program MAX",
+      vitals: { weightKg: "73,3", heightCm: "158", systolic: "130", diastolic: "85" },
+    });
+    await unwrap(addEncounterAddendum({ encounterId: previous, text: "Tensi diukur ulang 125/80." }));
+    const otherDraft = await booking(addDaysToDateString(today, -6), "09:00", "HADIR", other);
+    await unwrap(openEncounter(otherDraft.id));
+    await finalizedWith(await booking(addDaysToDateString(today, 9), "09:00", "HADIR", other), { assessment: "Kunjungan nanti" });
+
+    const current = await booking(addDaysToDateString(today, 2), "09:00", "HADIR", other);
+    const { encounterId } = await unwrap(openEncounter(current.id));
+    const detail = (await getEncounterForStaff(encounterId))!;
+
+    expect(detail.history.map((visit) => visit.id)).toEqual([previous, oldest]);
+    expect(detail.hasMoreHistory).toBe(false);
+    expect(detail.history[0]).toMatchObject({
+      assessment: "Obesitas derajat 1",
+      plan: "Program MAX",
+      branchName: "Cabang Publik Uji",
+      authorName: "DOKTER Uji",
+      assessmentPreview: "Obesitas derajat 1",
+    });
+    expect(detail.history[0].vitals).toMatchObject({ weightKg: 73.3, heightCm: 158, systolic: 130, diastolic: 85, pulse: null });
+    expect(detail.history[0].vitalLines).toContain("IMT 29,4");
+    expect(detail.history[0].addenda).toEqual([expect.objectContaining({ text: "Tensi diukur ulang 125/80." })]);
+    // Tinggi diisikan dari kunjungan final terakhir yang punya tinggi (Task 3 plan kunjungan).
+    expect(detail.vitals.heightCm).toBe(158);
+  });
+
+  it("riwayat maksimal 12 kunjungan, dengan penanda ada yang lebih lama", async () => {
+    actAs("DOKTER");
+    const routine = (
+      await prisma.patient.create({ data: { medicalRecordNumber: "SDY-2026-7722", name: "Pasien Rutin", whatsapp: ROUTINE_WA } })
+    ).id;
+    for (let week = 13; week >= 1; week -= 1) {
+      await finalizedWith(await booking(addDaysToDateString(today, -7 * week - 30), "08:00", "HADIR", routine), {
+        assessment: `Kontrol minggu ${14 - week}`,
+      });
+    }
+    const current = await booking(addDaysToDateString(today, 5), "08:00", "HADIR", routine);
+    const { encounterId } = await unwrap(openEncounter(current.id));
+    const detail = (await getEncounterForStaff(encounterId))!;
+
+    expect(detail.history).toHaveLength(12);
+    expect(detail.hasMoreHistory).toBe(true);
+    expect(detail.history[0].assessment).toBe("Kontrol minggu 13");
+  });
+
+  it("persetujuan isian tersedia di halaman kunjungan untuk penulis rekam medis bila isian sudah terisi", async () => {
+    actAs("DOKTER");
+    const appointment = await booking(addDaysToDateString(today, 6), "11:00");
+    await prisma.intake.create({
+      data: {
+        appointmentId: appointment.id,
+        patientId,
+        kind: "LENGKAP",
+        purpose: "SLIMMING",
+        status: "TERISI",
+        quizVersion: 2,
+        answers: slimmingNewPatient,
+        submittedAt: new Date(),
+      },
+    });
+    const { encounterId } = await unwrap(openEncounter(appointment.id));
+    const detail = (await getEncounterForStaff(encounterId))!;
+
+    expect(detail.approval).toMatchObject({ state: "ready", patientId, current: { allergies: "Udang" } });
+    expect(detail.approval!.prefill.allergies).toContain("Amoxicillin");
+    expect(detail.intake).toMatchObject({ state: "ready", kind: "LENGKAP", purposeLabel: "Slimming" });
+
+    const bare = await booking(addDaysToDateString(today, 6), "12:00");
+    const { encounterId: bareId } = await unwrap(openEncounter(bare.id));
+    expect((await getEncounterForStaff(bareId))!.approval).toBeNull();
+  });
+
+  it("membuka kunjungan juga mencatat pembukaan rekam medis pasien, paling banyak sekali per 30 menit", async () => {
+    actAs("DOKTER");
+    const appointment = await booking(addDaysToDateString(today, 6), "13:00");
+    const { encounterId } = await unwrap(openEncounter(appointment.id));
+    await prisma.auditLog.deleteMany({ where: { action: "patient.view-records", entityId: patientId } });
+
+    await getEncounterForStaff(encounterId);
+    await getEncounterForStaff(encounterId);
+    expect(await prisma.auditLog.count({ where: { action: "patient.view-records", entityId: patientId } })).toBe(1);
   });
 });

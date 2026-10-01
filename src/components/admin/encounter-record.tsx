@@ -1,8 +1,6 @@
 import type { ReactNode } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TEXT_FIELDS } from "@/lib/encounter";
-import { formatIndonesianDate } from "@/lib/format";
-import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
 import type { EncounterDetail } from "@/server/encounter-read";
 
 function Part({ id, title, children }: { id: string; title: string; children: ReactNode }) {
@@ -26,12 +24,11 @@ function RecordText({ label, value }: { label: string; value: string }) {
 }
 
 /** Catatan kunjungan baca-saja: final, atau draf yang dibuka tanpa hak menulis. */
-export function EncounterRecord({ encounter, intakeSlot }: { encounter: EncounterDetail; intakeSlot: ReactNode }) {
+export function EncounterRecord({ encounter }: { encounter: EncounterDetail }) {
   const { draft } = encounter;
   return (
     <div className="space-y-6">
       <Part id="bagian-s" title="S — Subjective">
-        {intakeSlot}
         <RecordText label={TEXT_FIELDS.subjective} value={draft.subjective} />
       </Part>
       <Part id="bagian-o" title="O — Objective">
@@ -80,12 +77,6 @@ export function EncounterRecord({ encounter, intakeSlot }: { encounter: Encounte
           </Table>
         )}
       </Part>
-      {encounter.finalized && (
-        <p className="text-sm text-muted-foreground">
-          Difinalisasi oleh {encounter.finalized.byName}, {formatIndonesianDate(encounter.finalized.at)}{" "}
-          {minutesToTimeLabel(witaMinutesOfDay(encounter.finalized.at))} WITA
-        </p>
-      )}
     </div>
   );
 }

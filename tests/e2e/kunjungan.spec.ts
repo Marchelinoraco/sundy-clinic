@@ -65,3 +65,35 @@ test("resepsionis tidak melihat daftar pasien hari ini dan tidak bisa membuka ku
   expect(response?.status()).toBe(403);
   await expect(page.getByLabel("Keluhan dan anamnesis dokter")).toHaveCount(0);
 });
+
+test("dokter menyetujui isian kuis ke data pasien langsung dari halaman kunjungan", async ({ page }, testInfo) => {
+  await signIn(page, E2E_ADMIN);
+  await page
+    .getByRole("region", { name: "Pasien hari ini" })
+    .getByRole("row")
+    .filter({ hasText: `Pasien Isian ${testInfo.project.name}` })
+    .getByRole("button", { name: "Periksa" })
+    .click();
+  await expect(page).toHaveURL(/\/admin\/kunjungan\/[^/]+$/, { timeout: 30_000 });
+
+  await expect(page.getByRole("tab", { name: "Isian kuis" })).toHaveAttribute("aria-selected", "true");
+  if (testInfo.project.name === "desktop") {
+    // Dua kolom di desktop: Finalisasi terlihat tanpa menggulir walau isian panjang.
+    await expect(page.getByRole("button", { name: "Finalisasi" })).toBeInViewport();
+  }
+
+  await page.getByRole("tabpanel").getByRole("button", { name: "Setujui ke data pasien" }).click();
+  // Toast tidak boleh menutupi bar aksi yang menempel di bawah: Finalisasi harus tetap terlihat.
+  await expect(page.getByText("Data pasien diperbarui.")).toBeVisible({ timeout: 30_000 });
+  const toastBox = (await page.locator("[data-sonner-toast]").first().boundingBox())!;
+  const finalizeBox = (await page.getByRole("button", { name: "Finalisasi" }).boundingBox())!;
+  const overlaps =
+    toastBox.x < finalizeBox.x + finalizeBox.width &&
+    finalizeBox.x < toastBox.x + toastBox.width &&
+    toastBox.y < finalizeBox.y + finalizeBox.height &&
+    finalizeBox.y < toastBox.y + toastBox.height;
+  expect(overlaps, "toast menutupi tombol Finalisasi").toBe(false);
+  await page.getByRole("button", { name: "Finalisasi" }).click({ timeout: 2_000 });
+  await expect(page.getByText("Isi penilaian (A) sebelum finalisasi.")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Peringatan" })).toContainText("Amoxicillin", { timeout: 30_000 });
+});

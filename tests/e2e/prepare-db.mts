@@ -8,6 +8,7 @@ import { prisma } from "../../src/lib/db";
 import { combineWitaDateAndMinutes, witaDateString } from "../../src/lib/time";
 import { E2E_ADMIN, E2E_RESEPSIONIS } from "./credentials";
 import { purgeEncounters } from "../purge-encounters";
+import { slimmingNewPatient } from "../fixtures/quiz-answers-v2";
 
 // Booking dan pasien dari putaran sebelumnya dibuang agar slot yang
 // ditawarkan selalu sama di setiap putaran.
@@ -77,6 +78,48 @@ for (const [index, project] of ["desktop", "mobile"].entries()) {
       staffId: visitDoctor.id,
       serviceId: visitService.id,
       patientId: patient.id,
+    },
+  });
+}
+
+// Persetujuan isian dari halaman kunjungan (kunjungan.spec.ts): pasien hadir hari ini
+// dengan isian kuis v2 yang belum diperiksa, satu per proyek, pukul 07.00/07.30.
+for (const [index, project] of ["desktop", "mobile"].entries()) {
+  const patient = await prisma.patient.create({
+    data: {
+      medicalRecordNumber: `SDY-E2E-ISIAN-${index + 1}`,
+      name: `Pasien Isian ${project}`,
+      whatsapp: `6281200078${index}01`,
+      birthDate: new Date("1992-04-17T00:00:00Z"),
+      gender: "P",
+      allergies: "Udang",
+    },
+  });
+  const startAt = combineWitaDateAndMinutes(today, 7 * 60 + index * 30);
+  const appointment = await prisma.appointment.create({
+    data: {
+      code: `E2E-ISIAN-${index + 1}`,
+      type: "KONSULTASI",
+      startAt,
+      endAt: new Date(startAt.getTime() + 30 * 60_000),
+      status: "HADIR",
+      source: "WALK_IN",
+      branchId: visitBranch.id,
+      staffId: visitDoctor.id,
+      serviceId: visitService.id,
+      patientId: patient.id,
+    },
+  });
+  await prisma.intake.create({
+    data: {
+      appointmentId: appointment.id,
+      patientId: patient.id,
+      status: "TERISI",
+      kind: "LENGKAP",
+      purpose: "SLIMMING",
+      quizVersion: 2,
+      answers: slimmingNewPatient,
+      submittedAt: new Date(),
     },
   });
 }

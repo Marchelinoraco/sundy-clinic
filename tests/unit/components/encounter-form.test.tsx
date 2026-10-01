@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import type { ReactNode } from "react";
 import userEvent from "@testing-library/user-event";
 import Link from "next/link";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -6,6 +7,7 @@ import { toast } from "sonner";
 import { EncounterForm, type EncounterFormProps } from "@/components/admin/encounter-form";
 import { emptyDraftInput, type EncounterOptions } from "@/lib/encounter";
 import { discardEncounterDraft, finalizeEncounter, saveEncounterDraft } from "@/server/encounter";
+import { NO_VITALS } from "../../fixtures/encounter-detail";
 
 const refresh = vi.fn();
 const push = vi.fn();
@@ -33,18 +35,20 @@ const options: EncounterOptions = {
 // 02.42 UTC = 10.42 WITA.
 const saved = (version: string) => ({ ok: true as const, data: { version, savedAt: "2026-10-01T02:42:00.000Z" } });
 
-function renderForm(props: Partial<EncounterFormProps> = {}) {
+function renderForm(props: Partial<EncounterFormProps> = {}, extra?: ReactNode) {
   return render(
-    <EncounterForm
-      encounterId="e1"
-      initialVersion="v1"
-      initialDraft={emptyDraftInput()}
-      options={options}
-      intakeSlot={<p>Isian pasien</p>}
-      autosaveDelayMs={50}
-      retryDelaysMs={[300]}
-      {...props}
-    />,
+    <>
+      <EncounterForm
+        encounterId="e1"
+        initialVersion="v1"
+        initialDraft={emptyDraftInput()}
+        options={options}
+        autosaveDelayMs={50}
+        retryDelaysMs={[300]}
+        {...props}
+      />
+      {extra}
+    </>,
   );
 }
 
@@ -63,7 +67,6 @@ describe("EncounterForm", () => {
   it("menyimpan otomatis setelah berhenti mengetik, lalu memakai versi baru untuk simpan berikutnya", async () => {
     vi.mocked(saveEncounterDraft).mockResolvedValueOnce(saved("v2")).mockResolvedValueOnce(saved("v3"));
     renderForm();
-    expect(screen.getByText("Isian pasien")).toBeInTheDocument();
 
     await userEvent.type(screen.getByLabelText("Keluhan dan anamnesis dokter"), "Pusing");
     await waitFor(() => expect(saveEncounterDraft).toHaveBeenCalledTimes(1));
@@ -236,7 +239,7 @@ describe("EncounterForm", () => {
 
   it("tautan di dalam aplikasi meminta konfirmasi selama ada perubahan yang tidak bisa disimpan", async () => {
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
-    renderForm({ intakeSlot: appLink });
+    renderForm({}, appLink);
     await userEvent.type(screen.getByLabelText("Sistolik (mmHg)"), "12");
     await waitFor(() => expect(status()).toHaveTextContent("Belum tersimpan"));
 
@@ -247,9 +250,33 @@ describe("EncounterForm", () => {
 
   it("tautan tidak meminta konfirmasi bila tidak ada perubahan yang tertahan", () => {
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
-    renderForm({ intakeSlot: appLink });
+    renderForm({}, appLink);
     fireEvent.click(screen.getByRole("link", { name: "Data pasien" }));
     expect(confirm).not.toHaveBeenCalled();
     confirm.mockRestore();
+  });
+
+  it("baris IMT menyebut selisih berat dari kunjungan final terakhir yang ditimbang", async () => {
+    vi.mocked(saveEncounterDraft).mockResolvedValue(saved("v2"));
+    renderForm({ weightHistory: [{ date: new Date("2026-09-23T03:00:00Z"), vitals: { ...NO_VITALS, weightKg: 73.3 } }] });
+    await userEvent.type(screen.getByLabelText("Berat badan (kg)"), "72,5");
+    await userEvent.type(screen.getByLabelText("Tinggi badan (cm)"), "158");
+    expect(screen.getByText("IMT 29 · berat turun 0,8 kg dari Rab, 23 Sep")).toBeInTheDocument();
+  });
+
+  it("memberi tahu angka vital terbaru saat mengetik, dengan isian tidak sah sebagai null", async () => {
+    const onVitalsChange = vi.fn();
+    renderForm({ onVitalsChange });
+    await userEvent.type(screen.getByLabelText("Berat badan (kg)"), "72,5");
+    expect(onVitalsChange).toHaveBeenLastCalledWith(expect.objectContaining({ weightKg: 72.5, systolic: null }));
+    await userEvent.type(screen.getByLabelText("Sistolik (mmHg)"), "1");
+    expect(onVitalsChange).toHaveBeenLastCalledWith(expect.objectContaining({ weightKg: 72.5, systolic: null }));
+  });
+
+  it("Finalisasi dan status simpan berada di bar bawah yang menempel", () => {
+    renderForm();
+    const bar = screen.getByRole("button", { name: "Finalisasi" }).closest("[data-slot='encounter-actions']");
+    expect(bar).toHaveClass("sticky", "bottom-0");
+    expect(bar).toContainElement(screen.getByRole("status"));
   });
 });
