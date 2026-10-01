@@ -174,6 +174,8 @@ export async function rescheduleAppointment(
     });
 
     safeRevalidatePath("/admin/booking");
+    // Status dan jadwal menentukan isi halaman Pengingat (spec C2 bagian 4).
+    safeRevalidatePath("/admin/pengingat");
     return prisma.appointment.findUniqueOrThrow({ where: { id } });
   });
 }
@@ -207,6 +209,8 @@ async function setStatus(
     await recordAudit({ actor, action, entity: "Appointment", entityId: id, summary });
 
     safeRevalidatePath("/admin/booking");
+    // Status dan jadwal menentukan isi halaman Pengingat (spec C2 bagian 4).
+    safeRevalidatePath("/admin/pengingat");
     return prisma.appointment.findUniqueOrThrow({ where: { id } });
   });
 }
@@ -250,6 +254,10 @@ const BOOKING_LIST_INCLUDE = {
   branch: true,
   service: true,
   intake: { select: { id: true, name: true, whatsapp: true, status: true } },
+  // Catatan pesan untuk keterangan "Konfirmasi terkirim …" di baris booking (spec C2 4.5).
+  messages: {
+    select: { id: true, kind: true, scheduledFor: true, sentAt: true, sentByName: true, revokedAt: true, reply: true },
+  },
 } as const;
 
 /** Menambahkan batas transfer ke setiap booking (null bila booking tidak menunggu transfer). */
