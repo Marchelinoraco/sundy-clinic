@@ -65,10 +65,11 @@ test("customer gizi klinik mendaftar, lalu dokter melihat kebiasaannya sebagai t
   await signIn(page, E2E_ADMIN);
   await page.goto("/admin/booking");
   const row = page
-    .getByRole("region", { name: /Booking situs menunggu konfirmasi/ })
+    .getByRole("region", { name: /^Menunggu konfirmasi/ })
     .getByRole("row")
     .filter({ hasText: code! });
-  await row.getByRole("link", { name: "Lihat isian" }).click();
+  await row.getByRole("button", { name: /^Aksi lain/ }).click();
+  await page.getByRole("menuitem", { name: "Lihat isian" }).click();
 
   const table = page.getByRole("table", { name: "Kebiasaan sehari" });
   await expect(table).toBeVisible({ timeout: 30_000 });

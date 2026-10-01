@@ -2,7 +2,7 @@
 
 - **Versi:** 1.0
 - **Tanggal:** 1 Oktober 2026
-- **Status:** Menunggu tinjauan pemilik
+- **Status:** Disetujui pemilik (1 Oktober 2026) · terlaksana (1 Oktober 2026)
 - **Melengkapi:** `docs/superpowers/specs/2026-09-28-pendaftaran-pasien-design.md` (biaya booking K18, kedaluwarsa booking situs K13, aturan pencocokan) dan `docs/superpowers/specs/2026-09-30-ui-alur-dokter-design.md` (bagian A dan B dari perbaikan panel).
 - **Mockup:** companion visual 1 Oktober 2026. Tata letak "A" disetujui pemilik. Berkasnya disimpan lokal di `.superpowers/brainstorm/` (tidak masuk git).
 

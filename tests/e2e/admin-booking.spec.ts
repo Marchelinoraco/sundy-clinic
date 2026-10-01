@@ -57,9 +57,12 @@ function slotButtons(page: Page) {
 
 async function openConsultationSlots(page: Page, date: string) {
   // Konsultasi adalah pilihan bawaan dan dr. Diane satu-satunya dokter,
-  // sehingga tenaga sudah terpilih otomatis.
+  // sehingga tenaga sudah terpilih otomatis dan strip tanggal langsung tampil.
   await expect(page.locator("#booking-staff")).toContainText("Diane");
-  await page.getByLabel("Tanggal").fill(date);
+  await page
+    .getByRole("group", { name: "Pilih tanggal" })
+    .locator(`[data-date="${date}"]`)
+    .click({ timeout: 30_000 });
   await expect(slotButtons(page).first()).toBeVisible({ timeout: 30_000 });
 }
 
@@ -67,13 +70,17 @@ function uniqueWhatsapp(prefix: string) {
   return `08${prefix}${Date.now().toString().slice(-8)}`;
 }
 
-test("admin mencatat booking telepon dari nol lalu memverifikasinya", async ({ page }, testInfo) => {
+test("admin mencatat booking WA lewat strip tanggal, mengirim instruksi transfer, lalu menemukannya lagi", async ({
+  page,
+}, testInfo) => {
   const date = bookingDate(testInfo);
   const patientName = `Pasien E2E ${Date.now().toString().slice(-6)}`;
 
   await signIn(page);
   await page.goto("/admin/booking/baru");
   await createPatientInForm(page, patientName, uniqueWhatsapp("12"));
+  // WhatsApp adalah sumber bawaan.
+  await expect(page.getByRole("button", { name: "WhatsApp", exact: true })).toHaveAttribute("aria-pressed", "true");
   await openConsultationSlots(page, date);
 
   const slot = slotButtons(page).first();
@@ -81,25 +88,47 @@ test("admin mencatat booking telepon dari nol lalu memverifikasinya", async ({ p
   await slot.click();
   await page.getByRole("button", { name: "Buat Booking" }).click();
 
-  // Toast tampil sesaat sebelum pindah halaman dan hilang setelah beberapa
-  // detik — diperiksa lebih dulu, sebelum menunggu halaman tujuan selesai dimuat.
-  await expect(
-    page.getByText(new RegExp(`Booking SDY-[A-Z0-9]{4} dibuat — ${patientName}`)),
-  ).toBeVisible();
-  await expect(page).toHaveURL(/\/admin\/booking$/, { timeout: 30_000 });
+  // Halaman tidak pindah: ringkasan berganti panel "Booking dibuat".
+  const heading = page.getByRole("heading", { name: /Booking SDY-[A-Z0-9]{4} dibuat/ });
+  await expect(heading).toBeVisible({ timeout: 30_000 });
+  const code = (await heading.textContent())!.match(/SDY-[A-Z0-9]{4}/)![0];
+  await expect(page).toHaveURL(/\/admin\/booking\/baru$/);
 
-  // Booking muncul di daftar harian, lalu diverifikasi.
-  await page.goto(`/admin/booking?tanggal=${date}`);
-  const row = page.getByRole("row").filter({ hasText: patientName });
+  // Instruksi transfer ke nomor pasien, bukan nomor klinik, dan memuat kode booking.
+  const transferLink = page.getByRole("link", { name: "Kirim instruksi transfer via WA" });
+  await expect(transferLink).toHaveAttribute("href", /^https:\/\/wa\.me\/628/);
+  await expect(transferLink).not.toHaveAttribute("href", /wa\.me\/6285172228900/);
+  await expect(transferLink).toHaveAttribute("href", new RegExp(code));
+
+  // "Lihat di daftar" membuka tanggal booking dengan tepat satu baris tersorot.
+  await page.getByRole("link", { name: /Lihat di daftar/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/admin/booking\\?tanggal=${date}&sorot=`), { timeout: 30_000 });
+  const row = page.locator('tr[data-highlighted="true"]');
+  await expect(row).toHaveCount(1);
+  await expect(row).toContainText(code);
   await expect(row).toContainText(slotLabel);
   await expect(row).toContainText("Menunggu Konfirmasi");
-  await row.getByRole("button", { name: "Verifikasi" }).click();
-  await expect(row).toContainText("Terkonfirmasi");
 
-  // Konfirmasi WhatsApp dikirim ke nomor pasien, bukan nomor klinik.
-  const waLink = row.getByRole("link", { name: "Kirim WhatsApp" });
-  await expect(waLink).toHaveAttribute("href", /^https:\/\/wa\.me\/628/);
-  await expect(waLink).not.toHaveAttribute("href", /wa\.me\/6285172228900/);
+  // Booking WA ikut daftar "Menunggu konfirmasi" dengan batas transfernya.
+  const pendingRow = page
+    .getByRole("region", { name: /^Menunggu konfirmasi/ })
+    .getByRole("row")
+    .filter({ hasText: code });
+  await expect(pendingRow).toContainText("Batas transfer");
+
+  // Verifikasi dari baris tersorot; booking keluar dari daftar menunggu.
+  await row.getByRole("button", { name: "Verifikasi" }).click();
+  await expect(row).toContainText("Terkonfirmasi", { timeout: 30_000 });
+  await expect(pendingRow).toHaveCount(0);
+  const confirmLink = row.getByRole("link", { name: "Kirim konfirmasi" });
+  await expect(confirmLink).toHaveAttribute("href", /^https:\/\/wa\.me\/628/);
+
+  // Pencarian per kode tanpa peduli huruf besar/kecil, dengan tanggal di barisnya.
+  const search = page.getByLabel("Cari kode, nama, atau WA");
+  await search.fill(code.toLowerCase());
+  await search.press("Enter");
+  const results = page.getByRole("region", { name: /^Hasil pencarian/ });
+  await expect(results.getByRole("row").filter({ hasText: code })).toContainText(slotLabel, { timeout: 30_000 });
 });
 
 test("slot yang sudah dipesan tidak ditawarkan lagi, dan rebutan slot ditolak dengan pesan jelas", async ({
@@ -125,7 +154,9 @@ test("slot yang sudah dipesan tidak ditawarkan lagi, dan rebutan slot ditolak de
   await second.getByRole("group", { name: "Pilih jam" }).getByRole("button", { name: slotLabel }).click();
 
   await first.getByRole("button", { name: "Buat Booking" }).click();
-  await expect(first).toHaveURL(/\/admin\/booking$/, { timeout: 30_000 });
+  await expect(first.getByRole("heading", { name: /Booking SDY-[A-Z0-9]{4} dibuat/ })).toBeVisible({
+    timeout: 30_000,
+  });
 
   // Admin kedua masih melihat slot itu, tetapi basis data menolaknya — dan
   // yang tampil adalah pesan yang bisa dipahami, bukan galat SQL.
