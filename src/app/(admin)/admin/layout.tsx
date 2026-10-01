@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppSidebar } from "@/components/admin/app-sidebar";
 import { can } from "@/lib/permissions";
-import { countPendingSiteBookings } from "@/server/appointment";
+import { countPendingBookings } from "@/server/appointment";
 import { requireStaff } from "@/server/session";
 
 export const metadata = { title: "Panel Admin" };
@@ -12,7 +12,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // Dijalankan untuk setiap halaman di bawah /admin. Satu tempat yang
   // memastikan tidak ada halaman admin yang lupa menuntut login.
   const staff = await requireStaff();
-  const pendingSiteBookings = can(staff.role, "booking:manage") ? await countPendingSiteBookings() : 0;
+  const pendingBookings = can(staff.role, "booking:manage") ? await countPendingBookings() : 0;
 
   return (
     // TooltipProvider dibutuhkan SidebarMenuButton (label saat sidebar
@@ -20,7 +20,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     // hanya panel admin yang memakai sidebar bertooltip.
     <TooltipProvider>
       <SidebarProvider>
-        <AppSidebar staff={staff} pendingSiteBookings={pendingSiteBookings} />
+        <AppSidebar staff={staff} pendingBookings={pendingBookings} />
         <SidebarInset>{children}</SidebarInset>
         {/* Kanan atas: bar aksi halaman kunjungan menempel di bawah, dan toast di sana menutupi Finalisasi. */}
         <Toaster position="top-right" />

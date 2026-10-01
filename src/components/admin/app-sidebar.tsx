@@ -50,11 +50,11 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
 
 export function AppSidebar({
   staff,
-  pendingSiteBookings = 0,
+  pendingBookings = 0,
 }: {
   staff: CurrentStaff;
   /** Booking situs yang menunggu konfirmasi, ditampilkan sebagai angka di menu Booking. */
-  pendingSiteBookings?: number;
+  pendingBookings?: number;
 }) {
   return (
     <Sidebar collapsible="icon">
@@ -101,12 +101,12 @@ export function AppSidebar({
                           <span>{item.title}</span>
                         </Link>
                       </SidebarMenuButton>
-                      {item.url === "/admin/booking" && pendingSiteBookings > 0 && (
+                      {item.url === "/admin/booking" && pendingBookings > 0 && (
                         <SidebarMenuBadge
-                          aria-label={`${pendingSiteBookings} booking situs menunggu konfirmasi`}
+                          aria-label={`${pendingBookings} booking menunggu konfirmasi`}
                           className="bg-amber-500 text-white peer-hover/menu-button:text-white"
                         >
-                          {pendingSiteBookings}
+                          {pendingBookings}
                         </SidebarMenuBadge>
                       )}
                     </SidebarMenuItem>

@@ -14,7 +14,8 @@ import {
   witaMinutesOfDay,
 } from "@/lib/time";
 import { buildWhatsAppLinkTo, patientBookingConfirmationMessage } from "@/lib/whatsapp";
-import { listAppointments, listPendingSiteBookings } from "@/server/appointment";
+import { pendingDeadlineLabel } from "@/lib/transfer-instruction";
+import { listAppointments, listPendingBookings } from "@/server/appointment";
 import { getBranches } from "@/server/catalog";
 import { listSchedulableStaff } from "@/server/schedule";
 import { requireCapability } from "@/server/session";
@@ -94,7 +95,7 @@ export default async function BookingListPage({
   // Filter isian berlaku untuk semua tanggal: isian lama pun harus terlihat (spec 6.5).
   const unreviewedOnly = params.isian === "belum-diperiksa";
 
-  const [appointments, pendingSiteBookings, staffList, branches] = await Promise.all([
+  const [appointments, pending, staffList, branches] = await Promise.all([
     listAppointments({
       date: unreviewedOnly ? undefined : date,
       status: status ?? undefined,
@@ -102,7 +103,7 @@ export default async function BookingListPage({
       branchId: params.cabang || undefined,
       intakeStatus: unreviewedOnly ? "TERISI" : undefined,
     }),
-    listPendingSiteBookings(),
+    listPendingBookings(),
     listSchedulableStaff(),
     getBranches(),
   ]);
@@ -116,12 +117,12 @@ export default async function BookingListPage({
     return unreviewedOnly ? { ...row, timeLabel: `${formatShortIndonesianDate(a.startAt)} · ${row.timeLabel}` } : row;
   });
   // Semua tanggal sekaligus: jam jadwal ditulis bersama tanggalnya.
-  const pendingRows: BookingRow[] = pendingSiteBookings.map((a) => {
+  const pendingRows: BookingRow[] = pending.map((a) => {
     const row = toRow(a);
     return {
       ...row,
       timeLabel: `${formatShortIndonesianDate(a.startAt)} · ${row.timeLabel}`,
-      deadlineLabel: `Kedaluwarsa ${formatShortIndonesianDate(a.expiresAt)} ${timeLabel(a.expiresAt)}`,
+      deadlineLabel: pendingDeadlineLabel({ kind: a.deadlineKind, deadline: a.deadline, overdue: a.overdue }),
     };
   });
 

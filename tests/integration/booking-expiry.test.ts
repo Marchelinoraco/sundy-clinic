@@ -3,7 +3,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AppointmentStatus, BookingSource } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { expireStaleSiteBookings } from "@/server/booking-expiry";
-import { countPendingSiteBookings, listAppointments, listPendingSiteBookings } from "@/server/appointment";
+import { countPendingBookings, listAppointments, listPendingBookings } from "@/server/appointment";
 
 vi.mock("@/server/session", () => ({
   requireCapability: vi.fn().mockResolvedValue({
@@ -188,13 +188,16 @@ describe("kedaluwarsa booking situs", () => {
     // Sudah lewat batas tetapi belum ditandai: tidak dihitung, lalu ditandai kedaluwarsa saat daftar dibuka.
     const stale = await booking({ source: "SITUS", status: "MENUNGGU_KONFIRMASI", createdAt: hoursAgo(14 * 24), withPatient: false });
 
-    const count = await countPendingSiteBookings();
-    const pending = await listPendingSiteBookings();
+    const count = await countPendingBookings();
+    const pending = await listPendingBookings();
 
-    expect(pending.filter((row) => row.staffId === staffId).map((row) => row.id)).toEqual([older.id, newer.id]);
+    // Booking WA uji ini tanpa biaya booking, jadi tidak menunggu transfer.
+    const mine = pending.filter((row) => row.staffId === staffId);
+    expect(mine.map((row) => row.id)).toEqual([older.id, newer.id]);
     expect(count).toBe(pending.length);
-    for (const row of pending) {
-      expect(row.expiresAt.getTime() - row.createdAt.getTime()).toBeGreaterThanOrEqual(24 * HOUR);
+    for (const row of mine) {
+      expect(row.deadlineKind).toBe("EXPIRES");
+      expect(row.deadline.getTime() - row.createdAt.getTime()).toBeGreaterThanOrEqual(24 * HOUR);
     }
     expect((await prisma.appointment.findUniqueOrThrow({ where: { id: stale.id } })).status).toBe("KEDALUWARSA");
   });

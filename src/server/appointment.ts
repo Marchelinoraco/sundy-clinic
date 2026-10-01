@@ -6,18 +6,25 @@ import type {
   AppointmentType,
   BookingSource,
   IntakeStatus,
+  Prisma,
 } from "@prisma/client";
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
 import { generateBookingCode } from "@/lib/booking-code";
 import { prisma } from "@/lib/db";
 import { bookingFeeFor } from "@/lib/payment";
 import { safeRevalidatePath } from "@/lib/revalidate";
-import { combineWitaDateAndMinutes } from "@/lib/time";
+import { addDaysToDateString, combineWitaDateAndMinutes, witaDateString } from "@/lib/time";
+import {
+  TRANSFER_SOURCES,
+  transferInstructionFor,
+  type TransferInstruction,
+} from "@/lib/transfer-instruction";
 import { recordAudit } from "@/server/audit";
 import {
   confirmationDeadlines,
   currentConfirmationCutoff,
   expireStaleSiteBookings,
+  transferDeadlines,
 } from "@/server/booking-expiry";
 import { getClinicSetting } from "@/server/clinic-setting";
 import { isExclusionViolation } from "@/server/db-errors";
@@ -245,6 +252,14 @@ const BOOKING_LIST_INCLUDE = {
   intake: { select: { id: true, name: true, whatsapp: true, status: true } },
 } as const;
 
+/** Menambahkan batas transfer ke setiap booking (null bila booking tidak menunggu transfer). */
+async function withTransferDeadlines<
+  T extends { source: BookingSource; status: AppointmentStatus; bookingFee: number | null; createdAt: Date; startAt: Date },
+>(appointments: T[]): Promise<(T & { transferDeadline: Date | null })[]> {
+  const deadlines = await transferDeadlines(appointments);
+  return appointments.map((appointment, index) => ({ ...appointment, transferDeadline: deadlines[index] }));
+}
+
 export async function listAppointments(filter: {
   branchId?: string;
   staffId?: string;
@@ -255,7 +270,7 @@ export async function listAppointments(filter: {
   await requireCapability("booking:manage");
   await expireStaleSiteBookings();
 
-  return prisma.appointment.findMany({
+  const appointments = await prisma.appointment.findMany({
     where: {
       branchId: filter.branchId,
       staffId: filter.staffId,
@@ -279,32 +294,116 @@ export async function listAppointments(filter: {
     include: BOOKING_LIST_INCLUDE,
     orderBy: { startAt: "asc" },
   });
+  return withTransferDeadlines(appointments);
 }
 
+export type PendingDeadlineKind = "EXPIRES" | "TRANSFER";
+
+/** Booking WA/telepon berbiaya yang belum diverifikasi; walk-in tidak pernah menunggu transfer. */
+const WAITING_TRANSFER: Prisma.AppointmentWhereInput = {
+  source: { in: [...TRANSFER_SOURCES] },
+  bookingFee: { not: null },
+};
+
 /**
- * Booking situs yang belum diverifikasi, dari tanggal jadwal mana pun, yang
- * masuk paling awal (paling dekat kedaluwarsa) lebih dulu. Tanpa daftar ini
- * admin harus membuka tanggal satu per satu, dan booking bisa kedaluwarsa
- * tanpa pernah dilihat.
+ * Daftar "Menunggu konfirmasi" dari tanggal jadwal mana pun (spec C1 5.1):
+ * booking situs yang belum kedaluwarsa, dan booking WA/telepon berbiaya yang
+ * belum diverifikasi. Yang paling mendesak di atas. Booking WA/telepon yang
+ * lewat batas transfer tetap di sini dan tidak dibatalkan otomatis (B5).
+ * Tanpa daftar ini admin harus membuka tanggal satu per satu.
  */
-export async function listPendingSiteBookings() {
+export async function listPendingBookings() {
   await requireCapability("booking:manage");
   await expireStaleSiteBookings();
 
-  const appointments = await prisma.appointment.findMany({
-    where: { source: "SITUS", status: "MENUNGGU_KONFIRMASI" },
-    include: BOOKING_LIST_INCLUDE,
-    orderBy: { createdAt: "asc" },
-  });
-  const deadlines = await confirmationDeadlines(appointments.map((a) => a.createdAt));
-  return appointments.map((a, index) => ({ ...a, expiresAt: deadlines[index] }));
+  const appointments = await withTransferDeadlines(
+    await prisma.appointment.findMany({
+      where: { status: "MENUNGGU_KONFIRMASI", OR: [{ source: "SITUS" }, WAITING_TRANSFER] },
+      include: BOOKING_LIST_INCLUDE,
+    }),
+  );
+  const site = appointments.filter((a) => a.source === "SITUS");
+  const expiries = await confirmationDeadlines(site.map((a) => a.createdAt));
+  const expiresAt = new Map(site.map((a, index) => [a.id, expiries[index]]));
+  const now = Date.now();
+
+  return appointments
+    .map((a) => {
+      const deadlineKind: PendingDeadlineKind = a.transferDeadline ? "TRANSFER" : "EXPIRES";
+      const deadline = a.transferDeadline ?? expiresAt.get(a.id)!;
+      return { ...a, deadline, deadlineKind, overdue: deadlineKind === "TRANSFER" && deadline.getTime() <= now };
+    })
+    .sort((a, b) => a.deadline.getTime() - b.deadline.getTime());
 }
 
 /** Jumlah untuk menu samping; tanpa menulis apa pun, karena dipanggil di setiap halaman admin. */
-export async function countPendingSiteBookings(): Promise<number> {
+export async function countPendingBookings(): Promise<number> {
   await requireCapability("booking:manage");
   const cutoff = await currentConfirmationCutoff();
   return prisma.appointment.count({
-    where: { source: "SITUS", status: "MENUNGGU_KONFIRMASI", createdAt: { gte: cutoff } },
+    where: {
+      status: "MENUNGGU_KONFIRMASI",
+      OR: [{ source: "SITUS", createdAt: { gte: cutoff } }, WAITING_TRANSFER],
+    },
+  });
+}
+
+const SEARCH_LOOKBACK_DAYS = 30;
+const SEARCH_LIMIT = 50;
+/** Angka lebih pendek dari ini tidak dicocokkan ke nomor WA, agar hasilnya tidak membanjir. */
+const SEARCH_MIN_PHONE_DIGITS = 4;
+
+/**
+ * Pencarian di halaman Booking (spec C1 5.3): kode persis tanpa peduli huruf
+ * besar/kecil; nama pasien, atau nama di isian booking situs yang belum
+ * dicocokkan (sebagian); nomor WA yang dinormalkan seperti pencarian pasien.
+ * Jadwal 30 hari ke belakang sampai seterusnya, terbaru di atas.
+ */
+export async function searchBookings(query: string) {
+  await requireCapability("booking:manage");
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+  await expireStaleSiteBookings();
+
+  const since = combineWitaDateAndMinutes(addDaysToDateString(witaDateString(new Date()), -SEARCH_LOOKBACK_DAYS), 0);
+  const digits = /^[\d\s()+-]+$/.test(trimmed) ? trimmed.replace(/\D/g, "") : "";
+  const phone = digits.startsWith("0") ? `62${digits.slice(1)}` : digits;
+  const name = { contains: trimmed, mode: "insensitive" as const };
+  const phoneMatches: Prisma.AppointmentWhereInput[] =
+    phone.length >= SEARCH_MIN_PHONE_DIGITS
+      ? [{ patient: { whatsapp: { contains: phone } } }, { patientId: null, intake: { whatsapp: { contains: phone } } }]
+      : [];
+
+  return withTransferDeadlines(
+    await prisma.appointment.findMany({
+      where: {
+        startAt: { gte: since },
+        OR: [
+          { code: { equals: trimmed, mode: "insensitive" } },
+          { patient: { name } },
+          { patientId: null, intake: { name } },
+          ...phoneMatches,
+        ],
+      },
+      include: BOOKING_LIST_INCLUDE,
+      orderBy: { startAt: "desc" },
+      take: SEARCH_LIMIT,
+    }),
+  );
+}
+
+/** Untuk panel "Booking dibuat" (spec C1 bagian 4): null bila booking tidak menunggu transfer. */
+export async function getTransferInstruction(
+  appointmentId: string,
+): Promise<ActionResult<TransferInstruction | null>> {
+  return runAction(async () => {
+    await requireCapability("booking:manage");
+    const appointment = await prisma.appointment.findUnique({
+      where: { id: appointmentId },
+      include: BOOKING_LIST_INCLUDE,
+    });
+    if (!appointment) throw new UserFacingError("Booking tidak ditemukan.");
+    const [withDeadline] = await withTransferDeadlines([appointment]);
+    return transferInstructionFor(withDeadline, await getClinicSetting());
   });
 }
