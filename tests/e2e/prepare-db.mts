@@ -5,7 +5,7 @@
 import "dotenv/config";
 import { auth } from "../../src/lib/auth";
 import { prisma } from "../../src/lib/db";
-import { combineWitaDateAndMinutes, witaDateString } from "../../src/lib/time";
+import { addDaysToDateString, combineWitaDateAndMinutes, witaDateString, witaWeekday } from "../../src/lib/time";
 import { E2E_ADMIN, E2E_RESEPSIONIS } from "./credentials";
 import { purgeEncounters } from "../purge-encounters";
 import { slimmingNewPatient } from "../fixtures/quiz-answers-v2";
@@ -120,6 +120,53 @@ for (const [index, project] of ["desktop", "mobile"].entries()) {
       quizVersion: 2,
       answers: slimmingNewPatient,
       submittedAt: new Date(),
+    },
+  });
+}
+
+// Pengingat H-1 (pengingat.spec.ts): satu booking terkonfirmasi per proyek di hari buka
+// berikutnya, pukul 06.00/06.30 (di luar jam buka). Hari pengingatnya hari ini (atau kemarin
+// bila uji dijalankan hari Minggu). Konfirmasinya tercatat tiga hari lalu, jadi booking ini
+// masuk "Ingatkan sekarang", bukan "Konfirmasi belum dikirim".
+const holidayDates = new Set(
+  (await prisma.holiday.findMany({ select: { date: true } })).map((h) => h.date.toISOString().slice(0, 10)),
+);
+let reminderDate = addDaysToDateString(today, 1);
+while (witaWeekday(combineWitaDateAndMinutes(reminderDate, 12 * 60)) === 0 || holidayDates.has(reminderDate)) {
+  reminderDate = addDaysToDateString(reminderDate, 1);
+}
+for (const [index, project] of ["desktop", "mobile"].entries()) {
+  const patient = await prisma.patient.create({
+    data: {
+      medicalRecordNumber: `SDY-E2E-INGAT-${index + 1}`,
+      name: `Pasien Pengingat ${project}`,
+      whatsapp: `6281200079${index}01`,
+    },
+  });
+  const startAt = combineWitaDateAndMinutes(reminderDate, 6 * 60 + index * 30);
+  const appointment = await prisma.appointment.create({
+    data: {
+      code: `E2E-INGAT-${index + 1}`,
+      type: "KONSULTASI",
+      startAt,
+      endAt: new Date(startAt.getTime() + 30 * 60_000),
+      status: "TERKONFIRMASI",
+      source: "WHATSAPP",
+      bookingFee: 100000,
+      branchId: visitBranch.id,
+      staffId: visitDoctor.id,
+      serviceId: visitService.id,
+      patientId: patient.id,
+    },
+  });
+  await prisma.appointmentMessage.create({
+    data: {
+      appointmentId: appointment.id,
+      kind: "KONFIRMASI",
+      scheduledFor: startAt,
+      sentById: "e2e",
+      sentByName: "Admin E2E",
+      sentAt: new Date(Date.now() - 3 * 24 * 60 * 60_000),
     },
   });
 }

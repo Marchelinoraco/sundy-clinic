@@ -2,7 +2,7 @@
 
 - **Versi:** 1.0
 - **Tanggal:** 2 Oktober 2026
-- **Status:** Menunggu tinjauan pemilik
+- **Status:** Disetujui pemilik (2 Oktober 2026) · terlaksana (2 Oktober 2026)
 - **Melengkapi:**
   - `docs/superpowers/specs/2026-10-01-ui-booking-admin-design.md` (C1: Booking Baru, instruksi transfer, daftar "Menunggu konfirmasi");
   - PRD `docs/superpowers/specs/2026-09-23-sundy-clinic-prd.md` F9 (aksi booking, termasuk jadwal ulang) dan F17 (pola pengingat dan aturan hari libur).
