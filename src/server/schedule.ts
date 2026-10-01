@@ -6,8 +6,15 @@ import type { SlotOption } from "@/lib/slot";
 import { prisma } from "@/lib/db";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { recordAudit } from "@/server/audit";
-import { computeAvailability, type AvailabilityInput } from "@/server/availability";
+import {
+  computeAvailability,
+  computeAvailabilityRange,
+  type AvailabilityInput,
+  type DayAvailability,
+} from "@/server/availability";
 import { requireCapability } from "@/server/session";
+
+export type { DayAvailability } from "@/server/availability";
 
 /** Staf yang punya antrean jadwal sendiri: dokter dan terapis aktif. */
 export async function listSchedulableStaff(): Promise<Staff[]> {
@@ -167,4 +174,19 @@ export async function getStaffAvailabilityForAdmin(
 ): Promise<SlotOption[]> {
   await requireCapability("booking:manage");
   return computeAvailability(input, { minLeadMinutes: 0 });
+}
+
+/**
+ * Strip tanggal Booking Baru: ringkasan per hari dengan aturan jam yang sama
+ * seperti getStaffAvailabilityForAdmin (tanpa batas 2 jam, hold diabaikan).
+ */
+export async function getStaffAvailabilityRange(input: {
+  staffId: string;
+  branchId: string;
+  durationMinutes: number;
+  from: string;
+  days: number;
+}): Promise<DayAvailability[]> {
+  await requireCapability("booking:manage");
+  return computeAvailabilityRange(input, { minLeadMinutes: 0 });
 }
