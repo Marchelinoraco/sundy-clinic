@@ -5,6 +5,7 @@ import { runAction, UserFacingError, type ActionResult } from "@/lib/action-resu
 import type { SlotOption } from "@/lib/slot";
 import { prisma } from "@/lib/db";
 import { safeRevalidatePath } from "@/lib/revalidate";
+import { WEEKDAY_LABELS, type WeeklyDayInput } from "@/lib/schedule-week";
 import { recordAudit } from "@/server/audit";
 import {
   computeAvailability,
@@ -93,6 +94,93 @@ export async function deleteScheduleTemplate(id: string): Promise<ActionResult> 
     });
 
     safeRevalidatePath("/admin/jadwal");
+  });
+}
+
+/**
+ * Jam kerja seminggu dalam satu transaksi (spec D 5.1). Hari yang tidak sah
+ * membatalkan semuanya. Hari yang tutup dihapus jam kerjanya. Booking yang sudah
+ * ada tidak diubah: hari itu hanya tidak lagi menawarkan slot baru.
+ */
+export async function saveWeeklySchedule(input: {
+  staffId: string;
+  branchId: string;
+  days: WeeklyDayInput[];
+}): Promise<ActionResult> {
+  return runAction(async () => {
+    const actor = await requireCapability("schedule:manage");
+    const weekdays = input.days.map((day) => day.weekday);
+    if (
+      input.days.length !== 7 ||
+      new Set(weekdays).size !== 7 ||
+      weekdays.some((weekday) => !Number.isInteger(weekday) || weekday < 0 || weekday > 6)
+    ) {
+      throw new UserFacingError("Jam kerja tidak lengkap. Muat ulang halaman lalu coba lagi.");
+    }
+    for (const day of input.days) {
+      if (!day.open) continue;
+      if (day.startMinute === null || day.endMinute === null) {
+        throw new UserFacingError(`${WEEKDAY_LABELS[day.weekday]}: isi jam mulai dan selesai.`);
+      }
+      if (day.endMinute <= day.startMinute) {
+        throw new UserFacingError(`${WEEKDAY_LABELS[day.weekday]}: jam selesai harus setelah jam mulai.`);
+      }
+    }
+
+    const existing = await prisma.scheduleTemplate.findMany({ where: { staffId: input.staffId } });
+    const changes: { action: "schedule-template.upsert" | "schedule-template.delete"; id: string; summary: string }[] = [];
+    await prisma.$transaction(async (tx) => {
+      for (const day of input.days) {
+        const current = existing.find((t) => t.weekday === day.weekday);
+        if (!day.open) {
+          if (current) {
+            await tx.scheduleTemplate.delete({ where: { id: current.id } });
+            changes.push({ action: "schedule-template.delete", id: current.id, summary: `staf ${input.staffId}, hari ${day.weekday}` });
+          }
+          continue;
+        }
+        const startMinute = day.startMinute!;
+        const endMinute = day.endMinute!;
+        if (current && current.branchId === input.branchId && current.startMinute === startMinute && current.endMinute === endMinute) {
+          continue;
+        }
+        const saved = await tx.scheduleTemplate.upsert({
+          where: { staffId_weekday: { staffId: input.staffId, weekday: day.weekday } },
+          update: { branchId: input.branchId, startMinute, endMinute, slotMinutes: 30 },
+          create: { staffId: input.staffId, branchId: input.branchId, weekday: day.weekday, startMinute, endMinute, slotMinutes: 30 },
+        });
+        changes.push({
+          action: "schedule-template.upsert",
+          id: saved.id,
+          summary: `staf ${input.staffId}, hari ${day.weekday}, ${startMinute}-${endMinute}`,
+        });
+      }
+    });
+
+    for (const change of changes) {
+      await recordAudit({ actor, action: change.action, entity: "ScheduleTemplate", entityId: change.id, summary: change.summary });
+    }
+    safeRevalidatePath("/admin/jadwal");
+    safeRevalidatePath("/admin");
+  });
+}
+
+/** Hapus pengecualian tanggal (spec D 5.1). Booking yang sudah ada tidak berubah. */
+export async function deleteScheduleException(id: string): Promise<ActionResult> {
+  return runAction(async () => {
+    const actor = await requireCapability("schedule:manage");
+    const existing = await prisma.scheduleException.findUnique({ where: { id } });
+    if (!existing) throw new UserFacingError("Pengecualian ini sudah dihapus.");
+    await prisma.scheduleException.delete({ where: { id } });
+    await recordAudit({
+      actor,
+      action: "schedule-exception.delete",
+      entity: "ScheduleException",
+      entityId: id,
+      summary: `staf ${existing.staffId}, ${existing.date.toISOString().slice(0, 10)}, ${existing.kind}`,
+    });
+    safeRevalidatePath("/admin/jadwal");
+    safeRevalidatePath("/admin");
   });
 }
 

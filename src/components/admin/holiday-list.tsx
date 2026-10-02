@@ -14,7 +14,13 @@ const KIND_LABEL: Record<Holiday["kind"], string> = {
   LIBUR_KLINIK: "Libur Klinik",
 };
 
-export function HolidayList({ holidays }: { holidays: Holiday[] }) {
+export function HolidayList({
+  holidays,
+  emptyText = "Belum ada hari libur tercatat tahun ini.",
+}: {
+  holidays: Holiday[];
+  emptyText?: string;
+}) {
   const [pending, startTransition] = useTransition();
 
   function handleDelete(id: string) {
@@ -33,7 +39,7 @@ export function HolidayList({ holidays }: { holidays: Holiday[] }) {
   }
 
   if (holidays.length === 0) {
-    return <p className="text-sm text-muted-foreground">Belum ada hari libur tercatat tahun ini.</p>;
+    return <p className="px-4 py-6 text-center text-sm text-muted-foreground">{emptyText}</p>;
   }
 
   return (
