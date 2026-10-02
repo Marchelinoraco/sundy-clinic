@@ -133,3 +133,292 @@ h3 {
     @apply font-sans;
   }
 }
+/* ------------------------------------------------------------------------
+   Gerak situs publik (spec redesign 3 Okt 2026, §3).
+   Hanya transform dan opacity yang dianimasikan. Semua dimatikan untuk
+   "kurangi gerakan" di blok paling bawah.
+   ------------------------------------------------------------------------ */
+
+:root {
+  --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  /* Tinggi header tetap. Header berupa fixed dan tidak memendek secara tinggi,
+     jadi tidak ada animasi tinggi; kesan "memendek" datang dari logo yang mengecil. */
+  --header-h: 4.5rem;
+}
+
+@media (min-width: 48rem) {
+  :root {
+    --header-h: 5rem;
+  }
+}
+
+/* Kepala halaman yang menerus sampai ke balik header transparan. */
+.hero-bleed {
+  margin-top: calc(var(--header-h) * -1);
+  padding-top: calc(var(--header-h) + 2.5rem);
+}
+
+@media (min-width: 64rem) {
+  .hero-bleed {
+    padding-top: calc(var(--header-h) + 4rem);
+  }
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes line-up {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 0.6em, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes arch-rise {
+  from {
+    transform: translate3d(0, 14%, 0) scale(1.08);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@keyframes zoom-slow {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.06);
+  }
+}
+
+@keyframes blob-drift-a {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+  }
+  50% {
+    transform: translate3d(6%, -5%, 0) rotate(25deg) scale(1.08);
+  }
+}
+
+@keyframes blob-drift-b {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+  }
+  50% {
+    transform: translate3d(-7%, 4%, 0) rotate(-30deg) scale(0.94);
+  }
+}
+
+@keyframes blob-drift-c {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(1);
+  }
+  50% {
+    transform: translate3d(4%, 6%, 0) rotate(40deg) scale(1.05);
+  }
+}
+
+@keyframes float-y {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -8px, 0);
+  }
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.06);
+    opacity: 0.85;
+  }
+}
+
+@keyframes fab-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 16px, 0) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translate3d(16px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes check-in {
+  from {
+    opacity: 0;
+    transform: translate3d(-6px, 0, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.page-in {
+  animation: page-in 0.55s var(--ease-soft) both;
+}
+
+.hero-line {
+  animation: line-up 0.9s var(--ease-soft) both;
+}
+
+.arch-rise {
+  animation: arch-rise 1.2s var(--ease-soft) both;
+}
+
+.zoom-slow {
+  animation: zoom-slow 18s ease-in-out infinite alternate;
+}
+
+/* Bentuk emas cair: tiga gumpalan bergradasi bergeser dengan tempo berbeda,
+   jadi gabungannya tampak berubah bentuk tanpa menganimasikan border-radius. */
+.morph-blob {
+  isolation: isolate;
+}
+
+.morph-blob__part {
+  position: absolute;
+  border-radius: 9999px;
+  will-change: transform;
+}
+
+.morph-blob__part.blob-a {
+  inset: 0 18% 22% 0;
+  background: radial-gradient(closest-side, rgb(239 208 140 / 0.85), rgb(239 208 140 / 0));
+  animation: blob-drift-a 9s ease-in-out infinite;
+}
+
+.morph-blob__part.blob-b {
+  inset: 20% 0 0 25%;
+  background: radial-gradient(closest-side, rgb(232 184 75 / 0.55), rgb(232 184 75 / 0));
+  animation: blob-drift-b 11s ease-in-out infinite;
+}
+
+.morph-blob__part.blob-c {
+  inset: 30% 30% 5% 5%;
+  background: radial-gradient(closest-side, rgb(212 160 23 / 0.35), rgb(212 160 23 / 0));
+  animation: blob-drift-c 12s ease-in-out infinite;
+}
+
+.morph-blob[data-tone="cream"] .morph-blob__part.blob-a {
+  background: radial-gradient(closest-side, rgb(253 246 227 / 0.95), rgb(253 246 227 / 0));
+}
+
+.morph-blob[data-tone="cream"] .morph-blob__part.blob-b {
+  background: radial-gradient(closest-side, rgb(247 237 212 / 0.8), rgb(247 237 212 / 0));
+}
+
+.morph-blob[data-tone="cream"] .morph-blob__part.blob-c {
+  background: radial-gradient(closest-side, rgb(239 208 140 / 0.35), rgb(239 208 140 / 0));
+}
+
+.float-y {
+  animation: float-y 6s ease-in-out infinite;
+}
+
+.pulse-soft {
+  animation: pulse-soft 2.4s ease-in-out infinite;
+}
+
+.pulse-once {
+  animation: pulse-soft 1.2s var(--ease-soft) 0.9s 1 both;
+}
+
+/* "backwards", bukan "both": setelah selesai, transform tombol harus bisa diatur
+   aturan lain (tombol naik saat bar booking detail layanan tampil). */
+.fab-in {
+  animation: fab-in 0.6s var(--ease-soft) 0.8s backwards;
+}
+
+.panel-in {
+  animation: panel-in 0.45s var(--ease-soft) both;
+}
+
+.check-in {
+  animation: check-in 0.4s var(--ease-soft) both;
+}
+
+/* Muncul saat digulir (src/components/motion/reveal.tsx). */
+.reveal[data-reveal="armed"] {
+  opacity: 0;
+  transform: translate3d(0, 24px, 0);
+}
+
+.reveal[data-reveal="armed"][data-from="left"] {
+  transform: translate3d(-24px, 0, 0);
+}
+
+.reveal[data-reveal="armed"][data-from="right"] {
+  transform: translate3d(24px, 0, 0);
+}
+
+.reveal[data-reveal="shown"] {
+  transition:
+    opacity 0.7s var(--ease-soft),
+    transform 0.7s var(--ease-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-in,
+  .hero-line,
+  .arch-rise,
+  .zoom-slow,
+  .morph-blob__part,
+  .float-y,
+  .pulse-soft,
+  .pulse-once,
+  .fab-in,
+  .panel-in,
+  .check-in {
+    animation: none !important;
+  }
+
+  .reveal[data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+/* Saat dicetak, elemen yang belum sempat muncul tetap ikut tercetak. */
+@media print {
+  .reveal[data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

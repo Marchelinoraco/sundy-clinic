@@ -68,4 +68,24 @@ describe("batasan arsitektur", () => {
     const missing = urls.filter((url) => !existsSync(`src/app/(admin)${url}/page.tsx`));
     expect(missing).toEqual([]);
   });
+
+  it("kuis, pendaftaran, dan panel admin tidak memakai bahan gerak situs publik", () => {
+    // Spec redesign §6: alur kuis /daftar dan panel admin bebas dari gerak.
+    const dirs = [
+      "src/components/kuis",
+      "src/components/pendaftaran",
+      "src/components/admin",
+      "src/app/(admin)",
+    ];
+    const offenders = dirs.flatMap(collectSourceFiles).filter((file) => {
+      const source = readFileSync(file, "utf8");
+      return (
+        source.includes('from "@/components/motion/') ||
+        source.includes('from "motion/') ||
+        source.includes('from "lenis')
+      );
+    });
+
+    expect(offenders).toEqual([]);
+  });
 });
