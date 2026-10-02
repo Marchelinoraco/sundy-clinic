@@ -12,6 +12,7 @@ import { prisma } from "@/lib/db";
 import { groupReminderWork } from "@/lib/reminder-work";
 import { witaDateString } from "@/lib/time";
 import { closedDatesBetween } from "@/server/booking-expiry";
+import { quizLinkFor } from "@/server/quiz-link-code";
 import { requireCapability } from "@/server/session";
 import { publicSiteUrl } from "@/server/site-url";
 
@@ -43,6 +44,7 @@ const WORK_INCLUDE = {
   staff: { select: { name: true } },
   branch: { select: { name: true, address: true, mapsUrl: true } },
   service: { select: { name: true } },
+  intake: { select: { status: true, linkVersion: true } },
   messages: {
     select: { id: true, kind: true, scheduledFor: true, sentAt: true, sentByName: true, revokedAt: true, reply: true },
   },
@@ -82,8 +84,8 @@ export async function getReminderWorklist(): Promise<ReminderWorklist> {
     startAt: booking.startAt,
     staffName: booking.staff.name,
     branchName: booking.branch.name,
-    confirmation: confirmationMessageFor(booking, siteUrl),
-    reminder: reminderMessageFor(booking),
+    confirmation: confirmationMessageFor(booking, siteUrl, quizLinkFor(booking, siteUrl, now)),
+    reminder: reminderMessageFor(booking, quizLinkFor(booking, siteUrl, now)),
     overdue: false,
     shifted: false,
     reminderSent: null,

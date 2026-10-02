@@ -28,7 +28,9 @@ import {
 } from "@/server/booking-expiry";
 import { getClinicSetting } from "@/server/clinic-setting";
 import { isExclusionViolation } from "@/server/db-errors";
+import { quizLinkFor } from "@/server/quiz-link-code";
 import { requireCapability } from "@/server/session";
+import { publicSiteUrl } from "@/server/site-url";
 
 function assertTimeRange(startAt: Date, endAt: Date): void {
   if (endAt.getTime() <= startAt.getTime()) {
@@ -253,7 +255,7 @@ const BOOKING_LIST_INCLUDE = {
   staff: true,
   branch: true,
   service: true,
-  intake: { select: { id: true, name: true, whatsapp: true, status: true } },
+  intake: { select: { id: true, name: true, whatsapp: true, status: true, kind: true, linkVersion: true } },
   // Catatan pesan untuk keterangan "Konfirmasi terkirim …" di baris booking (spec C2 4.5).
   messages: {
     select: { id: true, kind: true, scheduledFor: true, sentAt: true, sentByName: true, revokedAt: true, reply: true },
@@ -412,6 +414,7 @@ export async function getTransferInstruction(
     });
     if (!appointment) throw new UserFacingError("Booking tidak ditemukan.");
     const [withDeadline] = await withTransferDeadlines([appointment]);
-    return transferInstructionFor(withDeadline, await getClinicSetting());
+    const quizLink = quizLinkFor(appointment, publicSiteUrl(), new Date());
+    return transferInstructionFor(withDeadline, await getClinicSetting(), quizLink);
   });
 }

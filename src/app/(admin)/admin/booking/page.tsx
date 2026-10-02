@@ -23,6 +23,7 @@ import { bookingServiceName, pendingDeadlineLabel, transferInstructionFor } from
 import { listAppointments, listPendingBookings, searchBookings } from "@/server/appointment";
 import { getBranches } from "@/server/catalog";
 import { getClinicSetting } from "@/server/clinic-setting";
+import { quizLinkFor } from "@/server/quiz-link-code";
 import { listSchedulableStaff } from "@/server/schedule";
 import { requireCapability } from "@/server/session";
 import { publicSiteUrl } from "@/server/site-url";
@@ -47,8 +48,9 @@ function toRow(a: ListedAppointment, context: RowContext): BookingRow {
   // Booking situs boleh belum punya pasien sampai admin mencocokkannya;
   // CHECK di basis data menjamin booking terkonfirmasi selalu punya pasien.
   const patient = a.patient;
-  const confirmation = a.status === "TERKONFIRMASI" ? confirmationMessageFor(a, context.siteUrl) : null;
-  const transfer = transferInstructionFor(a, context.bank);
+  const quizLink = quizLinkFor(a, context.siteUrl, context.now);
+  const confirmation = a.status === "TERKONFIRMASI" ? confirmationMessageFor(a, context.siteUrl, quizLink) : null;
+  const transfer = transferInstructionFor(a, context.bank, quizLink);
 
   return {
     id: a.id,

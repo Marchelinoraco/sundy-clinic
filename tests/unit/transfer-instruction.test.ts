@@ -69,6 +69,16 @@ describe("transferInstructionText", () => {
     const text = transferInstructionText({ ...textInput, bankAccount: null });
     expect(text).toContain(`ke:\n${MISSING_BANK_ACCOUNT_LINE}\nlalu`);
   });
+
+  it("menambahkan link kuis di akhir bila ada", () => {
+    const text = transferInstructionText({ ...textInput, quizLink: "https://sundyclinic.com/isi#abc" });
+    expect(text.endsWith(
+      "berlaku bila Anda pindah jadwal paling lambat 2 jam sebelumnya.\n\n" +
+        "Sebelum datang, mohon isi form singkat ini (±5 menit): https://sundyclinic.com/isi#abc\n" +
+        "Jawaban Anda hanya dibaca dokter kami.",
+    )).toBe(true);
+    expect(transferInstructionText({ ...textInput, quizLink: null })).toBe(transferInstructionText(textInput));
+  });
 });
 
 const booking: TransferBooking = {

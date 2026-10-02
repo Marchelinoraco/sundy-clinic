@@ -15,6 +15,7 @@ import { safeRevalidatePath } from "@/lib/revalidate";
 import { needsTransfer, transferInstructionFor } from "@/lib/transfer-instruction";
 import { transferDeadlines } from "@/server/booking-expiry";
 import { getClinicSetting } from "@/server/clinic-setting";
+import { quizLinkFor } from "@/server/quiz-link-code";
 import { requireCapability } from "@/server/session";
 import { publicSiteUrl } from "@/server/site-url";
 
@@ -24,6 +25,7 @@ const MESSAGE_BOOKING_INCLUDE = {
   staff: { select: { name: true } },
   branch: { select: { name: true, address: true, mapsUrl: true } },
   service: { select: { name: true } },
+  intake: { select: { status: true, linkVersion: true } },
 } as const;
 
 function revalidateMessageViews() {
@@ -45,14 +47,16 @@ export async function getBookingMessage(appointmentId: string): Promise<ActionRe
       include: MESSAGE_BOOKING_INCLUDE,
     });
     if (!booking) throw new UserFacingError("Booking tidak ditemukan.");
+    const siteUrl = publicSiteUrl();
+    const quizLink = quizLinkFor(booking, siteUrl, new Date());
 
     if (booking.status === "TERKONFIRMASI") {
-      const message = confirmationMessageFor(booking, publicSiteUrl());
+      const message = confirmationMessageFor(booking, siteUrl, quizLink);
       return message ? { kind: "KONFIRMASI", scheduledFor: booking.startAt, ...message } : null;
     }
     if (needsTransfer(booking)) {
       const [transferDeadline] = await transferDeadlines([booking]);
-      const instruction = transferInstructionFor({ ...booking, transferDeadline }, await getClinicSetting());
+      const instruction = transferInstructionFor({ ...booking, transferDeadline }, await getClinicSetting(), quizLink);
       return instruction
         ? { kind: "INSTRUKSI_TRANSFER", scheduledFor: booking.startAt, text: instruction.text, link: instruction.link }
         : null;
