@@ -122,6 +122,13 @@ export async function listRecentPatients(limit = 50): Promise<PatientSummary[]> 
   return rows.map(toSummary);
 }
 
+/** Satu pasien dalam bentuk ringkasan, untuk Booking Baru dengan pasien terpilih (spec D 5.8). */
+export async function getPatientSummary(id: string): Promise<PatientSummary | null> {
+  await requireCapability("booking:manage");
+  const row = await prisma.patient.findUnique({ where: { id }, select: summarySelect(new Date()) });
+  return row ? toSummary(row) : null;
+}
+
 /** Cocok terhadap nama (sebagian, tanpa peduli huruf besar/kecil) atau nomor WhatsApp. */
 export async function searchPatients(query: string): Promise<PatientSummary[]> {
   await requireCapability("booking:manage");
