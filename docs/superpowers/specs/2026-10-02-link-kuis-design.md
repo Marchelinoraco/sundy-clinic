@@ -28,11 +28,12 @@ Customer yang booking lewat situs mengisi kuis di `/daftar`, sehingga dokter sud
 | Q4 | Booking situs dari pasien lama tanpa isian lengkap | Booking situs itu tetap memakai kuis pendeknya dan diberi tanda "Belum punya isian lengkap". Booking WA/telepon/walk-in **berikutnya** otomatis mendapat kuis lengkap. Satu booking tetap satu isian |
 | Q5 | Cara membuat link | **Link turunan (HMAC):** kunci rahasia server + booking + nomor versi. Link tetap sama sampai diganti |
 
-## 3. Halaman isi kuis untuk customer (`/isi/<kode>`)
+## 3. Halaman isi kuis untuk customer (`/isi#<kode>`)
 
 ### 3.1 Link
 
-- Bentuknya `sundyclinic.com/isi/<kode>`. Kode memuat ID booking dan tanda tangan HMAC dari kunci rahasia, ID booking, dan nomor versi link (bagian 6).
+- Bentuknya `sundyclinic.com/isi#<kode>`. Kode memuat ID booking dan tanda tangan HMAC dari kunci rahasia, ID booking, dan nomor versi link (bagian 6).
+- Kode ditaruh **setelah tanda `#`**, jadi browser tidak pernah mengirimnya ke server. Kode tidak tercatat di log nginx maupun Cloudflare, dan halaman `/isi` sendiri tidak memuat data apa pun. Browser membaca kode itu, lalu meminta isi halaman lewat aksi server. *(Perubahan 2 Okt 2026 saat menyusun plan: spec semula menulis `/isi/<kode>`, yang tercatat lengkap di log nginx dan Cloudflare.)*
 - **Link berlaku** bila semua syarat ini terpenuhi:
   - tanda tangannya cocok dengan versi link saat ini;
   - booking berstatus Menunggu konfirmasi atau Terkonfirmasi, bersumber WhatsApp, Telepon, atau Walk-in, dan sudah punya pasien;
@@ -153,8 +154,8 @@ Tidak berubah. Pengingat H-1 sudah membawa link (4.1), jadi pasien yang belum me
 
 **Keamanan & privasi:**
 - halaman link tidak pernah menampilkan nomor WA, data medis, atau jawaban lama;
-- halaman link tidak diindeks mesin pencari (`noindex`);
-- tidak ada kode atau link yang dicatat di log server;
+- halaman `/isi` tidak diindeks mesin pencari (`noindex`, dan `Disallow: /isi` di robots.txt);
+- kode tidak pernah sampai ke server lewat URL (3.1), dan aplikasi tidak mencatatnya di log;
 - QR dibuat di browser admin, jadi link tidak dikirim ke layanan luar.
 
 **Dependensi baru:** `qrcode` (pembuat QR, MIT), dipakai hanya di komponen dialog admin.
