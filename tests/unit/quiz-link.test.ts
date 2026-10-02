@@ -43,6 +43,16 @@ describe("quizLinkState (spec C3 3.1)", () => {
     }
     expect(quizLinkState({ ...open, startAt: NOW }, NOW)).toBe("CLOSED");
   });
+
+  it("Kirim masih diterima sampai jam selesai bila batasnya diberikan (keputusan pemilik 2 Okt 2026)", () => {
+    const started = { ...open, startAt: new Date("2026-10-05T01:50:00Z") };
+    const endAt = new Date("2026-10-05T02:20:00Z");
+    // Membuka link setelah jam mulai tetap ditolak (spec 5).
+    expect(quizLinkState(started, NOW)).toBe("CLOSED");
+    expect(quizLinkState(started, NOW, endAt)).toBe("OPEN");
+    expect(quizLinkState(started, endAt, endAt)).toBe("CLOSED");
+    expect(quizLinkState({ ...started, status: "DIBATALKAN" }, NOW, endAt)).toBe("CLOSED");
+  });
 });
 
 describe("pembantu link kuis", () => {

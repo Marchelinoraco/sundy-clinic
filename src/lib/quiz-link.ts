@@ -20,12 +20,16 @@ export type QuizLinkState = "OPEN" | "SUBMITTED" | "CLOSED";
 
 /**
  * OPEN: kuis boleh diisi. SUBMITTED: sudah dikirim — link menampilkan "Terima
- * kasih". CLOSED: booking situs, tanpa pasien, tidak aktif, atau sudah dimulai.
+ * kasih". CLOSED: booking situs, tanpa pasien, tidak aktif, atau lewat batas.
+ *
+ * Batasnya jam mulai booking: link hanya dibuka dan ikut pesan sebelum itu.
+ * Kirim memberi `closesAt` = jam selesai, agar customer yang mulai mengisi
+ * sebelum jam mulai tidak kehilangan jawabannya (keputusan pemilik 2 Okt 2026).
  */
-export function quizLinkState(booking: QuizLinkBooking, now: Date): QuizLinkState {
+export function quizLinkState(booking: QuizLinkBooking, now: Date, closesAt: Date = booking.startAt): QuizLinkState {
   if (!QUIZ_LINK_SOURCES.includes(booking.source) || booking.patientId === null) return "CLOSED";
   if (booking.intake && booking.intake.status !== "MENUNGGU_DIISI") return "SUBMITTED";
-  if (!LINK_STATUSES.includes(booking.status) || booking.startAt.getTime() <= now.getTime()) return "CLOSED";
+  if (!LINK_STATUSES.includes(booking.status) || closesAt.getTime() <= now.getTime()) return "CLOSED";
   return "OPEN";
 }
 

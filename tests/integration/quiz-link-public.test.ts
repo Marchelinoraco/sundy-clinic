@@ -223,6 +223,36 @@ describe("halaman link kuis (publik)", () => {
     expect((await prisma.patient.findUniqueOrThrow({ where: { id: patientId } })).occupation).toBeNull();
   });
 
+  it("kuis yang dibuka sebelum jam mulai masih bisa dikirim sampai jam selesai (keputusan pemilik 2 Okt 2026)", async () => {
+    const now = Date.now();
+    const late = await prisma.appointment.create({
+      data: {
+        code: "LNK-LATE",
+        type: "KONSULTASI",
+        startAt: new Date(now - 10 * 60 * 1000),
+        endAt: new Date(now + 20 * 60 * 1000),
+        source: "WALK_IN",
+        status: "MENUNGGU_KONFIRMASI",
+        bookingFee: null,
+        branchId,
+        staffId,
+        patientId,
+      },
+    });
+    const code = quizLinkCode(late.id, 0);
+    // Membuka link setelah jam mulai tetap ditolak (spec 5)...
+    expect(await unwrap(getQuizLinkPage(code))).toEqual({ state: "CLOSED" });
+    // ...tetapi Kirim dari halaman yang sudah terbuka diterima sampai jam selesai.
+    expect(await unwrap(submitQuizLink(submission(code, slimmingNewPatient)))).toEqual({ state: "SUBMITTED" });
+    expect((await prisma.intake.findUniqueOrThrow({ where: { appointmentId: late.id } })).status).toBe("TERISI");
+
+    const over = await booking({ status: "TERKONFIRMASI", offsetHours: -2 });
+    expect(await submitQuizLink(submission(quizLinkCode(over.id, 0), slimmingNewPatient))).toEqual({
+      ok: false,
+      error: CLOSED,
+    });
+  });
+
   it("persetujuan: data selalu wajib, biaya hanya bila booking berbiaya dan belum diverifikasi", async () => {
     const waiting = await booking();
     expect(

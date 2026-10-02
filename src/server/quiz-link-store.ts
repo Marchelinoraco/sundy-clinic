@@ -8,6 +8,7 @@ const LINK_BOOKING_SELECT = {
   source: true,
   status: true,
   startAt: true,
+  endAt: true,
   bookingFee: true,
   patientId: true,
   service: { select: { name: true } },

@@ -93,7 +93,8 @@ export async function submitQuizLink(input: QuizLinkSubmission): Promise<ActionR
     const booking = await bookingForCode(input.code);
     if (!booking) throw new UserFacingError(LINK_CLOSED);
     const now = new Date();
-    const state = quizLinkState(booking, now);
+    // Kirim diterima sampai jam selesai, walau link sudah tidak bisa dibuka sejak jam mulai.
+    const state = quizLinkState(booking, now, booking.endAt);
     if (state === "SUBMITTED") return { state: "SUBMITTED" };
     if (state !== "OPEN") throw new UserFacingError(LINK_CLOSED);
     const patientId = booking.patientId!;
