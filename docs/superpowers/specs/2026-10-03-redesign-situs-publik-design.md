@@ -2,7 +2,7 @@
 
 - **Versi:** 1.0
 - **Tanggal:** 3 Oktober 2026
-- **Status:** Menunggu tinjauan pemilik
+- **Status:** Disetujui pemilik (3 Oktober 2026); foto stok dipilih pemilik 3 Oktober 2026
 - **Cakupan:** semua halaman publik di `src/app/(public)`.
   - Alur kuis `/daftar`, `/cek-booking`, dan `/isi` **tidak berubah**. Ketiganya hanya mendapat header, footer, dan transisi baru.
   - Panel admin tidak tersentuh.
