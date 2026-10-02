@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   confirmationMessageFor,
   confirmationText,
+  quizLinkMessageText,
   reminderMessageFor,
   reminderText,
   type MessageBooking,
@@ -112,5 +113,21 @@ describe("pesan dari booking", () => {
   it("null untuk booking tanpa pasien", () => {
     expect(confirmationMessageFor({ ...booking, patient: null }, "https://sundyclinic.com")).toBeNull();
     expect(reminderMessageFor({ ...booking, patient: null })).toBeNull();
+  });
+});
+
+describe("quizLinkMessageText (spec C3 4.2)", () => {
+  it("menyapa nama depan, menyebut layanan dan jadwal, lalu link", () => {
+    expect(
+      quizLinkMessageText({
+        patientName: "Maria Wenas",
+        serviceName: "Konsultasi Dokter",
+        startAt: wita(17, 11),
+        link: "https://sundyclinic.com/isi#abc",
+      }),
+    ).toBe(
+      "Halo Maria, ini SunDY Clinic. Sebelum Konsultasi Dokter Senin, 17 Februari 2031 pukul 11.00 WITA, mohon isi form singkat ini (±5 menit): https://sundyclinic.com/isi#abc\n" +
+        "Jawaban Anda hanya dibaca dokter kami.",
+    );
   });
 });

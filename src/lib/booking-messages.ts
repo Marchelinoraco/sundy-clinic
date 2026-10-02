@@ -1,5 +1,6 @@
 import { CLINIC_NAME } from "./clinic";
 import { formatScheduleForMessage } from "./format";
+import { firstName } from "./quiz-link";
 import { bookingServiceName } from "./transfer-instruction";
 import { buildWhatsAppLinkTo } from "./whatsapp";
 
@@ -133,4 +134,17 @@ export function reminderMessageFor(booking: MessageBooking): WhatsAppMessage | n
     mapsUrl: booking.branch.mapsUrl,
   });
   return { text, link: buildWhatsAppLinkTo(booking.patient.whatsapp, text) };
+}
+
+/** Pesan terpisah "Kirim link via WA" (spec C3 4.2), mis. untuk walk-in atau kirim ulang. */
+export function quizLinkMessageText(input: {
+  patientName: string;
+  serviceName: string;
+  startAt: Date;
+  link: string;
+}): string {
+  return [
+    `Halo ${firstName(input.patientName)}, ini ${CLINIC_NAME}. Sebelum ${input.serviceName} ${formatScheduleForMessage(input.startAt)}, mohon isi form singkat ini (±5 menit): ${input.link}`,
+    "Jawaban Anda hanya dibaca dokter kami.",
+  ].join("\n");
 }

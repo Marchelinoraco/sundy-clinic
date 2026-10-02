@@ -141,4 +141,12 @@ describe("messageStatusLabels", () => {
   it("kosong bila belum ada pesan", () => {
     expect(messageStatusLabels([], wita(11, 11), wita(10, 12))).toEqual([]);
   });
+
+  it("menulis link kuis yang terkirim", () => {
+    const now = wita(10, 12);
+    const start = wita(11, 11);
+    expect(messageStatusLabels([msg("LINK_KUIS", start, wita(10, 8, 15))], start, now)).toEqual([
+      "Link kuis terkirim 08.15",
+    ]);
+  });
 });

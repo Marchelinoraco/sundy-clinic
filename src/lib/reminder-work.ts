@@ -118,6 +118,8 @@ export function messageStatusLabels(messages: readonly MessageRecord[], startAt:
   const labels: string[] = [];
   const transfer = latestValidMessage(messages, "INSTRUKSI_TRANSFER", startAt);
   if (transfer) labels.push(`Instruksi transfer terkirim ${when(transfer.sentAt)}`);
+  const quizLink = latestValidMessage(messages, "LINK_KUIS", startAt);
+  if (quizLink) labels.push(`Link kuis terkirim ${when(quizLink.sentAt)}`);
   const confirmation = latestValidMessage(messages, "KONFIRMASI", startAt);
   if (confirmation) labels.push(`Konfirmasi terkirim ${when(confirmation.sentAt)} · ${confirmation.sentByName}`);
   const reminder = latestValidMessage(messages, "PENGINGAT", startAt);

@@ -10,6 +10,7 @@ import {
   type ReminderReplyValue,
 } from "@/lib/booking-messages";
 import { prisma } from "@/lib/db";
+import { quizLinkState } from "@/lib/quiz-link";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { needsTransfer, transferInstructionFor } from "@/lib/transfer-instruction";
 import { transferDeadlines } from "@/server/booking-expiry";
@@ -79,11 +80,22 @@ export async function recordAppointmentMessage(input: {
     }
     const booking = await prisma.appointment.findUnique({
       where: { id: input.appointmentId },
-      select: { status: true, source: true, bookingFee: true, startAt: true },
+      select: {
+        status: true,
+        source: true,
+        bookingFee: true,
+        startAt: true,
+        patientId: true,
+        intake: { select: { status: true, linkVersion: true } },
+      },
     });
     if (!booking) throw new UserFacingError("Booking tidak ditemukan.");
     if (input.kind === "INSTRUKSI_TRANSFER") {
       if (!needsTransfer(booking)) throw new UserFacingError("Booking ini tidak sedang menunggu transfer.");
+    } else if (input.kind === "LINK_KUIS") {
+      if (quizLinkState(booking, new Date()) !== "OPEN") {
+        throw new UserFacingError("Link kuis tidak tersedia untuk booking ini.");
+      }
     } else if (booking.status !== "TERKONFIRMASI") {
       throw new UserFacingError("Booking ini belum terkonfirmasi.");
     }
