@@ -2,7 +2,7 @@
 
 - **Versi:** 1.0
 - **Tanggal:** 2 Oktober 2026
-- **Status:** Menunggu tinjauan pemilik
+- **Status:** Disetujui pemilik (2 Oktober 2026) · terlaksana (2 Oktober 2026)
 - **Menggantikan:** bagian 4 spec pendaftaran (`docs/superpowers/specs/2026-09-28-pendaftaran-pasien-design.md`, "Plan 3b-2b"). Desain awal itu ditulis sebelum kuis v2, C1, dan C2.
 - **Melengkapi:**
   - kuis v2: `docs/superpowers/specs/2026-09-30-kuis-v2-form-recall-design.md`;
