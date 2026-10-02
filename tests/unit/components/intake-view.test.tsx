@@ -14,6 +14,7 @@ const intake: IntakeDetail = {
   id: "i1",
   status: "TERISI",
   kind: "PENDEK",
+  needsFullIntake: false,
   purposeLabel: "Slimming",
   submittedAt: new Date("2026-09-28T02:00:00Z"),
   appointment: { code: "SDY-8F3K", startAt: new Date("2026-10-01T07:00:00Z"), serviceName: "Konsultasi Dokter", staffName: "Dr. Diane" },
@@ -89,5 +90,10 @@ describe("IntakeView", () => {
     expect(rows[2]).toHaveTextContent("07.00");
     expect(rows[2]).toHaveTextContent("Sarapan: Nasi kuning 1 piring, teh manis 1 gelas");
     expect(screen.getByText("Rokok: Tidak · Alkohol: Tidak · Soda: Kadang")).toBeInTheDocument();
+  });
+
+  it("menandai kuis pendek dari pasien yang belum punya isian lengkap", () => {
+    render(<IntakeView intake={{ ...intake, needsFullIntake: true }} />);
+    expect(screen.getByText("Belum punya isian lengkap")).toBeInTheDocument();
   });
 });

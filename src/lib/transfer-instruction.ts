@@ -2,6 +2,7 @@ import { CLINIC_NAME } from "./clinic";
 import { confirmationDeadline } from "./confirmation-window";
 import { formatRupiah, formatScheduleForMessage, formatShortIndonesianDate } from "./format";
 import { formatBankAccount, type BankAccount, type BookingSourceValue } from "./payment";
+import { quizLinkLines } from "./quiz-link";
 import { minutesToTimeLabel, witaMinutesOfDay } from "./time";
 import { buildWhatsAppLinkTo } from "./whatsapp";
 
@@ -58,8 +59,10 @@ export function transferInstructionText(input: {
   deadline: Date;
   /** Baris rekening siap tampil (formatBankAccount), atau null bila belum lengkap. */
   bankAccount: string | null;
+  /** Link kuis (spec C3 4.1); null bila kuis sudah diisi atau link tidak berlaku. */
+  quizLink?: string | null;
 }): string {
-  return [
+  const lines = [
     `Halo ${input.patientName}, booking Anda di ${CLINIC_NAME} sudah kami catat.`,
     `Kode: ${input.code}`,
     `Layanan: ${input.serviceName}`,
@@ -71,7 +74,9 @@ export function transferInstructionText(input: {
     "lalu kirim bukti transfer di chat ini.",
     "",
     "Biaya booking terpisah dari biaya layanan dan tidak dikembalikan, tetapi tetap berlaku bila Anda pindah jadwal paling lambat 2 jam sebelumnya.",
-  ].join("\n");
+  ];
+  if (input.quizLink) lines.push("", ...quizLinkLines(input.quizLink));
+  return lines.join("\n");
 }
 
 /** Nama layanan di daftar dan pesan; booking lama bisa tanpa baris layanan. */
@@ -96,7 +101,11 @@ export type TransferBooking = {
 };
 
 /** null bila booking tidak menunggu transfer (walk-in, tanpa biaya, situs, atau sudah diverifikasi). */
-export function transferInstructionFor(booking: TransferBooking, bank: BankAccount): TransferInstruction | null {
+export function transferInstructionFor(
+  booking: TransferBooking,
+  bank: BankAccount,
+  quizLink: string | null = null,
+): TransferInstruction | null {
   if (!booking.transferDeadline || booking.bookingFee === null || !booking.patient) return null;
   const bankAccount = formatBankAccount(bank);
   const text = transferInstructionText({
@@ -109,6 +118,7 @@ export function transferInstructionFor(booking: TransferBooking, bank: BankAccou
     fee: booking.bookingFee,
     deadline: booking.transferDeadline,
     bankAccount,
+    quizLink,
   });
   return {
     text,

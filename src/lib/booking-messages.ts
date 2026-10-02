@@ -1,10 +1,11 @@
 import { CLINIC_NAME } from "./clinic";
 import { formatScheduleForMessage } from "./format";
+import { firstName, quizLinkLines } from "./quiz-link";
 import { bookingServiceName } from "./transfer-instruction";
 import { buildWhatsAppLinkTo } from "./whatsapp";
 
-/** Jenis pesan WhatsApp yang dicatat terkirim (spec C2 bagian 6). */
-export const MESSAGE_KINDS = ["INSTRUKSI_TRANSFER", "KONFIRMASI", "PENGINGAT"] as const;
+/** Jenis pesan WhatsApp yang dicatat terkirim (spec C2 bagian 6, C3 4.2). */
+export const MESSAGE_KINDS = ["INSTRUKSI_TRANSFER", "KONFIRMASI", "PENGINGAT", "LINK_KUIS"] as const;
 export type MessageKind = (typeof MESSAGE_KINDS)[number];
 
 /** Balasan pasien atas pengingat H-1 (keputusan P5). */
@@ -43,6 +44,8 @@ export function confirmationText(input: {
   bookingFee: number | null;
   /** Alamat situs tanpa garis miring di akhir, misal "https://sundyclinic.com". */
   siteUrl: string;
+  /** Link kuis (spec C3 4.1); null bila kuis sudah diisi atau link tidak berlaku. */
+  quizLink?: string | null;
 }): string {
   const lines = [
     `Halo ${input.patientName}, booking Anda di ${CLINIC_NAME} sudah terkonfirmasi.`,
@@ -61,9 +64,9 @@ export function confirmationText(input: {
       ? "Ingin pindah jadwal? Kabari kami di chat ini paling lambat 2 jam sebelumnya."
       : "Ingin pindah jadwal? Kabari kami di chat ini paling lambat 2 jam sebelumnya; biaya booking tetap berlaku. Bila dibatalkan, biaya booking tidak dikembalikan.",
     `Cek status booking: ${input.siteUrl}/cek-booking?kode=${encodeURIComponent(input.code)}`,
-    "",
-    "Sampai jumpa di klinik.",
   );
+  if (input.quizLink) lines.push("", ...quizLinkLines(input.quizLink));
+  lines.push("", "Sampai jumpa di klinik.");
   return lines.join("\n");
 }
 
@@ -76,6 +79,7 @@ export function reminderText(input: {
   branchName: string;
   branchAddress: string;
   mapsUrl: string | null;
+  quizLink?: string | null;
 }): string {
   const lines = [
     `Halo ${input.patientName}, kami mengingatkan jadwal Anda di ${CLINIC_NAME}:`,
@@ -88,6 +92,7 @@ export function reminderText(input: {
     "",
     `${ARRIVE_EARLY} Balas YA bila Anda akan datang, atau kabari kami bila ingin pindah jadwal.`,
   );
+  if (input.quizLink) lines.push("", ...quizLinkLines(input.quizLink));
   return lines.join("\n");
 }
 
@@ -104,7 +109,11 @@ export type MessageBooking = {
 };
 
 /** null untuk booking situs yang belum dicocokkan (belum ada pasien). */
-export function confirmationMessageFor(booking: MessageBooking, siteUrl: string): WhatsAppMessage | null {
+export function confirmationMessageFor(
+  booking: MessageBooking,
+  siteUrl: string,
+  quizLink: string | null = null,
+): WhatsAppMessage | null {
   if (!booking.patient) return null;
   const text = confirmationText({
     patientName: booking.patient.name,
@@ -117,11 +126,12 @@ export function confirmationMessageFor(booking: MessageBooking, siteUrl: string)
     mapsUrl: booking.branch.mapsUrl,
     bookingFee: booking.bookingFee,
     siteUrl,
+    quizLink,
   });
   return { text, link: buildWhatsAppLinkTo(booking.patient.whatsapp, text) };
 }
 
-export function reminderMessageFor(booking: MessageBooking): WhatsAppMessage | null {
+export function reminderMessageFor(booking: MessageBooking, quizLink: string | null = null): WhatsAppMessage | null {
   if (!booking.patient) return null;
   const text = reminderText({
     patientName: booking.patient.name,
@@ -131,6 +141,20 @@ export function reminderMessageFor(booking: MessageBooking): WhatsAppMessage | n
     branchName: booking.branch.name,
     branchAddress: booking.branch.address,
     mapsUrl: booking.branch.mapsUrl,
+    quizLink,
   });
   return { text, link: buildWhatsAppLinkTo(booking.patient.whatsapp, text) };
+}
+
+/** Pesan terpisah "Kirim link via WA" (spec C3 4.2), mis. untuk walk-in atau kirim ulang. */
+export function quizLinkMessageText(input: {
+  patientName: string;
+  serviceName: string;
+  startAt: Date;
+  link: string;
+}): string {
+  return [
+    `Halo ${firstName(input.patientName)}, ini ${CLINIC_NAME}. Sebelum ${input.serviceName} ${formatScheduleForMessage(input.startAt)}, mohon isi form singkat ini (±5 menit): ${input.link}`,
+    "Jawaban Anda hanya dibaca dokter kami.",
+  ].join("\n");
 }

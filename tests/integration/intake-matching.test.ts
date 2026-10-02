@@ -168,6 +168,14 @@ describe("mencocokkan booking situs dengan pasien", () => {
     await siteBooking();
     const rows = await listAppointments({ date });
     const row = rows.find((r) => r.code.startsWith("COCOK-"))!;
-    expect(row.intake).toEqual({ id: expect.any(String), name: "Siti Rahayu", whatsapp: FAMILY_WA, status: "TERISI" });
+    // kind & linkVersion (spec C3) hanya penanda jenis kuis dan versi link, bukan jawaban klinis.
+    expect(row.intake).toEqual({
+      id: expect.any(String),
+      name: "Siti Rahayu",
+      whatsapp: FAMILY_WA,
+      status: "TERISI",
+      kind: "LENGKAP",
+      linkVersion: 0,
+    });
   });
 });

@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import type { RescheduleTarget } from "@/lib/booking-actions";
 import type { BookingMessage } from "@/lib/booking-messages";
 import { getBookingMessage } from "@/server/appointment-message";
+import { QuizLinkDialog, type QuizLinkTarget } from "./quiz-link-dialog";
 import { RescheduleDialog } from "./reschedule-dialog";
 import { SendMessageDialog } from "./send-message-dialog";
 
@@ -15,6 +16,8 @@ type BookingDialogs = {
   /** Setelah Verifikasi berhasil: muat teks konfirmasi lalu tampilkan dialog kirim (spec C2 3.1). */
   confirmAfterVerify: (target: ConfirmationTarget) => void;
   openReschedule: (target: RescheduleTarget) => void;
+  /** Dialog "Link kuis" (spec C3 4.2). */
+  openQuizLink: (target: QuizLinkTarget) => void;
 };
 
 const BookingDialogsContext = createContext<BookingDialogs | null>(null);
@@ -30,6 +33,7 @@ export function BookingDialogsProvider({ today, children }: { today: string; chi
     null,
   );
   const [reschedule, setReschedule] = useState<RescheduleTarget | null>(null);
+  const [quizLink, setQuizLink] = useState<QuizLinkTarget | null>(null);
 
   const value = useMemo<BookingDialogs>(
     () => ({
@@ -45,6 +49,7 @@ export function BookingDialogsProvider({ today, children }: { today: string; chi
           .catch(() => toast.error("Konfirmasi gagal dimuat. Kirim dari halaman Pengingat."));
       },
       openReschedule: setReschedule,
+      openQuizLink: setQuizLink,
     }),
     [],
   );
@@ -74,6 +79,16 @@ export function BookingDialogsProvider({ today, children }: { today: string; chi
           open
           onOpenChange={(open) => {
             if (!open) setReschedule(null);
+          }}
+        />
+      )}
+      {quizLink && (
+        <QuizLinkDialog
+          key={quizLink.appointmentId}
+          target={quizLink}
+          open
+          onOpenChange={(open) => {
+            if (!open) setQuizLink(null);
           }}
         />
       )}

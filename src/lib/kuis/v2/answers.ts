@@ -154,3 +154,10 @@ export type HealthAnswers = NonNullable<QuizAnswers["health"]>;
 export type ReturningAnswers = NonNullable<QuizAnswers["returning"]>;
 export type HabitAnswers = NonNullable<QuizAnswers["habits"]>;
 export type MealAnswer = NonNullable<HabitAnswers["breakfast"]>;
+
+/** Berat & tinggi disimpan di kolom bertipe isian, bukan di JSON jawaban (spec pendaftaran 5.1). */
+export function answersForStorage(answers: QuizAnswers): Omit<QuizAnswers, "body"> {
+  const copy = structuredClone(answers);
+  delete copy.body;
+  return copy;
+}

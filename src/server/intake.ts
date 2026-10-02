@@ -10,6 +10,7 @@ import { safeRevalidatePath } from "@/lib/revalidate";
 import { recordAudit } from "@/server/audit";
 import { loadApproval, loadIntakeClinical, type IntakeApproval, type IntakeClinical } from "@/server/intake-clinical";
 import { insertPatient } from "@/server/patient-store";
+import { hasCompletedFullIntake } from "@/server/quiz-link-store";
 import { requireCapability } from "@/server/session";
 
 export type { IntakeApproval } from "@/server/intake-clinical";
@@ -215,6 +216,8 @@ export type IntakeDetail = {
   id: string;
   status: "MENUNGGU_DIISI" | "TERISI" | "DIPERIKSA";
   kind: "LENGKAP" | "PENDEK";
+  /** Kuis pendek dari pasien yang belum punya isian lengkap (spec C3 4.3). */
+  needsFullIntake: boolean;
   purposeLabel: string | null;
   submittedAt: Date | null;
   appointment: { code: string; startAt: Date; serviceName: string; staffName: string };
@@ -274,10 +277,14 @@ export async function getIntakeForStaff(intakeId: string): Promise<IntakeDetail 
       : { state: "needs-match" };
   }
 
+  const needsFullIntake =
+    row.kind === "PENDEK" && row.patient !== null && !(await hasCompletedFullIntake(row.patient.id));
+
   return {
     id: row.id,
     status: row.status,
     kind: row.kind,
+    needsFullIntake,
     purposeLabel: row.purpose ? INTAKE_PURPOSE_LABEL[row.purpose] : null,
     submittedAt: row.submittedAt,
     appointment: {

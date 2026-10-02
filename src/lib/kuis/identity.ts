@@ -33,6 +33,13 @@ function isRealDate(value: string): boolean {
   return new Date(Date.UTC(year, month - 1, day)).toISOString().slice(0, 10) === value;
 }
 
+/** Tanggal lahir nyata, sebelum hari ini (WITA), dan paling lama 120 tahun lalu. */
+function isValidBirthDate(value: string, now: Date): boolean {
+  const today = witaDateString(now);
+  const oldest = `${Number(today.slice(0, 4)) - 120}${today.slice(4)}`;
+  return isRealDate(value) && value < today && value >= oldest;
+}
+
 function fail(field: keyof Identity | null, message: string): IdentityValidation {
   return { ok: false, field, message };
 }
@@ -56,11 +63,7 @@ export function validateIdentity(
   const whatsapp = normalizeWhatsapp(data.whatsapp);
   if (!whatsapp) return fail("whatsapp", "Nomor WhatsApp tidak sah. Contoh: 081234567890.");
 
-  const today = witaDateString(now);
-  const oldest = `${Number(today.slice(0, 4)) - 120}${today.slice(4)}`;
-  if (!isRealDate(data.birthDate) || data.birthDate >= today || data.birthDate < oldest) {
-    return fail("birthDate", "Isi tanggal lahir yang benar.");
-  }
+  if (!isValidBirthDate(data.birthDate, now)) return fail("birthDate", "Isi tanggal lahir yang benar.");
 
   if (patientType === "LAMA") {
     return { ok: true, identity: { name, whatsapp, birthDate: data.birthDate } };
@@ -76,4 +79,63 @@ export function validateIdentity(
     ok: true,
     identity: { name, whatsapp, birthDate: data.birthDate, gender: data.gender, occupation, address },
   };
+}
+
+/** Kolom data diri yang ditanyakan halaman link kuis bila masih kosong di data pasien (spec C3 3.2). */
+export const IDENTITY_FIELDS = ["birthDate", "gender", "occupation", "address"] as const;
+export type IdentityField = (typeof IDENTITY_FIELDS)[number];
+
+export type LinkIdentity = { birthDate?: string; gender?: "L" | "P"; occupation?: string; address?: string };
+
+export type LinkIdentityValidation =
+  | { ok: true; identity: LinkIdentity }
+  | { ok: false; field: IdentityField | null; message: string };
+
+const linkIdentityShape = z.strictObject({
+  birthDate: z.string().optional(),
+  gender: z.enum(["L", "P"]).optional(),
+  occupation: z.string().optional(),
+  address: z.string().optional(),
+});
+
+function linkFail(field: IdentityField | null, message: string): LinkIdentityValidation {
+  return { ok: false, field, message };
+}
+
+/**
+ * Data diri dari halaman link kuis. Nama dan WA sudah dicatat admin, jadi
+ * hanya kolom di `missing` yang diperiksa dan dikembalikan — kolom lain
+ * diabaikan walau dikirim, karena data pasien yang terisi tidak boleh ditimpa.
+ */
+export function validateLinkIdentity(
+  raw: unknown,
+  missing: readonly IdentityField[],
+  now: Date = new Date(),
+): LinkIdentityValidation {
+  const parsed = linkIdentityShape.safeParse(raw);
+  if (!parsed.success) return linkFail(null, "Data diri tidak sah. Muat ulang halaman lalu coba lagi.");
+  const data = parsed.data;
+  const identity: LinkIdentity = {};
+
+  if (missing.includes("birthDate")) {
+    if (!data.birthDate || !isValidBirthDate(data.birthDate, now)) {
+      return linkFail("birthDate", "Isi tanggal lahir yang benar.");
+    }
+    identity.birthDate = data.birthDate;
+  }
+  if (missing.includes("gender")) {
+    if (!data.gender) return linkFail("gender", "Pilih jenis kelamin.");
+    identity.gender = data.gender;
+  }
+  if (missing.includes("occupation")) {
+    const occupation = data.occupation?.trim() ?? "";
+    if (!occupation || occupation.length > 100) return linkFail("occupation", "Isi pekerjaan Anda.");
+    identity.occupation = occupation;
+  }
+  if (missing.includes("address")) {
+    const address = data.address?.trim() ?? "";
+    if (!address || address.length > 200) return linkFail("address", "Isi alamat Anda (maksimal 200 karakter).");
+    identity.address = address;
+  }
+  return { ok: true, identity };
 }

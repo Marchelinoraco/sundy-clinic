@@ -83,6 +83,10 @@ export type BookingRow = {
   messageNotes: string[];
   /** Data dialog Pindah jadwal; tombolnya diatur bookingRowActions. */
   reschedule: RescheduleTarget;
+  /** Link kuis yang berlaku (spec C3), atau null. */
+  quizLink: string | null;
+  /** Booking situs berkuis pendek dari pasien yang belum punya isian lengkap (spec C3 4.3). */
+  needsFullIntake: boolean;
 };
 
 const INTAKE_STATUS_LABEL: Record<NonNullable<BookingRow["intakeStatus"]>, string> = {
@@ -173,6 +177,11 @@ export function AppointmentTable({
         return { onSelect: () => run(() => markNoShow(row.id), `${row.patientName} ditandai tidak hadir.`) };
       case "RESCHEDULE":
         return { onSelect: () => dialogs.openReschedule(row.reschedule) };
+      case "QUIZ_LINK":
+        return {
+          onSelect: () =>
+            dialogs.openQuizLink({ appointmentId: row.id, code: row.code, patientName: row.patientName }),
+        };
       case "CANCEL":
         return { onSelect: () => setCancelTarget(row) };
       case "MATCH":
@@ -321,6 +330,11 @@ export function AppointmentTable({
                   {row.needsMatch && (
                     <Badge variant="outline" className="mt-1">
                       Belum dicocokkan
+                    </Badge>
+                  )}
+                  {row.needsFullIntake && (
+                    <Badge variant="outline" className="mt-1">
+                      Belum punya isian lengkap
                     </Badge>
                   )}
                   <div className="text-xs text-muted-foreground">

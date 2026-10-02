@@ -23,6 +23,7 @@ import { bookingServiceName, pendingDeadlineLabel, transferInstructionFor } from
 import { listAppointments, listPendingBookings, searchBookings } from "@/server/appointment";
 import { getBranches } from "@/server/catalog";
 import { getClinicSetting } from "@/server/clinic-setting";
+import { quizLinkFor } from "@/server/quiz-link-code";
 import { listSchedulableStaff } from "@/server/schedule";
 import { requireCapability } from "@/server/session";
 import { publicSiteUrl } from "@/server/site-url";
@@ -47,8 +48,9 @@ function toRow(a: ListedAppointment, context: RowContext): BookingRow {
   // Booking situs boleh belum punya pasien sampai admin mencocokkannya;
   // CHECK di basis data menjamin booking terkonfirmasi selalu punya pasien.
   const patient = a.patient;
-  const confirmation = a.status === "TERKONFIRMASI" ? confirmationMessageFor(a, context.siteUrl) : null;
-  const transfer = transferInstructionFor(a, context.bank);
+  const quizLink = quizLinkFor(a, context.siteUrl, context.now);
+  const confirmation = a.status === "TERKONFIRMASI" ? confirmationMessageFor(a, context.siteUrl, quizLink) : null;
+  const transfer = transferInstructionFor(a, context.bank, quizLink);
 
   return {
     id: a.id,
@@ -60,7 +62,8 @@ function toRow(a: ListedAppointment, context: RowContext): BookingRow {
     needsMatch: patient === null,
     isSiteBooking: a.source === "SITUS" && a.intake !== null,
     intakeId: a.intake?.id ?? null,
-    intakeStatus: a.intake?.status ?? null,
+    // Booking admin yang linknya berlaku belum tentu punya baris isian: tetap "Isian: belum diisi" (spec C3 4.3).
+    intakeStatus: a.intake?.status ?? (quizLink ? "MENUNGGU_DIISI" : null),
     patientId: patient?.id ?? null,
     serviceName: bookingServiceName(a),
     staffName: a.staff.name,
@@ -82,6 +85,9 @@ function toRow(a: ListedAppointment, context: RowContext): BookingRow {
       branchId: a.branchId,
       branchName: a.branch.name,
     },
+    quizLink,
+    needsFullIntake:
+      a.source === "SITUS" && a.intake?.kind === "PENDEK" && patient !== null && patient.intakes.length === 0,
   };
 }
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   confirmationMessageFor,
   confirmationText,
+  quizLinkMessageText,
   reminderMessageFor,
   reminderText,
   type MessageBooking,
@@ -54,6 +55,16 @@ describe("confirmationText", () => {
     expect(text).toContain("Ingin pindah jadwal? Kabari kami di chat ini paling lambat 2 jam sebelumnya.\n");
     expect(text).not.toContain("biaya booking");
   });
+
+  it("link kuis disisipkan sebelum salam penutup", () => {
+    const text = confirmationText({ ...confirmationInput, quizLink: "https://sundyclinic.com/isi#abc" });
+    expect(text).toContain(
+      "Cek status booking: https://sundyclinic.com/cek-booking?kode=SDY-7KQ2\n\n" +
+        "Sebelum datang, mohon isi form singkat ini (±5 menit): https://sundyclinic.com/isi#abc\n" +
+        "Jawaban Anda hanya dibaca dokter kami.\n\n" +
+        "Sampai jumpa di klinik.",
+    );
+  });
 });
 
 const reminderInput = {
@@ -84,6 +95,15 @@ describe("reminderText", () => {
   it("melewati baris Peta bila kosong", () => {
     expect(reminderText({ ...reminderInput, mapsUrl: null })).not.toContain("Peta:");
   });
+
+  it("link kuis di akhir pengingat bila kuis belum diisi", () => {
+    const text = reminderText({ ...reminderInput, quizLink: "https://sundyclinic.com/isi#abc" });
+    expect(text.endsWith(
+      "kabari kami bila ingin pindah jadwal.\n\n" +
+        "Sebelum datang, mohon isi form singkat ini (±5 menit): https://sundyclinic.com/isi#abc\n" +
+        "Jawaban Anda hanya dibaca dokter kami.",
+    )).toBe(true);
+  });
 });
 
 const booking: MessageBooking = {
@@ -112,5 +132,29 @@ describe("pesan dari booking", () => {
   it("null untuk booking tanpa pasien", () => {
     expect(confirmationMessageFor({ ...booking, patient: null }, "https://sundyclinic.com")).toBeNull();
     expect(reminderMessageFor({ ...booking, patient: null })).toBeNull();
+  });
+
+  it("pembentuk pesan meneruskan link kuis", () => {
+    expect(confirmationMessageFor(booking, "https://sundyclinic.com", "https://sundyclinic.com/isi#x")!.text).toContain(
+      "isi form singkat ini (±5 menit): https://sundyclinic.com/isi#x",
+    );
+    expect(reminderMessageFor(booking, "https://sundyclinic.com/isi#x")!.text).toContain("isi#x");
+    expect(reminderMessageFor(booking)!.text).not.toContain("isi form");
+  });
+});
+
+describe("quizLinkMessageText (spec C3 4.2)", () => {
+  it("menyapa nama depan, menyebut layanan dan jadwal, lalu link", () => {
+    expect(
+      quizLinkMessageText({
+        patientName: "Maria Wenas",
+        serviceName: "Konsultasi Dokter",
+        startAt: wita(17, 11),
+        link: "https://sundyclinic.com/isi#abc",
+      }),
+    ).toBe(
+      "Halo Maria, ini SunDY Clinic. Sebelum Konsultasi Dokter Senin, 17 Februari 2031 pukul 11.00 WITA, mohon isi form singkat ini (±5 menit): https://sundyclinic.com/isi#abc\n" +
+        "Jawaban Anda hanya dibaca dokter kami.",
+    );
   });
 });

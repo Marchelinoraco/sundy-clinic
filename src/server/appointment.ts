@@ -28,7 +28,9 @@ import {
 } from "@/server/booking-expiry";
 import { getClinicSetting } from "@/server/clinic-setting";
 import { isExclusionViolation } from "@/server/db-errors";
+import { quizLinkFor } from "@/server/quiz-link-code";
 import { requireCapability } from "@/server/session";
+import { publicSiteUrl } from "@/server/site-url";
 
 function assertTimeRange(startAt: Date, endAt: Date): void {
   if (endAt.getTime() <= startAt.getTime()) {
@@ -249,11 +251,21 @@ export async function cancelAppointment(
 // yang tidak boleh menerima jawaban klinis (spec 6.2).
 const BOOKING_LIST_INCLUDE = {
   // Hanya identitas: catatan medis tidak pernah ikut daftar booking (spec 6.2).
-  patient: { select: { id: true, name: true, medicalRecordNumber: true, whatsapp: true } },
+  patient: {
+    select: {
+      id: true,
+      name: true,
+      medicalRecordNumber: true,
+      whatsapp: true,
+      // Hanya id: cukup untuk tanda "Belum punya isian lengkap" (spec C3 4.3), tanpa jawaban klinis.
+      // "Bukan MENUNGGU_DIISI" = TERISI atau DIPERIKSA; daftar `in` tidak bisa dipakai di objek `as const`.
+      intakes: { where: { kind: "LENGKAP", status: { not: "MENUNGGU_DIISI" } }, select: { id: true }, take: 1 },
+    },
+  },
   staff: true,
   branch: true,
   service: true,
-  intake: { select: { id: true, name: true, whatsapp: true, status: true } },
+  intake: { select: { id: true, name: true, whatsapp: true, status: true, kind: true, linkVersion: true } },
   // Catatan pesan untuk keterangan "Konfirmasi terkirim …" di baris booking (spec C2 4.5).
   messages: {
     select: { id: true, kind: true, scheduledFor: true, sentAt: true, sentByName: true, revokedAt: true, reply: true },
@@ -412,6 +424,7 @@ export async function getTransferInstruction(
     });
     if (!appointment) throw new UserFacingError("Booking tidak ditemukan.");
     const [withDeadline] = await withTransferDeadlines([appointment]);
-    return transferInstructionFor(withDeadline, await getClinicSetting());
+    const quizLink = quizLinkFor(appointment, publicSiteUrl(), new Date());
+    return transferInstructionFor(withDeadline, await getClinicSetting(), quizLink);
   });
 }

@@ -16,7 +16,7 @@ import {
 import { prisma } from "@/lib/db";
 import { formatIndonesianDate } from "@/lib/format";
 import { validateIdentity } from "@/lib/kuis/identity";
-import type { QuizAnswers } from "@/lib/kuis/v2/answers";
+import { answersForStorage, type QuizAnswers } from "@/lib/kuis/v2/answers";
 import { QUIZ_VERSION } from "@/lib/kuis/v2/options";
 import { validateQuizAnswers } from "@/lib/kuis/v2/steps";
 import { bookingFeeFor, formatBankAccount } from "@/lib/payment";
@@ -279,13 +279,6 @@ function assertServiceFits(service: { slug: string; category: { slug: string } }
   }
 }
 
-/** Berat & tinggi disimpan di kolom bertipe, bukan di JSON jawaban (spec 5.1). */
-function storedAnswers(answers: QuizAnswers): Prisma.InputJsonValue {
-  const copy = structuredClone(answers);
-  delete copy.body;
-  return copy as Prisma.InputJsonValue;
-}
-
 /**
  * Satu transaksi: hold dilepas, booking dibuat, isian dibuat. Exclusion
  * constraint Appointment tetap jaminan akhir anti-bentrok. Kode SDY-XXXX
@@ -414,7 +407,7 @@ export async function submitSiteBooking(input: SiteBookingInput): Promise<Action
           purpose: answers.purpose,
           claimsReturning: patientType === "LAMA",
           quizVersion: QUIZ_VERSION,
-          answers: storedAnswers(answers),
+          answers: answersForStorage(answers) as Prisma.InputJsonValue,
           name: identity.name,
           whatsapp: identity.whatsapp,
           birthDate: new Date(`${identity.birthDate}T00:00:00Z`),

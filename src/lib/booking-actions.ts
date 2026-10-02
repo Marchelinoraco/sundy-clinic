@@ -13,6 +13,7 @@ export type BookingAction =
   | "COPY_CONFIRMATION"
   | "NO_SHOW"
   | "RESCHEDULE"
+  | "QUIZ_LINK"
   | "CANCEL";
 
 export const BOOKING_ACTION_LABEL: Record<BookingAction, string> = {
@@ -27,6 +28,7 @@ export const BOOKING_ACTION_LABEL: Record<BookingAction, string> = {
   COPY_CONFIRMATION: "Salin konfirmasi",
   NO_SHOW: "Tidak hadir",
   RESCHEDULE: "Pindah jadwal",
+  QUIZ_LINK: "Link kuis",
   CANCEL: "Batalkan",
 };
 
@@ -38,6 +40,8 @@ export type BookingActionRow = {
   intakeId: string | null;
   transferInstruction: { link: string | null } | null;
   confirmation: { link: string | null } | null;
+  /** Link kuis yang berlaku (spec C3); null/absen bila kuis sudah diisi, booking situs, atau tidak aktif. */
+  quizLink?: string | null;
 };
 
 /** Data yang dibutuhkan dialog Pindah jadwal (spec C2 bagian 5). Tenaga, cabang, dan durasi tetap. */
@@ -53,14 +57,7 @@ export type RescheduleTarget = {
   branchName: string;
 };
 
-/**
- * Aksi per baris daftar booking (spec C1 5.2): paling banyak dua terlihat,
- * sisanya di menu ⋯. Hadir dan Tidak hadir tetap ada di menu untuk booking
- * yang belum diverifikasi, seperti sebelumnya: pasien kadang datang sebelum
- * bukti transfernya diperiksa. Pindah jadwal (spec C2 bagian 5) selalu tepat
- * sebelum Batalkan.
- */
-export function bookingRowActions(
+function baseRowActions(
   row: BookingActionRow,
   canReadRecords: boolean,
 ): { primary: BookingAction[]; menu: BookingAction[] } {
@@ -97,4 +94,19 @@ export function bookingRowActions(
   }
 
   return { primary: [], menu: intake };
+}
+
+/**
+ * Aksi per baris daftar booking (spec C1 5.2): paling banyak dua terlihat,
+ * sisanya di menu ⋯. Hadir dan Tidak hadir tetap ada di menu untuk booking
+ * yang belum diverifikasi, seperti sebelumnya: pasien kadang datang sebelum
+ * bukti transfernya diperiksa. Pindah jadwal (spec C2 bagian 5) selalu tepat
+ * sebelum Batalkan. "Link kuis" (spec C3 4.2) menjadi item pertama selama linknya berlaku.
+ */
+export function bookingRowActions(
+  row: BookingActionRow,
+  canReadRecords: boolean,
+): { primary: BookingAction[]; menu: BookingAction[] } {
+  const actions = baseRowActions(row, canReadRecords);
+  return row.quizLink ? { ...actions, menu: ["QUIZ_LINK", ...actions.menu] } : actions;
 }

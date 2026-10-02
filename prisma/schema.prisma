@@ -430,6 +430,7 @@ enum AppointmentMessageKind {
   INSTRUKSI_TRANSFER
   KONFIRMASI
   PENGINGAT
+  LINK_KUIS
 }
 
 enum ReminderReply {
@@ -548,7 +549,11 @@ model Intake {
   reviewedByStaffId String?
   reviewedBy        Staff?    @relation(fields: [reviewedByStaffId], references: [id], onDelete: Restrict)
 
-  /// Link WA pribadi (Plan 3b-2): hanya hash SHA-256 token yang disimpan.
+  /// Versi link isi kuis (spec C3 bagian 6). Kode link = HMAC dari booking + versi ini;
+  /// "Ganti link" menaikkannya sehingga link lama tidak berlaku.
+  linkVersion Int @default(0)
+  /// Tidak dipakai lagi (desain awal Plan 3b-2). Dihapus di rilis setelah C3 aktif:
+  /// rilis sebelum C3 masih membaca kolom ini selama deploy berjalan.
   linkTokenHash String?   @unique
   linkExpiresAt DateTime?
 
