@@ -552,6 +552,10 @@ model Intake {
   /// Versi link isi kuis (spec C3 bagian 6). Kode link = HMAC dari booking + versi ini;
   /// "Ganti link" menaikkannya sehingga link lama tidak berlaku.
   linkVersion Int @default(0)
+  /// Tidak dipakai lagi (desain awal Plan 3b-2). Dihapus di rilis setelah C3 aktif:
+  /// rilis sebelum C3 masih membaca kolom ini selama deploy berjalan.
+  linkTokenHash String?   @unique
+  linkExpiresAt DateTime?
 
   appointmentId String      @unique
   appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Restrict)

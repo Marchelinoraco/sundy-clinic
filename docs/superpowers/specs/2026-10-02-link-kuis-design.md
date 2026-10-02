@@ -124,7 +124,7 @@ Tidak berubah. Pengingat H-1 sudah membawa link (4.1), jadi pasien yang belum me
 
 **Satu migrasi aditif:**
 - `Intake.linkVersion Int @default(0)`;
-- kolom lama `Intake.linkTokenHash` dan `Intake.linkExpiresAt`, yang belum pernah dipakai, dihapus;
+- kolom lama `Intake.linkTokenHash` dan `Intake.linkExpiresAt`, yang belum pernah dipakai, **dibiarkan dulu** dan dihapus di rilis berikutnya. `deploy.sh` menjalankan migrasi sebelum build, dan rilis lama yang masih melayani selama build membaca kedua kolom itu. *(Perubahan 2 Okt 2026 dari tinjauan akhir.)*;
 - nilai baru `LINK_KUIS` pada enum `AppointmentMessageKind` (C2).
 
 **Versi link:**
