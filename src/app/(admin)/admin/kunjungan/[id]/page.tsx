@@ -14,7 +14,7 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
 
   return (
     <>
-      <AdminHeader title="Kunjungan" />
+      <AdminHeader title="Kunjungan" heading />
       <div className="p-6">
         <EncounterPageView encounter={encounter} canWrite={can(staff.role, "record:write")} />
       </div>

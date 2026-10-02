@@ -1,4 +1,5 @@
 import { AdminHeader } from "@/components/admin/admin-header";
+import { PageBody, PageHeader } from "@/components/admin/page-layout";
 import { ReminderWorklistView } from "@/components/admin/reminder-worklist";
 import { getReminderWorklist } from "@/server/reminder";
 import { requireCapability } from "@/server/session";
@@ -12,9 +13,10 @@ export default async function ReminderPage() {
   return (
     <>
       <AdminHeader title="Pengingat" />
-      <div className="p-6">
+      <PageBody>
+        <PageHeader title="Pengingat" description="Konfirmasi dan pengingat H-1 lewat WhatsApp." />
         <ReminderWorklistView worklist={worklist} />
-      </div>
+      </PageBody>
     </>
   );
 }
