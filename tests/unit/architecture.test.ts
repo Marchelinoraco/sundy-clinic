@@ -96,4 +96,30 @@ describe("batasan arsitektur", () => {
     );
     expect(mounts).toEqual(["src/app/(public)/layout.tsx"]);
   });
+
+  it("komponen server hanya mengambil komponen dari modul klien, bukan fungsi atau konstanta", () => {
+    // Fungsi dari berkas "use client" yang dipanggil di komponen server menjadi referensi
+    // klien dan membuat halaman galat 500 ("Attempted to call … from the server").
+    // Vitest tidak menegakkan batas ini, jadi diperiksa di sini.
+    const isClient = (file: string) => /^\s*["']use client["']/.test(readFileSync(file, "utf8"));
+    const resolve = (specifier: string) =>
+      [".ts", ".tsx"].map((ext) => specifier.replace(/^@\//, "src/") + ext).find((file) => existsSync(file));
+
+    const offenders = collectSourceFiles("src")
+      .filter((file) => !isClient(file))
+      .flatMap((file) => {
+        const source = readFileSync(file, "utf8");
+        return [...source.matchAll(/import\s+\{([^}]+)\}\s+from\s+"(@\/[^"]+)"/g)].flatMap(([, names, from]) => {
+          const target = resolve(from);
+          if (!target || !isClient(target)) return [];
+          return names
+            .split(",")
+            .map((name) => name.trim())
+            .filter((name) => name && !name.startsWith("type ") && !/^[A-Z][a-z]/.test(name))
+            .map((name) => `${file}: ${name} dari ${from}`);
+        });
+      });
+
+    expect(offenders).toEqual([]);
+  });
 });

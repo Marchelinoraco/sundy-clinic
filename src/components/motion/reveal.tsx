@@ -9,16 +9,11 @@ type Phase = "static" | "armed" | "shown";
 type RevealProps = {
   children: ReactNode;
   className?: string;
-  /** Jeda sebelum muncul, dalam milidetik. Untuk kumpulan kartu, pakai staggerDelay(index). */
+  /** Jeda sebelum muncul, dalam milidetik. Untuk kumpulan kartu, pakai staggerDelay(index) dari ./stagger. */
   delay?: number;
   /** Arah datangnya elemen. Bawaan dari bawah (naik ±24 px). */
   from?: "bottom" | "left" | "right";
 };
-
-/** Jeda bergiliran 70 ms per kartu, paling lama tujuh langkah supaya kartu terakhir tidak menunggu lama. */
-export function staggerDelay(index: number): number {
-  return Math.min(index, 6) * 70;
-}
 
 /**
  * Muncul saat digulir: naik dan memudar masuk sekali saja.

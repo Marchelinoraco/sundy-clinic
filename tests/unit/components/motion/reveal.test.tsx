@@ -1,6 +1,7 @@
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { Reveal, staggerDelay } from "@/components/motion/reveal";
+import { Reveal } from "@/components/motion/reveal";
+import { staggerDelay } from "@/components/motion/stagger";
 import { REDUCED_MOTION_QUERY } from "@/components/motion/use-motion-prefs";
 import { mockElementTop, setMediaMatches, triggerIntersection } from "../../helpers/browser-mocks";
 
