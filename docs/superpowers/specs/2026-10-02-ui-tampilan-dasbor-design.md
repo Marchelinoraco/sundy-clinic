@@ -2,7 +2,7 @@
 
 - **Versi:** 1.0
 - **Tanggal:** 2 Oktober 2026
-- **Status:** Menunggu tinjauan pemilik
+- **Status:** Disetujui pemilik (2 Oktober 2026) · terlaksana (2 Oktober 2026)
 - **Melengkapi:**
   - spec bagian B: `docs/superpowers/specs/2026-09-30-ui-alur-dokter-design.md`;
   - spec C1: `docs/superpowers/specs/2026-10-01-ui-booking-admin-design.md`;

@@ -67,7 +67,8 @@ export default async function AdminDashboardPage({
             <FailedSection title="Jadwal hari ini" />
           ))}
         {(worklist || numbers) && (
-          <div className="grid gap-6 xl:grid-cols-2">
+          // grid-cols-1 = minmax(0, 1fr): tanpa itu tabel daftar dokter melebarkan halaman di ponsel.
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
             {worklist && (worklist.ok ? <DoctorWorklistView worklist={worklist.data} /> : <FailedSection title="Pasien hari ini" />)}
             {numbers && (numbers.ok ? <DashboardNumbersCard numbers={numbers.data} /> : <FailedSection title="Angka" />)}
           </div>
