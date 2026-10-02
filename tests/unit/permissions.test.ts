@@ -50,4 +50,11 @@ describe("hak akses", () => {
   it("menolak kemampuan yang tidak dikenal", () => {
     expect(can("SUPER_ADMIN", "tidak:ada" as Capability)).toBe(false);
   });
+
+  it("Angka dasbor (report:read) hanya untuk Super Admin (spec D 4.6)", () => {
+    expect(can("SUPER_ADMIN", "report:read")).toBe(true);
+    expect(can("DOKTER", "report:read")).toBe(false);
+    expect(can("RESEPSIONIS", "report:read")).toBe(false);
+    expect(can("TERAPIS", "report:read")).toBe(false);
+  });
 });

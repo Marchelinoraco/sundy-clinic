@@ -30,7 +30,8 @@ export const CAPABILITIES_BY_ROLE: Record<StaffRole, readonly Capability[]> = {
   ],
 
   // Dokter memegang rekam medis, tetapi tidak mengelola akun staf.
-  DOKTER: ["booking:manage", "schedule:manage", "record:read", "record:write", "report:read"],
+  // report:read (Angka dasbor, termasuk biaya booking masuk) hanya untuk Super Admin (spec D 4.6).
+  DOKTER: ["booking:manage", "schedule:manage", "record:read", "record:write"],
 
   // Resepsionis mengurus booking dan jadwal. Catatan klinis sengaja tidak ada
   // di daftar ini — lihat PRD bagian 4.
