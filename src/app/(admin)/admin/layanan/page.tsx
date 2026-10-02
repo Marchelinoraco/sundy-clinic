@@ -1,5 +1,6 @@
 import { AdminHeader } from "@/components/admin/admin-header";
-import { ServicePriceForm } from "@/components/admin/service-price-form";
+import { PageBody, PageHeader } from "@/components/admin/page-layout";
+import { ServicePriceTable } from "@/components/admin/service-price-table";
 import { getServiceCategoriesWithServices } from "@/server/catalog";
 import { requireCapability } from "@/server/session";
 
@@ -10,30 +11,16 @@ export default async function AdminServicesPage() {
   return (
     <>
       <AdminHeader title="Layanan & Harga" />
-      <div className="space-y-10 p-6">
-        <p className="text-sm text-muted-foreground">
-          Perubahan harga langsung tampil di situs publik. Setiap perubahan tercatat di jejak audit.
-        </p>
-
-        {categories.map((category) => (
-          <section key={category.id}>
-            <h2 className="mb-3 text-lg font-medium">{category.name}</h2>
-            <div className="space-y-2">
-              {category.services.map((service) => (
-                <ServicePriceForm
-                  key={service.id}
-                  service={{
-                    id: service.id,
-                    name: service.name,
-                    normalPrice: service.normalPrice,
-                    promoPrice: service.promoPrice,
-                  }}
-                />
-              ))}
-            </div>
-          </section>
-        ))}
-      </div>
+      <PageBody>
+        <PageHeader title="Layanan & Harga" description="Perubahan harga langsung tampil di situs publik dan tercatat di jejak audit." />
+        <ServicePriceTable
+          categories={categories.map((category) => ({
+            id: category.id,
+            name: category.name,
+            services: category.services.map((s) => ({ id: s.id, name: s.name, normalPrice: s.normalPrice, promoPrice: s.promoPrice })),
+          }))}
+        />
+      </PageBody>
     </>
   );
 }
