@@ -1,8 +1,6 @@
 import type { Branch, Package, PackageItem, Product, Service, Staff } from "@prisma/client";
 import { prisma } from "@/lib/db";
-
-/** Urutan kelompok paket sebagaimana ditampilkan ke pengunjung. */
-const PACKAGE_GROUP_ORDER = ["MAX", "LUX", "ACTIVE"] as const;
+import { PACKAGE_GROUPS } from "@/lib/package-group";
 
 export type ServiceCategoryWithServices = Awaited<
   ReturnType<typeof getServiceCategoriesWithServices>
@@ -81,7 +79,7 @@ export async function getPackagesByGroup(): Promise<PackageGroup[]> {
     include: { items: { orderBy: { sortOrder: "asc" } } },
   });
 
-  return PACKAGE_GROUP_ORDER.map((groupName) => ({
+  return PACKAGE_GROUPS.map((groupName) => ({
     groupName: groupName as string,
     packages: packages.filter((pkg) => pkg.groupName === groupName),
   })).filter((group) => group.packages.length > 0);
