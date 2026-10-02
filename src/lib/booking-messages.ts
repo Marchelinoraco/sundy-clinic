@@ -3,8 +3,8 @@ import { formatScheduleForMessage } from "./format";
 import { bookingServiceName } from "./transfer-instruction";
 import { buildWhatsAppLinkTo } from "./whatsapp";
 
-/** Jenis pesan WhatsApp yang dicatat terkirim (spec C2 bagian 6). */
-export const MESSAGE_KINDS = ["INSTRUKSI_TRANSFER", "KONFIRMASI", "PENGINGAT"] as const;
+/** Jenis pesan WhatsApp yang dicatat terkirim (spec C2 bagian 6, C3 4.2). */
+export const MESSAGE_KINDS = ["INSTRUKSI_TRANSFER", "KONFIRMASI", "PENGINGAT", "LINK_KUIS"] as const;
 export type MessageKind = (typeof MESSAGE_KINDS)[number];
 
 /** Balasan pasien atas pengingat H-1 (keputusan P5). */
