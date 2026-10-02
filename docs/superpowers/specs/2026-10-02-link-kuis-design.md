@@ -40,6 +40,7 @@ Customer yang booking lewat situs mengisi kuis di `/daftar`, sehingga dokter sud
   - jam mulai booking belum lewat;
   - kuis booking itu belum dikirim.
 - **Link tidak berlaku** bila booking dibatalkan, kedaluwarsa, atau ditandai tidak hadir, bila jadwalnya lewat, atau bila admin menekan **Ganti link**.
+- **Kirim** dari halaman yang sudah terbuka masih diterima sampai **jam selesai** booking, selama syarat lain di atas terpenuhi. Customer yang mulai mengisi sebelum jam mulai, misalnya walk-in di tablet klinik, tidak kehilangan jawabannya. Membuka link setelah jam mulai tetap ditolak (bagian 5). *(Keputusan pemilik 2 Okt 2026 setelah tinjauan akhir.)*
 - Link yang tidak berlaku menampilkan "Link ini sudah tidak berlaku. Hubungi kami lewat WhatsApp", dengan tombol WA klinik. Pesan ini sama untuk semua alasan, sehingga link tidak membocorkan keadaan booking.
 - Link yang kuisnya sudah dikirim menampilkan "Terima kasih, sudah kami terima."
 
