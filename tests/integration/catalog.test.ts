@@ -2,12 +2,14 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
 import {
+  countActiveServices,
   getActiveProducts,
   getAllServiceSlugs,
   getBranchBySlug,
   getBranches,
   getPackagesByGroup,
   getPublicStaff,
+  getRelatedServices,
   getServiceBySlug,
   getServiceCategoriesWithServices,
   getSignatureServices,
@@ -121,5 +123,43 @@ describe("lapisan query katalog", () => {
     const team = await getPublicStaff();
     expect(team.map((s) => s.name)).toContain("Dr. Diane Paparang, Sp.GK, AIFO-K");
     expect(team.map((s) => s.slug)).not.toContain("terapis-mahakeret");
+  });
+
+  it("menyertakan kategori pada layanan signature, untuk foto kartunya", async () => {
+    const signature = await getSignatureServices();
+    expect(signature.find((s) => s.slug === "hifu-wajah")?.category.slug).toBe("hifu");
+  });
+
+  it("mengambil sampai tiga layanan lain dalam kategori yang sama, terurut", async () => {
+    const hifu = await getServiceBySlug("hifu-wajah");
+    const related = await getRelatedServices(hifu!.categoryId, hifu!.id);
+    expect(related.map((s) => s.slug)).toEqual(["hifu-miss-v", "hifu-perut"]);
+
+    const rfPerut = await getServiceBySlug("rf-perut");
+    const rf = await getRelatedServices(rfPerut!.categoryId, rfPerut!.id);
+    expect(rf.map((s) => s.slug)).toEqual(["rf-paha", "rf-lengan", "rf-wajah"]);
+  });
+
+  it("tidak menawarkan layanan nonaktif sebagai treatment lain", async () => {
+    await prisma.service.update({ where: { slug: "hifu-perut" }, data: { isActive: false } });
+    try {
+      const hifu = await getServiceBySlug("hifu-wajah");
+      const related = await getRelatedServices(hifu!.categoryId, hifu!.id);
+      expect(related.map((s) => s.slug)).toEqual(["hifu-miss-v"]);
+    } finally {
+      await prisma.service.update({ where: { slug: "hifu-perut" }, data: { isActive: true } });
+    }
+  });
+
+  it("menghitung layanan aktif untuk angka di Beranda", async () => {
+    const total = await countActiveServices();
+    expect(total).toBe((await getAllServiceSlugs()).length);
+
+    await prisma.service.update({ where: { slug: "botox" }, data: { isActive: false } });
+    try {
+      expect(await countActiveServices()).toBe(total - 1);
+    } finally {
+      await prisma.service.update({ where: { slug: "botox" }, data: { isActive: true } });
+    }
   });
 });

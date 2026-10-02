@@ -28,6 +28,11 @@ export function buildWhatsAppLinkTo(phone: string, message: string): string | nu
   return `https://wa.me/${normalized}?text=${encodeURIComponent(message)}`;
 }
 
+/** Pesan pembuka untuk pertanyaan umum (tombol WhatsApp melayang, menu ponsel, ajakan akhir). */
+export function generalInquiryMessage(): string {
+  return `Halo ${CLINIC_NAME}, saya ingin bertanya.`;
+}
+
 export function productInquiryMessage(productName: string): string {
   return `Halo ${CLINIC_NAME}, saya ingin memesan produk ${productName}. Mohon informasinya.`;
 }

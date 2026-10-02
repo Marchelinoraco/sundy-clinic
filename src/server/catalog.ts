@@ -38,11 +38,31 @@ export async function getServiceBySlug(slug: string) {
   });
 }
 
-export async function getSignatureServices(): Promise<Service[]> {
+/** Layanan signature beserta kategorinya (foto kartu memakai foto kategori). */
+export async function getSignatureServices(): Promise<ServiceWithCategory[]> {
   return prisma.service.findMany({
     where: { isSignature: true, isActive: true },
     orderBy: { sortOrder: "asc" },
+    include: { category: true },
   });
+}
+
+/** Layanan aktif lain dalam kategori yang sama, untuk "Treatment lain di …" di halaman detail. */
+export async function getRelatedServices(
+  categoryId: string,
+  excludeServiceId: string,
+  limit = 3,
+): Promise<Service[]> {
+  return prisma.service.findMany({
+    where: { categoryId, isActive: true, id: { not: excludeServiceId } },
+    orderBy: { sortOrder: "asc" },
+    take: limit,
+  });
+}
+
+/** Jumlah treatment aktif, untuk angka di Beranda. */
+export async function countActiveServices(): Promise<number> {
+  return prisma.service.count({ where: { isActive: true } });
 }
 
 export async function getAllServiceSlugs(): Promise<string[]> {
