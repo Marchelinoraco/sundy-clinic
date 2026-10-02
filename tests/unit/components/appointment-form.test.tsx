@@ -190,4 +190,39 @@ describe("AppointmentForm", () => {
     expect(await screen.findByRole("heading", { name: "✓ Booking SDY-7KQ2 dibuat" })).toBeInTheDocument();
     expect(screen.getByText(/Instruksi transfer gagal dimuat/)).toBeInTheDocument();
   });
+
+  it("isian awal: pasien, tenaga, tanggal, dan jam sudah terpilih (spec D 5.8)", async () => {
+    const user = userEvent.setup();
+    render(
+      <AppointmentForm
+        branches={[{ id: "b1", name: "SunDY Mahakeret" }]}
+        staff={[{ id: "d1", name: "dr. Diane", role: "DOKTER" }]}
+        treatmentGroups={[]}
+        consultationServiceId="svc-konsultasi"
+        today={TODAY}
+        bookingFee={100000}
+        initial={{ patient: MARIA, kind: "KONSULTASI", staffId: "d1", branchId: "b1", date: TODAY, slot: SLOT }}
+      />,
+    );
+    expect(summary()).toHaveTextContent("PasienMaria Wenas");
+    expect(summary()).toHaveTextContent("JadwalSen, 5 Okt · 11.00");
+    expect(await screen.findByRole("button", { name: "11.00" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(screen.getByRole("button", { name: "Buat Booking" }));
+    await waitFor(() => expect(createAppointment).toHaveBeenCalledWith(expect.objectContaining({ patientId: "p1", startAt: START })));
+  });
+
+  it("pesan isian awal tampil di atas formulir", () => {
+    render(
+      <AppointmentForm
+        branches={[{ id: "b1", name: "SunDY Mahakeret" }]}
+        staff={[{ id: "d1", name: "dr. Diane", role: "DOKTER" }]}
+        treatmentGroups={[]}
+        consultationServiceId="svc-konsultasi"
+        today={TODAY}
+        bookingFee={100000}
+        notice="Jam itu sudah tidak tersedia. Pilih jam lain."
+      />,
+    );
+    expect(screen.getByText("Jam itu sudah tidak tersedia. Pilih jam lain.")).toHaveAttribute("role", "status");
+  });
 });

@@ -117,4 +117,14 @@ describe("detail pasien", () => {
     actAs("DOKTER");
     expect(await getPatientDetail("tidak-ada")).toBeNull();
   });
+
+  it("tanggal kunjungan terakhir dan umur ikut dimuat (spec D 5.3)", async () => {
+    await prisma.patient.update({
+      where: { id: patientId },
+      data: { birthDate: new Date("1990-05-17T00:00:00Z"), lastVisitAt: new Date("2026-09-28T03:00:00Z") },
+    });
+    const detail = await getPatientDetail(patientId);
+    expect(detail?.lastVisitAt).toEqual(new Date("2026-09-28T03:00:00Z"));
+    expect(detail?.ageYears).toBeGreaterThanOrEqual(36);
+  });
 });

@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { BookingFormInitial } from "@/lib/booking-prefill";
 import { formatShortIndonesianDate } from "@/lib/format";
 import type { SlotOption } from "@/lib/slot";
 import { combineWitaDateAndMinutes, witaDateString } from "@/lib/time";
@@ -51,6 +52,10 @@ type Props = {
   today: string;
   /** Biaya booking dari Pengaturan, untuk ringkasan. Biaya yang tersimpan disalin server saat booking dibuat. */
   bookingFee: number;
+  /** Isian awal dari dasbor atau Data Pasien (spec D 5.8); booking tetap dibuat lewat Buat Booking. */
+  initial?: BookingFormInitial;
+  /** Pesan singkat bila sebagian isian awal tidak lagi sah. */
+  notice?: string | null;
 };
 
 type BookingKind = "KONSULTASI" | "TREATMENT";
@@ -69,15 +74,19 @@ export function AppointmentForm({
   consultationServiceId,
   today,
   bookingFee,
+  initial,
+  notice,
 }: Props) {
-  const [patient, setPatient] = useState<PatientSummary | null>(null);
-  const [kind, setKind] = useState<BookingKind>("KONSULTASI");
+  const [patient, setPatient] = useState<PatientSummary | null>(initial?.patient ?? null);
+  const [kind, setKind] = useState<BookingKind>(initial?.kind ?? "KONSULTASI");
   const [serviceId, setServiceId] = useState("");
-  const [branchId, setBranchId] = useState(branches[0]?.id ?? "");
-  const [staffId, setStaffId] = useState("");
+  const [branchId, setBranchId] = useState(
+    initial?.branchId && branches.some((b) => b.id === initial.branchId) ? initial.branchId : (branches[0]?.id ?? ""),
+  );
+  const [staffId, setStaffId] = useState(initial?.staffId ?? "");
   const [source, setSource] = useState<AdminBookingSource>("WHATSAPP");
-  const [date, setDate] = useState("");
-  const [slot, setSlot] = useState<SlotOption | null>(null);
+  const [date, setDate] = useState(initial?.date ?? "");
+  const [slot, setSlot] = useState<SlotOption | null>(initial?.slot ?? null);
   const [notes, setNotes] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
   const [created, setCreated] = useState<CreatedBooking | null>(null);
@@ -188,6 +197,11 @@ export function AppointmentForm({
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
       <fieldset disabled={locked} className="min-w-0 space-y-8 disabled:opacity-60">
+        {notice && !locked && (
+          <p role="status" className="rounded-md border border-gold-300 bg-gold-300/10 p-3 text-sm text-brown-800">
+            {notice}
+          </p>
+        )}
         <section className="space-y-2">
           <h2 className="text-sm font-medium">1 · Pasien</h2>
           {patient ? (

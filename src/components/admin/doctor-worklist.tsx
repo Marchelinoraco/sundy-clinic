@@ -5,6 +5,7 @@ import { formatShortIndonesianDate } from "@/lib/format";
 import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
 import type { DoctorWorklist, WorklistRow, WorklistState } from "@/server/encounter-read";
 import { OpenEncounterButton } from "./open-encounter-button";
+import { EmptyState, SectionCard } from "./page-layout";
 
 const STATE_LABEL: Record<WorklistState, string> = { BELUM: "Belum diperiksa", DRAF: "Draf", FINAL: "Final" };
 
@@ -56,30 +57,24 @@ function WorklistTable({ rows, withDate }: { rows: WorklistRow[]; withDate: bool
   );
 }
 
-/** Dasbor dokter (spec 4.2): pasien hari ini dan catatan yang tertinggal. */
+/** Dasbor dokter (spec catatan dokter 4.2, spec D 4.4): pasien hari ini dan catatan yang tertinggal. */
 export function DoctorWorklistView({ worklist }: { worklist: DoctorWorklist }) {
   return (
-    <div className="space-y-8">
-      <section aria-labelledby="pasien-hari-ini" className="space-y-2">
-        <h2 id="pasien-hari-ini" className="text-base font-medium">
-          Pasien hari ini
-        </h2>
+    <div className="space-y-6">
+      <SectionCard title="Pasien hari ini" flush>
         {worklist.today.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Belum ada pasien yang ditandai hadir hari ini.</p>
+          <EmptyState>Belum ada pasien yang ditandai hadir hari ini.</EmptyState>
         ) : (
           <WorklistTable rows={worklist.today} withDate={false} />
         )}
-      </section>
-      <section aria-labelledby="catatan-belum-final" className="space-y-2">
-        <h2 id="catatan-belum-final" className="text-base font-medium">
-          Catatan belum final
-        </h2>
+      </SectionCard>
+      <SectionCard title="Catatan belum final" flush>
         {worklist.unfinished.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Tidak ada catatan yang tertinggal.</p>
+          <EmptyState>Tidak ada catatan yang tertinggal.</EmptyState>
         ) : (
           <WorklistTable rows={worklist.unfinished} withDate />
         )}
-      </section>
+      </SectionCard>
     </div>
   );
 }

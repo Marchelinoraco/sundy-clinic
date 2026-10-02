@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { AdminHeader } from "@/components/admin/admin-header";
 import { IntakeView } from "@/components/admin/intake-view";
+import { PageBody, PageHeader } from "@/components/admin/page-layout";
 import { getIntakeForStaff } from "@/server/intake";
 import { requireCapability } from "@/server/session";
 
@@ -14,9 +15,14 @@ export default async function IntakePage({ params }: { params: Promise<{ id: str
   return (
     <>
       <AdminHeader title="Isian Pendaftaran" />
-      <div className="p-6">
+      <PageBody>
+        <PageHeader
+          title="Isian Pendaftaran"
+          trail={[{ label: "Booking", href: "/admin/booking" }, { label: intake.appointment.code }]}
+          description={`Booking ${intake.appointment.code}`}
+        />
         <IntakeView intake={intake} />
-      </div>
+      </PageBody>
     </>
   );
 }

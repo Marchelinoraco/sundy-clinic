@@ -4,6 +4,7 @@ import { AdminHeader } from "@/components/admin/admin-header";
 import { AppointmentTable, type BookingRow } from "@/components/admin/appointment-table";
 import { BookingDialogsProvider } from "@/components/admin/booking-dialogs";
 import { BookingFilters } from "@/components/admin/booking-filters";
+import { PageBody, PageHeader } from "@/components/admin/page-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { isAppointmentStatus } from "@/lib/appointment-status";
@@ -164,7 +165,16 @@ export default async function BookingListPage({
       <AdminHeader title="Booking" />
       {/* Dialog setelah Verifikasi dan Pindah jadwal tetap terbuka walau barisnya keluar dari daftar. */}
       <BookingDialogsProvider today={today}>
-      <div className="space-y-6 p-6">
+      <PageBody>
+        <PageHeader
+          title="Booking"
+          description={query ? `Hasil pencarian “${query}”` : unreviewedOnly ? "Isian belum diperiksa · semua tanggal" : dateLabel}
+          actions={
+            <Button asChild>
+              <Link href="/admin/booking/baru">+ Booking Baru</Link>
+            </Button>
+          }
+        />
         {pendingRows.length > 0 && (
           <section
             aria-labelledby="booking-menunggu"
@@ -184,7 +194,7 @@ export default async function BookingListPage({
           </section>
         )}
 
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Form action="/admin/booking" role="search" className="flex w-full max-w-md gap-2">
             <Input
               key={query}
@@ -198,9 +208,6 @@ export default async function BookingListPage({
               Cari
             </Button>
           </Form>
-          <Button asChild>
-            <Link href="/admin/booking/baru">+ Booking Baru</Link>
-          </Button>
         </div>
 
         {query ? (
@@ -274,7 +281,7 @@ export default async function BookingListPage({
             )}
           </>
         )}
-      </div>
+      </PageBody>
       </BookingDialogsProvider>
     </>
   );

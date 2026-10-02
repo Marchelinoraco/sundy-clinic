@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   formatDateColumn,
+  formatDateWithYear,
   formatGender,
   formatIndonesianDate,
   formatPrice,
@@ -89,5 +90,13 @@ describe("formatScheduleForMessage", () => {
     expect(formatScheduleForMessage(new Date("2031-02-17T03:00:00Z"))).toBe(
       "Senin, 17 Februari 2031 pukul 11.00 WITA",
     );
+  });
+});
+
+describe("formatDateWithYear", () => {
+  it("tanggal singkat dengan tahun, dalam WITA", () => {
+    expect(formatDateWithYear(new Date("2026-09-28T03:00:00Z"))).toBe("28 Sep 2026");
+    // 23.30 UTC 30 Sep = 07.30 WITA 1 Okt
+    expect(formatDateWithYear(new Date("2026-09-30T23:30:00Z"))).toBe("1 Okt 2026");
   });
 });

@@ -69,6 +69,13 @@ export async function countReminderWork(): Promise<number> {
   return groups.confirm.length + groups.remind.length;
 }
 
+/** Kotak 1 dan 2 halaman Pengingat secara terpisah, untuk kotak dasbor (spec D 4.2). */
+export async function getReminderCounts(): Promise<{ confirm: number; remind: number }> {
+  await requireCapability("booking:manage");
+  const groups = await loadReminderGroups(new Date());
+  return { confirm: groups.confirm.length, remind: groups.remind.length };
+}
+
 export async function getReminderWorklist(): Promise<ReminderWorklist> {
   await requireCapability("booking:manage");
   const now = new Date();

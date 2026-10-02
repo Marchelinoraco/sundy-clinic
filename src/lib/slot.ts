@@ -56,6 +56,34 @@ function subtractBlocks(window: WorkWindow, blocks: WorkWindow[]): WorkWindow[] 
 }
 
 /**
+ * Jendela kerja sehari: jam kerja + jam tambahan, dikurangi blokir sebagian.
+ * Kosong pada hari libur, cuti, atau tanpa jam kerja. Dipakai mesin slot dan
+ * garis waktu dasbor (spec D 4.3), agar keduanya selalu sepakat.
+ */
+export function workingWindows(input: {
+  template: WorkWindow | null;
+  exceptions: ScheduleExceptionInput[];
+  isHoliday: boolean;
+}): WorkWindow[] {
+  if (input.isHoliday) return [];
+  if (input.exceptions.some((e) => e.kind === "LIBUR")) return [];
+
+  const windows: WorkWindow[] = [];
+  if (input.template) windows.push({ startMinute: input.template.startMinute, endMinute: input.template.endMinute });
+  for (const e of input.exceptions) {
+    if (e.kind === "JAM_TAMBAHAN" && e.startMinute !== null && e.endMinute !== null) {
+      windows.push({ startMinute: e.startMinute, endMinute: e.endMinute });
+    }
+  }
+
+  const blocks: WorkWindow[] = input.exceptions
+    .filter((e) => e.kind === "BLOKIR_SEBAGIAN" && e.startMinute !== null && e.endMinute !== null)
+    .map((e) => ({ startMinute: e.startMinute!, endMinute: e.endMinute! }));
+
+  return windows.flatMap((w) => subtractBlocks(w, blocks));
+}
+
+/**
  * Menghitung slot kosong untuk satu staf pada satu tanggal.
  *
  * Fungsi murni — tidak menyentuh basis data. Jaminan anti-bentrok yang
@@ -64,23 +92,8 @@ function subtractBlocks(window: WorkWindow, blocks: WorkWindow[]): WorkWindow[] 
  * dengan tidak menawarkan slot yang jelas-jelas sudah terisi.
  */
 export function getAvailableSlots(input: GetAvailableSlotsInput): SlotOption[] {
-  if (input.isHoliday) return [];
-  if (input.exceptions.some((e) => e.kind === "LIBUR")) return [];
-
-  const windows: WorkWindow[] = [];
-  if (input.template) windows.push(input.template);
-  for (const e of input.exceptions) {
-    if (e.kind === "JAM_TAMBAHAN" && e.startMinute !== null && e.endMinute !== null) {
-      windows.push({ startMinute: e.startMinute, endMinute: e.endMinute });
-    }
-  }
-  if (windows.length === 0) return [];
-
-  const blocks: WorkWindow[] = input.exceptions
-    .filter((e) => e.kind === "BLOKIR_SEBAGIAN" && e.startMinute !== null && e.endMinute !== null)
-    .map((e) => ({ startMinute: e.startMinute!, endMinute: e.endMinute! }));
-
-  const freeWindows = windows.flatMap((w) => subtractBlocks(w, blocks));
+  const freeWindows = workingWindows(input);
+  if (freeWindows.length === 0) return [];
 
   const earliestStartMs = input.now.getTime() + input.minLeadMinutes * 60_000;
   const seenStartMinutes = new Set<number>();

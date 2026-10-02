@@ -31,7 +31,9 @@ export function StaffTable({ staff }: { staff: Staff[] }) {
         {staff.map((person) => (
           <TableRow key={person.id}>
             <TableCell className="font-medium">{person.name}</TableCell>
-            <TableCell>{ROLE_LABEL[person.role]}</TableCell>
+            <TableCell>
+              <Badge variant="outline">{ROLE_LABEL[person.role]}</Badge>
+            </TableCell>
             <TableCell>{person.showOnWebsite ? "Ya" : "Tidak"}</TableCell>
             <TableCell>
               <Badge variant={person.isActive ? "default" : "secondary"}>
