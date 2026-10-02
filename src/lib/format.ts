@@ -48,6 +48,18 @@ export function formatShortIndonesianDate(date: Date): string {
   return shortIndonesianDateFormatter.format(date);
 }
 
+const dateWithYearFormatter = new Intl.DateTimeFormat("id-ID", {
+  timeZone: CLINIC_TIMEZONE,
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
+
+/** Tanggal singkat dengan tahun dalam WITA, misal "28 Sep 2026" — untuk kolom tabel. */
+export function formatDateWithYear(date: Date): string {
+  return dateWithYearFormatter.format(date);
+}
+
 /** Jadwal di pesan WhatsApp ke pasien, misal "Senin, 5 Oktober 2026 pukul 11.00 WITA". */
 export function formatScheduleForMessage(date: Date): string {
   return `${formatIndonesianDate(date)} pukul ${minutesToTimeLabel(witaMinutesOfDay(date))} WITA`;

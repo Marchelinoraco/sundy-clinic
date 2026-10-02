@@ -2,6 +2,7 @@
 
 import type { AppointmentStatus, Patient, PatientProgramStatus } from "@prisma/client";
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
+import { ageInYears } from "@/lib/age";
 import type { AppointmentStatusValue } from "@/lib/appointment-status";
 import { prisma } from "@/lib/db";
 import { formatDateColumn, formatGender } from "@/lib/format";
@@ -129,6 +130,12 @@ export async function getPatientSummary(id: string): Promise<PatientSummary | nu
   return row ? toSummary(row) : null;
 }
 
+/** Jumlah semua pasien, untuk kepala halaman Pasien (spec D 5.2). */
+export async function countPatients(): Promise<number> {
+  await requireCapability("booking:manage");
+  return prisma.patient.count();
+}
+
 /** Cocok terhadap nama (sebagian, tanpa peduli huruf besar/kecil) atau nomor WhatsApp. */
 export async function searchPatients(query: string): Promise<PatientSummary[]> {
   await requireCapability("booking:manage");
@@ -177,12 +184,16 @@ export type PatientDetail = {
   name: string;
   whatsapp: string;
   birthDateLabel: string | null;
+  /** Umur dalam tahun penuh, atau null tanpa tanggal lahir (spec D 5.3). */
+  ageYears: number | null;
   genderLabel: string | null;
   occupation: string | null;
   address: string | null;
   /** Nomor rekam medis kertas lama; boleh dilihat dan diubah resepsionis (spec R11). */
   paperRecordNumber: string | null;
   programStatus: "AKTIF" | "SELESAI" | "TIDAK_AKTIF";
+  /** Jadwal kunjungan terakhir yang difinalisasi. */
+  lastVisitAt: Date | null;
   /** Hanya untuk record:read (spec 6.2). */
   record: { allergies: string | null; medicalHistory: string | null; importantNotes: string | null } | null;
   appointments: {
@@ -238,6 +249,7 @@ export async function getPatientDetail(id: string): Promise<PatientDetail | null
       address: true,
       paperRecordNumber: true,
       programStatus: true,
+      lastVisitAt: true,
       appointments: {
         orderBy: { startAt: "desc" },
         select: {
@@ -305,11 +317,13 @@ export async function getPatientDetail(id: string): Promise<PatientDetail | null
     name: patient.name,
     whatsapp: patient.whatsapp,
     birthDateLabel: formatDateColumn(patient.birthDate),
+    ageYears: patient.birthDate ? ageInYears(patient.birthDate, new Date()) : null,
     genderLabel: formatGender(patient.gender),
     occupation: patient.occupation,
     address: patient.address,
     paperRecordNumber: patient.paperRecordNumber,
     programStatus: patient.programStatus,
+    lastVisitAt: patient.lastVisitAt,
     record,
     appointments: patient.appointments.map((a) => ({
       id: a.id,

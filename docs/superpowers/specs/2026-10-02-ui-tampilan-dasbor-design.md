@@ -206,7 +206,7 @@ Empat kotak angka:
 - Jejak "Pasien › {nama}".
 - Judul = nama, lalu keterangan: no. RM · status program · "kunjungan terakhir {tanggal}" (bila ada).
 - **Aksi:**
-  - **Ubah no. RM lama**, yaitu formulir yang sekarang dipindah ke dialog;
+  - *(Perubahan saat menyusun plan, 2 Okt 2026: "Ubah no. RM kertas lama" tetap di kartu Data diri sebagai penyuntingan di tempat, sama seperti "Ubah catatan penting".)*
   - **+ Booking** (hak `booking:manage`), yang membuka Booking Baru dengan pasien ini terpilih (bagian 5.8).
 
 **Dua kartu berdampingan** (bertumpuk di layar sempit)

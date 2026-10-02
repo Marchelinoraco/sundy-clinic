@@ -3,13 +3,16 @@ import { AppointmentStatusBadge } from "@/components/admin/appointment-status-ba
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatIndonesianDate } from "@/lib/format";
+import { resolveTab } from "@/lib/page-tabs";
 import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
 import type { PatientDetail } from "@/server/patient";
+import { EmptyState, SectionCard } from "./page-layout";
+import { PageTabs } from "./page-tabs";
 import { ImportantNotesForm, PaperRecordNumberForm } from "./patient-note-forms";
 
-const PROGRAM_STATUS_LABEL: Record<PatientDetail["programStatus"], string> = {
-  AKTIF: "Aktif",
-  SELESAI: "Selesai",
+export const PATIENT_PROGRAM_LABEL: Record<PatientDetail["programStatus"], string> = {
+  AKTIF: "Program aktif",
+  SELESAI: "Program selesai",
   TIDAK_AKTIF: "Tidak aktif",
 };
 
@@ -19,80 +22,100 @@ const INTAKE_STATUS_LABEL: Record<PatientDetail["intakes"][number]["status"], st
   DIPERIKSA: "Diperiksa",
 };
 
-function Field({ label, value }: { label: string; value: string | null }) {
+type PatientTab = "kunjungan" | "booking" | "isian";
+
+const when = (date: Date) => `${formatIndonesianDate(date)}, ${minutesToTimeLabel(witaMinutesOfDay(date))}`;
+
+function Field({ label, value, wide = false }: { label: string; value: string | null; wide?: boolean }) {
   return (
-    <div>
+    <div className={wide ? "sm:col-span-2" : undefined}>
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd>{value ?? "—"}</dd>
     </div>
   );
 }
 
+/** Data Pasien (spec D 5.3): dua kartu berdampingan, lalu riwayat dalam tab `?tab=`. */
 export function PatientDetailView({
   patient,
   canReadRecords,
   canWriteRecords,
+  tab,
 }: {
   patient: PatientDetail;
   canReadRecords: boolean;
   canWriteRecords: boolean;
+  tab?: string;
 }) {
+  const tabs: PatientTab[] = patient.encounters ? ["kunjungan", "booking", "isian"] : ["booking", "isian"];
+  const active = resolveTab(tab, tabs, patient.encounters && patient.encounters.length > 0 ? "kunjungan" : "booking");
+  const href = (id: PatientTab) => `/admin/pasien/${patient.id}?tab=${id}`;
+  const birth = patient.birthDateLabel
+    ? `${patient.birthDateLabel}${patient.ageYears !== null ? ` (${patient.ageYears} tahun)` : ""}`
+    : null;
+
   return (
-    <div className="max-w-4xl space-y-8">
-      <section className="space-y-3">
-        <h2 className="text-lg font-medium">{patient.name}</h2>
-        <dl className="grid gap-3 text-sm sm:grid-cols-3">
-          <Field label="No. RM" value={patient.medicalRecordNumber} />
-          <Field label="WhatsApp" value={patient.whatsapp} />
-          <Field label="Tanggal lahir" value={patient.birthDateLabel} />
-          <Field label="Jenis kelamin" value={patient.genderLabel} />
-          <Field label="Pekerjaan" value={patient.occupation} />
-          <Field label="Status program" value={PROGRAM_STATUS_LABEL[patient.programStatus]} />
-          <Field label="Alamat" value={patient.address} />
-        </dl>
-        <div className="text-sm">
-          <PaperRecordNumberForm patientId={patient.id} value={patient.paperRecordNumber} />
-        </div>
-      </section>
-
-      {patient.record && (
-        <section aria-labelledby="catatan-medis" className="space-y-3 rounded-lg border p-4">
-          <h2 id="catatan-medis" className="text-base font-medium">
-            Catatan medis
-          </h2>
-          <div className="grid gap-4 text-sm sm:grid-cols-2">
-            <div>
-              <h3 className="text-xs text-muted-foreground">Alergi</h3>
-              <p className="whitespace-pre-line">{patient.record.allergies ?? "Belum ada"}</p>
-            </div>
-            <div>
-              <h3 className="text-xs text-muted-foreground">Riwayat penyakit & obat</h3>
-              <p className="whitespace-pre-line">{patient.record.medicalHistory ?? "Belum ada"}</p>
-            </div>
+    <div className="space-y-6">
+      <div className="grid gap-6 lg:grid-cols-2">
+        <SectionCard title="Data diri">
+          <dl className="grid gap-3 text-sm sm:grid-cols-2">
+            <Field label="WhatsApp" value={patient.whatsapp} />
+            <Field label="Tanggal lahir" value={birth} />
+            <Field label="Jenis kelamin" value={patient.genderLabel} />
+            <Field label="Pekerjaan" value={patient.occupation} />
+            <Field label="Alamat" value={patient.address} wide />
+          </dl>
+          <div className="mt-3 border-t pt-3 text-sm">
+            <PaperRecordNumberForm patientId={patient.id} value={patient.paperRecordNumber} />
           </div>
-          <div className="text-sm">
-            {canWriteRecords ? (
-              <ImportantNotesForm patientId={patient.id} value={patient.record.importantNotes} />
-            ) : (
+        </SectionCard>
+
+        {patient.record && (
+          <SectionCard title="Catatan medis" description="Diisi dokter lewat tombol “Setujui ke data pasien” di halaman isian.">
+            <div className="grid gap-4 text-sm sm:grid-cols-2">
               <div>
-                <h3 className="text-xs text-muted-foreground">Catatan penting</h3>
-                <p className="whitespace-pre-line">{patient.record.importantNotes ?? "Belum ada"}</p>
+                <h3 className="text-xs text-muted-foreground">Alergi</h3>
+                {patient.record.allergies ? (
+                  <p data-allergy="true" className="mt-1 inline-block whitespace-pre-line rounded-md bg-red-50 px-2 py-1 font-medium text-red-800">
+                    {patient.record.allergies}
+                  </p>
+                ) : (
+                  <p>Belum ada</p>
+                )}
               </div>
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Diisi dokter lewat tombol “Setujui ke data pasien” di halaman isian.
-          </p>
-        </section>
-      )}
+              <div>
+                <h3 className="text-xs text-muted-foreground">Riwayat penyakit & obat</h3>
+                <p className="whitespace-pre-line">{patient.record.medicalHistory ?? "Belum ada"}</p>
+              </div>
+            </div>
+            <div className="mt-3 border-t pt-3 text-sm">
+              {canWriteRecords ? (
+                <ImportantNotesForm patientId={patient.id} value={patient.record.importantNotes} />
+              ) : (
+                <div>
+                  <h3 className="text-xs text-muted-foreground">Catatan penting</h3>
+                  <p className="whitespace-pre-line">{patient.record.importantNotes ?? "Belum ada"}</p>
+                </div>
+              )}
+            </div>
+          </SectionCard>
+        )}
+      </div>
 
-      {patient.encounters && (
-        <section aria-labelledby="riwayat-kunjungan" className="space-y-2">
-          <h2 id="riwayat-kunjungan" className="text-base font-medium">
-            Riwayat kunjungan
-          </h2>
+      <PageTabs
+        label="Riwayat pasien"
+        active={active}
+        tabs={[
+          ...(patient.encounters ? [{ id: "kunjungan", label: `Kunjungan (${patient.encounters.length})`, href: href("kunjungan") }] : []),
+          { id: "booking", label: `Booking (${patient.appointments.length})`, href: href("booking") },
+          { id: "isian", label: `Isian (${patient.intakes.length})`, href: href("isian") },
+        ]}
+      />
+
+      {active === "kunjungan" && patient.encounters && (
+        <SectionCard title="Riwayat kunjungan" flush>
           {patient.encounters.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Belum ada kunjungan yang diperiksa.</p>
+            <EmptyState>Belum ada kunjungan yang diperiksa.</EmptyState>
           ) : (
             <Table>
               <TableHeader>
@@ -108,9 +131,7 @@ export function PatientDetailView({
               <TableBody>
                 {patient.encounters.map((encounter) => (
                   <TableRow key={encounter.id}>
-                    <TableCell>
-                      {formatIndonesianDate(encounter.startAt)}, {minutesToTimeLabel(witaMinutesOfDay(encounter.startAt))}
-                    </TableCell>
+                    <TableCell>{when(encounter.startAt)}</TableCell>
                     <TableCell>{encounter.branchName}</TableCell>
                     <TableCell>{encounter.authorName}</TableCell>
                     <TableCell className="max-w-xs whitespace-normal">{encounter.assessmentPreview ?? "—"}</TableCell>
@@ -129,87 +150,87 @@ export function PatientDetailView({
               </TableBody>
             </Table>
           )}
-        </section>
+        </SectionCard>
       )}
 
-      <section className="space-y-2">
-        <h2 className="text-base font-medium">Riwayat booking</h2>
-        {patient.appointments.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Belum ada booking.</p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Jadwal</TableHead>
-                <TableHead>Kode</TableHead>
-                <TableHead>Layanan</TableHead>
-                <TableHead>Tenaga</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {patient.appointments.map((a) => (
-                <TableRow key={a.id}>
-                  <TableCell>
-                    {formatIndonesianDate(a.startAt)}, {minutesToTimeLabel(witaMinutesOfDay(a.startAt))}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">{a.code}</TableCell>
-                  <TableCell>{a.serviceName}</TableCell>
-                  <TableCell>
-                    <div>{a.staffName}</div>
-                    <div className="text-xs text-muted-foreground">{a.branchName}</div>
-                  </TableCell>
-                  <TableCell>
-                    <AppointmentStatusBadge status={a.status} />
-                  </TableCell>
+      {active === "booking" && (
+        <SectionCard title="Riwayat booking" flush>
+          {patient.appointments.length === 0 ? (
+            <EmptyState>Belum ada booking.</EmptyState>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Jadwal</TableHead>
+                  <TableHead>Kode</TableHead>
+                  <TableHead>Layanan</TableHead>
+                  <TableHead>Tenaga</TableHead>
+                  <TableHead>Status</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </section>
-
-      <section className="space-y-2">
-        <h2 className="text-base font-medium">Riwayat isian</h2>
-        {patient.intakes.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Belum ada isian.</p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Dikirim</TableHead>
-                <TableHead>Booking</TableHead>
-                <TableHead>Kuis</TableHead>
-                <TableHead>Status</TableHead>
-                {canReadRecords && <TableHead>Aksi</TableHead>}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {patient.intakes.map((intake) => (
-                <TableRow key={intake.id}>
-                  <TableCell>{intake.submittedAt ? formatIndonesianDate(intake.submittedAt) : "—"}</TableCell>
-                  <TableCell className="font-mono text-xs">{intake.code}</TableCell>
-                  <TableCell>
-                    {intake.kind === "LENGKAP" ? "Lengkap" : "Pendek"}
-                    {intake.purposeLabel ? ` · ${intake.purposeLabel}` : ""}
-                  </TableCell>
-                  <TableCell>
-                    {INTAKE_STATUS_LABEL[intake.status]}
-                    {intake.reviewerName ? ` · ${intake.reviewerName}` : ""}
-                  </TableCell>
-                  {canReadRecords && (
+              </TableHeader>
+              <TableBody>
+                {patient.appointments.map((a) => (
+                  <TableRow key={a.id}>
+                    <TableCell>{when(a.startAt)}</TableCell>
+                    <TableCell className="font-mono text-xs">{a.code}</TableCell>
+                    <TableCell>{a.serviceName}</TableCell>
                     <TableCell>
-                      <Link href={`/admin/isian/${intake.id}`} className="text-sm underline underline-offset-4">
-                        Lihat isian
-                      </Link>
+                      <div>{a.staffName}</div>
+                      <div className="text-xs text-muted-foreground">{a.branchName}</div>
                     </TableCell>
-                  )}
+                    <TableCell>
+                      <AppointmentStatusBadge status={a.status} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </SectionCard>
+      )}
+
+      {active === "isian" && (
+        <SectionCard title="Riwayat isian" flush>
+          {patient.intakes.length === 0 ? (
+            <EmptyState>Belum ada isian.</EmptyState>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Dikirim</TableHead>
+                  <TableHead>Booking</TableHead>
+                  <TableHead>Kuis</TableHead>
+                  <TableHead>Status</TableHead>
+                  {canReadRecords && <TableHead>Aksi</TableHead>}
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </section>
+              </TableHeader>
+              <TableBody>
+                {patient.intakes.map((intake) => (
+                  <TableRow key={intake.id}>
+                    <TableCell>{intake.submittedAt ? formatIndonesianDate(intake.submittedAt) : "—"}</TableCell>
+                    <TableCell className="font-mono text-xs">{intake.code}</TableCell>
+                    <TableCell>
+                      {intake.kind === "LENGKAP" ? "Lengkap" : "Pendek"}
+                      {intake.purposeLabel ? ` · ${intake.purposeLabel}` : ""}
+                    </TableCell>
+                    <TableCell>
+                      {INTAKE_STATUS_LABEL[intake.status]}
+                      {intake.reviewerName ? ` · ${intake.reviewerName}` : ""}
+                    </TableCell>
+                    {canReadRecords && (
+                      <TableCell>
+                        <Link href={`/admin/isian/${intake.id}`} className="text-sm underline underline-offset-4">
+                          Lihat isian
+                        </Link>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </SectionCard>
+      )}
     </div>
   );
 }
