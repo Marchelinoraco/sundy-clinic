@@ -88,4 +88,12 @@ describe("batasan arsitektur", () => {
 
     expect(offenders).toEqual([]);
   });
+
+  it("gulir halus hanya dipasang sekali, di layout situs publik", () => {
+    // Spec redesign §6: Lenis hanya di layout (public); panel admin dan kuis memakai gulir asli.
+    const mounts = collectSourceFiles("src").filter((file) =>
+      readFileSync(file, "utf8").includes("<SmoothScroll"),
+    );
+    expect(mounts).toEqual(["src/app/(public)/layout.tsx"]);
+  });
 });
