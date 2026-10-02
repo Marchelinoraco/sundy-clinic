@@ -11,7 +11,8 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
       {/* Gulir halus roda tetikus di desktop; mati di layar sentuh dan untuk "kurangi gerakan". */}
       <SmoothScroll />
       <SiteHeader />
-      <main>{children}</main>
+      {/* Header berupa fixed: isi diberi ruang setinggi header; kepala halaman (.hero-bleed) menerus ke baliknya. */}
+      <main className="pt-[var(--header-h)]">{children}</main>
       <SiteFooter />
       <WhatsAppFab />
       {/* Pesan untuk customer di /daftar dan /cek-booking (galat kirim, jam penuh, kuis diperbarui). */}

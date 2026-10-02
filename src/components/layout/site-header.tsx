@@ -1,49 +1,41 @@
 import Link from "next/link";
+import { Magnetic } from "@/components/motion/magnetic";
 import { CLINIC_FULL_NAME } from "@/lib/clinic";
+import { HeaderShell } from "./header-shell";
 import { Logo } from "./logo";
+import { MobileMenu } from "./mobile-menu";
+import { MOBILE_NAV, PRIMARY_NAV } from "./nav-items";
+import { NavLinks } from "./nav-links";
 import { RegisterCta } from "./register-cta";
-
-const navLinks = [
-  { href: "/layanan", label: "Layanan" },
-  { href: "/program-slimming", label: "Program Slimming" },
-  { href: "/produk", label: "Produk" },
-  { href: "/lokasi", label: "Lokasi" },
-  { href: "/tentang", label: "Tentang" },
-];
 
 export function SiteHeader() {
   return (
-    <header className="sticky top-0 z-40 border-b border-cream-300 bg-cream-50/90 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
-        <Link href="/" aria-label={`${CLINIC_FULL_NAME} — beranda`}>
-          <Logo className="h-11 md:h-14" />
-        </Link>
-
-        <nav aria-label="Navigasi utama" className="hidden gap-6 text-sm md:flex">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="text-brown-700 underline-offset-8 hover:text-brown-900 hover:underline"
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
-        <RegisterCta className="px-4 py-2 text-sm" />
-      </div>
-
-      {/* Navigasi mobile: baris yang dapat digulir horizontal, tanpa JavaScript. */}
-      <nav
-        aria-label="Navigasi utama mobile"
-        className="flex gap-5 overflow-x-auto border-t border-cream-200 px-4 py-2 text-sm md:hidden"
+    <HeaderShell>
+      <Link
+        href="/"
+        aria-label={`${CLINIC_FULL_NAME} — beranda`}
+        className="origin-left transition-transform duration-300 group-data-[solid=true]/header:scale-90 motion-reduce:transition-none"
       >
-        {navLinks.map((link) => (
-          <Link key={link.href} href={link.href} className="whitespace-nowrap text-brown-700">
-            {link.label}
-          </Link>
-        ))}
-      </nav>
-    </header>
+        <Logo className="h-11 md:h-12" />
+      </Link>
+
+      <NavLinks links={PRIMARY_NAV} />
+
+      <div className="flex items-center gap-2">
+        <div className="hidden md:block">
+          <Magnetic>
+            <RegisterCta className="px-5 py-2.5 text-sm" />
+          </Magnetic>
+        </div>
+        {/* Di ponsel cukup "Daftar" supaya logo, tombol, dan menu muat di lebar 390 px. */}
+        <Link
+          href="/daftar"
+          className="rounded-full bg-gold-500 px-4 py-2 text-sm font-medium text-white hover:bg-gold-600 md:hidden"
+        >
+          Daftar
+        </Link>
+        <MobileMenu links={MOBILE_NAV} />
+      </div>
+    </HeaderShell>
   );
 }

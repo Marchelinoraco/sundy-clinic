@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { MorphBlob } from "@/components/public/morph-blob";
 import {
   CLINIC_FULL_NAME,
   CLINIC_INSTAGRAM,
@@ -22,8 +23,10 @@ const navLinks = [
 
 export function SiteFooter() {
   return (
-    <footer className="mt-24 border-t border-cream-300 bg-cream-100">
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:grid-cols-2 lg:grid-cols-3">
+    <footer className="relative overflow-hidden border-t border-cream-300 bg-cream-100">
+      <MorphBlob className="-right-32 -top-32 h-96 w-96 opacity-60" />
+      <MorphBlob className="-bottom-40 -left-24 h-80 w-80 opacity-50" tone="cream" />
+      <div className="relative mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:grid-cols-2 lg:grid-cols-3">
         <div>
           <Logo className="h-20" withTagline />
         </div>
@@ -66,7 +69,7 @@ export function SiteFooter() {
         </nav>
       </div>
 
-      <p className="border-t border-cream-300 py-6 text-center text-xs text-brown-600">
+      <p className="relative border-t border-cream-300 py-6 text-center text-xs text-brown-600">
         © {new Date().getFullYear()} {CLINIC_FULL_NAME}. Seluruh hak cipta dilindungi.
       </p>
     </footer>

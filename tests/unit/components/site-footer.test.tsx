@@ -19,4 +19,11 @@ describe("SiteFooter", () => {
     expect(screen.getByText(/Senin–Sabtu, 11.00–19.00 WITA/)).toBeInTheDocument();
     expect(screen.getByText(/Minggu dan hari libur nasional tutup/)).toBeInTheDocument();
   });
+
+  it("menyembunyikan bentuk hiasan dari pembaca layar", () => {
+    const { container } = render(<SiteFooter />);
+    const blobs = container.querySelectorAll(".morph-blob");
+    expect(blobs.length).toBeGreaterThan(0);
+    blobs.forEach((blob) => expect(blob).toHaveAttribute("aria-hidden", "true"));
+  });
 });
