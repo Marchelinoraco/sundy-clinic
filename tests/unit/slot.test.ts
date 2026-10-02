@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getAvailableSlots } from "@/lib/slot";
+import { getAvailableSlots, workingWindows } from "@/lib/slot";
 
 // 11.00-19.00 WITA = 660-1140 menit sejak tengah malam.
 const FULL_DAY: import("@/lib/slot").WorkWindow = { startMinute: 660, endMinute: 1140 };
@@ -188,5 +188,32 @@ describe("getAvailableSlots — batas waktu pemesanan", () => {
     expect(labels).not.toContain("15.00");
     expect(labels).not.toContain("16.00");
     expect(labels).toContain("16.30");
+  });
+});
+
+describe("workingWindows", () => {
+  it("jam kerja + jam tambahan, dikurangi blokir sebagian", () => {
+    expect(
+      workingWindows({
+        template: FULL_DAY,
+        exceptions: [
+          { kind: "JAM_TAMBAHAN", startMinute: 1140, endMinute: 1200 },
+          { kind: "BLOKIR_SEBAGIAN", startMinute: 720, endMinute: 780 },
+        ],
+        isHoliday: false,
+      }),
+    ).toEqual([
+      { startMinute: 660, endMinute: 720 },
+      { startMinute: 780, endMinute: 1140 },
+      { startMinute: 1140, endMinute: 1200 },
+    ]);
+  });
+
+  it("libur, cuti, atau tanpa jam kerja: tidak ada jendela", () => {
+    expect(workingWindows({ template: FULL_DAY, exceptions: [], isHoliday: true })).toEqual([]);
+    expect(
+      workingWindows({ template: FULL_DAY, exceptions: [{ kind: "LIBUR", startMinute: null, endMinute: null }], isHoliday: false }),
+    ).toEqual([]);
+    expect(workingWindows({ template: null, exceptions: [], isHoliday: false })).toEqual([]);
   });
 });
