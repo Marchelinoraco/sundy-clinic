@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BranchCard } from "@/components/catalog/branch-card";
+import { PageHero } from "@/components/public/page-hero";
+import { branchImage } from "@/lib/site-images";
 import { getBranchBySlug, getBranches } from "@/server/catalog";
 
 type PageProps = { params: Promise<{ slug: string }> };
@@ -33,8 +36,24 @@ export default async function BranchDetailPage({ params }: PageProps) {
   if (!branch) notFound();
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-14">
-      <BranchCard branch={branch} />
-    </div>
+    <>
+      <PageHero
+        eyebrow={
+          <nav aria-label="Remah roti">
+            <Link href="/lokasi" className="underline-offset-4 hover:underline">
+              Lokasi
+            </Link>
+            <span aria-hidden="true"> · </span>
+            <span>{branch.name}</span>
+          </nav>
+        }
+        title={branch.name}
+        image={branchImage(branch.slug)}
+      />
+      <div className="mx-auto max-w-3xl px-4 py-14">
+        {/* Judul halaman sudah nama cabang, dan fotonya sudah di kepala halaman. */}
+        <BranchCard branch={branch} title="Alamat & jam buka" withImage={false} />
+      </div>
+    </>
   );
 }

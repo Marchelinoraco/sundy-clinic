@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { FaqList } from "@/components/public/faq-list";
+import { PageHero } from "@/components/public/page-hero";
 import { CLINIC_WHATSAPP_DISPLAY, CLOSED_NOTE, OPENING_HOURS } from "@/lib/clinic";
 
 export const metadata: Metadata = {
@@ -40,17 +42,19 @@ const faqs = [
 
 export default function FaqPage() {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-14">
-      <h1 className="font-display text-4xl text-brown-900">Tanya Jawab</h1>
-
-      <dl className="mt-10 space-y-8">
-        {faqs.map((faq) => (
-          <div key={faq.question} className="border-b border-cream-300 pb-8 last:border-0">
-            <dt className="font-display text-xl text-brown-900">{faq.question}</dt>
-            <dd className="mt-2 leading-relaxed text-brown-700">{faq.answer}</dd>
-          </div>
-        ))}
-      </dl>
-    </div>
+    <>
+      <PageHero
+        title="Tanya Jawab"
+        description={
+          <p>
+            Pertanyaan yang sering diajukan tentang layanan dan program SunDY Clinic. Belum menemukan
+            jawabannya? Tanyakan lewat WhatsApp di {CLINIC_WHATSAPP_DISPLAY}.
+          </p>
+        }
+      />
+      <div className="mx-auto max-w-3xl px-4 py-14">
+        <FaqList faqs={faqs} />
+      </div>
+    </>
   );
 }
