@@ -11,6 +11,14 @@ export function greetingFor(now: Date): string {
   return "Selamat malam";
 }
 
+const TITLE = /^(dr|drg|prof|ny|tn|bpk|ibu|bu|sdr|sdri)\.?$/i;
+
+/** Nama untuk sapaan: kata pertama yang bukan gelar ("Dr. Diane Paparang, Sp.GK" → "Diane"). */
+export function greetingName(fullName: string): string {
+  const words = fullName.split(",")[0].trim().split(/\s+/).filter(Boolean);
+  return words.find((word) => !TITLE.test(word)) ?? words[0] ?? "";
+}
+
 export const DASHBOARD_PERIODS = ["minggu", "bulan"] as const;
 export type DashboardPeriod = (typeof DASHBOARD_PERIODS)[number];
 

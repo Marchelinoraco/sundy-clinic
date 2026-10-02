@@ -27,7 +27,7 @@ export function ScheduleTimeline({ schedule, nowMinute }: { schedule: TodaySched
       Buka daftar Booking →
     </Link>
   );
-  if (schedule.holidayName) {
+  if (schedule.holidayName && schedule.lanes.length === 0) {
     return (
       <SectionCard title="Jadwal hari ini" actions={actions}>
         <EmptyState>Klinik tutup hari ini — {schedule.holidayName}.</EmptyState>
@@ -48,6 +48,9 @@ export function ScheduleTimeline({ schedule, nowMinute }: { schedule: TodaySched
   return (
     <SectionCard title="Jadwal hari ini" actions={actions} flush>
       <div className="min-w-[40rem] space-y-3 p-4">
+        {schedule.holidayName && (
+          <p className="text-sm text-muted-foreground">Klinik tutup hari ini — {schedule.holidayName}. Booking yang masih tercatat:</p>
+        )}
         <div className="ml-40 flex justify-between text-xs text-muted-foreground" aria-hidden>
           {timelineHours(axis).map((hour) => (
             <span key={hour}>{String(hour).padStart(2, "0")}</span>

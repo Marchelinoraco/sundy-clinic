@@ -6,12 +6,12 @@ import { DoctorWorklistView } from "@/components/admin/doctor-worklist";
 import { FailedSection, PageBody, PageHeader } from "@/components/admin/page-layout";
 import { ScheduleTimeline } from "@/components/admin/schedule-timeline";
 import { Button } from "@/components/ui/button";
-import { clinicDayLabel, greetingFor, parsePeriod } from "@/lib/dashboard";
+import { clinicDayLabel, greetingFor, greetingName, parsePeriod } from "@/lib/dashboard";
 import { formatIndonesianDate } from "@/lib/format";
 import { can } from "@/lib/permissions";
-import { firstName } from "@/lib/quiz-link";
 import { settle } from "@/lib/settle";
 import { witaDateString, witaMinutesOfDay } from "@/lib/time";
+import { cn } from "@/lib/utils";
 import { getDashboardNumbers, getTodaySchedule, getTodayWork } from "@/server/dashboard";
 import { listDoctorWorklist } from "@/server/encounter-read";
 import { requireStaff } from "@/server/session";
@@ -49,7 +49,7 @@ export default async function AdminDashboardPage({
       <AdminHeader title="Dasbor" />
       <PageBody>
         <PageHeader
-          title={`${greetingFor(now)}, ${firstName(staff.name)}`}
+          title={`${greetingFor(now)}, ${greetingName(staff.name)}`}
           description={[formatIndonesianDate(now), dayLabel].filter(Boolean).join(" · ")}
           actions={
             canBook ? (
@@ -68,7 +68,8 @@ export default async function AdminDashboardPage({
           ))}
         {(worklist || numbers) && (
           // grid-cols-1 = minmax(0, 1fr): tanpa itu tabel daftar dokter melebarkan halaman di ponsel.
-          <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+          // Dua kolom hanya bila keduanya tampil; dokter tanpa Angka memakai lebar penuh.
+          <div className={cn("grid grid-cols-1 gap-6", worklist && numbers && "xl:grid-cols-2")}>
             {worklist && (worklist.ok ? <DoctorWorklistView worklist={worklist.data} /> : <FailedSection title="Pasien hari ini" />)}
             {numbers && (numbers.ok ? <DashboardNumbersCard numbers={numbers.data} /> : <FailedSection title="Angka" />)}
           </div>

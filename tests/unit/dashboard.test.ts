@@ -3,6 +3,7 @@ import {
   clinicDayLabel,
   deltaLabel,
   greetingFor,
+  greetingName,
   parsePeriod,
   periodRanges,
   timelineAxis,
@@ -27,6 +28,15 @@ describe("greetingFor (spec D 4.1)", () => {
     ["23:30", "Selamat malam"],
   ])("pukul %s WITA → %s", (time, greeting) => {
     expect(greetingFor(wita("2031-02-12", time))).toBe(greeting);
+  });
+
+  it("nama sapaan melewati gelar dan singkatan di belakang koma", () => {
+    expect(greetingName("Dr. Diane Paparang, Sp.GK, AIFO-K")).toBe("Diane");
+    expect(greetingName("dr. Budi Santoso")).toBe("Budi");
+    expect(greetingName("drg. Maria")).toBe("Maria");
+    expect(greetingName("Staf E2E")).toBe("Staf");
+    expect(greetingName("Lino")).toBe("Lino");
+    expect(greetingName("Dr.")).toBe("Dr.");
   });
 });
 

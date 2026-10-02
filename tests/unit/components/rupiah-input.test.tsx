@@ -19,6 +19,16 @@ describe("parseRupiahText", () => {
     expect(parseRupiahText("abc")).toBeNull();
     expect(parseRupiahText("1234567890123")).toBe(123456789012);
   });
+
+  it("desimal rupiah (\",00\") dibuang, bukan dibaca sebagai angka tambahan", () => {
+    expect(parseRupiahText("Rp 189.000,00")).toBe(189000);
+    expect(parseRupiahText("Rp150.000,00")).toBe(150000);
+    expect(parseRupiahText("150.000,5")).toBe(150000);
+    // Koma ribuan gaya Inggris (3 digit) tetap angka biasa.
+    expect(parseRupiahText("189,000")).toBe(189000);
+    // Sedang mengetik koma di akhir.
+    expect(parseRupiahText("Rp 189.000,")).toBe(189000);
+  });
 });
 
 describe("rupiahInputText", () => {

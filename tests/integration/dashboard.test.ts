@@ -153,6 +153,18 @@ describe("data dasbor", () => {
       await prisma.holiday.create({ data: { date: new Date(`${DAY}T00:00:00Z`), name: "Libur Uji Dasbor", kind: "LIBUR_KLINIK" } });
       expect(await getTodaySchedule(NOW)).toEqual({ date: DAY, holidayName: "Libur Uji Dasbor", lanes: [], offStaff: [] });
     });
+
+    it("hari libur dengan booking yang masih ada: lajur hanya untuk tenaga yang punya booking, tanpa slot", async () => {
+      await prisma.holiday.create({ data: { date: new Date(`${DAY}T00:00:00Z`), name: "Libur Uji Dasbor", kind: "LIBUR_KLINIK" } });
+      const kept = await booking({ minute: 11 * 60, status: "TERKONFIRMASI" });
+      const schedule = await getTodaySchedule(NOW);
+      expect(schedule.holidayName).toBe("Libur Uji Dasbor");
+      const lane = schedule.lanes.find((l) => l.staffId === doctorId)!;
+      expect(lane).toMatchObject({ windows: [], openSlots: [] });
+      expect(lane.bookings.map((b) => b.id)).toEqual([kept.id]);
+      expect(schedule.lanes.find((l) => l.staffId === therapistId)).toBeUndefined();
+      expect(schedule.offStaff).toEqual([]);
+    });
   });
 
   describe("pekerjaan hari ini (spec D 4.2)", () => {

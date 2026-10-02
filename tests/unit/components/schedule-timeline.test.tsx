@@ -67,4 +67,17 @@ describe("ScheduleTimeline (spec D 4.3)", () => {
     rerender(<ScheduleTimeline schedule={{ date: "2031-02-12", holidayName: null, lanes: [], offStaff: ["dr. Diane"] }} nowMinute={700} />);
     expect(screen.getByText("Tidak ada jadwal praktik hari ini.")).toBeInTheDocument();
   });
+
+  it("hari libur yang masih punya booking: keterangan tutup dan lajur bookingnya", () => {
+    const holiday: TodaySchedule = {
+      date: "2031-02-12",
+      holidayName: "Libur Klinik",
+      lanes: [{ ...SCHEDULE.lanes[0], windows: [], openSlots: [] }],
+      offStaff: [],
+    };
+    render(<ScheduleTimeline schedule={holiday} nowMinute={700} />);
+    expect(screen.getByText("Klinik tutup hari ini — Libur Klinik. Booking yang masih tercatat:")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "06.00 Maria · Konsultasi · hadir" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /^Slot kosong/ })).not.toBeInTheDocument();
+  });
 });

@@ -90,8 +90,8 @@ export async function getTodaySchedule(now: Date = new Date()): Promise<TodaySch
   const { date, start, end } = dayBounds(now);
   const dateColumn = new Date(`${date}T00:00:00Z`);
 
+  // Hari libur: tanpa jam kerja dan slot, tetapi booking yang masih tercatat tetap tampil.
   const holiday = await prisma.holiday.findUnique({ where: { date: dateColumn }, select: { name: true } });
-  if (holiday) return { date, holidayName: holiday.name, lanes: [], offStaff: [] };
 
   const weekday = witaWeekday(now);
   const [staffList, primaryBranch] = await Promise.all([
@@ -135,10 +135,10 @@ export async function getTodaySchedule(now: Date = new Date()): Promise<TodaySch
   const offStaff: string[] = [];
   for (const staff of staffList) {
     const template = staff.scheduleTemplates[0] ?? null;
-    const windows = workingWindows({ template, exceptions: staff.scheduleExceptions, isHoliday: false });
+    const windows = workingWindows({ template, exceptions: staff.scheduleExceptions, isHoliday: holiday !== null });
     const own = bookings.filter((b) => b.staffId === staff.id);
     if (windows.length === 0 && own.length === 0) {
-      offStaff.push(staff.name);
+      if (!holiday) offStaff.push(staff.name);
       continue;
     }
     const branchId = template?.branchId ?? staff.scheduleExceptions.find((e) => e.branchId)?.branchId ?? primaryBranch?.id;
@@ -168,7 +168,7 @@ export async function getTodaySchedule(now: Date = new Date()): Promise<TodaySch
       }),
     });
   }
-  return { date, holidayName: null, lanes, offStaff };
+  return { date, holidayName: holiday?.name ?? null, lanes, offStaff };
 }
 
 export type PeriodNumbers = {
