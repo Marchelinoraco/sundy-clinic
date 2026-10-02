@@ -23,6 +23,7 @@ export function IntakeView({ intake }: { intake: IntakeDetail }) {
           <span className="font-mono">{appointment.code}</span>
           <Badge variant="outline">{STATUS_LABEL[intake.status]}</Badge>
           <Badge variant="secondary">{intake.kind === "LENGKAP" ? "Kuis lengkap" : "Kuis pendek"}</Badge>
+          {intake.needsFullIntake && <Badge variant="outline">Belum punya isian lengkap</Badge>}
         </div>
         <p>
           {appointment.serviceName} · {appointment.staffName} · {formatIndonesianDate(appointment.startAt)}, {time} WITA

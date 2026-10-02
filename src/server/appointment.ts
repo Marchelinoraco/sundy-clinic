@@ -251,7 +251,17 @@ export async function cancelAppointment(
 // yang tidak boleh menerima jawaban klinis (spec 6.2).
 const BOOKING_LIST_INCLUDE = {
   // Hanya identitas: catatan medis tidak pernah ikut daftar booking (spec 6.2).
-  patient: { select: { id: true, name: true, medicalRecordNumber: true, whatsapp: true } },
+  patient: {
+    select: {
+      id: true,
+      name: true,
+      medicalRecordNumber: true,
+      whatsapp: true,
+      // Hanya id: cukup untuk tanda "Belum punya isian lengkap" (spec C3 4.3), tanpa jawaban klinis.
+      // "Bukan MENUNGGU_DIISI" = TERISI atau DIPERIKSA; daftar `in` tidak bisa dipakai di objek `as const`.
+      intakes: { where: { kind: "LENGKAP", status: { not: "MENUNGGU_DIISI" } }, select: { id: true }, take: 1 },
+    },
+  },
   staff: true,
   branch: true,
   service: true,

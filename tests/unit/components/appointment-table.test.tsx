@@ -27,6 +27,10 @@ vi.mock("@/server/intake", () => ({
   getMatchCandidates: vi.fn(),
   matchPatient: vi.fn(),
 }));
+vi.mock("@/server/quiz-link-admin", () => ({
+  getQuizLink: vi.fn().mockResolvedValue({ ok: true, data: null }),
+  rotateQuizLink: vi.fn(),
+}));
 vi.mock("@/server/schedule", () => ({
   getStaffAvailabilityRange: vi.fn(),
   getStaffAvailabilityForAdmin: vi.fn(),
@@ -55,6 +59,8 @@ const base: BookingRow = {
   intakeStatus: "TERISI",
   patientId: "p1",
   messageNotes: [],
+  quizLink: null,
+  needsFullIntake: false,
   reschedule: {
     appointmentId: "a1",
     code: "SDY-8F3K",
@@ -357,5 +363,20 @@ describe("AppointmentTable status isian dan tautan pasien", () => {
     unmount();
     renderTable([{ ...base, patientId: null, needsMatch: true }]);
     expect(screen.queryByRole("link", { name: "Siti Rahayu" })).not.toBeInTheDocument();
+  });
+});
+
+describe("AppointmentTable link kuis (spec C3)", () => {
+  it("Link kuis dari menu membuka dialog untuk booking itu", async () => {
+    const user = userEvent.setup();
+    renderTable([{ ...waRow, quizLink: "https://sundyclinic.com/isi#x" }]);
+    await openMenu(user, "SDY-WA01");
+    await user.click(screen.getByRole("menuitem", { name: "Link kuis" }));
+    expect(await screen.findByRole("dialog", { name: "Link kuis — SDY-WA01" })).toBeInTheDocument();
+  });
+
+  it("booking situs dari pasien tanpa isian lengkap diberi tanda", () => {
+    renderTable([{ ...base, needsFullIntake: true }]);
+    expect(screen.getByText("Belum punya isian lengkap")).toBeInTheDocument();
   });
 });

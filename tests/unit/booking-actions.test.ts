@@ -81,3 +81,17 @@ describe("bookingRowActions (spec C1 5.2, C2 bagian 5)", () => {
     expect(bookingRowActions(site, false).menu).not.toContain("VIEW_INTAKE");
   });
 });
+
+describe("bookingRowActions link kuis (spec C3 4.2)", () => {
+  it("link kuis yang berlaku menjadi item pertama di menu", () => {
+    expect(bookingRowActions({ ...waiting, quizLink: "https://x/isi#a" }, true).menu[0]).toBe("QUIZ_LINK");
+    expect(
+      bookingRowActions({ ...waiting, source: "WALK_IN", transferInstruction: null, quizLink: "https://x/isi#a" }, true),
+    ).toEqual({ primary: ["ATTEND", "VERIFY"], menu: ["QUIZ_LINK", "NO_SHOW", "RESCHEDULE", "CANCEL"] });
+  });
+
+  it("tanpa link kuis: tidak ada di menu", () => {
+    expect(bookingRowActions(waiting, true).menu).not.toContain("QUIZ_LINK");
+    expect(bookingRowActions({ ...waiting, quizLink: null }, true).menu).not.toContain("QUIZ_LINK");
+  });
+});

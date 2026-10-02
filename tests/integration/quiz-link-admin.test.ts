@@ -152,4 +152,31 @@ describe("link kuis di panel admin", () => {
     expect(new Set(capabilities)).toEqual(new Set(["booking:manage"]));
     expect(can("RESEPSIONIS", "booking:manage")).toBe(true);
   });
+
+  it("halaman isian menandai booking situs berkuis pendek dari pasien tanpa isian lengkap", async () => {
+    const { getIntakeForStaff } = await import("@/server/intake");
+    const site = await prisma.appointment.create({
+      data: {
+        code: "LKA-SITUS",
+        type: "KONSULTASI",
+        startAt: new Date(base + 300 * HOUR),
+        endAt: new Date(base + 300 * HOUR + 30 * 60 * 1000),
+        source: "SITUS",
+        status: "MENUNGGU_KONFIRMASI",
+        branchId,
+        staffId,
+        patientId,
+      },
+    });
+    const intake = await prisma.intake.create({
+      data: { appointmentId: site.id, patientId, status: "TERISI", kind: "PENDEK", submittedAt: new Date() },
+    });
+    expect((await getIntakeForStaff(intake.id))!.needsFullIntake).toBe(true);
+
+    const earlier = await booking("SELESAI");
+    await prisma.intake.create({
+      data: { appointmentId: earlier.id, patientId, status: "TERISI", kind: "LENGKAP", submittedAt: new Date() },
+    });
+    expect((await getIntakeForStaff(intake.id))!.needsFullIntake).toBe(false);
+  });
 });

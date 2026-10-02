@@ -62,7 +62,8 @@ function toRow(a: ListedAppointment, context: RowContext): BookingRow {
     needsMatch: patient === null,
     isSiteBooking: a.source === "SITUS" && a.intake !== null,
     intakeId: a.intake?.id ?? null,
-    intakeStatus: a.intake?.status ?? null,
+    // Booking admin yang linknya berlaku belum tentu punya baris isian: tetap "Isian: belum diisi" (spec C3 4.3).
+    intakeStatus: a.intake?.status ?? (quizLink ? "MENUNGGU_DIISI" : null),
     patientId: patient?.id ?? null,
     serviceName: bookingServiceName(a),
     staffName: a.staff.name,
@@ -84,6 +85,9 @@ function toRow(a: ListedAppointment, context: RowContext): BookingRow {
       branchId: a.branchId,
       branchName: a.branch.name,
     },
+    quizLink,
+    needsFullIntake:
+      a.source === "SITUS" && a.intake?.kind === "PENDEK" && patient !== null && patient.intakes.length === 0,
   };
 }
 
