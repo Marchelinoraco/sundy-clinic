@@ -422,3 +422,16 @@ h3 {
     transform: none !important;
   }
 }
+
+/* Bar booking detail layanan (sticky-booking-bar.tsx), hanya di bawah lg:
+   halaman diberi ruang bawah setinggi bar supaya bar tidak menutupi footer,
+   dan tombol WhatsApp melayang naik selama bar tampil. */
+@media (max-width: 63.98rem) {
+  body:has([data-sticky-booking-bar]) {
+    padding-bottom: 4.5rem;
+  }
+
+  body:has([data-sticky-booking-bar][data-visible="true"]) .whatsapp-fab {
+    transform: translate3d(0, -4.5rem, 0);
+  }
+}
