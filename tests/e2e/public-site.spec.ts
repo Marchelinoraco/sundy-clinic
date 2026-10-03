@@ -23,18 +23,24 @@ test("pengunjung dapat menelusuri dari beranda ke detail layanan", async ({ page
   await expect(main.getByText("Rp 499.000")).toBeVisible();
 });
 
-test("halaman program slimming menampilkan ketiga kelompok paket", async ({ page }) => {
+test("halaman program slimming menampilkan ketiga kelompok paket lewat tombol pilihan", async ({ page }) => {
   await page.goto("/program-slimming");
   await expect(page.getByRole("heading", { name: "Paket MAX" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Paket LUX" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Paket ACTIVE" })).toBeVisible();
+
+  for (const group of ["LUX", "ACTIVE"]) {
+    await page.getByRole("tab", { name: group }).click();
+    await expect(page.getByRole("heading", { name: `Paket ${group}` })).toBeVisible();
+    await expect(page).toHaveURL(new RegExp(`paket=${group.toLowerCase()}`));
+  }
 });
 
 test("LUX T ACTIVE memakai Kapsul L, bukan Kapsul M", async ({ page }) => {
   // Materi promosi klinik menulis Kapsul M di sini. Koreksinya harus sampai
-  // ke halaman yang dilihat pasien, bukan berhenti di basis data.
+  // ke halaman yang dilihat customer, bukan berhenti di basis data.
   await page.goto("/program-slimming");
+  await page.getByRole("tab", { name: "ACTIVE" }).click();
   const card = page.locator("article").filter({ hasText: "LUX T ACTIVE" });
+  await expect(card).toBeVisible();
   await expect(card).toContainText("Kapsul L");
   await expect(card).not.toContainText("Kapsul M");
 });

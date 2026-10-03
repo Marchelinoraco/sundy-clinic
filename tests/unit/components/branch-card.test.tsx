@@ -56,4 +56,22 @@ describe("BranchCard", () => {
     render(<BranchCard branch={{ ...active, mapsUrl: null }} />);
     expect(screen.queryByRole("link", { name: /petunjuk arah/i })).not.toBeInTheDocument();
   });
+
+  it("memakai judul pengganti dan tingkat judul yang diminta", () => {
+    render(<BranchCard branch={active} title="Alamat & jam buka" headingLevel={3} />);
+    expect(screen.getByRole("heading", { level: 3, name: "Alamat & jam buka" })).toBeInTheDocument();
+  });
+
+  it("menampilkan foto cabang sebagai hiasan, dan bisa tanpa foto", () => {
+    const { container, rerender } = render(<BranchCard branch={active} />);
+    expect(container.querySelector("img")).toHaveAttribute("alt", "");
+
+    rerender(<BranchCard branch={active} withImage={false} />);
+    expect(container.querySelector("img")).toBeNull();
+  });
+
+  it("membuat label Segera Hadir berdenyut pelan", () => {
+    render(<BranchCard branch={comingSoon} />);
+    expect(screen.getByText("Segera Hadir")).toHaveClass("pulse-soft");
+  });
 });

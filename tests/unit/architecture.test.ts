@@ -68,4 +68,95 @@ describe("batasan arsitektur", () => {
     const missing = urls.filter((url) => !existsSync(`src/app/(admin)${url}/page.tsx`));
     expect(missing).toEqual([]);
   });
+
+  it("kuis, pendaftaran, dan panel admin tidak memakai bahan gerak situs publik", () => {
+    // Spec redesign §6: alur kuis /daftar dan panel admin bebas dari gerak.
+    const dirs = [
+      "src/components/kuis",
+      "src/components/pendaftaran",
+      "src/components/admin",
+      "src/app/(admin)",
+    ];
+    const offenders = dirs.flatMap(collectSourceFiles).filter((file) => {
+      const source = readFileSync(file, "utf8");
+      return (
+        source.includes('from "@/components/motion/') ||
+        source.includes('from "motion/') ||
+        source.includes('from "lenis')
+      );
+    });
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("gulir halus hanya dipasang sekali, di layout situs publik", () => {
+    // Spec redesign §6: Lenis hanya di layout (public); panel admin dan kuis memakai gulir asli.
+    const mounts = collectSourceFiles("src").filter((file) =>
+      readFileSync(file, "utf8").includes("<SmoothScroll"),
+    );
+    expect(mounts).toEqual(["src/app/(public)/layout.tsx"]);
+  });
+
+  it("komponen server hanya mengambil komponen dari modul klien, bukan fungsi atau konstanta", () => {
+    // Fungsi dari berkas "use client" yang dipanggil di komponen server menjadi referensi
+    // klien dan membuat halaman galat 500 ("Attempted to call … from the server").
+    // Vitest tidak menegakkan batas ini, jadi diperiksa di sini.
+    const isClient = (file: string) => /^\s*["']use client["']/.test(readFileSync(file, "utf8"));
+    const resolve = (specifier: string) =>
+      [".ts", ".tsx"].map((ext) => specifier.replace(/^@\//, "src/") + ext).find((file) => existsSync(file));
+
+    const offenders = collectSourceFiles("src")
+      .filter((file) => !isClient(file))
+      .flatMap((file) => {
+        const source = readFileSync(file, "utf8");
+        return [...source.matchAll(/import\s+\{([^}]+)\}\s+from\s+"(@\/[^"]+)"/g)].flatMap(([, names, from]) => {
+          const target = resolve(from);
+          if (!target || !isClient(target)) return [];
+          return names
+            .split(",")
+            .map((name) => name.trim())
+            .filter((name) => name && !name.startsWith("type ") && !/^[A-Z][a-z]/.test(name))
+            .map((name) => `${file}: ${name} dari ${from}`);
+        });
+      });
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("halaman publik tidak memakai kata pasien atau berobat", () => {
+    // Spec redesign §4.3: halaman publik memakai "Anda" dan "customer". Kuis, cek booking,
+    // dan teks hukum tidak diubah redesign ini, jadi tidak ikut diperiksa.
+    const dirs = [
+      "src/components/home",
+      "src/components/public",
+      "src/components/layout",
+      "src/components/catalog",
+      "src/components/motion",
+      "src/app/(public)",
+    ];
+    const untouched = [
+      "src/app/(public)/daftar",
+      "src/app/(public)/cek-booking",
+      "src/app/(public)/isi",
+      "src/app/(public)/kebijakan-privasi",
+      "src/app/(public)/syarat-ketentuan",
+    ];
+    const offenders = dirs
+      .flatMap(collectSourceFiles)
+      .filter((file) => !untouched.some((dir) => file.startsWith(dir)))
+      .filter((file) => /\b(pasien|berobat)\b/i.test(readFileSync(file, "utf8")));
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("pustaka motion hanya dipakai penanda tombol pilihan paket", () => {
+    // motion/react selalu membawa seluruh framer-motion (±1.600 modul di server dev). Bila dipakai
+    // header atau kepala halaman, pustaka itu ikut ke setiap halaman publik: server dev uji
+    // kehabisan memori, dan HP pengunjung mengunduhnya di Beranda. Magnet, kartu miring, dan
+    // parallax cukup dengan JavaScript biasa.
+    const users = collectSourceFiles("src").filter((file) =>
+      /from "(motion|framer-motion)(\/[^"]*)?"/.test(readFileSync(file, "utf8")),
+    );
+    expect(users).toEqual(["src/components/public/package-tabs.tsx"]);
+  });
 });

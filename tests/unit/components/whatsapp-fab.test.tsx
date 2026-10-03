@@ -15,4 +15,11 @@ describe("WhatsAppFab", () => {
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
   });
+
+  it("masuk dengan animasi dan bisa digeser naik oleh bar booking", () => {
+    render(<WhatsAppFab />);
+    const link = screen.getByRole("link", { name: /chat via whatsapp/i });
+    expect(link).toHaveClass("fab-in");
+    expect(link).toHaveClass("whatsapp-fab");
+  });
 });

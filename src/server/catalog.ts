@@ -1,8 +1,6 @@
 import type { Branch, Package, PackageItem, Product, Service, Staff } from "@prisma/client";
 import { prisma } from "@/lib/db";
-
-/** Urutan kelompok paket sebagaimana ditampilkan ke pengunjung. */
-const PACKAGE_GROUP_ORDER = ["MAX", "LUX", "ACTIVE"] as const;
+import { PACKAGE_GROUPS } from "@/lib/package-group";
 
 export type ServiceCategoryWithServices = Awaited<
   ReturnType<typeof getServiceCategoriesWithServices>
@@ -38,11 +36,31 @@ export async function getServiceBySlug(slug: string) {
   });
 }
 
-export async function getSignatureServices(): Promise<Service[]> {
+/** Layanan signature beserta kategorinya (foto kartu memakai foto kategori). */
+export async function getSignatureServices(): Promise<ServiceWithCategory[]> {
   return prisma.service.findMany({
     where: { isSignature: true, isActive: true },
     orderBy: { sortOrder: "asc" },
+    include: { category: true },
   });
+}
+
+/** Layanan aktif lain dalam kategori yang sama, untuk "Treatment lain di …" di halaman detail. */
+export async function getRelatedServices(
+  categoryId: string,
+  excludeServiceId: string,
+  limit = 3,
+): Promise<Service[]> {
+  return prisma.service.findMany({
+    where: { categoryId, isActive: true, id: { not: excludeServiceId } },
+    orderBy: { sortOrder: "asc" },
+    take: limit,
+  });
+}
+
+/** Jumlah treatment aktif, untuk angka di Beranda. */
+export async function countActiveServices(): Promise<number> {
+  return prisma.service.count({ where: { isActive: true } });
 }
 
 export async function getAllServiceSlugs(): Promise<string[]> {
@@ -61,7 +79,7 @@ export async function getPackagesByGroup(): Promise<PackageGroup[]> {
     include: { items: { orderBy: { sortOrder: "asc" } } },
   });
 
-  return PACKAGE_GROUP_ORDER.map((groupName) => ({
+  return PACKAGE_GROUPS.map((groupName) => ({
     groupName: groupName as string,
     packages: packages.filter((pkg) => pkg.groupName === groupName),
   })).filter((group) => group.packages.length > 0);

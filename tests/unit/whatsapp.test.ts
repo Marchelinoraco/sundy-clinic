@@ -4,6 +4,7 @@ import {
   branchNotifyMessage,
   buildWhatsAppLink,
   buildWhatsAppLinkTo,
+  generalInquiryMessage,
   normalizeWhatsapp,
   productInquiryMessage,
   serviceInquiryMessage,
@@ -98,5 +99,11 @@ describe("buildWhatsAppLinkTo", () => {
 
   it("mengembalikan null bila nomor pasien tidak sah", () => {
     expect(buildWhatsAppLinkTo("0812", "Halo")).toBeNull();
+  });
+});
+
+describe("generalInquiryMessage", () => {
+  it("menyapa klinik untuk pertanyaan umum", () => {
+    expect(generalInquiryMessage()).toBe("Halo SunDY Clinic, saya ingin bertanya.");
   });
 });
