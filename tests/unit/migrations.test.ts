@@ -17,3 +17,19 @@ describe("migrasi link kuis (C3)", () => {
     expect(sql).toMatch(/ADD VALUE IF NOT EXISTS 'LINK_KUIS'/);
   });
 });
+
+describe("migrasi check-in klinik (rekam medis bagian 2)", () => {
+  const sql = readFileSync("prisma/migrations/20261003120000_check_in_klinik/migration.sql", "utf8");
+
+  it("hanya menambah, tanpa menghapus apa pun yang dikenal rilis sebelumnya", () => {
+    expect(sql).not.toMatch(/\bDROP\b/i);
+  });
+
+  it("menjaga NIK dan pasien rangkap di basis data, serta mengunci food recall saat final", () => {
+    expect(sql).toMatch(/patient_nik_format/);
+    expect(sql).toMatch(/patient_nik_or_reason/);
+    expect(sql).toMatch(/patient_not_merged_into_self/);
+    expect(sql).toMatch(/CREATE TRIGGER food_recall_locked/);
+    expect(sql).toMatch(/CREATE TRIGGER food_recall_no_truncate/);
+  });
+});

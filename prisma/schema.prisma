@@ -352,6 +352,15 @@ model Patient {
   programStatus       PatientProgramStatus @default(AKTIF)
   activePackageId     String?
   lastVisitAt         DateTime?
+  /// NIK 16 angka, ditanyakan resepsionis saat check-in. Tidak pernah tampil di situs,
+  /// pesan WA, atau link (spec rekam medis bagian 2). Bentuk dan keunikannya dijaga basis data.
+  nik                 String?              @unique
+  /// Alasan "Belum ada NIK"; tidak pernah terisi bersamaan dengan nik (CHECK patient_nik_or_reason).
+  nikMissingReason    NikMissingReason?
+  /// Pasien rangkap: booking dan isiannya sudah dipindah ke pasien ini (spec bagian 3.3).
+  mergedIntoId        String?
+  mergedInto          Patient?             @relation("PatientMerge", fields: [mergedIntoId], references: [id])
+  mergedFrom          Patient[]            @relation("PatientMerge")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -361,6 +370,7 @@ model Patient {
 
   @@index([whatsapp])
   @@index([name])
+  @@index([mergedIntoId])
 }
 
 enum AppointmentType {
@@ -401,10 +411,13 @@ model Appointment {
 
   /// Salinan biaya booking (rupiah) saat booking dibuat. Kosong untuk walk-in.
   /// Perubahan pengaturan tidak mengubah booking lama.
-  bookingFee Int?
-  intake     Intake?
-  encounter  Encounter?
-  messages   AppointmentMessage[]
+  bookingFee  Int?
+  intake      Intake?
+  encounter   Encounter?
+  foodRecall  FoodRecall?
+  /// Jam check-in di meja depan (spec rekam medis bagian 2).
+  checkedInAt DateTime?
+  messages    AppointmentMessage[]
 
   branchId  String
   branch    Branch   @relation(fields: [branchId], references: [id])
@@ -509,6 +522,40 @@ enum IntakePurpose {
   GIZI_KLINIK
 }
 
+enum NikMissingReason {
+  WARGA_ASING
+  ANAK
+  LUPA_KTP
+}
+
+enum FoodRecallStatus {
+  DITAWARKAN
+  DIISI
+}
+
+/// Food recall H-1: catatan makan, minum, dan aktivitas customer sehari sebelum
+/// booking, diisi lewat link /food-recall atau dilengkapi dokter. Satu per booking,
+/// terkunci saat catatan dokter kunjungan itu final (trigger food_recall_locked).
+model FoodRecall {
+  id                 String           @id @default(cuid())
+  appointmentId      String           @unique
+  appointment        Appointment      @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  /// Tanggal booking (WITA) dikurangi satu hari.
+  recallDate         DateTime         @db.Date
+  status             FoodRecallStatus @default(DITAWARKAN)
+  /// Baris { hour, kind, text, by }; bentuknya dikunci src/lib/food-recall.ts.
+  entries            Json             @default("[]")
+  /// Kiriman customer terakhir.
+  submittedAt        DateTime?
+  /// Suntingan dokter terakhir. Id dan nama disalin seperti AuditLog, tanpa relasi.
+  completedByStaffId String?
+  completedByName    String?
+  completedAt        DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 /// Isian Pendaftaran: jawaban kuis & data diri pasien untuk satu booking.
 /// Tidak pernah dihapus; setelah TERISI, jawabannya tidak pernah diubah —
 /// yang boleh berubah hanya patientId (pencocokan) dan kolom pemeriksaan
@@ -551,7 +598,7 @@ model Intake {
 
   /// Versi link isi kuis (spec C3 bagian 6). Kode link = HMAC dari booking + versi ini;
   /// "Ganti link" menaikkannya sehingga link lama tidak berlaku.
-  linkVersion Int @default(0)
+  linkVersion   Int       @default(0)
   /// Tidak dipakai lagi (desain awal Plan 3b-2). Dihapus di rilis setelah C3 aktif:
   /// rilis sebelum C3 masih membaca kolom ini selama deploy berjalan.
   linkTokenHash String?   @unique
