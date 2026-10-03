@@ -116,6 +116,7 @@ export async function createPatient(input: {
 export async function listRecentPatients(limit = 50): Promise<PatientSummary[]> {
   await requireCapability("booking:manage");
   const rows = await prisma.patient.findMany({
+    where: { mergedIntoId: null },
     orderBy: { createdAt: "desc" },
     take: limit,
     select: summarySelect(new Date()),
@@ -133,10 +134,10 @@ export async function getPatientSummary(id: string): Promise<PatientSummary | nu
 /** Jumlah semua pasien, untuk kepala halaman Pasien (spec D 5.2). */
 export async function countPatients(): Promise<number> {
   await requireCapability("booking:manage");
-  return prisma.patient.count();
+  return prisma.patient.count({ where: { mergedIntoId: null } });
 }
 
-/** Cocok terhadap nama (sebagian, tanpa peduli huruf besar/kecil) atau nomor WhatsApp. */
+/** Cocok terhadap nama (sebagian, tanpa peduli huruf besar/kecil), nomor WhatsApp, no. RM, atau NIK (≥ 6 angka). Pasien rangkap tidak ikut. */
 export async function searchPatients(query: string): Promise<PatientSummary[]> {
   await requireCapability("booking:manage");
   const trimmed = query.trim();
@@ -153,13 +154,19 @@ export async function searchPatients(query: string): Promise<PatientSummary[]> {
     }
   }
 
+  // NIK lazim diketik berspasi atau bertitik seperti di KTP.
+  const nikDigits = /^[\d\s.-]+$/.test(trimmed) ? trimmed.replace(/\D/g, "") : "";
+  const nikMatch = nikDigits.length >= 6 ? [{ nik: { contains: nikDigits } }] : [];
+
   const rows = await prisma.patient.findMany({
     where: {
+      mergedIntoId: null,
       OR: [
         { name: { contains: trimmed, mode: "insensitive" } },
         { whatsapp: { contains: trimmed } },
         { medicalRecordNumber: { contains: trimmed, mode: "insensitive" } },
         ...phoneVariants,
+        ...nikMatch,
       ],
     },
     orderBy: { name: "asc" },
@@ -174,7 +181,7 @@ export async function findPatientsByWhatsapp(whatsapp: string): Promise<PatientS
   await requireCapability("booking:manage");
   const normalized = normalizeWhatsapp(whatsapp);
   if (!normalized) return [];
-  const rows = await prisma.patient.findMany({ where: { whatsapp: normalized }, select: summarySelect(new Date()) });
+  const rows = await prisma.patient.findMany({ where: { whatsapp: normalized, mergedIntoId: null }, select: summarySelect(new Date()) });
   return rows.map(toSummary);
 }
 

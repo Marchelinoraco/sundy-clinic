@@ -19,6 +19,7 @@ import {
   transferInstructionFor,
   type TransferInstruction,
 } from "@/lib/transfer-instruction";
+import { ACTIVE_STATUSES, rejectedChangeError } from "@/server/appointment-guard";
 import { recordAudit } from "@/server/audit";
 import {
   confirmationDeadlines,
@@ -120,35 +121,6 @@ export async function createAppointment(input: {
   });
 }
 
-/** Status yang masih bisa dijadwal ulang, diverifikasi, dihadiri, atau dibatalkan. */
-const ACTIVE_STATUSES: AppointmentStatus[] = ["MENUNGGU_KONFIRMASI", "TERKONFIRMASI"];
-
-const STATUS_WORD: Record<AppointmentStatus, string> = {
-  MENUNGGU_KONFIRMASI: "menunggu konfirmasi",
-  TERKONFIRMASI: "terkonfirmasi",
-  HADIR: "hadir",
-  SELESAI: "selesai",
-  DIBATALKAN: "dibatalkan",
-  TIDAK_HADIR: "tidak hadir",
-  KEDALUWARSA: "kedaluwarsa",
-};
-
-/**
- * Pesan untuk UPDATE bersyarat yang tidak mengubah apa pun: pasien belum
- * dicocokkan (booking situs), atau statusnya sudah berubah.
- */
-async function rejectedChangeError(id: string, needsPatient = false): Promise<UserFacingError> {
-  const current = await prisma.appointment.findUniqueOrThrow({
-    where: { id },
-    select: { status: true, patientId: true },
-  });
-  if (needsPatient && current.patientId === null) {
-    return new UserFacingError("Cocokkan booking ini dengan data pasien lebih dulu.");
-  }
-  return new UserFacingError(
-    `Booking ini sudah berstatus ${STATUS_WORD[current.status]}. Muat ulang halaman.`,
-  );
-}
 
 export async function rescheduleAppointment(
   id: string,
