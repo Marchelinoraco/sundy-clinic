@@ -99,6 +99,7 @@ Bila NIK yang diketik sudah tersimpan di pasien lain, dialog berhenti dan menamp
 
 Langkah food recall di dialog check-in punya kotak centang **Tawarkan food recall**.
 - **Tercentang otomatis** bila tujuan isian booking itu Slimming atau gizi klinik, atau pasien punya paket program aktif (`activePackageId`).
+  - `activePackageId` belum diisi oleh fitur mana pun. Selama itu, pasien lama yang booking lewat WhatsApp tanpa isian baru tidak tercentang otomatis, dan resepsionis mencentangnya sendiri.
 - **Tidak tercentang** untuk booking lain, tetapi resepsionis boleh mencentangnya.
 
 Bila tercentang, check-in membuat baris food recall berstatus **Ditawarkan**.
