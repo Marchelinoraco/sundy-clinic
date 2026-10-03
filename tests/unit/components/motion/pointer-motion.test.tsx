@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { Magnetic, magneticOffset } from "@/components/motion/magnetic";
 import { Tilt, tiltAngles } from "@/components/motion/tilt";
 import { FINE_POINTER_QUERY, REDUCED_MOTION_QUERY } from "@/components/motion/use-motion-prefs";
@@ -80,5 +80,69 @@ describe("gerak mengikuti kursor", () => {
     );
     expect(screen.getByRole("button").parentElement).toHaveAttribute("data-magnetic", "aktif");
     expect(screen.getByText("Kartu").parentElement).toHaveAttribute("data-tilt", "aktif");
+  });
+});
+
+describe("gerak mengikuti kursor saat aktif", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  function mockBox(box: { left: number; top: number; width: number; height: number }) {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({
+      ...box,
+      right: box.left + box.width,
+      bottom: box.top + box.height,
+      x: box.left,
+      y: box.top,
+      toJSON: () => ({}),
+    } as DOMRect);
+  }
+
+  it("menarik tombol ke arah kursor lalu melepasnya saat kursor pergi", () => {
+    setMediaMatches(FINE_POINTER_QUERY, true);
+    mockBox({ left: 100, top: 100, width: 200, height: 50 });
+    render(
+      <Magnetic>
+        <button type="button">Daftar</button>
+      </Magnetic>,
+    );
+    const magnet = screen.getByRole("button").parentElement as HTMLElement;
+
+    fireEvent.pointerMove(magnet, { clientX: 300, clientY: 150 });
+    expect(magnet.style.transform).toBe("translate3d(8px, 8px, 0)");
+
+    fireEvent.pointerLeave(magnet);
+    expect(magnet.style.transform).toBe("");
+  });
+
+  it("memiringkan kartu ke arah kursor lalu meratakannya saat kursor pergi", () => {
+    setMediaMatches(FINE_POINTER_QUERY, true);
+    mockBox({ left: 0, top: 0, width: 200, height: 100 });
+    render(
+      <Tilt>
+        <p>Kartu</p>
+      </Tilt>,
+    );
+    const card = screen.getByText("Kartu").parentElement as HTMLElement;
+
+    fireEvent.pointerMove(card, { clientX: 200, clientY: 0 });
+    expect(card.style.transform).toBe("perspective(900px) rotateX(6deg) rotateY(6deg)");
+
+    fireEvent.pointerLeave(card);
+    expect(card.style.transform).toBe("");
+  });
+
+  it("melepas tarikan bila kurangi gerakan dinyalakan saat tombol sedang tertarik", () => {
+    setMediaMatches(FINE_POINTER_QUERY, true);
+    mockBox({ left: 100, top: 100, width: 200, height: 50 });
+    render(
+      <Magnetic>
+        <button type="button">Daftar</button>
+      </Magnetic>,
+    );
+    const magnet = screen.getByRole("button").parentElement as HTMLElement;
+    fireEvent.pointerMove(magnet, { clientX: 300, clientY: 150 });
+
+    act(() => setMediaMatches(REDUCED_MOTION_QUERY, true));
+    expect(magnet.style.transform).toBe("");
   });
 });
