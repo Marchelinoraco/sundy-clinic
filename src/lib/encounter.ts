@@ -330,10 +330,14 @@ export function formatSignedDecimal(value: number): string {
   return `${value < 0 ? "−" : "+"}${formatDecimal(Math.abs(value))}`;
 }
 
-export type ContextTab = "intake" | "previous" | "trend";
+export type ContextTab = "intake" | "foodRecall" | "previous" | "trend";
 
-/** Tab yang terbuka pertama kali di kolom kiri (spec UI B keputusan U5). */
-export function initialContextTab(input: { hasIntake: boolean; hasHistory: boolean }): ContextTab {
+/**
+ * Tab yang terbuka pertama kali di kolom kiri (spec UI B keputusan U5). Food
+ * recall yang sudah diisi pada catatan draf terbuka lebih dulu (spec check-in 5.1).
+ */
+export function initialContextTab(input: { hasIntake: boolean; hasHistory: boolean; hasFilledFoodRecall?: boolean }): ContextTab {
+  if (input.hasFilledFoodRecall) return "foodRecall";
   if (input.hasIntake) return "intake";
   return input.hasHistory ? "previous" : "trend";
 }

@@ -38,7 +38,14 @@ function WorklistTable({ rows, withDate }: { rows: WorklistRow[]; withDate: bool
             <TableRow key={row.appointmentId}>
               <TableCell className="whitespace-nowrap">{withDate ? `${formatShortIndonesianDate(row.startAt)}, ${time}` : time}</TableCell>
               <TableCell>
-                <div className="font-medium">{row.patientName}</div>
+                <div className="font-medium">
+                  {row.patientName}
+                  {row.foodRecallFilled && (
+                    <Badge variant="outline" className="ml-2 text-xs font-normal">
+                      food recall ✓
+                    </Badge>
+                  )}
+                </div>
                 <div className="font-mono text-xs text-muted-foreground">{row.patientRecordNumber}</div>
               </TableCell>
               <TableCell>{row.serviceName}</TableCell>

@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
 /** Halaman tanpa kepala halaman berwarna: header sudah krem sejak atas supaya isi tidak menembus logo. */
-const SOLID_PATHS = ["/daftar", "/cek-booking", "/isi", "/kebijakan-privasi", "/syarat-ketentuan"];
+const SOLID_PATHS = ["/daftar", "/cek-booking", "/isi", "/food-recall", "/kebijakan-privasi", "/syarat-ketentuan"];
 
 export const SCROLL_THRESHOLD = 40;
 

@@ -14,6 +14,7 @@ export type BookingAction =
   | "NO_SHOW"
   | "RESCHEDULE"
   | "QUIZ_LINK"
+  | "FOOD_RECALL"
   | "CANCEL";
 
 export const BOOKING_ACTION_LABEL: Record<BookingAction, string> = {
@@ -23,12 +24,13 @@ export const BOOKING_ACTION_LABEL: Record<BookingAction, string> = {
   MATCH: "Cocokkan pasien",
   CHANGE_PATIENT: "Ganti pasien",
   VIEW_INTAKE: "Lihat isian",
-  ATTEND: "Hadir",
+  ATTEND: "Check-in",
   SEND_CONFIRMATION: "Kirim konfirmasi",
   COPY_CONFIRMATION: "Salin konfirmasi",
   NO_SHOW: "Tidak hadir",
   RESCHEDULE: "Pindah jadwal",
   QUIZ_LINK: "Link kuis",
+  FOOD_RECALL: "Food recall",
   CANCEL: "Batalkan",
 };
 
@@ -42,6 +44,8 @@ export type BookingActionRow = {
   confirmation: { link: string | null } | null;
   /** Link kuis yang berlaku (spec C3); null/absen bila kuis sudah diisi, booking situs, atau tidak aktif. */
   quizLink?: string | null;
+  /** Customer sudah check-in hari ini dan catatan dokternya belum final (spec check-in 4.4). */
+  foodRecallAvailable?: boolean;
 };
 
 /** Data yang dibutuhkan dialog Pindah jadwal (spec C2 bagian 5). Tenaga, cabang, dan durasi tetap. */
@@ -93,7 +97,7 @@ function baseRowActions(
     return { primary, menu };
   }
 
-  return { primary: [], menu: intake };
+  return { primary: [], menu: row.foodRecallAvailable ? ["FOOD_RECALL", ...intake] : intake };
 }
 
 /**

@@ -6,10 +6,10 @@ import { usePathname } from "next/navigation";
 import { useFinePointer, usePrefersReducedMotion } from "./use-motion-prefs";
 
 /**
- * Alur kuis tidak diubah redesign ini, jadi tetap memakai gulir asli: setiap ganti langkah
+ * Alur kuis dan form food recall tidak diubah redesign ini, jadi tetap memakai gulir asli: setiap ganti langkah
  * kuis menggulir sendiri ke atas, dan isiannya punya kolom teks yang bisa digulir.
  */
-const NATIVE_SCROLL_PATHS = ["/daftar", "/cek-booking", "/isi"];
+const NATIVE_SCROLL_PATHS = ["/daftar", "/cek-booking", "/isi", "/food-recall"];
 
 export function usesNativeScroll(pathname: string | null): boolean {
   if (!pathname) return false;

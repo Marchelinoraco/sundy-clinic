@@ -74,6 +74,7 @@ describe("batasan arsitektur", () => {
     const dirs = [
       "src/components/kuis",
       "src/components/pendaftaran",
+      "src/components/food-recall",
       "src/components/admin",
       "src/app/(admin)",
     ];
@@ -132,6 +133,7 @@ describe("batasan arsitektur", () => {
       "src/components/layout",
       "src/components/catalog",
       "src/components/motion",
+      "src/components/food-recall",
       "src/app/(public)",
     ];
     const untouched = [

@@ -99,6 +99,7 @@ export async function getMatchCandidates(appointmentId: string): Promise<ActionR
     const firstName = intake.name?.trim().split(/\s+/)[0] ?? "";
     const patients = await prisma.patient.findMany({
       where: {
+        mergedIntoId: null,
         OR: [
           ...(intake.whatsapp ? [{ whatsapp: intake.whatsapp }] : []),
           ...(intake.birthDate && firstName
@@ -149,9 +150,10 @@ export async function matchPatient(appointmentId: string, patientId: string): Pr
     const appointment = await loadMatchable(appointmentId);
     const patient = await prisma.patient.findUnique({
       where: { id: patientId },
-      select: { id: true, medicalRecordNumber: true },
+      select: { id: true, medicalRecordNumber: true, mergedIntoId: true },
     });
     if (!patient) throw new UserFacingError("Pasien tidak ditemukan.");
+    if (patient.mergedIntoId) throw new UserFacingError("Pasien ini rangkap dari pasien lain. Pilih pasien lamanya.");
 
     await prisma.$transaction((tx) => linkPatient(tx, appointment.id, appointment.intake.id, patient.id));
 

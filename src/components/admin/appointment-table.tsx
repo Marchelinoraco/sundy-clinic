@@ -38,7 +38,6 @@ import type { BookingSourceValue } from "@/lib/payment";
 import { cn } from "@/lib/utils";
 import {
   cancelAppointment,
-  markAttended,
   markNoShow,
   verifyAppointment,
 } from "@/server/appointment";
@@ -87,6 +86,10 @@ export type BookingRow = {
   quizLink: string | null;
   /** Booking situs berkuis pendek dari pasien yang belum punya isian lengkap (spec C3 4.3). */
   needsFullIntake: boolean;
+  /** Status food recall booking ini, tanpa isinya (spec check-in 4.4). */
+  foodRecall: "DITAWARKAN" | "DIISI" | null;
+  /** Aksi "Food recall" tersedia: sudah check-in hari ini dan catatan dokter belum final. */
+  foodRecallAvailable: boolean;
 };
 
 const INTAKE_STATUS_LABEL: Record<NonNullable<BookingRow["intakeStatus"]>, string> = {
@@ -172,7 +175,13 @@ export function AppointmentTable({
             ),
         };
       case "ATTEND":
-        return { onSelect: () => run(() => markAttended(row.id), `${row.patientName} hadir.`) };
+        return {
+          onSelect: () => dialogs.openCheckIn({ appointmentId: row.id, code: row.code, patientName: row.patientName }),
+        };
+      case "FOOD_RECALL":
+        return {
+          onSelect: () => dialogs.openFoodRecall({ appointmentId: row.id, code: row.code, patientName: row.patientName }),
+        };
       case "NO_SHOW":
         return { onSelect: () => run(() => markNoShow(row.id), `${row.patientName} ditandai tidak hadir.`) };
       case "RESCHEDULE":
@@ -352,6 +361,11 @@ export function AppointmentTable({
                   {row.intakeStatus && (
                     <div className="mt-1 text-xs text-muted-foreground">
                       Isian: {INTAKE_STATUS_LABEL[row.intakeStatus]}
+                    </div>
+                  )}
+                  {row.foodRecall && (
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      Food recall: {row.foodRecall === "DIISI" ? "sudah diisi" : "belum diisi"}
                     </div>
                   )}
                   {row.messageNotes.map((note) => (

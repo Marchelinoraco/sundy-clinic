@@ -48,6 +48,7 @@ describe("headerStartsSolid", () => {
     expect(headerStartsSolid("/daftar")).toBe(true);
     expect(headerStartsSolid("/cek-booking")).toBe(true);
     expect(headerStartsSolid("/isi")).toBe(true);
+    expect(headerStartsSolid("/food-recall")).toBe(true);
     expect(headerStartsSolid("/kebijakan-privasi")).toBe(true);
     expect(headerStartsSolid("/syarat-ketentuan")).toBe(true);
     expect(headerStartsSolid("/")).toBe(false);

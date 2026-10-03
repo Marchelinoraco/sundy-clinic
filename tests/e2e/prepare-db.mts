@@ -171,4 +171,74 @@ for (const [index, project] of ["desktop", "mobile"].entries()) {
   });
 }
 
+// Check-in (check-in.spec.ts): booking terkonfirmasi HARI INI per proyek, pukul 04.00/04.30
+// dengan isian Slimming (food recall ditawarkan), dan 05.00/05.30 untuk pasien rangkap yang
+// NIK-nya milik pasien lama. Di luar jam buka dan sebelum booking 06.00 uji lain.
+const identity = {
+  birthDate: new Date("1990-05-17T00:00:00Z"),
+  gender: "P" as const,
+  occupation: "Karyawan",
+  address: "Jl. Sam Ratulangi, Manado",
+};
+for (const [index, project] of ["desktop", "mobile"].entries()) {
+  const patient = await prisma.patient.create({
+    data: { medicalRecordNumber: `SDY-E2E-CEKIN-${index + 1}`, name: `Rani Cekin ${project}`, whatsapp: `6281200080${index}01`, ...identity },
+  });
+  const startAt = combineWitaDateAndMinutes(today, 4 * 60 + index * 30);
+  const appointment = await prisma.appointment.create({
+    data: {
+      code: `E2E-CEKIN-${index + 1}`,
+      type: "KONSULTASI",
+      startAt,
+      endAt: new Date(startAt.getTime() + 30 * 60_000),
+      status: "TERKONFIRMASI",
+      source: "WALK_IN",
+      branchId: visitBranch.id,
+      staffId: visitDoctor.id,
+      serviceId: visitService.id,
+      patientId: patient.id,
+    },
+  });
+  await prisma.intake.create({
+    data: {
+      appointmentId: appointment.id,
+      patientId: patient.id,
+      status: "TERISI",
+      kind: "LENGKAP",
+      purpose: "SLIMMING",
+      quizVersion: 2,
+      answers: slimmingNewPatient,
+      submittedAt: new Date(),
+    },
+  });
+
+  await prisma.patient.create({
+    data: {
+      medicalRecordNumber: `SDY-E2E-NIK-${index + 1}`,
+      name: `Rina Lama ${project}`,
+      whatsapp: `6281200081${index}01`,
+      nik: `717101570590002${index + 1}`,
+      ...identity,
+    },
+  });
+  const duplicate = await prisma.patient.create({
+    data: { medicalRecordNumber: `SDY-E2E-RANGKAP-${index + 1}`, name: `Rina Baru ${project}`, whatsapp: `6281200082${index}01`, ...identity },
+  });
+  const mergeAt = combineWitaDateAndMinutes(today, 5 * 60 + index * 30);
+  await prisma.appointment.create({
+    data: {
+      code: `E2E-GABUNG-${index + 1}`,
+      type: "KONSULTASI",
+      startAt: mergeAt,
+      endAt: new Date(mergeAt.getTime() + 30 * 60_000),
+      status: "TERKONFIRMASI",
+      source: "WALK_IN",
+      branchId: visitBranch.id,
+      staffId: visitDoctor.id,
+      serviceId: visitService.id,
+      patientId: duplicate.id,
+    },
+  });
+}
+
 await prisma.$disconnect();

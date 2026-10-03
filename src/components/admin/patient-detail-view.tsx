@@ -6,6 +6,8 @@ import { formatIndonesianDate } from "@/lib/format";
 import { resolveTab } from "@/lib/page-tabs";
 import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
 import type { PatientDetail } from "@/server/patient";
+import { FoodRecallTable } from "./food-recall-table";
+import { NikForm } from "./nik-form";
 import { EmptyState, SectionCard } from "./page-layout";
 import { PageTabs } from "./page-tabs";
 import { ImportantNotesForm, PaperRecordNumberForm } from "./patient-note-forms";
@@ -56,6 +58,15 @@ export function PatientDetailView({
 
   return (
     <div className="space-y-6">
+      {patient.mergedInto && (
+        <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          Pasien ini rangkap dari{" "}
+          <Link href={`/admin/pasien/${patient.mergedInto.id}`} className="font-medium underline underline-offset-4">
+            {patient.mergedInto.name} ({patient.mergedInto.medicalRecordNumber})
+          </Link>
+          . Booking dan isiannya sudah dipindah ke sana.
+        </p>
+      )}
       <div className="grid gap-6 lg:grid-cols-2">
         <SectionCard title="Data diri">
           <dl className="grid gap-3 text-sm sm:grid-cols-2">
@@ -65,7 +76,8 @@ export function PatientDetailView({
             <Field label="Pekerjaan" value={patient.occupation} />
             <Field label="Alamat" value={patient.address} wide />
           </dl>
-          <div className="mt-3 border-t pt-3 text-sm">
+          <div className="mt-3 grid gap-3 border-t pt-3 text-sm sm:grid-cols-2">
+            <NikForm patientId={patient.id} nik={patient.nik} missingReason={patient.nikMissingReason} />
             <PaperRecordNumberForm patientId={patient.id} value={patient.paperRecordNumber} />
           </div>
         </SectionCard>
@@ -124,6 +136,7 @@ export function PatientDetailView({
                   <TableHead>Cabang</TableHead>
                   <TableHead>Penulis</TableHead>
                   <TableHead>Penilaian</TableHead>
+                  <TableHead>Food recall</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Aksi</TableHead>
                 </TableRow>
@@ -135,6 +148,19 @@ export function PatientDetailView({
                     <TableCell>{encounter.branchName}</TableCell>
                     <TableCell>{encounter.authorName}</TableCell>
                     <TableCell className="max-w-xs whitespace-normal">{encounter.assessmentPreview ?? "—"}</TableCell>
+                    <TableCell className="max-w-xs whitespace-normal">
+                      {encounter.foodRecall && encounter.foodRecall.entries.length > 0 ? (
+                        <details>
+                          <summary className="cursor-pointer text-sm">Food recall {encounter.foodRecall.recallDateLabel}</summary>
+                          <FoodRecallTable
+                            entries={encounter.foodRecall.entries}
+                            label={`Food recall ${encounter.foodRecall.recallDateLabel}`}
+                          />
+                        </details>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Badge variant={encounter.status === "FINAL" ? "default" : "outline"}>
                         {encounter.status === "FINAL" ? "Final" : "Draf"}

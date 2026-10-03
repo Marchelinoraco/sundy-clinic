@@ -13,7 +13,6 @@ import { getStaffAvailabilityRange } from "@/server/schedule";
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/server/appointment", () => ({
   cancelAppointment: vi.fn(),
-  markAttended: vi.fn(),
   markNoShow: vi.fn(),
   verifyAppointment: vi.fn(),
   rescheduleAppointment: vi.fn(),
@@ -31,6 +30,17 @@ vi.mock("@/server/quiz-link-admin", () => ({
   getQuizLink: vi.fn().mockResolvedValue({ ok: true, data: null }),
   rotateQuizLink: vi.fn(),
 }));
+vi.mock("@/server/check-in", () => ({
+  getCheckInForm: vi.fn().mockResolvedValue({ ok: false, error: "Memuat" }),
+  lookupNikOwner: vi.fn(),
+  mergeDuplicatePatient: vi.fn(),
+  checkInAppointment: vi.fn(),
+}));
+vi.mock("@/server/food-recall-admin", () => ({
+  getFoodRecallLink: vi.fn().mockResolvedValue({ ok: true, data: { state: "NOT_OFFERED" } }),
+  offerFoodRecall: vi.fn(),
+}));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }));
 vi.mock("@/server/schedule", () => ({
   getStaffAvailabilityRange: vi.fn(),
   getStaffAvailabilityForAdmin: vi.fn(),
@@ -61,6 +71,8 @@ const base: BookingRow = {
   messageNotes: [],
   quizLink: null,
   needsFullIntake: false,
+  foodRecall: null,
+  foodRecallAvailable: false,
   reschedule: {
     appointmentId: "a1",
     code: "SDY-8F3K",
@@ -152,7 +164,7 @@ describe("AppointmentTable aksi per baris", () => {
     await openMenu(user, "SDY-WA01");
     expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual([
       "Salin instruksi transfer",
-      "Hadir",
+      "Check-in",
       "Tidak hadir",
       "Pindah jadwal",
       "Batalkan",
@@ -203,7 +215,7 @@ describe("AppointmentTable aksi per baris", () => {
 
   it("terkonfirmasi: Hadir dan Kirim konfirmasi; mengirim konfirmasi mencatatnya", async () => {
     renderTable([{ ...base, status: "TERKONFIRMASI", confirmation: { text: "Halo", link: "https://wa.me/62812?text=Halo" } }]);
-    expect(screen.getByRole("button", { name: "Hadir" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Check-in" })).toBeInTheDocument();
     const link = screen.getByRole("link", { name: "Kirim konfirmasi" });
     expect(link).toHaveAttribute("href", "https://wa.me/62812?text=Halo");
     link.addEventListener("click", (event) => event.preventDefault());
@@ -378,5 +390,28 @@ describe("AppointmentTable link kuis (spec C3)", () => {
   it("booking situs dari pasien tanpa isian lengkap diberi tanda", () => {
     renderTable([{ ...base, needsFullIntake: true }]);
     expect(screen.getByText("Belum punya isian lengkap")).toBeInTheDocument();
+  });
+});
+
+describe("AppointmentTable check-in dan food recall", () => {
+  it("Check-in membuka dialog check-in untuk booking itu", async () => {
+    const user = userEvent.setup();
+    renderTable([{ ...base, status: "TERKONFIRMASI" }]);
+    await user.click(screen.getByRole("button", { name: "Check-in" }));
+    expect(await screen.findByRole("dialog", { name: "Check-in — SDY-8F3K" })).toBeInTheDocument();
+  });
+
+  it("menampilkan status food recall tanpa isinya, dan aksi Food recall di menu", async () => {
+    const user = userEvent.setup();
+    renderTable([{ ...base, status: "HADIR", foodRecall: "DITAWARKAN", foodRecallAvailable: true }]);
+    expect(screen.getByText("Food recall: belum diisi")).toBeInTheDocument();
+    await openMenu(user, "SDY-8F3K");
+    await user.click(screen.getByRole("menuitem", { name: "Food recall" }));
+    expect(await screen.findByRole("dialog", { name: "Food recall — SDY-8F3K" })).toBeInTheDocument();
+  });
+
+  it("food recall yang sudah diisi ditandai sudah diisi", () => {
+    renderTable([{ ...base, status: "HADIR", foodRecall: "DIISI", foodRecallAvailable: true }]);
+    expect(screen.getByText("Food recall: sudah diisi")).toBeInTheDocument();
   });
 });

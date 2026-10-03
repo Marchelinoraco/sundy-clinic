@@ -89,6 +89,9 @@ function toRow(a: ListedAppointment, context: RowContext): BookingRow {
     quizLink,
     needsFullIntake:
       a.source === "SITUS" && a.intake?.kind === "PENDEK" && patient !== null && patient.intakes.length === 0,
+    foodRecall: a.foodRecall?.status ?? null,
+    foodRecallAvailable:
+      a.status === "HADIR" && witaDateString(a.startAt) === witaDateString(context.now) && a.encounter?.status !== "FINAL",
   };
 }
 

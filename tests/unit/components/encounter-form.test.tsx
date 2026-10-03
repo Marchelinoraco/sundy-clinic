@@ -1,10 +1,10 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import type { ReactNode } from "react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { createRef, type ReactNode } from "react";
 import userEvent from "@testing-library/user-event";
 import Link from "next/link";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
-import { EncounterForm, type EncounterFormProps } from "@/components/admin/encounter-form";
+import { EncounterForm, type EncounterFormProps, type SubjectiveHandle } from "@/components/admin/encounter-form";
 import { emptyDraftInput, type EncounterOptions } from "@/lib/encounter";
 import { discardEncounterDraft, finalizeEncounter, saveEncounterDraft } from "@/server/encounter";
 import { NO_VITALS } from "../../fixtures/encounter-detail";
@@ -278,5 +278,27 @@ describe("EncounterForm", () => {
     const bar = screen.getByRole("button", { name: "Finalisasi" }).closest("[data-slot='encounter-actions']");
     expect(bar).toHaveClass("sticky", "bottom-0");
     expect(bar).toContainElement(screen.getByRole("status"));
+  });
+});
+
+describe("EncounterForm: menambah ke S dari tab food recall", () => {
+  it("menambahkan di akhir S dan menolak bila melebihi 5.000 karakter", () => {
+    const ref = createRef<SubjectiveHandle>();
+    renderForm({ initialDraft: { ...emptyDraftInput(), subjective: "BB naik" }, subjectiveRef: ref });
+    const field = screen.getByLabelText("Keluhan dan anamnesis dokter");
+
+    let accepted = false;
+    act(() => {
+      accepted = ref.current!.append("Food recall H-1 (Rabu, 30 Sep):\n07.00 Makan/minum — Nasi");
+    });
+    expect(accepted).toBe(true);
+    expect(field).toHaveValue("BB naik\n\nFood recall H-1 (Rabu, 30 Sep):\n07.00 Makan/minum — Nasi");
+    expect(ref.current!.text()).toContain("Food recall H-1 (Rabu, 30 Sep)");
+
+    act(() => {
+      accepted = ref.current!.append("x".repeat(5000));
+    });
+    expect(accepted).toBe(false);
+    expect(field).toHaveValue("BB naik\n\nFood recall H-1 (Rabu, 30 Sep):\n07.00 Makan/minum — Nasi");
   });
 });

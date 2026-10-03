@@ -5,13 +5,23 @@ import { runAction, UserFacingError, type ActionResult } from "@/lib/action-resu
 import { ageInYears } from "@/lib/age";
 import type { AppointmentStatusValue } from "@/lib/appointment-status";
 import { prisma } from "@/lib/db";
+import { assessmentPreview, IMPORTANT_NOTES_MAX, PAPER_RECORD_NUMBER_MAX } from "@/lib/encounter";
+import { FOOD_RECALL_SELECT, foodRecallView, type FoodRecallView } from "@/lib/food-recall";
 import { formatDateColumn, formatGender } from "@/lib/format";
 import { INTAKE_PURPOSE_LABEL } from "@/lib/intake-purpose";
+import {
+  isNikMissingReason,
+  maskNik,
+  NIK_FORMAT_ERROR,
+  NIK_MISSING_REASONS,
+  normalizeNik,
+  type NikMissingReasonValue,
+} from "@/lib/nik";
 import { can } from "@/lib/permissions";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { normalizeWhatsapp } from "@/lib/whatsapp";
-import { assessmentPreview, IMPORTANT_NOTES_MAX, PAPER_RECORD_NUMBER_MAX } from "@/lib/encounter";
 import { recordAudit, recordAuditThrottled } from "@/server/audit";
+import { isUniqueViolation } from "@/server/db-errors";
 import { insertPatient } from "@/server/patient-store";
 import { requireCapability } from "@/server/session";
 
@@ -116,6 +126,7 @@ export async function createPatient(input: {
 export async function listRecentPatients(limit = 50): Promise<PatientSummary[]> {
   await requireCapability("booking:manage");
   const rows = await prisma.patient.findMany({
+    where: { mergedIntoId: null },
     orderBy: { createdAt: "desc" },
     take: limit,
     select: summarySelect(new Date()),
@@ -126,17 +137,17 @@ export async function listRecentPatients(limit = 50): Promise<PatientSummary[]> 
 /** Satu pasien dalam bentuk ringkasan, untuk Booking Baru dengan pasien terpilih (spec D 5.8). */
 export async function getPatientSummary(id: string): Promise<PatientSummary | null> {
   await requireCapability("booking:manage");
-  const row = await prisma.patient.findUnique({ where: { id }, select: summarySelect(new Date()) });
+  const row = await prisma.patient.findUnique({ where: { id, mergedIntoId: null }, select: summarySelect(new Date()) });
   return row ? toSummary(row) : null;
 }
 
 /** Jumlah semua pasien, untuk kepala halaman Pasien (spec D 5.2). */
 export async function countPatients(): Promise<number> {
   await requireCapability("booking:manage");
-  return prisma.patient.count();
+  return prisma.patient.count({ where: { mergedIntoId: null } });
 }
 
-/** Cocok terhadap nama (sebagian, tanpa peduli huruf besar/kecil) atau nomor WhatsApp. */
+/** Cocok terhadap nama (sebagian, tanpa peduli huruf besar/kecil), nomor WhatsApp, no. RM, atau NIK (≥ 6 angka). Pasien rangkap tidak ikut. */
 export async function searchPatients(query: string): Promise<PatientSummary[]> {
   await requireCapability("booking:manage");
   const trimmed = query.trim();
@@ -153,13 +164,19 @@ export async function searchPatients(query: string): Promise<PatientSummary[]> {
     }
   }
 
+  // NIK lazim diketik berspasi atau bertitik seperti di KTP.
+  const nikDigits = /^[\d\s.-]+$/.test(trimmed) ? trimmed.replace(/\D/g, "") : "";
+  const nikMatch = nikDigits.length >= 6 ? [{ nik: { contains: nikDigits } }] : [];
+
   const rows = await prisma.patient.findMany({
     where: {
+      mergedIntoId: null,
       OR: [
         { name: { contains: trimmed, mode: "insensitive" } },
         { whatsapp: { contains: trimmed } },
         { medicalRecordNumber: { contains: trimmed, mode: "insensitive" } },
         ...phoneVariants,
+        ...nikMatch,
       ],
     },
     orderBy: { name: "asc" },
@@ -174,7 +191,7 @@ export async function findPatientsByWhatsapp(whatsapp: string): Promise<PatientS
   await requireCapability("booking:manage");
   const normalized = normalizeWhatsapp(whatsapp);
   if (!normalized) return [];
-  const rows = await prisma.patient.findMany({ where: { whatsapp: normalized }, select: summarySelect(new Date()) });
+  const rows = await prisma.patient.findMany({ where: { whatsapp: normalized, mergedIntoId: null }, select: summarySelect(new Date()) });
   return rows.map(toSummary);
 }
 
@@ -191,6 +208,11 @@ export type PatientDetail = {
   address: string | null;
   /** Nomor rekam medis kertas lama; boleh dilihat dan diubah resepsionis (spec R11). */
   paperRecordNumber: string | null;
+  /** NIK, atau alasan belum ada NIK (spec check-in 3.4). Tidak pernah dikirim ke situs publik. */
+  nik: string | null;
+  nikMissingReason: NikMissingReasonValue | null;
+  /** Pasien rangkap: booking dan isiannya sudah dipindah ke pasien ini (spec check-in 3.3). */
+  mergedInto: { id: string; medicalRecordNumber: string; name: string } | null;
   programStatus: "AKTIF" | "SELESAI" | "TIDAK_AKTIF";
   /** Jadwal kunjungan terakhir yang difinalisasi. */
   lastVisitAt: Date | null;
@@ -225,6 +247,7 @@ export type PatientDetail = {
         authorName: string;
         assessmentPreview: string | null;
         status: "DRAF" | "FINAL";
+        foodRecall: FoodRecallView | null;
       }[]
     | null;
 };
@@ -248,6 +271,9 @@ export async function getPatientDetail(id: string): Promise<PatientDetail | null
       occupation: true,
       address: true,
       paperRecordNumber: true,
+      nik: true,
+      nikMissingReason: true,
+      mergedInto: { select: { id: true, medicalRecordNumber: true, name: true } },
       programStatus: true,
       lastVisitAt: true,
       appointments: {
@@ -297,7 +323,7 @@ export async function getPatientDetail(id: string): Promise<PatientDetail | null
           assessment: true,
           createdByName: true,
           finalizedByName: true,
-          appointment: { select: { code: true, startAt: true, branch: { select: { name: true } } } },
+          appointment: { select: { id: true, code: true, startAt: true, branch: { select: { name: true } }, foodRecall: { select: FOOD_RECALL_SELECT } } },
         },
       })
     : null;
@@ -322,6 +348,9 @@ export async function getPatientDetail(id: string): Promise<PatientDetail | null
     occupation: patient.occupation,
     address: patient.address,
     paperRecordNumber: patient.paperRecordNumber,
+    nik: patient.nik,
+    nikMissingReason: patient.nikMissingReason,
+    mergedInto: patient.mergedInto,
     programStatus: patient.programStatus,
     lastVisitAt: patient.lastVisitAt,
     record,
@@ -353,6 +382,7 @@ export async function getPatientDetail(id: string): Promise<PatientDetail | null
         authorName: encounter.finalizedByName ?? encounter.createdByName,
         assessmentPreview: assessmentPreview(encounter.assessment),
         status: encounter.status,
+        foodRecall: encounter.appointment.foodRecall ? foodRecallView(encounter.appointment, encounter.appointment.foodRecall) : null,
       })) ?? null,
   };
 }
@@ -401,6 +431,56 @@ export async function updatePaperRecordNumber(input: { patientId: string; text: 
       entity: "Patient",
       entityId: patient.id,
       summary: `${patient.medicalRecordNumber}: ${text || "dikosongkan"}`,
+    });
+    safeRevalidatePath(`/admin/pasien/${patient.id}`);
+  });
+}
+
+/** NIK dari halaman data pasien (spec check-in 3.4): aturannya sama dengan check-in, tanpa pindah pasien rangkap. */
+export async function updatePatientNik(input: {
+  patientId: string;
+  nik: string | null;
+  missingReason: string | null;
+}): Promise<ActionResult<void>> {
+  return runAction(async () => {
+    const actor = await requireCapability("booking:manage");
+    const patient = await prisma.patient.findUnique({
+      where: { id: String(input?.patientId ?? "") },
+      select: { id: true, medicalRecordNumber: true, mergedIntoId: true },
+    });
+    if (!patient) throw new UserFacingError("Pasien tidak ditemukan.");
+    if (patient.mergedIntoId) throw new UserFacingError("Pasien ini rangkap; ubah NIK di pasien lamanya.");
+
+    let data: { nik: string | null; nikMissingReason: NikMissingReasonValue | null };
+    if (input?.nik !== null && input?.nik !== undefined) {
+      const nik = normalizeNik(String(input.nik));
+      if (!nik) throw new UserFacingError(NIK_FORMAT_ERROR);
+      const owner = await prisma.patient.findFirst({
+        where: { nik, id: { not: patient.id } },
+        select: { name: true, medicalRecordNumber: true },
+      });
+      if (owner) throw new UserFacingError(`NIK ini sudah dipakai ${owner.name} (${owner.medicalRecordNumber}).`);
+      data = { nik, nikMissingReason: null };
+    } else if (isNikMissingReason(input?.missingReason)) {
+      data = { nik: null, nikMissingReason: input.missingReason };
+    } else {
+      throw new UserFacingError("Isi NIK atau pilih alasan belum ada NIK.");
+    }
+
+    try {
+      await prisma.patient.update({ where: { id: patient.id }, data });
+    } catch (error) {
+      if (isUniqueViolation(error)) throw new UserFacingError("NIK ini baru saja dipakai pasien lain — periksa lagi.");
+      throw error;
+    }
+    await recordAudit({
+      actor,
+      action: "patient.update-nik",
+      entity: "Patient",
+      entityId: patient.id,
+      summary: `${patient.medicalRecordNumber}: ${
+        data.nik ? maskNik(data.nik) : `belum ada NIK (${NIK_MISSING_REASONS[data.nikMissingReason!]})`
+      }`,
     });
     safeRevalidatePath(`/admin/pasien/${patient.id}`);
   });

@@ -19,6 +19,7 @@ import {
   transferInstructionFor,
   type TransferInstruction,
 } from "@/lib/transfer-instruction";
+import { ACTIVE_STATUSES, rejectedChangeError } from "@/server/appointment-guard";
 import { recordAudit } from "@/server/audit";
 import {
   confirmationDeadlines,
@@ -70,11 +71,22 @@ export async function createAppointment(input: {
 
     assertTimeRange(input.startAt, input.endAt);
 
-    const [branch, staff, service] = await Promise.all([
+    const [branch, staff, service, patient] = await Promise.all([
       prisma.branch.findUniqueOrThrow({ where: { id: input.branchId } }),
       prisma.staff.findUniqueOrThrow({ where: { id: input.staffId } }),
       input.serviceId ? prisma.service.findUniqueOrThrow({ where: { id: input.serviceId } }) : null,
+      prisma.patient.findUnique({
+        where: { id: input.patientId },
+        select: { mergedInto: { select: { name: true, medicalRecordNumber: true } } },
+      }),
     ]);
+
+    // Pasien rangkap (spec check-in 3.3): booking baru hanya untuk pasien yang masih dipakai.
+    if (patient?.mergedInto) {
+      throw new UserFacingError(
+        `Pasien ini rangkap dari ${patient.mergedInto.name} (${patient.mergedInto.medicalRecordNumber}). Buat booking untuk pasien itu.`,
+      );
+    }
 
     if (branch.status !== "AKTIF") {
       throw new UserFacingError(`Cabang ${branch.name} belum menerima booking.`);
@@ -120,35 +132,6 @@ export async function createAppointment(input: {
   });
 }
 
-/** Status yang masih bisa dijadwal ulang, diverifikasi, dihadiri, atau dibatalkan. */
-const ACTIVE_STATUSES: AppointmentStatus[] = ["MENUNGGU_KONFIRMASI", "TERKONFIRMASI"];
-
-const STATUS_WORD: Record<AppointmentStatus, string> = {
-  MENUNGGU_KONFIRMASI: "menunggu konfirmasi",
-  TERKONFIRMASI: "terkonfirmasi",
-  HADIR: "hadir",
-  SELESAI: "selesai",
-  DIBATALKAN: "dibatalkan",
-  TIDAK_HADIR: "tidak hadir",
-  KEDALUWARSA: "kedaluwarsa",
-};
-
-/**
- * Pesan untuk UPDATE bersyarat yang tidak mengubah apa pun: pasien belum
- * dicocokkan (booking situs), atau statusnya sudah berubah.
- */
-async function rejectedChangeError(id: string, needsPatient = false): Promise<UserFacingError> {
-  const current = await prisma.appointment.findUniqueOrThrow({
-    where: { id },
-    select: { status: true, patientId: true },
-  });
-  if (needsPatient && current.patientId === null) {
-    return new UserFacingError("Cocokkan booking ini dengan data pasien lebih dulu.");
-  }
-  return new UserFacingError(
-    `Booking ini sudah berstatus ${STATUS_WORD[current.status]}. Muat ulang halaman.`,
-  );
-}
 
 export async function rescheduleAppointment(
   id: string,
@@ -221,10 +204,6 @@ export async function verifyAppointment(id: string): Promise<ActionResult<Appoin
   return setStatus(id, ["MENUNGGU_KONFIRMASI"], "TERKONFIRMASI", "appointment.verify");
 }
 
-export async function markAttended(id: string): Promise<ActionResult<Appointment>> {
-  return setStatus(id, ACTIVE_STATUSES, "HADIR", "appointment.mark-attended");
-}
-
 export async function markNoShow(id: string): Promise<ActionResult<Appointment>> {
   return setStatus(id, ACTIVE_STATUSES, "TIDAK_HADIR", "appointment.mark-no-show");
 }
@@ -266,6 +245,9 @@ const BOOKING_LIST_INCLUDE = {
   branch: true,
   service: true,
   intake: { select: { id: true, name: true, whatsapp: true, status: true, kind: true, linkVersion: true } },
+  // Status food recall saja: isinya catatan klinis, dan daftar ini juga dibuka resepsionis.
+  foodRecall: { select: { status: true } },
+  encounter: { select: { status: true } },
   // Catatan pesan untuk keterangan "Konfirmasi terkirim …" di baris booking (spec C2 4.5).
   messages: {
     select: { id: true, kind: true, scheduledFor: true, sentAt: true, sentByName: true, revokedAt: true, reply: true },
