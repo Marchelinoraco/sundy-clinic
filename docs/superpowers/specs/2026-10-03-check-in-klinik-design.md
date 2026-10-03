@@ -2,7 +2,7 @@
 
 - **Versi:** 1.0
 - **Tanggal:** 3 Oktober 2026
-- **Status:** Menunggu tinjauan pemilik
+- **Status:** Disetujui pemilik (3 Oktober 2026); dibangun lewat `docs/superpowers/plans/2026-10-03-plan-check-in-klinik.md`
 - **Bagian dari:** pemecahan rekam medis (30 Sep 2026): 1 catatan dokter → **2 check-in klinik** → 3 BIA & grafik → 4 order ke apotek → 5 pengingat kontrol.
 - **Melanjutkan:**
   - catatan dokter per kunjungan: `docs/superpowers/specs/2026-09-30-catatan-dokter-kunjungan-design.md` (bagian 1);
