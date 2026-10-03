@@ -32,7 +32,12 @@ export function Reveal({ children, className, delay = 0, from = "bottom" }: Reve
   useEffect(() => {
     const element = ref.current;
     if (!element || reduce || done.current) return;
-    if (element.getBoundingClientRect().top < window.innerHeight) return;
+    if (element.getBoundingClientRect().top < window.innerHeight) {
+      // Bisa tertinggal "armed" bila kurangi gerakan dinyalakan lalu dimatikan setelah elemen
+      // tergulir masuk: tanpa ini isinya tersembunyi sampai halaman dimuat ulang.
+      setPhase((current) => (current === "armed" ? "static" : current));
+      return;
+    }
 
     setPhase("armed");
     const observer = new IntersectionObserver(

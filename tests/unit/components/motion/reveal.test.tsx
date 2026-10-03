@@ -55,6 +55,18 @@ describe("Reveal", () => {
     expect(element).toHaveAttribute("data-reveal", "static");
   });
 
+  it("tetap terlihat bila kurangi gerakan dinyalakan lalu dimatikan setelah elemen tergulir masuk", () => {
+    mockElementTop(2000);
+    const element = renderReveal();
+    act(() => setMediaMatches(REDUCED_MOTION_QUERY, true));
+    expect(element).toHaveAttribute("data-reveal", "static");
+
+    // Pengunjung menggulir ke elemen itu, lalu mematikan kurangi gerakan lagi.
+    mockElementTop(100);
+    act(() => setMediaMatches(REDUCED_MOTION_QUERY, false));
+    expect(element).toHaveAttribute("data-reveal", "static");
+  });
+
   it("memberi jeda bergiliran saat elemen muncul", () => {
     mockElementTop(2000);
     const element = renderReveal(140);

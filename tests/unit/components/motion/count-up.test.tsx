@@ -41,8 +41,8 @@ describe("CountUp", () => {
   it("menghitung dari 0 sampai nilai akhir, dengan akhiran, setelah masuk layar", async () => {
     mockElementTop(2000);
     const { container } = render(<CountUp value={700} suffix="+" durationMs={60} />);
-    const number = container.querySelector("span") as HTMLElement;
-    expect(number.textContent).toBe("0+");
+    const number = container.firstElementChild as HTMLElement;
+    expect(screen.getByText("0+")).toHaveAttribute("aria-hidden", "true");
 
     act(() => triggerIntersection(number, true));
     await waitFor(() => expect(number.textContent).toBe("700+"));
@@ -58,9 +58,17 @@ describe("CountUp", () => {
   it("langsung bernilai akhir bila kurangi gerakan dinyalakan sebelum angka terlihat", () => {
     mockElementTop(2000);
     const { container } = render(<CountUp value={700} suffix="+" />);
-    expect(container.querySelector("span")?.textContent).toBe("0+");
+    expect(screen.getByText("0+")).toBeInTheDocument();
 
     act(() => setMediaMatches(REDUCED_MOTION_QUERY, true));
-    expect(container.querySelector("span")?.textContent).toBe("700+");
+    expect(container.firstElementChild?.textContent).toBe("700+");
+  });
+
+  it("membacakan nilai akhir ke pembaca layar selama angka belum selesai berhitung", () => {
+    // Pembaca layar bisa sampai di angka ini tanpa menggulir layar; "0+ customer" adalah informasi salah.
+    mockElementTop(2000);
+    render(<CountUp value={700} suffix="+" />);
+    expect(screen.getByText("0+")).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getByText("700+")).toHaveClass("sr-only");
   });
 });

@@ -62,10 +62,20 @@ export function CountUp({ value, suffix = "", durationMs = 1500, className }: Co
     };
   }, [reduce, value, durationMs]);
 
+  const text = (amount: number) => `${formatter.format(amount)}${suffix}`;
+  const settled = reduce || shown === value;
+
   return (
     <span ref={ref} className={cn("tabular-nums", className)}>
-      {formatter.format(reduce ? value : shown)}
-      {suffix}
+      {settled ? (
+        text(value)
+      ) : (
+        <>
+          {/* Selama berhitung, pembaca layar mendengar nilai akhir, bukan "0+" atau angka antara. */}
+          <span aria-hidden="true">{text(shown)}</span>
+          <span className="sr-only">{text(value)}</span>
+        </>
+      )}
     </span>
   );
 }
