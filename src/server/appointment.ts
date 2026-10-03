@@ -71,11 +71,22 @@ export async function createAppointment(input: {
 
     assertTimeRange(input.startAt, input.endAt);
 
-    const [branch, staff, service] = await Promise.all([
+    const [branch, staff, service, patient] = await Promise.all([
       prisma.branch.findUniqueOrThrow({ where: { id: input.branchId } }),
       prisma.staff.findUniqueOrThrow({ where: { id: input.staffId } }),
       input.serviceId ? prisma.service.findUniqueOrThrow({ where: { id: input.serviceId } }) : null,
+      prisma.patient.findUnique({
+        where: { id: input.patientId },
+        select: { mergedInto: { select: { name: true, medicalRecordNumber: true } } },
+      }),
     ]);
+
+    // Pasien rangkap (spec check-in 3.3): booking baru hanya untuk pasien yang masih dipakai.
+    if (patient?.mergedInto) {
+      throw new UserFacingError(
+        `Pasien ini rangkap dari ${patient.mergedInto.name} (${patient.mergedInto.medicalRecordNumber}). Buat booking untuk pasien itu.`,
+      );
+    }
 
     if (branch.status !== "AKTIF") {
       throw new UserFacingError(`Cabang ${branch.name} belum menerima booking.`);

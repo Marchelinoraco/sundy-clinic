@@ -4,6 +4,7 @@ import type { AppointmentStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { NIK_FORMAT_ERROR } from "@/lib/nik";
 import { addDaysToDateString, witaDateString } from "@/lib/time";
+import { createAppointment } from "@/server/appointment";
 import {
   checkInAppointment,
   getCheckInForm,
@@ -198,8 +199,33 @@ describe("check-in: NIK, data diri, pasien rangkap", () => {
     expect((await searchPatients("Siti")).map((p) => p.id)).not.toContain(duplicate.id);
     expect((await listRecentPatients()).map((p) => p.id)).not.toContain(duplicate.id);
     expect(await findPatientsByWhatsapp(WA.duplicate)).toEqual([]);
-    expect((await searchPatients("7171 0157")).map((p) => p.id)).toEqual([owner.id]);
+    // Cari dengan prefiks NIK lengkap 16 angka: NIK fiktif lain berbagi prefiks pendek yang sama,
+    // tapi pencarian ini harus tetap unik terhadap pemilik yang sebenarnya.
+    expect((await searchPatients(OWNER_NIK)).map((p) => p.id)).toEqual([owner.id]);
     expect(await countPatients()).toBe(await prisma.patient.count({ where: { mergedIntoId: null } }));
+  });
+
+  it("pasien rangkap tidak bisa diberi booking baru", async () => {
+    await patient({ mrn: "SDY-2026-6601", name: "Siti Lama", whatsapp: WA.owner, extra: { nik: OWNER_NIK } });
+    const duplicate = await patient({ mrn: "SDY-2026-6602", name: "Siti Rangkap", whatsapp: WA.duplicate });
+    const appointment = await booking(duplicate.id);
+    await unwrap(mergeDuplicatePatient({ appointmentId: appointment.id, nik: OWNER_NIK }));
+
+    expect(
+      await createAppointment({
+        patientId: duplicate.id,
+        branchId: world.branchId,
+        staffId: world.doctorId,
+        serviceId: world.consultationId,
+        type: "KONSULTASI",
+        startAt: at(addDaysToDateString(today, 2), "09:00"),
+        endAt: at(addDaysToDateString(today, 2), "09:30"),
+        source: "TELEPON",
+      }),
+    ).toEqual({
+      ok: false,
+      error: "Pasien ini rangkap dari Siti Lama (SDY-2026-6601). Buat booking untuk pasien itu.",
+    });
   });
 
   it("pasien rangkap tidak muncul di pencocokan isian dan tidak bisa dipilih", async () => {

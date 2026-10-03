@@ -105,4 +105,14 @@ describe("resolveBookingPrefill", () => {
     const badTime = await resolveBookingPrefill({ tenaga: doctorId, tanggal: DAY, jam: "25.00" }, NOW);
     expect(badTime).toMatchObject({ notice: null, initial: { date: DAY, slot: null } });
   });
+
+  it("pasien rangkap tidak ikut terpilih (spec check-in 3.3)", async () => {
+    const owner = await prisma.patient.create({
+      data: { medicalRecordNumber: "SDY-2031-7501", name: "Rina Lama", whatsapp: "6281277500002" },
+    });
+    await prisma.patient.update({ where: { id: patientId }, data: { mergedIntoId: owner.id } });
+    const result = await resolveBookingPrefill({ pasien: patientId }, NOW);
+    expect(result.initial.patient).toBeNull();
+    await prisma.patient.delete({ where: { id: owner.id } });
+  });
 });

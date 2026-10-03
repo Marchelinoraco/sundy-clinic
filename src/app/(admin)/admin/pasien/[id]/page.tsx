@@ -39,9 +39,11 @@ export default async function PatientDetailPage({
           trail={[{ label: "Pasien", href: "/admin/pasien" }, { label: patient.name }]}
           description={description}
           actions={
-            <Button asChild>
-              <Link href={`/admin/booking/baru?pasien=${patient.id}`}>+ Booking</Link>
-            </Button>
+            !patient.mergedInto && (
+              <Button asChild>
+                <Link href={`/admin/booking/baru?pasien=${patient.id}`}>+ Booking</Link>
+              </Button>
+            )
           }
         />
         <PatientDetailView
