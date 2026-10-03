@@ -122,4 +122,41 @@ describe("batasan arsitektur", () => {
 
     expect(offenders).toEqual([]);
   });
+
+  it("halaman publik tidak memakai kata pasien atau berobat", () => {
+    // Spec redesign §4.3: halaman publik memakai "Anda" dan "customer". Kuis, cek booking,
+    // dan teks hukum tidak diubah redesign ini, jadi tidak ikut diperiksa.
+    const dirs = [
+      "src/components/home",
+      "src/components/public",
+      "src/components/layout",
+      "src/components/catalog",
+      "src/components/motion",
+      "src/app/(public)",
+    ];
+    const untouched = [
+      "src/app/(public)/daftar",
+      "src/app/(public)/cek-booking",
+      "src/app/(public)/isi",
+      "src/app/(public)/kebijakan-privasi",
+      "src/app/(public)/syarat-ketentuan",
+    ];
+    const offenders = dirs
+      .flatMap(collectSourceFiles)
+      .filter((file) => !untouched.some((dir) => file.startsWith(dir)))
+      .filter((file) => /\b(pasien|berobat)\b/i.test(readFileSync(file, "utf8")));
+
+    expect(offenders).toEqual([]);
+  });
+
+  it("pustaka motion hanya dipakai penanda tombol pilihan paket", () => {
+    // motion/react selalu membawa seluruh framer-motion (±1.600 modul di server dev). Bila dipakai
+    // header atau kepala halaman, pustaka itu ikut ke setiap halaman publik: server dev uji
+    // kehabisan memori, dan HP pengunjung mengunduhnya di Beranda. Magnet, kartu miring, dan
+    // parallax cukup dengan JavaScript biasa.
+    const users = collectSourceFiles("src").filter((file) =>
+      /from "(motion|framer-motion)(\/[^"]*)?"/.test(readFileSync(file, "utf8")),
+    );
+    expect(users).toEqual(["src/components/public/package-tabs.tsx"]);
+  });
 });
