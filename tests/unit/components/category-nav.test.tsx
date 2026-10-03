@@ -6,6 +6,10 @@ import { CategoryNav } from "@/components/public/category-nav";
 import { categoryAnchorId } from "@/lib/category-anchor";
 import { setMediaMatches, triggerIntersection } from "../helpers/browser-mocks";
 
+// Gulir halus (Lenis) hanya ada di desktop; uji yang tidak mengisinya memakai jalur scrollIntoView.
+const lenis = vi.hoisted(() => ({ instance: undefined as { scrollTo: ReturnType<typeof vi.fn> } | undefined }));
+vi.mock("lenis/react", () => ({ useLenis: () => lenis.instance }));
+
 const CATEGORIES = [
   { slug: "facial", name: "Facial Treatment" },
   { slug: "rf", name: "RF Treatment" },
@@ -28,6 +32,7 @@ function renderServicesPage() {
 const chip = (name: string) => screen.getByRole("link", { name });
 
 afterEach(() => {
+  lenis.instance = undefined;
   vi.restoreAllMocks();
   window.history.replaceState(null, "", "/");
 });
@@ -91,5 +96,20 @@ describe("baris chip kategori", () => {
 
     act(() => triggerIntersection(document.getElementById("bagian-rf") as HTMLElement, true));
     expect(scrollTo).toHaveBeenCalledWith({ left: 1100 - 64 - 16, behavior: "smooth" });
+  });
+});
+
+describe("chip kategori dengan gulir halus", () => {
+  it("menyerahkan jarak header ke scroll-margin bagian, tanpa offset tambahan", async () => {
+    // Lenis sudah memperhitungkan scroll-margin-top bagian (scroll-mt di /layanan), sama seperti
+    // scrollIntoView; offset tambahan membuat bagian berhenti terlalu rendah dan chip lain menyala.
+    lenis.instance = { scrollTo: vi.fn() };
+    const user = userEvent.setup();
+    renderServicesPage();
+
+    await user.click(chip("HIFU Treatment"));
+    expect(lenis.instance.scrollTo).toHaveBeenCalledWith(document.getElementById("bagian-hifu"), {
+      immediate: false,
+    });
   });
 });

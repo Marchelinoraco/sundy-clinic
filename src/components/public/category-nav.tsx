@@ -5,9 +5,6 @@ import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { usePrefersReducedMotion } from "@/components/motion/use-motion-prefs";
 import { categoryAnchorId } from "@/lib/category-anchor";
 
-/** Tinggi header + baris chip; sama dengan scroll-mt bagian kategori di /layanan. */
-const SCROLL_OFFSET = 144;
-
 type CategoryNavProps = { categories: { slug: string; name: string }[] };
 
 /**
@@ -58,7 +55,9 @@ export function CategoryNav({ categories }: CategoryNavProps) {
     if (!target) return;
     event.preventDefault();
     setActive(slug);
-    if (lenis) lenis.scrollTo(target, { offset: -SCROLL_OFFSET, immediate: reduce });
+    // Jarak di bawah header dan baris chip datang dari scroll-margin-top bagian (scroll-mt di
+    // /layanan). Lenis dan scrollIntoView sama-sama memperhitungkannya, jadi tanpa offset tambahan.
+    if (lenis) lenis.scrollTo(target, { immediate: reduce });
     else target.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
     window.history.replaceState(null, "", `#${categoryAnchorId(slug)}`);
   }
