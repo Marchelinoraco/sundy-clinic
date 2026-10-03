@@ -1,4 +1,6 @@
 
+"use client";
+
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FOOD_RECALL_CLOSED, FOOD_RECALL_RECEIVED, type FoodRecallPage } from "@/lib/food-recall";
