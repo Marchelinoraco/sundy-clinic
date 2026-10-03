@@ -96,4 +96,9 @@ describe("pembantu tren", () => {
     expect(initialContextTab({ hasIntake: false, hasHistory: true })).toBe("previous");
     expect(initialContextTab({ hasIntake: false, hasHistory: false })).toBe("trend");
   });
+
+  it("food recall yang sudah diisi terbuka lebih dulu", () => {
+    expect(initialContextTab({ hasIntake: true, hasHistory: true, hasFilledFoodRecall: true })).toBe("foodRecall");
+    expect(initialContextTab({ hasIntake: true, hasHistory: true, hasFilledFoodRecall: false })).toBe("intake");
+  });
 });

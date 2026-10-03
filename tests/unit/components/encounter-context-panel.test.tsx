@@ -8,6 +8,12 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 // Formulir persetujuan memanggil server action dari modul ini.
 vi.mock("@/server/intake", () => ({ approveIntakeToPatient: vi.fn() }));
+// Tab Food recall tetap terpasang (hanya disembunyikan) dan memanggil server action ini.
+vi.mock("@/server/food-recall-admin", () => ({
+  saveFoodRecallByStaff: vi.fn(),
+  getFoodRecallLink: vi.fn().mockResolvedValue({ ok: true, data: { state: "NOT_OFFERED" } }),
+  offerFoodRecall: vi.fn(),
+}));
 
 const readyIntake = {
   id: "i1",

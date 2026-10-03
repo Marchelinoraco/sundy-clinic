@@ -14,6 +14,11 @@ vi.mock("@/server/encounter", () => ({
   addEncounterAddendum: vi.fn(),
 }));
 vi.mock("@/server/intake", () => ({ approveIntakeToPatient: vi.fn() }));
+vi.mock("@/server/food-recall-admin", () => ({
+  saveFoodRecallByStaff: vi.fn(),
+  getFoodRecallLink: vi.fn(),
+  offerFoodRecall: vi.fn(),
+}));
 
 const final = encounterDetail({
   status: "FINAL",
@@ -88,5 +93,28 @@ describe("EncounterPageView", () => {
     );
     expect(screen.getByLabelText("Penilaian / diagnosis")).toHaveValue("Obesitas");
     expect(within(screen.getByRole("region", { name: "Peringatan" })).getByText(/Amoxicillin/)).toBeInTheDocument();
+  });
+
+  it("food recall yang sudah diisi terbuka lebih dulu, dan Salin ke S menambahkannya ke kolom S", async () => {
+    const user = userEvent.setup();
+    const encounter = encounterDetail({
+      draft: { ...emptyDraftInput(), subjective: "BB naik 1 kg" },
+      foodRecall: {
+        appointmentId: "a1",
+        state: "FILLED",
+        recallDate: "2026-09-30",
+        recallDateLabel: "Rabu, 30 September",
+        entries: [{ hour: 7, kind: "MAKAN_MINUM", text: "Nasi kuning", by: "CUSTOMER" }],
+        submittedAt: new Date("2026-10-01T02:30:00Z"),
+        completedAt: null,
+        completedByName: null,
+      },
+    });
+    render(<EncounterPageView encounter={encounter} canWrite />);
+    expect(screen.getByRole("tab", { name: "Food recall" })).toHaveAttribute("aria-selected", "true");
+    await user.click(screen.getByRole("button", { name: "Salin ke S" }));
+    expect(screen.getByLabelText("Keluhan dan anamnesis dokter")).toHaveValue(
+      "BB naik 1 kg\n\nFood recall H-1 (Rabu, 30 Sep):\n07.00 Makan/minum — Nasi kuning",
+    );
   });
 });

@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { formatIndonesianDate } from "@/lib/format";
 import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
 import type { EncounterDetail } from "@/server/encounter-read";
 import { AddendumForm } from "./addendum-form";
 import { AuditTrail } from "./audit-trail";
 import { EncounterContextPanel } from "./encounter-context-panel";
-import { EncounterForm } from "./encounter-form";
+import type { SubjectiveCopy } from "./encounter-food-recall-tab";
+import { EncounterForm, type SubjectiveHandle } from "./encounter-form";
 import { EncounterRecord } from "./encounter-record";
 
 /**
@@ -23,6 +24,13 @@ export function EncounterWorkspace({ encounter, canWrite }: { encounter: Encount
   const isFinal = encounter.status === "FINAL";
   const editable = !isFinal && canWrite;
   const weightHistory = encounter.history.map((visit) => ({ date: visit.startAt, vitals: visit.vitals }));
+  const subjectiveRef = useRef<SubjectiveHandle>(null);
+  const copyToSubjective: SubjectiveCopy | undefined = editable
+    ? {
+        has: (text) => subjectiveRef.current?.text().includes(text) ?? false,
+        append: (block) => subjectiveRef.current?.append(block) ?? false,
+      }
+    : undefined;
 
   return (
     <div className="gap-6 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-start">
@@ -30,7 +38,12 @@ export function EncounterWorkspace({ encounter, canWrite }: { encounter: Encount
         aria-label="Konteks kunjungan"
         className="mb-6 lg:sticky lg:top-4 lg:mb-0 lg:max-h-[calc(100svh-6rem)] lg:overflow-y-auto lg:pr-1"
       >
-        <EncounterContextPanel encounter={encounter} currentVitals={editable ? currentVitals : encounter.vitals} />
+        <EncounterContextPanel
+          encounter={encounter}
+          currentVitals={editable ? currentVitals : encounter.vitals}
+          canEditFoodRecall={editable}
+          copyToSubjective={copyToSubjective}
+        />
       </aside>
 
       <div className="min-w-0 space-y-6">
@@ -42,6 +55,7 @@ export function EncounterWorkspace({ encounter, canWrite }: { encounter: Encount
             options={encounter.options}
             weightHistory={weightHistory}
             onVitalsChange={setCurrentVitals}
+            subjectiveRef={subjectiveRef}
           />
         ) : (
           <EncounterRecord encounter={encounter} />

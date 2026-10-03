@@ -12,6 +12,7 @@ import {
   type EncounterOptions,
   type VitalKey,
 } from "@/lib/encounter";
+import { FOOD_RECALL_SELECT, foodRecallView, type FoodRecallView } from "@/lib/food-recall";
 import { formatGender } from "@/lib/format";
 import { INTAKE_PURPOSE_LABEL } from "@/lib/intake-purpose";
 import type { RecordProposal } from "@/lib/kuis/v2/record-proposal";
@@ -97,6 +98,8 @@ export type EncounterDetail = {
   hasMoreHistory: boolean;
   /** Persetujuan isian ke data pasien; hanya untuk record:write bila isian sudah terisi. */
   approval: ReadyIntakeApproval | null;
+  /** Food recall H-1 booking ini (spec check-in bagian 5). */
+  foodRecall: FoodRecallView;
 };
 
 const UNKNOWN_QUIZ_VERSION = "Isian dengan kuis versi";
@@ -272,6 +275,7 @@ export async function getEncounterForStaff(encounterId: string): Promise<Encount
           staff: { select: { name: true } },
           branch: { select: { name: true } },
           intake: { select: { id: true, status: true, kind: true, purpose: true, submittedAt: true } },
+          foodRecall: { select: FOOD_RECALL_SELECT },
           patient: {
             select: {
               id: true,
@@ -374,6 +378,7 @@ export async function getEncounterForStaff(encounterId: string): Promise<Encount
     history: historyRows.slice(0, HISTORY_LIMIT).map(toHistoryItem),
     hasMoreHistory: historyRows.length > HISTORY_LIMIT,
     approval,
+    foodRecall: foodRecallView(appointment, appointment.foodRecall),
   };
 }
 

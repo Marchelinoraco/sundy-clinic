@@ -175,3 +175,38 @@ export type FoodRecallView = {
   completedAt: Date | null;
   completedByName: string | null;
 };
+
+/** Baris food recall tersimpan, seperti dibaca halaman kunjungan. */
+export type StoredFoodRecall = {
+  status: "DITAWARKAN" | "DIISI";
+  recallDate: Date;
+  entries: unknown;
+  submittedAt: Date | null;
+  completedAt: Date | null;
+  completedByName: string | null;
+};
+
+/** Food recall sebuah kunjungan; tanpa baris pun tanggal H-1 dihitung dari tanggal booking. */
+export function foodRecallView(appointment: { id: string; startAt: Date }, row: StoredFoodRecall | null): FoodRecallView {
+  const recallDate = row ? row.recallDate.toISOString().slice(0, 10) : recallDateFor(appointment.startAt);
+  return {
+    appointmentId: appointment.id,
+    state: !row ? "NOT_OFFERED" : row.status === "DIISI" ? "FILLED" : "WAITING",
+    recallDate,
+    recallDateLabel: recallDateLabel(recallDate),
+    entries: row ? parseStoredEntries(row.entries) : [],
+    submittedAt: row?.submittedAt ?? null,
+    completedAt: row?.completedAt ?? null,
+    completedByName: row?.completedByName ?? null,
+  };
+}
+
+/** Kolom food recall yang dibaca halaman record:read (kunjungan, riwayat, data pasien). */
+export const FOOD_RECALL_SELECT = {
+  status: true,
+  recallDate: true,
+  entries: true,
+  submittedAt: true,
+  completedAt: true,
+  completedByName: true,
+} as const;

@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 import { initialContextTab, type ContextTab, type VitalKey } from "@/lib/encounter";
 import { cn } from "@/lib/utils";
 import type { EncounterDetail } from "@/server/encounter-read";
+import { EncounterFoodRecallTab, type SubjectiveCopy } from "./encounter-food-recall-tab";
 import { EncounterIntakeTab } from "./encounter-intake-tab";
 import { EncounterWarningsBox } from "./encounter-warnings";
 import { PreviousVisitsTab } from "./previous-visits-tab";
@@ -11,6 +12,7 @@ import { VitalsTrendTab } from "./vitals-trend-tab";
 
 const TABS: { key: ContextTab; label: string }[] = [
   { key: "intake", label: "Isian kuis" },
+  { key: "foodRecall", label: "Food recall" },
   { key: "previous", label: "Sebelumnya" },
   { key: "trend", label: "Tren" },
 ];
@@ -22,14 +24,24 @@ const TABS: { key: ContextTab; label: string }[] = [
 export function EncounterContextPanel({
   encounter,
   currentVitals,
+  canEditFoodRecall,
+  copyToSubjective,
 }: {
   encounter: EncounterDetail;
   /** Angka vital formulir saat ini, untuk baris "Kunjungan ini" di Tren. */
   currentVitals: Record<VitalKey, number | null>;
+  /** Catatan masih draf dan staf memegang record:write. */
+  canEditFoodRecall?: boolean;
+  /** Jalan ke kolom S (hanya saat formulir draf terbuka). */
+  copyToSubjective?: SubjectiveCopy;
 }) {
   const id = useId();
   const [tab, setTab] = useState<ContextTab>(() =>
-    initialContextTab({ hasIntake: encounter.intake !== null, hasHistory: encounter.history.length > 0 }),
+    initialContextTab({
+      hasIntake: encounter.intake !== null,
+      hasHistory: encounter.history.length > 0,
+      hasFilledFoodRecall: encounter.foodRecall.state === "FILLED" && encounter.status === "DRAF",
+    }),
   );
   const trendSource = encounter.history.map((visit) => ({ date: visit.startAt, vitals: visit.vitals }));
 
@@ -57,7 +69,7 @@ export function EncounterContextPanel({
             </button>
           ))}
         </div>
-        {/* Ketiga panel tetap terpasang dan yang tidak aktif disembunyikan: berpindah tab
+        {/* Semua panel tetap terpasang dan yang tidak aktif disembunyikan: berpindah tab
             tidak boleh membuang suntingan di kotak persetujuan atau tabel yang sudah dibuka. */}
         {TABS.map((item) => (
           <div
@@ -69,6 +81,15 @@ export function EncounterContextPanel({
             className="rounded-lg border bg-background p-4"
           >
             {item.key === "intake" && <EncounterIntakeTab intake={encounter.intake} approval={encounter.approval} />}
+            {item.key === "foodRecall" && (
+              <EncounterFoodRecallTab
+                foodRecall={encounter.foodRecall}
+                appointmentCode={encounter.appointment.code}
+                patientName={encounter.patient.name}
+                editable={canEditFoodRecall ?? false}
+                copy={copyToSubjective}
+              />
+            )}
             {item.key === "previous" && (
               <PreviousVisitsTab history={encounter.history} hasMore={encounter.hasMoreHistory} patientId={encounter.patient.id} />
             )}

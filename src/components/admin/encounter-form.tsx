@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useId, useState, useTransition } from "react";
+import { useId, useImperativeHandle, useState, useTransition, type Ref } from "react";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { appendToSubjective } from "@/lib/food-recall";
 import {
   ENCOUNTER_TEXT_MAX,
   FINALIZE_NEEDS_ASSESSMENT,
@@ -185,6 +186,9 @@ function TreatmentFields(props: {
   );
 }
 
+/** Pegangan kolom S untuk tab food recall (spec check-in 5.2). */
+export type SubjectiveHandle = { text: () => string; append: (block: string) => boolean };
+
 export type EncounterFormProps = {
   encounterId: string;
   initialVersion: string;
@@ -196,6 +200,8 @@ export type EncounterFormProps = {
   onVitalsChange?: (values: Record<VitalKey, number | null>) => void;
   autosaveDelayMs?: number;
   retryDelaysMs?: readonly number[];
+  /** Tab food recall menambahkan ringkasan ke S lewat pegangan ini. */
+  subjectiveRef?: Ref<SubjectiveHandle>;
 };
 
 /** Catatan draf S/O/A/P + treatment dengan simpan otomatis (spec 4–5, 7). */
@@ -221,6 +227,16 @@ export function EncounterForm(props: EncounterFormProps) {
     autosave.change(next);
   }
   const setText = (key: TextKey, value: string) => update({ ...draft, [key]: value });
+  // Tanpa daftar dependensi: pegangan selalu membaca draf terbaru.
+  useImperativeHandle(props.subjectiveRef, () => ({
+    text: () => draft.subjective,
+    append: (block: string) => {
+      const next = appendToSubjective(draft.subjective, block);
+      if (next.length > ENCOUNTER_TEXT_MAX) return false;
+      update({ ...draft, subjective: next });
+      return true;
+    },
+  }));
   const setVital = (key: VitalKey, value: string) => {
     const next = { ...draft, vitals: { ...draft.vitals, [key]: value } };
     update(next);

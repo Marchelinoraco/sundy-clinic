@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   appendToSubjective,
   foodRecallHeader,
+  foodRecallView,
   foodRecallLinkState,
   foodRecallMessageText,
   foodRecallRows,
@@ -144,5 +145,35 @@ describe("penawaran dan status link", () => {
     expect(text).toContain("Halo Siti, ini SunDY Clinic.");
     expect(text).toContain("https://sundyclinic.com/food-recall#x");
     expect(text).not.toMatch(/pasien|berobat/i);
+  });
+});
+
+describe("foodRecallView", () => {
+  const appointment = { id: "a1", startAt: combineWitaDateAndMinutes("2026-10-03", 11 * 60) };
+  const stored = {
+    status: "DIISI" as const,
+    recallDate: new Date("2026-10-02T00:00:00Z"),
+    entries: [{ hour: 7, kind: "MAKAN_MINUM", text: "Nasi", by: "CUSTOMER" }],
+    submittedAt: new Date("2026-10-03T02:00:00Z"),
+    completedAt: null,
+    completedByName: null,
+  };
+
+  it("belum ditawarkan: tanggal H-1 tetap dihitung dari tanggal booking", () => {
+    expect(foodRecallView(appointment, null)).toEqual({
+      appointmentId: "a1",
+      state: "NOT_OFFERED",
+      recallDate: "2026-10-02",
+      recallDateLabel: "Jumat, 2 Oktober",
+      entries: [],
+      submittedAt: null,
+      completedAt: null,
+      completedByName: null,
+    });
+  });
+
+  it("ditawarkan tetapi belum diisi, dan sudah diisi", () => {
+    expect(foodRecallView(appointment, { ...stored, status: "DITAWARKAN", entries: [] }).state).toBe("WAITING");
+    expect(foodRecallView(appointment, stored)).toMatchObject({ state: "FILLED", entries: stored.entries });
   });
 });
