@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import type { RescheduleTarget } from "@/lib/booking-actions";
 import type { BookingMessage } from "@/lib/booking-messages";
 import { getBookingMessage } from "@/server/appointment-message";
+import { CheckInDialog, type CheckInTarget } from "./check-in-dialog";
+import { FoodRecallDialog, type FoodRecallTarget } from "./food-recall-dialog";
 import { QuizLinkDialog, type QuizLinkTarget } from "./quiz-link-dialog";
 import { RescheduleDialog } from "./reschedule-dialog";
 import { SendMessageDialog } from "./send-message-dialog";
@@ -18,6 +20,10 @@ type BookingDialogs = {
   openReschedule: (target: RescheduleTarget) => void;
   /** Dialog "Link kuis" (spec C3 4.2). */
   openQuizLink: (target: QuizLinkTarget) => void;
+  /** Dialog check-in (spec check-in bagian 3). */
+  openCheckIn: (target: CheckInTarget) => void;
+  /** Dialog "Food recall" (spec check-in 4.4). */
+  openFoodRecall: (target: FoodRecallTarget) => void;
 };
 
 const BookingDialogsContext = createContext<BookingDialogs | null>(null);
@@ -34,6 +40,8 @@ export function BookingDialogsProvider({ today, children }: { today: string; chi
   );
   const [reschedule, setReschedule] = useState<RescheduleTarget | null>(null);
   const [quizLink, setQuizLink] = useState<QuizLinkTarget | null>(null);
+  const [checkIn, setCheckIn] = useState<CheckInTarget | null>(null);
+  const [foodRecall, setFoodRecall] = useState<FoodRecallTarget | null>(null);
 
   const value = useMemo<BookingDialogs>(
     () => ({
@@ -50,6 +58,8 @@ export function BookingDialogsProvider({ today, children }: { today: string; chi
       },
       openReschedule: setReschedule,
       openQuizLink: setQuizLink,
+      openCheckIn: setCheckIn,
+      openFoodRecall: setFoodRecall,
     }),
     [],
   );
@@ -89,6 +99,26 @@ export function BookingDialogsProvider({ today, children }: { today: string; chi
           open
           onOpenChange={(open) => {
             if (!open) setQuizLink(null);
+          }}
+        />
+      )}
+      {checkIn && (
+        <CheckInDialog
+          key={checkIn.appointmentId}
+          target={checkIn}
+          open
+          onOpenChange={(open) => {
+            if (!open) setCheckIn(null);
+          }}
+        />
+      )}
+      {foodRecall && (
+        <FoodRecallDialog
+          key={foodRecall.appointmentId}
+          target={foodRecall}
+          open
+          onOpenChange={(open) => {
+            if (!open) setFoodRecall(null);
           }}
         />
       )}

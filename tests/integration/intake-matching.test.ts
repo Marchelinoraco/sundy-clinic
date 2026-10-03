@@ -4,10 +4,10 @@ import { prisma } from "@/lib/db";
 import {
   cancelAppointment,
   listAppointments,
-  markAttended,
   markNoShow,
   verifyAppointment,
 } from "@/server/appointment";
+import { checkInAppointment } from "@/server/check-in";
 import { createPatientFromIntake, getMatchCandidates, matchPatient } from "@/server/intake";
 import { unwrap } from "./unwrap";
 import { at, bookableDate, cleanupBookingWorld, createBookingWorld, type BookingWorld } from "./public-booking-world";
@@ -139,7 +139,15 @@ describe("mencocokkan booking situs dengan pasien", () => {
     const message = "Cocokkan booking ini dengan data pasien lebih dulu.";
 
     expect(await verifyAppointment(booking.id)).toEqual({ ok: false, error: message });
-    expect(await markAttended(booking.id)).toEqual({ ok: false, error: message });
+    expect(
+      await checkInAppointment({
+        appointmentId: booking.id,
+        nik: { kind: "MISSING", reason: "LUPA_KTP" },
+        identity: {},
+        whatsapp: "081234567890",
+        offerFoodRecall: false,
+      }),
+    ).toEqual({ ok: false, error: message });
     expect(await markNoShow(booking.id)).toEqual({ ok: false, error: message });
     expect((await unwrap(cancelAppointment(booking.id))).status).toBe("DIBATALKAN");
   });

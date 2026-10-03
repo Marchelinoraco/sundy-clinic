@@ -6,11 +6,11 @@ import {
   cancelAppointment,
   createAppointment,
   listAppointments,
-  markAttended,
   markNoShow,
   rescheduleAppointment,
   verifyAppointment,
 } from "@/server/appointment";
+import { checkInAppointment } from "@/server/check-in";
 
 const { actor } = vi.hoisted(() => ({
   actor: {
@@ -23,6 +23,17 @@ const { actor } = vi.hoisted(() => ({
 }));
 
 vi.mock("@/server/session", () => ({ requireCapability: vi.fn().mockResolvedValue(actor) }));
+
+/** Check-in tanpa NIK (alasan "Lupa membawa KTP"): yang diuji di sini perpindahan statusnya. */
+function checkIn(id: string) {
+  return checkInAppointment({
+    appointmentId: id,
+    nik: { kind: "MISSING", reason: "LUPA_KTP" },
+    identity: { birthDate: "1990-05-17", gender: "P", occupation: "Guru", address: "Jl. Uji 1" },
+    whatsapp: "081277770000",
+    offerFoodRecall: false,
+  });
+}
 
 describe("server action appointment", () => {
   let patientId: string;
@@ -207,8 +218,8 @@ describe("server action appointment", () => {
     const verified = await unwrap(verifyAppointment(appt.id));
     expect(verified.status).toBe("TERKONFIRMASI");
 
-    const attended = await unwrap(markAttended(appt.id));
-    expect(attended.status).toBe("HADIR");
+    await unwrap(checkIn(appt.id));
+    expect((await prisma.appointment.findUniqueOrThrow({ where: { id: appt.id } })).status).toBe("HADIR");
   });
 
   it("membatalkan janji temu tanpa menghapus baris, dan membuka kembali slotnya", async () => {
@@ -342,7 +353,7 @@ describe("server action appointment", () => {
     const appt = await book("2026-10-05T07:00:00Z", "2026-10-05T07:30:00Z");
     await unwrap(cancelAppointment(appt.id));
 
-    const result = await markAttended(appt.id);
+    const result = await checkIn(appt.id);
     expect(result).toEqual({ ok: false, error: expect.stringMatching(/dibatalkan/i) });
     const row = await prisma.appointment.findUniqueOrThrow({ where: { id: appt.id } });
     expect(row.status).toBe("DIBATALKAN");
@@ -361,7 +372,7 @@ describe("server action appointment", () => {
 
   it("tidak membatalkan pasien yang sudah hadir", async () => {
     const appt = await book("2026-10-05T07:00:00Z", "2026-10-05T07:30:00Z");
-    await unwrap(markAttended(appt.id));
+    await unwrap(checkIn(appt.id));
     const result = await cancelAppointment(appt.id);
     expect(result).toEqual({ ok: false, error: expect.stringMatching(/hadir/i) });
   });
@@ -369,7 +380,7 @@ describe("server action appointment", () => {
   it("menandai tidak hadir hanya dari status aktif", async () => {
     const appt = await book("2026-10-05T07:00:00Z", "2026-10-05T07:30:00Z");
     expect((await unwrap(markNoShow(appt.id))).status).toBe("TIDAK_HADIR");
-    const again = await markAttended(appt.id);
+    const again = await checkIn(appt.id);
     expect(again.ok).toBe(false);
   });
 

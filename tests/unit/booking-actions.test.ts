@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bookingRowActions, type BookingActionRow } from "@/lib/booking-actions";
+import { BOOKING_ACTION_LABEL, bookingRowActions, type BookingActionRow } from "@/lib/booking-actions";
 
 const waiting: BookingActionRow = {
   status: "MENUNGGU_KONFIRMASI",
@@ -79,6 +79,22 @@ describe("bookingRowActions (spec C1 5.2, C2 bagian 5)", () => {
 
   it("Lihat isian hanya untuk yang berhak membaca rekam medis", () => {
     expect(bookingRowActions(site, false).menu).not.toContain("VIEW_INTAKE");
+  });
+
+  it("Hadir menjadi Check-in", () => {
+    expect(BOOKING_ACTION_LABEL.ATTEND).toBe("Check-in");
+    expect(BOOKING_ACTION_LABEL.FOOD_RECALL).toBe("Food recall");
+  });
+
+  it("customer yang sudah check-in hari ini: Food recall di menu, sebelum Lihat isian", () => {
+    expect(bookingRowActions({ ...site, status: "HADIR", foodRecallAvailable: true }, true)).toEqual({
+      primary: [],
+      menu: ["FOOD_RECALL", "VIEW_INTAKE"],
+    });
+    expect(bookingRowActions({ ...site, status: "HADIR", foodRecallAvailable: false }, true)).toEqual({
+      primary: [],
+      menu: ["VIEW_INTAKE"],
+    });
   });
 });
 

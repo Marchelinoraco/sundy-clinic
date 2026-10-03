@@ -193,10 +193,6 @@ export async function verifyAppointment(id: string): Promise<ActionResult<Appoin
   return setStatus(id, ["MENUNGGU_KONFIRMASI"], "TERKONFIRMASI", "appointment.verify");
 }
 
-export async function markAttended(id: string): Promise<ActionResult<Appointment>> {
-  return setStatus(id, ACTIVE_STATUSES, "HADIR", "appointment.mark-attended");
-}
-
 export async function markNoShow(id: string): Promise<ActionResult<Appointment>> {
   return setStatus(id, ACTIVE_STATUSES, "TIDAK_HADIR", "appointment.mark-no-show");
 }
@@ -238,6 +234,9 @@ const BOOKING_LIST_INCLUDE = {
   branch: true,
   service: true,
   intake: { select: { id: true, name: true, whatsapp: true, status: true, kind: true, linkVersion: true } },
+  // Status food recall saja: isinya catatan klinis, dan daftar ini juga dibuka resepsionis.
+  foodRecall: { select: { status: true } },
+  encounter: { select: { status: true } },
   // Catatan pesan untuk keterangan "Konfirmasi terkirim …" di baris booking (spec C2 4.5).
   messages: {
     select: { id: true, kind: true, scheduledFor: true, sentAt: true, sentByName: true, revokedAt: true, reply: true },
