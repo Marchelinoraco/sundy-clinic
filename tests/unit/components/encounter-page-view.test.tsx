@@ -117,4 +117,23 @@ describe("EncounterPageView", () => {
       "BB naik 1 kg\n\nFood recall H-1 (Rabu, 30 Sep):\n07.00 Makan/minum — Nasi kuning",
     );
   });
+
+  it("tab Sebelumnya memuat food recall kunjungan itu", async () => {
+    const user = userEvent.setup();
+    const visit = historyItem({
+      foodRecall: {
+        appointmentId: "a0",
+        state: "FILLED",
+        recallDate: "2026-09-22",
+        recallDateLabel: "Selasa, 22 September",
+        entries: [{ hour: 12, kind: "KAPSUL_OBAT", text: "Kapsul M", by: "CUSTOMER" }],
+        submittedAt: null,
+        completedAt: null,
+        completedByName: null,
+      },
+    });
+    render(<EncounterPageView encounter={encounterDetail({ history: [visit] })} canWrite />);
+    await user.click(screen.getByRole("tab", { name: "Sebelumnya" }));
+    expect(screen.getByText("Food recall Selasa, 22 September")).toBeInTheDocument();
+  });
 });

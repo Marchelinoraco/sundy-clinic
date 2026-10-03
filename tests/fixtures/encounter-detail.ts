@@ -27,6 +27,7 @@ export function historyItem(patch: Partial<EncounterHistoryItem> = {}): Encounte
     assessmentPreview: "Obesitas derajat 1",
     treatments: [{ serviceName: "Meso", area: "Perut", dose: null, performerName: "dr. Diane", notes: null }],
     addenda: [],
+    foodRecall: null,
     ...patch,
   };
 }

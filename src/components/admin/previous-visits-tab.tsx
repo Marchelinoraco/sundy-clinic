@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { formatIndonesianDate, formatShortIndonesianDate } from "@/lib/format";
 import type { EncounterHistoryItem } from "@/server/encounter-read";
+import { FoodRecallTable } from "./food-recall-table";
 
 function Part({ label, text }: { label: string; text: string | null }) {
   return (
@@ -35,6 +36,14 @@ function VisitDetail({ visit }: { visit: EncounterHistoryItem }) {
             .map((row) => [row.serviceName, row.area, row.dose, row.performerName].filter(Boolean).join(" · "))
             .join("\n")}
         />
+      )}
+      {visit.foodRecall && visit.foodRecall.entries.length > 0 && (
+        <details>
+          <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
+            Food recall {visit.foodRecall.recallDateLabel}
+          </summary>
+          <FoodRecallTable entries={visit.foodRecall.entries} label={`Food recall ${visit.foodRecall.recallDateLabel}`} />
+        </details>
       )}
       {visit.addenda.map((addendum) => (
         <p key={addendum.id} className="rounded bg-muted p-2 text-xs">

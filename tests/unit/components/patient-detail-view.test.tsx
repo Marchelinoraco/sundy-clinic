@@ -6,7 +6,7 @@ import type { PatientDetail } from "@/server/patient";
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 // Formulir sunting memanggil server action dari modul ini.
-vi.mock("@/server/patient", () => ({ updatePatientImportantNotes: vi.fn(), updatePaperRecordNumber: vi.fn() }));
+vi.mock("@/server/patient", () => ({ updatePatientImportantNotes: vi.fn(), updatePaperRecordNumber: vi.fn(), updatePatientNik: vi.fn() }));
 
 const patient: PatientDetail = {
   id: "p1",
@@ -21,6 +21,9 @@ const patient: PatientDetail = {
   programStatus: "AKTIF",
   lastVisitAt: new Date("2026-10-07T05:00:00Z"),
   paperRecordNumber: "RM-0457",
+  nik: "7171015705900001",
+  nikMissingReason: null,
+  mergedInto: null,
   record: { allergies: "Amoxicillin", medicalHistory: null, importantNotes: "Takut jarum" },
   appointments: [
     {
@@ -54,6 +57,16 @@ const patient: PatientDetail = {
       authorName: "Dr. Diane",
       assessmentPreview: "Obesitas derajat 1",
       status: "FINAL",
+      foodRecall: {
+        appointmentId: "a1",
+        state: "FILLED",
+        recallDate: "2026-10-06",
+        recallDateLabel: "Selasa, 6 Oktober",
+        entries: [{ hour: 7, kind: "MAKAN_MINUM", text: "Nasi kuning", by: "CUSTOMER" }],
+        submittedAt: null,
+        completedAt: null,
+        completedByName: null,
+      },
     },
   ],
 };
@@ -120,5 +133,30 @@ describe("PatientDetailView (spec D 5.3)", () => {
     render(<PatientDetailView patient={receptionistView} canReadRecords={false} canWriteRecords={false} tab="isian" />);
     expect(within(screen.getByRole("region", { name: "Riwayat isian" })).getByText("SDY-8F3K")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Lihat isian" })).not.toBeInTheDocument();
+  });
+
+  it("NIK tampil di data diri", () => {
+    render(<PatientDetailView patient={patient} canReadRecords canWriteRecords />);
+    expect(within(screen.getByRole("region", { name: "Data diri" })).getByText("7171015705900001")).toBeInTheDocument();
+  });
+
+  it("riwayat kunjungan memuat food recall yang bisa dibuka", () => {
+    render(<PatientDetailView patient={patient} canReadRecords canWriteRecords />);
+    const visits = screen.getByRole("region", { name: "Riwayat kunjungan" });
+    expect(within(visits).getByText("Food recall Selasa, 6 Oktober")).toBeInTheDocument();
+    // Isinya di dalam <details> yang tertutup: dicari lewat teks, bukan peran tabel.
+    expect(within(visits).getByText("Nasi kuning")).toBeInTheDocument();
+  });
+
+  it("pasien rangkap menunjuk pasien lamanya", () => {
+    render(
+      <PatientDetailView
+        patient={{ ...patient, mergedInto: { id: "p9", medicalRecordNumber: "SDY-2026-0009", name: "Siti Lama" } }}
+        canReadRecords
+        canWriteRecords
+      />,
+    );
+    expect(screen.getByRole("link", { name: "Siti Lama (SDY-2026-0009)" })).toHaveAttribute("href", "/admin/pasien/p9");
+    expect(screen.getByText(/Pasien ini rangkap dari/)).toBeInTheDocument();
   });
 });

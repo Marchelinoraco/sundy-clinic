@@ -69,6 +69,8 @@ export type EncounterHistoryItem = {
   assessmentPreview: string | null;
   treatments: EncounterTreatmentSummary[];
   addenda: EncounterAddendumSummary[];
+  /** Food recall kunjungan itu, bila ada (spec check-in 5.5). */
+  foodRecall: FoodRecallView | null;
 };
 
 export type EncounterDetail = {
@@ -148,7 +150,9 @@ function findHistory(patientId: string, before: Date, excludeId: string) {
       finalizedByName: true,
       treatments: TREATMENT_SELECT,
       addenda: ADDENDUM_SELECT,
-      appointment: { select: { startAt: true, branch: { select: { name: true } } } },
+      appointment: {
+        select: { id: true, startAt: true, branch: { select: { name: true } }, foodRecall: { select: FOOD_RECALL_SELECT } },
+      },
     },
   });
 }
@@ -169,6 +173,7 @@ function toHistoryItem(row: Awaited<ReturnType<typeof findHistory>>[number]): En
     assessmentPreview: assessmentPreview(row.assessment),
     treatments: row.treatments.map(toTreatmentSummary),
     addenda: row.addenda,
+    foodRecall: row.appointment.foodRecall ? foodRecallView(row.appointment, row.appointment.foodRecall) : null,
   };
 }
 
@@ -394,6 +399,8 @@ export type WorklistRow = {
   branchName: string;
   encounterId: string | null;
   state: WorklistState;
+  /** Customer sudah mengisi food recall (spec check-in 5.5). */
+  foodRecallFilled: boolean;
 };
 
 export type DoctorWorklist = { today: WorklistRow[]; unfinished: WorklistRow[] };
@@ -411,6 +418,7 @@ function findWorklist(where: Prisma.AppointmentWhereInput) {
       branch: { select: { name: true } },
       patient: { select: { name: true, medicalRecordNumber: true } },
       encounter: { select: { id: true, status: true } },
+      foodRecall: { select: { status: true } },
     },
   });
 }
@@ -427,6 +435,7 @@ function toWorklistRow(row: Awaited<ReturnType<typeof findWorklist>>[number]): W
     branchName: row.branch.name,
     encounterId: encounter?.id ?? null,
     state: !encounter ? "BELUM" : encounter.status === "FINAL" ? "FINAL" : "DRAF",
+    foodRecallFilled: row.foodRecall?.status === "DIISI",
   };
 }
 

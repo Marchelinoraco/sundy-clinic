@@ -21,6 +21,7 @@ const row = (patch: Partial<WorklistRow>): WorklistRow => ({
   branchName: "SunDY Mahakeret",
   encounterId: null,
   state: "BELUM",
+  foodRecallFilled: false,
   ...patch,
 });
 
@@ -74,5 +75,10 @@ describe("DoctorWorklistView", () => {
     await waitFor(() =>
       expect(toast.error).toHaveBeenCalledWith("Kunjungan hanya bisa dibuka untuk pasien yang sudah ditandai hadir."),
     );
+  });
+
+  it("menandai customer yang sudah mengisi food recall", () => {
+    render(<DoctorWorklistView worklist={{ today: [row({ foodRecallFilled: true })], unfinished: [] }} />);
+    expect(screen.getByText("food recall ✓")).toBeInTheDocument();
   });
 });
