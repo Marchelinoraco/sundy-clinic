@@ -61,6 +61,7 @@ describe("SmoothScroll di alur kuis dan saat pindah halaman", () => {
   it("mengenali alur kuis beserta turunannya, tanpa ikut menangkap halaman lain", () => {
     expect(usesNativeScroll("/daftar")).toBe(true);
     expect(usesNativeScroll("/isi/kode")).toBe(true);
+    expect(usesNativeScroll("/food-recall")).toBe(true);
     expect(usesNativeScroll("/daftarkan")).toBe(false);
     expect(usesNativeScroll("/")).toBe(false);
   });
