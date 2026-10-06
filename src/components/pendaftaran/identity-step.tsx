@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatRupiah } from "@/lib/format";
 import { validateIdentity } from "@/lib/kuis/identity";
+import { ONLINE_FEE_TERMS } from "@/lib/online-consultation";
 import { BOOKING_FEE_TERMS } from "@/lib/payment";
 import { witaDateString } from "@/lib/time";
 
@@ -64,11 +65,14 @@ export function IdentityStep({
   value,
   onChange,
   bookingFee,
+  onlineTotal,
 }: {
   patientType: "BARU" | "LAMA";
   value: IdentityDraft;
   onChange: (next: IdentityDraft) => void;
   bookingFee: number;
+  /** Diisi untuk konsultasi online: total yang ditransfer di muka (spec 4.3). */
+  onlineTotal?: number;
 }) {
   const set = <K extends keyof IdentityDraft>(key: K, next: IdentityDraft[K]) => onChange({ ...value, [key]: next });
 
@@ -158,7 +162,15 @@ export function IdentityStep({
           onChange={(e) => set("consentFee", e.target.checked)}
         />
         <span>
-          Saya akan mentransfer biaya booking {formatRupiah(bookingFee)}. {BOOKING_FEE_TERMS}
+          {onlineTotal !== undefined ? (
+            <>
+              Saya akan mentransfer {formatRupiah(onlineTotal)} (biaya booking + Konsultasi Online). {ONLINE_FEE_TERMS}
+            </>
+          ) : (
+            <>
+              Saya akan mentransfer biaya booking {formatRupiah(bookingFee)}. {BOOKING_FEE_TERMS}
+            </>
+          )}
         </span>
       </label>
 

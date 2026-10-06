@@ -7,6 +7,7 @@ import { firstName, quizLinkState } from "@/lib/quiz-link";
 import { workingWindows } from "@/lib/slot";
 import { addDaysToDateString, combineWitaDateAndMinutes, minutesToTimeLabel, witaDateString, witaMinutesOfDay, witaWeekday } from "@/lib/time";
 import { bookingServiceName } from "@/lib/transfer-instruction";
+import { DAY_LIST_CHANNEL } from "@/server/online-store";
 import { listPendingBookings } from "@/server/appointment";
 import { computeAvailability } from "@/server/availability";
 import { getReminderCounts } from "@/server/reminder";
@@ -42,7 +43,7 @@ export async function getTodayWork(now: Date = new Date()): Promise<TodayWork> {
     listPendingBookings(),
     getReminderCounts(),
     prisma.appointment.findMany({
-      where: { startAt: { gte: start, lt: end }, status: { notIn: HIDDEN_STATUSES } },
+      where: { startAt: { gte: start, lt: end }, status: { notIn: HIDDEN_STATUSES }, ...DAY_LIST_CHANNEL },
       select: {
         source: true,
         status: true,
@@ -113,6 +114,8 @@ export async function getTodaySchedule(now: Date = new Date()): Promise<TodaySch
   const bookings = await prisma.appointment.findMany({
     where: {
       staffId: { in: staffList.map((s) => s.id) },
+      // Garis waktu hanya untuk kunjungan klinik (spec konsultasi online 3.7).
+      channel: "KLINIK",
       startAt: { gte: start, lt: end },
       status: { notIn: HIDDEN_STATUSES },
     },

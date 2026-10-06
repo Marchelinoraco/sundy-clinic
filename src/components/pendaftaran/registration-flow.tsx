@@ -8,8 +8,10 @@ import type { QuizAnswers } from "@/lib/kuis/v2/answers";
 import { QUIZ_VERSION } from "@/lib/kuis/v2/options";
 import { pruneAnswers, stepError, visibleSteps, type StepId } from "@/lib/kuis/v2/steps";
 import { stepText } from "@/lib/kuis/v2/texts";
-import { submitSiteBooking, type BookingReceipt } from "@/server/public-booking";
+import { EMPTY_WINDOW_DRAFT, onlineTotal, windowDraftsError, type WindowDraft } from "@/lib/online-consultation";
+import { submitOnlineBooking, submitSiteBooking, type BookingReceipt, type OnlineReceipt } from "@/server/public-booking";
 import type { BookingOptions } from "@/server/public-booking-data";
+import { ContactWindowsStep } from "./contact-windows-step";
 import { EMPTY_IDENTITY, IdentityStep, identityError, identityPayload, type IdentityDraft } from "./identity-step";
 import { Receipt } from "./receipt";
 import { ScheduleStep, type ScheduleDraft } from "./schedule-step";
@@ -18,13 +20,28 @@ import { SummaryStep } from "./summary-step";
 
 type Screen = StepId | "R" | "L" | "J" | "D";
 
+type ConsultMode = "KLINIK" | "ONLINE";
+type OnlineDraft = { staffId: string | null; windows: WindowDraft[]; submissionKey: string };
+
 type Draft = {
   answers: QuizAnswers;
   screen: Screen;
   serviceId: string | null;
   schedule: ScheduleDraft;
   identity: IdentityDraft;
+  /** Cara konsultasi (spec konsultasi online 4.1). */
+  mode: ConsultMode;
+  online: OnlineDraft;
 };
+
+/** Kunci kiriman online: kiriman ulang dengan kunci yang sama tidak membuat booking kedua. */
+function newSubmissionKey(): string {
+  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+}
+
+function emptyOnline(): OnlineDraft {
+  return { staffId: null, windows: [EMPTY_WINDOW_DRAFT], submissionKey: newSubmissionKey() };
+}
 
 /** Jawaban tersimpan per tab (sessionStorage), terhapus saat tab ditutup atau setelah Kirim (spec bagian 8). */
 export const DRAFT_STORAGE_KEY = `sundy-daftar-v${QUIZ_VERSION}`;
@@ -39,7 +56,15 @@ const MODE = { askPatientType: true };
 const EMPTY_SCHEDULE: ScheduleDraft = { branchId: null, staffId: null, date: null, hold: null };
 
 function emptyDraft(): Draft {
-  return { answers: {}, screen: "U1", serviceId: null, schedule: EMPTY_SCHEDULE, identity: EMPTY_IDENTITY };
+  return {
+    answers: {},
+    screen: "U1",
+    serviceId: null,
+    schedule: EMPTY_SCHEDULE,
+    identity: EMPTY_IDENTITY,
+    mode: "KLINIK",
+    online: emptyOnline(),
+  };
 }
 
 function screensFor(answers: QuizAnswers): Screen[] {
@@ -49,7 +74,10 @@ function screensFor(answers: QuizAnswers): Screen[] {
 function readDraft(): Draft | null {
   try {
     const raw = window.sessionStorage.getItem(DRAFT_STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as Draft) : null;
+    if (!raw) return null;
+    // Draf dari sebelum konsultasi online tidak punya mode/online: isi dengan bawaan.
+    const parsed = JSON.parse(raw) as Partial<Draft>;
+    return { ...emptyDraft(), ...parsed, mode: parsed.mode ?? "KLINIK", online: parsed.online ?? emptyOnline() };
   } catch {
     return null;
   }
@@ -80,7 +108,21 @@ function discardLegacyDrafts(): boolean {
   }
 }
 
-function isReceiptShape(value: unknown): value is Omit<BookingReceipt, "startAt"> & { startAt: string } {
+function isOnlineReceipt(value: unknown): value is OnlineReceipt {
+  if (typeof value !== "object" || value === null) return false;
+  const o = value as Record<string, unknown>;
+  return (
+    Array.isArray(o.windowLines) &&
+    o.windowLines.every((line) => typeof line === "string") &&
+    typeof o.servicePrice === "number" &&
+    typeof o.total === "number" &&
+    typeof o.maskedWhatsapp === "string"
+  );
+}
+
+function isReceiptShape(
+  value: unknown,
+): value is Omit<BookingReceipt, "startAt" | "online"> & { startAt: string; online?: OnlineReceipt | null } {
   if (typeof value !== "object" || value === null) return false;
   const r = value as Record<string, unknown>;
   const text = (v: unknown) => typeof v === "string";
@@ -94,7 +136,8 @@ function isReceiptShape(value: unknown): value is Omit<BookingReceipt, "startAt"
     !Number.isNaN(new Date(r.startAt as string).getTime()) &&
     (r.bookingFee === null || (typeof r.bookingFee === "number" && Number.isFinite(r.bookingFee))) &&
     (r.bankAccount === null || text(r.bankAccount)) &&
-    text(r.confirmationLink)
+    text(r.confirmationLink) &&
+    (r.online === undefined || r.online === null || isOnlineReceipt(r.online))
   );
 }
 
@@ -103,7 +146,7 @@ function readReceipt(): BookingReceipt | null {
     const raw = window.sessionStorage.getItem(RECEIPT_STORAGE_KEY);
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
-    return isReceiptShape(parsed) ? { ...parsed, startAt: new Date(parsed.startAt) } : null;
+    return isReceiptShape(parsed) ? { ...parsed, startAt: new Date(parsed.startAt), online: parsed.online ?? null } : null;
   } catch {
     return null;
   }
@@ -112,7 +155,7 @@ function readReceipt(): BookingReceipt | null {
 function writeReceipt(receipt: BookingReceipt | null) {
   try {
     if (receipt) {
-      const { code, patientName, serviceName, staffName, branchName, startAt, bookingFee, bankAccount, confirmationLink } =
+      const { code, patientName, serviceName, staffName, branchName, startAt, bookingFee, bankAccount, confirmationLink, online } =
         receipt;
       window.sessionStorage.setItem(
         RECEIPT_STORAGE_KEY,
@@ -126,6 +169,7 @@ function writeReceipt(receipt: BookingReceipt | null) {
           bookingFee,
           bankAccount,
           confirmationLink,
+          online,
         }),
       );
     } else {
@@ -176,6 +220,46 @@ export function RegistrationFlow({ options }: { options: BookingOptions }) {
   const patientType = draft.answers.patientType ?? "BARU";
   const service =
     servicesFor(options, draft.answers).find((s) => s.id === draft.serviceId) ?? options.consultation;
+
+  const online = options.online;
+  const mode: ConsultMode = online && service.id === options.consultation.id ? draft.mode : "KLINIK";
+  const onlineStaffId = draft.online.staffId ?? (online?.doctors.length === 1 ? online.doctors[0].id : null);
+  const onlineScheduleError = !onlineStaffId ? "Pilih dokter lebih dulu." : windowDraftsError(draft.online.windows, "CUSTOMER", new Date());
+
+  function finish(next: BookingReceipt) {
+    writeDraft(null);
+    writeReceipt(next);
+    setDraft(emptyDraft());
+    setReceipt(next);
+  }
+
+  function submitOnline() {
+    if (!onlineStaffId || onlineScheduleError) {
+      goTo("J");
+      return;
+    }
+    startTransition(async () => {
+      try {
+        const result = await submitOnlineBooking({
+          submissionKey: draft.online.submissionKey,
+          staffId: onlineStaffId,
+          windows: draft.online.windows,
+          answers: pruneAnswers(draft.answers),
+          identity: identityPayload(draft.identity, patientType),
+          consentData: draft.identity.consentData,
+          consentFee: draft.identity.consentFee,
+          website: draft.identity.website,
+        });
+        if (!result.ok) {
+          toast.error(result.error);
+          return;
+        }
+        finish(result.data.receipt);
+      } catch {
+        toast.error("Pendaftaran gagal dikirim. Periksa koneksi lalu coba lagi.");
+      }
+    });
+  }
 
   function goTo(next: Screen) {
     const depth = ((window.history.state as HistoryState)?.depth ?? 0) + 1;
@@ -229,6 +313,10 @@ export function RegistrationFlow({ options }: { options: BookingOptions }) {
   }
 
   function submit() {
+    if (mode === "ONLINE") {
+      submitOnline();
+      return;
+    }
     const hold = draft.schedule.hold;
     const branchId = draft.schedule.branchId;
     if (!hold || !branchId) {
@@ -259,10 +347,7 @@ export function RegistrationFlow({ options }: { options: BookingOptions }) {
           goTo("J");
           return;
         }
-        writeDraft(null);
-        writeReceipt(result.data.receipt);
-        setDraft(emptyDraft());
-        setReceipt(result.data.receipt);
+        finish(result.data.receipt);
       } catch {
         toast.error("Pendaftaran gagal dikirim. Periksa koneksi lalu coba lagi.");
       }
@@ -289,6 +374,25 @@ export function RegistrationFlow({ options }: { options: BookingOptions }) {
           answers={draft.answers}
           service={service}
           onSelect={(serviceId) => setDraft((d) => ({ ...d, serviceId, schedule: { ...d.schedule, hold: null } }))}
+          mode={mode}
+          onModeChange={(next) => setDraft((d) => ({ ...d, mode: next }))}
+        />
+      </QuizScreen>
+    );
+  } else if (screen === "J" && mode === "ONLINE" && online) {
+    content = (
+      <QuizScreen
+        key="J-online"
+        title="Kapan Anda bisa dihubungi?"
+        hint="Dokter akan menelepon atau video call lewat WhatsApp kapan saja di dalam salah satu rentang ini. Pilih waktu Anda benar-benar bisa menjawab."
+        {...common}
+        error={onlineScheduleError}
+        onNext={() => goTo("D")}
+      >
+        <ContactWindowsStep
+          online={online}
+          value={{ staffId: onlineStaffId, windows: draft.online.windows }}
+          onChange={(patch) => setDraft((d) => ({ ...d, online: { ...d.online, ...patch } }))}
         />
       </QuizScreen>
     );
@@ -325,6 +429,9 @@ export function RegistrationFlow({ options }: { options: BookingOptions }) {
           patientType={patientType}
           value={draft.identity}
           bookingFee={options.bookingFee}
+          onlineTotal={
+            mode === "ONLINE" && online ? onlineTotal({ bookingFee: options.bookingFee, servicePrice: online.price }) : undefined
+          }
           onChange={(identity) => setDraft((d) => ({ ...d, identity }))}
         />
       </QuizScreen>

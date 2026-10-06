@@ -14,6 +14,7 @@ import {
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { recordAudit, recordAuditThrottled } from "@/server/audit";
 import { isRecordLockedError, isUniqueViolation } from "@/server/db-errors";
+import { lastHeightCm } from "@/server/encounter-store";
 import { requireCapability } from "@/server/session";
 
 const STALE = "Catatan ini baru diubah di tempat lain. Muat ulang halaman.";
@@ -148,11 +149,7 @@ export async function openEncounter(appointmentId: string): Promise<ActionResult
       throw new UserFacingError("Kunjungan hanya bisa dibuka untuk pasien yang sudah ditandai hadir.");
     }
 
-    const lastHeight = await prisma.encounter.findFirst({
-      where: { status: "FINAL", heightCm: { not: null }, appointment: { patientId: appointment.patientId } },
-      orderBy: { appointment: { startAt: "desc" } },
-      select: { heightCm: true },
-    });
+    const heightCm = await lastHeightCm(prisma, appointment.patientId);
 
     try {
       const created = await prisma.encounter.create({
@@ -160,7 +157,7 @@ export async function openEncounter(appointmentId: string): Promise<ActionResult
           appointmentId: appointment.id,
           createdById: actor.staffId,
           createdByName: actor.name,
-          heightCm: lastHeight?.heightCm ?? null,
+          heightCm,
         },
         select: { id: true },
       });

@@ -28,6 +28,7 @@ describe("QuizLinkEntry", () => {
         kind: "LENGKAP",
         missing: [],
         feeConsent: null,
+    online: null,
       },
     });
     render(<QuizLinkEntry />);

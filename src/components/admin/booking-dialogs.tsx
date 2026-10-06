@@ -2,10 +2,11 @@
 
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import type { RescheduleTarget } from "@/lib/booking-actions";
+import type { ContactWindowsTarget, RescheduleTarget } from "@/lib/booking-actions";
 import type { BookingMessage } from "@/lib/booking-messages";
 import { getBookingMessage } from "@/server/appointment-message";
 import { CheckInDialog, type CheckInTarget } from "./check-in-dialog";
+import { ContactWindowsDialog } from "./contact-windows-dialog";
 import { FoodRecallDialog, type FoodRecallTarget } from "./food-recall-dialog";
 import { QuizLinkDialog, type QuizLinkTarget } from "./quiz-link-dialog";
 import { RescheduleDialog } from "./reschedule-dialog";
@@ -24,6 +25,8 @@ type BookingDialogs = {
   openCheckIn: (target: CheckInTarget) => void;
   /** Dialog "Food recall" (spec check-in 4.4). */
   openFoodRecall: (target: FoodRecallTarget) => void;
+  /** Dialog Ubah waktu luang booking online. */
+  openContactWindows: (target: ContactWindowsTarget) => void;
 };
 
 const BookingDialogsContext = createContext<BookingDialogs | null>(null);
@@ -42,6 +45,7 @@ export function BookingDialogsProvider({ today, children }: { today: string; chi
   const [quizLink, setQuizLink] = useState<QuizLinkTarget | null>(null);
   const [checkIn, setCheckIn] = useState<CheckInTarget | null>(null);
   const [foodRecall, setFoodRecall] = useState<FoodRecallTarget | null>(null);
+  const [contactWindows, setContactWindows] = useState<ContactWindowsTarget | null>(null);
 
   const value = useMemo<BookingDialogs>(
     () => ({
@@ -60,6 +64,7 @@ export function BookingDialogsProvider({ today, children }: { today: string; chi
       openQuizLink: setQuizLink,
       openCheckIn: setCheckIn,
       openFoodRecall: setFoodRecall,
+      openContactWindows: setContactWindows,
     }),
     [],
   );
@@ -119,6 +124,17 @@ export function BookingDialogsProvider({ today, children }: { today: string; chi
           open
           onOpenChange={(open) => {
             if (!open) setFoodRecall(null);
+          }}
+        />
+      )}
+      {contactWindows && (
+        <ContactWindowsDialog
+          key={contactWindows.appointmentId}
+          target={contactWindows}
+          today={today}
+          open
+          onOpenChange={(open) => {
+            if (!open) setContactWindows(null);
           }}
         />
       )}

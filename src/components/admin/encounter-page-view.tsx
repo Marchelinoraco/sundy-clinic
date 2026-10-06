@@ -27,6 +27,7 @@ export function EncounterPageView({ encounter, canWrite }: { encounter: Encounte
       <section className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border px-4 py-3 text-sm">
         <h2 className="text-lg font-medium">{patient.name}</h2>
         <Badge variant={isFinal ? "default" : "outline"}>{isFinal ? "Final" : "Draf"}</Badge>
+        {appointment.channel === "ONLINE" && <Badge variant="outline">Konsultasi online</Badge>}
         <p className="text-muted-foreground">{summary}</p>
         <span className="font-mono text-xs text-muted-foreground">{appointment.code}</span>
         <Link href={`/admin/pasien/${patient.id}`} className="ml-auto underline underline-offset-4">

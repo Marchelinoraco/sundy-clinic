@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db";
 import { CONSULTATION_SERVICE_SLUG, SLIMMING_CATEGORY_SLUG } from "@/lib/booking-rules";
+import { ONLINE_SERVICE_SLUG } from "@/lib/online-consultation";
 import { getClinicSetting } from "@/server/clinic-setting";
+import { loadOnlineService } from "@/server/online-store";
 
 export type PublicService = {
   id: string;
@@ -11,6 +13,9 @@ export type PublicService = {
 };
 export type PublicStaff = { id: string; name: string; role: "DOKTER" | "TERAPIS"; branchIds: string[] };
 export type PublicBranch = { id: string; name: string; status: "AKTIF" | "SEGERA_HADIR" };
+/** Pilihan "Online lewat WhatsApp" di layar Layanan & biaya (spec 4.1); null bila tidak tersedia. */
+export type OnlineOption = { serviceId: string; serviceName: string; price: number; doctors: { id: string; name: string }[] };
+
 export type BookingOptions = {
   branches: PublicBranch[];
   consultation: PublicService;
@@ -18,6 +23,7 @@ export type BookingOptions = {
   treatments: PublicService[];
   staff: PublicStaff[];
   bookingFee: number;
+  online: OnlineOption | null;
 };
 
 const SERVICE_SELECT = {
@@ -50,13 +56,13 @@ function toPublicService(service: {
  * memuat data pasien sama sekali.
  */
 export async function getBookingOptions(): Promise<BookingOptions> {
-  const [branches, consultation, treatments, staff, setting] = await Promise.all([
+  const [branches, consultation, treatments, staff, setting, onlineService] = await Promise.all([
     prisma.branch.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, name: true, status: true } }),
     prisma.service.findUniqueOrThrow({ where: { slug: CONSULTATION_SERVICE_SLUG }, select: SERVICE_SELECT }),
     prisma.service.findMany({
       where: {
         isActive: true,
-        slug: { not: CONSULTATION_SERVICE_SLUG },
+        slug: { notIn: [CONSULTATION_SERVICE_SLUG, ONLINE_SERVICE_SLUG] },
         category: { slug: { not: SLIMMING_CATEGORY_SLUG } },
       },
       orderBy: [{ category: { sortOrder: "asc" } }, { sortOrder: "asc" }],
@@ -68,7 +74,14 @@ export async function getBookingOptions(): Promise<BookingOptions> {
       select: { id: true, name: true, role: true, scheduleTemplates: { select: { branchId: true } } },
     }),
     getClinicSetting(),
+    loadOnlineService(),
   ]);
+
+  const doctors = staff.filter((person) => person.role === "DOKTER").map((person) => ({ id: person.id, name: person.name }));
+  const online: OnlineOption | null =
+    onlineService && doctors.length > 0
+      ? { serviceId: onlineService.id, serviceName: onlineService.name, price: onlineService.promoPrice, doctors }
+      : null;
 
   return {
     branches,
@@ -81,5 +94,6 @@ export async function getBookingOptions(): Promise<BookingOptions> {
       branchIds: [...new Set(person.scheduleTemplates.map((t) => t.branchId))],
     })),
     bookingFee: setting.bookingFee,
+    online,
   };
 }

@@ -113,6 +113,18 @@ describe("groupReminderWork", () => {
     expect(groups.remind.map((x) => x.id)).toEqual(["x"]);
     expect(groups.reminded).toEqual([]);
   });
+  it("reminderAt menggantikan jadwal untuk hari pengingat; pesan tetap dicocokkan dengan jadwal booking", () => {
+    // Sabtu 8 Feb 2031 10.00: rentang pertama sudah lewat, rentang terbuka berikutnya Selasa 11.
+    const now = wita(8, 10);
+    const start = wita(6, 11);
+    const confirmed = msg("KONFIRMASI", start, wita(5, 9));
+    const online = { ...booking("online", start, [confirmed]), reminderAt: wita(11, 19) };
+    const groups = groupReminderWork([online], { now, closedDates: NO_HOLIDAYS });
+    expect(groups.remind).toHaveLength(0);
+
+    const due = groupReminderWork([online], { now: wita(10, 10), closedDates: NO_HOLIDAYS });
+    expect(due.remind.map((b) => [b.id, b.reminderDay])).toEqual([["online", "2031-02-10"]]);
+  });
 });
 
 describe("messageStatusLabels", () => {

@@ -26,6 +26,7 @@ const MESSAGE_BOOKING_INCLUDE = {
   branch: { select: { name: true, address: true, mapsUrl: true } },
   service: { select: { name: true } },
   intake: { select: { status: true, linkVersion: true } },
+  contactWindows: { orderBy: { startAt: "asc" }, select: { startAt: true, endAt: true } },
 } as const;
 
 function revalidateMessageViews() {

@@ -24,6 +24,7 @@ function infoFor(booking: LinkBooking, version: number): QuizLinkInfo {
     serviceName: bookingServiceName(booking),
     startAt: booking.startAt,
     link: url,
+    online: booking.channel === "ONLINE",
   });
   return { url, message: { text, link: buildWhatsAppLinkTo(booking.patient!.whatsapp, text) }, scheduledFor: booking.startAt };
 }

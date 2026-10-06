@@ -23,6 +23,7 @@ const PAGE: OpenPage = {
   kind: "PENDEK",
   missing: ["birthDate", "occupation"],
   feeConsent: { bookingFee: 100000 },
+  online: null,
 };
 
 function seedDraft(answers: unknown, screen: string) {
@@ -39,6 +40,21 @@ describe("QuizLinkFlow", () => {
     expect(screen.getByText("Konsultasi Dokter · Senin, 5 Oktober 2026 pukul 11.00 WITA")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Apa yang ingin Anda konsultasikan?" })).toBeInTheDocument();
     expect(screen.queryByText("Pernah konsultasi atau treatment di SunDY Clinic?")).not.toBeInTheDocument();
+  });
+
+  it("konsultasi online: rentang waktu luang menggantikan jam dan cabang", async () => {
+    const online: OpenPage = {
+      ...PAGE,
+      serviceName: "Konsultasi Online",
+      branchName: "Online (WhatsApp)",
+      feeConsent: { bookingFee: 100000, onlineTotal: 350000 },
+      online: { windowLines: ["• Rabu, 7 Oktober 2026, 19.00–21.00"] },
+    };
+    render(<QuizLinkFlow code={CODE} page={online} onSubmitted={vi.fn()} />);
+    expect(await screen.findByText("Halo Maria")).toBeInTheDocument();
+    expect(screen.getByText("Rabu, 7 Oktober 2026, 19.00–21.00")).toBeInTheDocument();
+    expect(screen.getByText(/Online \(WhatsApp\)/)).toBeInTheDocument();
+    expect(screen.queryByText(/pukul 11\.00/)).not.toBeInTheDocument();
   });
 
   it("kuis pendek: setelah tujuan langsung ke cerita kunjungan ini", async () => {

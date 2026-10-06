@@ -7,6 +7,7 @@ import { validateLinkIdentity } from "@/lib/kuis/identity";
 import { answersForStorage } from "@/lib/kuis/v2/answers";
 import { QUIZ_VERSION } from "@/lib/kuis/v2/options";
 import { validateQuizAnswers } from "@/lib/kuis/v2/steps";
+import { onlineTotal, placeLabel, windowLines } from "@/lib/online-consultation";
 import { PRIVACY_POLICY_VERSION } from "@/lib/privacy";
 import {
   firstName,
@@ -72,10 +73,16 @@ export async function getQuizLinkPage(code: string): Promise<ActionResult<QuizLi
       serviceName: bookingServiceName(booking),
       startAt: booking.startAt,
       staffName: booking.staff.name,
-      branchName: booking.branch.name,
+      branchName: placeLabel(booking.channel, booking.branch.name),
       kind: quizKindFor(await hasCompletedFullIntake(booking.patientId!)),
       missing: missingIdentityFields(patient),
-      feeConsent: needsFeeConsent(booking) ? { bookingFee: booking.bookingFee! } : null,
+      feeConsent: needsFeeConsent(booking)
+        ? {
+            bookingFee: booking.bookingFee!,
+            ...(booking.channel === "ONLINE" ? { onlineTotal: onlineTotal(booking) } : {}),
+          }
+        : null,
+      online: booking.channel === "ONLINE" ? { windowLines: windowLines(booking.contactWindows) } : null,
     };
   });
 }

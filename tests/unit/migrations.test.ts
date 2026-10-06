@@ -33,3 +33,23 @@ describe("migrasi check-in klinik (rekam medis bagian 2)", () => {
     expect(sql).toMatch(/CREATE TRIGGER food_recall_no_truncate/);
   });
 });
+
+describe("migrasi konsultasi online", () => {
+  const sql = readFileSync("prisma/migrations/20261006120000_konsultasi_online/migration.sql", "utf8");
+
+  it("hanya menghapus penjaga anti-bentrok lama, lalu membuatnya lagi di berkas yang sama", () => {
+    const drops = sql.match(/\bDROP\b[^;]*;/gi) ?? [];
+    expect(drops).toHaveLength(1);
+    expect(drops[0]).toMatch(/DROP CONSTRAINT appointment_no_overlap/);
+    expect(sql).toMatch(/ADD CONSTRAINT appointment_no_overlap[\s\S]*"channel" = 'KLINIK'/);
+  });
+
+  it("menjaga kanal online dan rentang waktu luang di basis data", () => {
+    expect(sql).toMatch(/appointment_online_consultation/);
+    expect(sql).toMatch(/contact_window_range/);
+  });
+
+  it("membuat layanan Konsultasi Online dalam keadaan nonaktif", () => {
+    expect(sql).toMatch(/'konsultasi-online'[\s\S]*false, false, 99/);
+  });
+});

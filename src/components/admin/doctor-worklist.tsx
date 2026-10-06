@@ -45,6 +45,11 @@ function WorklistTable({ rows, withDate }: { rows: WorklistRow[]; withDate: bool
                       food recall ✓
                     </Badge>
                   )}
+                  {row.online && (
+                    <Badge variant="outline" className="ml-2 text-xs font-normal">
+                      Online
+                    </Badge>
+                  )}
                 </div>
                 <div className="font-mono text-xs text-muted-foreground">{row.patientRecordNumber}</div>
               </TableCell>

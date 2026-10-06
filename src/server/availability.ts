@@ -59,6 +59,8 @@ export async function computeAvailability(
     prisma.appointment.findMany({
       where: {
         staffId: input.staffId,
+        // Booking online tidak memakai slot (spec konsultasi online 3.7).
+        channel: "KLINIK",
         status: { in: [...BLOCKING_STATUSES] },
         startAt: { lt: dayEnd },
         endAt: { gt: dayStart },
@@ -144,6 +146,8 @@ export async function computeAvailabilityRange(
     prisma.appointment.findMany({
       where: {
         staffId: input.staffId,
+        // Booking online tidak memakai slot (spec konsultasi online 3.7).
+        channel: "KLINIK",
         status: { in: [...BLOCKING_STATUSES] },
         startAt: { lt: rangeEnd },
         endAt: { gt: rangeStart },

@@ -24,11 +24,14 @@ export function BookingCreatedPanel({
   booking,
   dateLabel,
   onNew,
+  listHref,
 }: {
   booking: CreatedBooking;
   /** Tanggal jadwal singkat, misal "Sen, 5 Okt". */
   dateLabel: string;
   onNew: () => void;
+  /** Tautan daftar; bawaannya daftar tanggal jadwal. Booking online belum punya jam, jadi memakai daftar Menunggu konfirmasi. */
+  listHref?: string;
 }) {
   const { instruction } = booking;
 
@@ -78,7 +81,7 @@ export function BookingCreatedPanel({
       )}
 
       <Button asChild variant="outline" className="w-full">
-        <Link href={`/admin/booking?tanggal=${booking.date}&sorot=${booking.id}`}>Lihat di daftar ({dateLabel})</Link>
+        <Link href={listHref ?? `/admin/booking?tanggal=${booking.date}&sorot=${booking.id}`}>Lihat di daftar ({dateLabel})</Link>
       </Button>
       <Button type="button" variant="ghost" className="w-full" onClick={onNew}>
         + Booking baru

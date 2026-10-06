@@ -216,9 +216,20 @@ export function QuizLinkFlow({
     <div ref={topRef}>
       <header className="mx-auto max-w-md px-4 pt-8 text-center">
         <p className="font-display text-2xl text-brown-900">Halo {page.firstName}</p>
-        <p className="mt-1 text-sm text-brown-700">
-          {page.serviceName} · {formatScheduleForMessage(page.startAt)}
-        </p>
+        {page.online ? (
+          <>
+            <p className="mt-1 text-sm text-brown-700">{page.serviceName} · Waktu Anda bisa dihubungi:</p>
+            <ul className="text-sm text-brown-700">
+              {page.online.windowLines.map((line) => (
+                <li key={line}>{line.replace(/^• /, "")}</li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p className="mt-1 text-sm text-brown-700">
+            {page.serviceName} · {formatScheduleForMessage(page.startAt)}
+          </p>
+        )}
         <p className="text-sm text-brown-600">
           {page.staffName} · {page.branchName}
         </p>

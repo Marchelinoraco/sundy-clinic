@@ -127,3 +127,30 @@ export function at(date: string, time: string): Date {
   const [hours, minutes] = time.split(":").map(Number);
   return combineWitaDateAndMinutes(date, hours * 60 + minutes);
 }
+
+/**
+ * Layanan Konsultasi Online bersama semua berkas uji (slug tetap). Berkas yang
+ * mengaktifkannya wajib mematikannya lagi di afterAll agar berkas lain tidak terpengaruh.
+ */
+export async function setOnlineService(input: { price: number; active: boolean }): Promise<string> {
+  const slimming = await prisma.serviceCategory.upsert({
+    where: { slug: "slimming" },
+    update: {},
+    create: { slug: "slimming", name: "Slimming & Wellness" },
+  });
+  const service = await prisma.service.upsert({
+    where: { slug: "konsultasi-online" },
+    update: { promoPrice: input.price, isActive: input.active, requiresDoctor: true, durationMin: 30 },
+    create: {
+      slug: "konsultasi-online",
+      name: "Konsultasi Online",
+      promoPrice: input.price,
+      durationMin: 30,
+      requiresDoctor: true,
+      isActive: input.active,
+      sortOrder: 99,
+      categoryId: slimming.id,
+    },
+  });
+  return service.id;
+}

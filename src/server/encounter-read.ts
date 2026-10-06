@@ -15,6 +15,7 @@ import {
 import { FOOD_RECALL_SELECT, foodRecallView, type FoodRecallView } from "@/lib/food-recall";
 import { formatGender } from "@/lib/format";
 import { INTAKE_PURPOSE_LABEL } from "@/lib/intake-purpose";
+import { lastAttemptLabel, nextOpenWindow, onlinePhase, placeLabel, windowLabel } from "@/lib/online-consultation";
 import type { RecordProposal } from "@/lib/kuis/v2/record-proposal";
 import { can } from "@/lib/permissions";
 import { addDaysToDateString, combineWitaDateAndMinutes, witaDateString } from "@/lib/time";
@@ -80,7 +81,16 @@ export type EncounterDetail = {
   version: string;
   createdByName: string;
   finalized: { byName: string; at: Date } | null;
-  appointment: { id: string; code: string; startAt: Date; serviceName: string; staffName: string; branchName: string };
+  appointment: {
+    id: string;
+    code: string;
+    startAt: Date;
+    serviceName: string;
+    staffName: string;
+    branchName: string;
+    /** Konsultasi online diberi label di kepala halaman (spec 6.4). */
+    channel: "KLINIK" | "ONLINE";
+  };
   patient: { id: string; name: string; medicalRecordNumber: string; ageLabel: string | null; genderLabel: string | null };
   warnings: EncounterWarnings;
   intake: EncounterIntake | null;
@@ -151,7 +161,7 @@ function findHistory(patientId: string, before: Date, excludeId: string) {
       treatments: TREATMENT_SELECT,
       addenda: ADDENDUM_SELECT,
       appointment: {
-        select: { id: true, startAt: true, branch: { select: { name: true } }, foodRecall: { select: FOOD_RECALL_SELECT } },
+        select: { id: true, startAt: true, channel: true, branch: { select: { name: true } }, foodRecall: { select: FOOD_RECALL_SELECT } },
       },
     },
   });
@@ -162,7 +172,7 @@ function toHistoryItem(row: Awaited<ReturnType<typeof findHistory>>[number]): En
   return {
     id: row.id,
     startAt: row.appointment.startAt,
-    branchName: row.appointment.branch.name,
+    branchName: placeLabel(row.appointment.channel, row.appointment.branch.name),
     authorName: row.finalizedByName ?? row.createdByName,
     subjective: row.subjective,
     physicalExam: row.physicalExam,
@@ -273,6 +283,7 @@ export async function getEncounterForStaff(encounterId: string): Promise<Encount
           id: true,
           code: true,
           type: true,
+          channel: true,
           startAt: true,
           serviceId: true,
           staffId: true,
@@ -343,7 +354,8 @@ export async function getEncounterForStaff(encounterId: string): Promise<Encount
       startAt: appointment.startAt,
       serviceName: appointment.service?.name ?? (appointment.type === "KONSULTASI" ? "Konsultasi" : "Treatment"),
       staffName: appointment.staff.name,
-      branchName: appointment.branch.name,
+      branchName: placeLabel(appointment.channel, appointment.branch.name),
+      channel: appointment.channel,
     },
     patient: {
       id: patient.id,
@@ -401,6 +413,8 @@ export type WorklistRow = {
   state: WorklistState;
   /** Customer sudah mengisi food recall (spec check-in 5.5). */
   foodRecallFilled: boolean;
+  /** Konsultasi online (spec 6.4). */
+  online: boolean;
 };
 
 export type DoctorWorklist = { today: WorklistRow[]; unfinished: WorklistRow[] };
@@ -413,6 +427,7 @@ function findWorklist(where: Prisma.AppointmentWhereInput) {
       id: true,
       code: true,
       type: true,
+      channel: true,
       startAt: true,
       service: { select: { name: true } },
       branch: { select: { name: true } },
@@ -432,10 +447,11 @@ function toWorklistRow(row: Awaited<ReturnType<typeof findWorklist>>[number]): W
     patientName: row.patient?.name ?? "",
     patientRecordNumber: row.patient?.medicalRecordNumber ?? "",
     serviceName: row.service?.name ?? (row.type === "KONSULTASI" ? "Konsultasi" : "Treatment"),
-    branchName: row.branch.name,
+    branchName: placeLabel(row.channel, row.branch.name),
     encounterId: encounter?.id ?? null,
     state: !encounter ? "BELUM" : encounter.status === "FINAL" ? "FINAL" : "DRAF",
     foodRecallFilled: row.foodRecall?.status === "DIISI",
+    online: row.channel === "ONLINE",
   };
 }
 
@@ -458,4 +474,73 @@ export async function listDoctorWorklist(): Promise<DoctorWorklist> {
     }),
   ]);
   return { today: todayRows.map(toWorklistRow), unfinished: unfinishedRows.map(toWorklistRow) };
+}
+
+export type OnlineWorkRow = {
+  appointmentId: string;
+  code: string;
+  phase: "NOW" | "TODAY" | "UPCOMING";
+  patientName: string;
+  patientRecordNumber: string;
+  whatsapp: string;
+  /** https://wa.me/<nomor> untuk chat atau panggilan WA. */
+  whatsappLink: string;
+  doctorName: string;
+  purposeLabel: string | null;
+  /** Isian kuis yang sudah dikirim, untuk tautan "Lihat isian". */
+  intakeId: string | null;
+  windows: { label: string; current: boolean }[];
+  lastAttempt: string | null;
+};
+
+const ONLINE_PHASE_ORDER = { NOW: 0, TODAY: 1, UPCOMING: 2 } as const;
+
+/**
+ * Bagian "Konsultasi online" di dasbor dokter (spec 6.1): booking online terkonfirmasi yang
+ * masih punya rentang terbuka. Booking yang semua rentangnya lewat pindah ke resepsionis.
+ */
+export async function listOnlineWork(): Promise<OnlineWorkRow[]> {
+  await requireCapability("record:write");
+  const now = new Date();
+  const rows = await prisma.appointment.findMany({
+    where: { channel: "ONLINE", status: "TERKONFIRMASI", patientId: { not: null } },
+    select: {
+      id: true,
+      code: true,
+      patient: { select: { name: true, medicalRecordNumber: true, whatsapp: true } },
+      staff: { select: { name: true } },
+      intake: { select: { id: true, status: true, purpose: true } },
+      contactWindows: { orderBy: { startAt: "asc" }, select: { startAt: true, endAt: true } },
+      contactAttempts: { select: { at: true, staffName: true } },
+    },
+  });
+
+  const work: OnlineWorkRow[] = [];
+  for (const row of rows) {
+    const phase = onlinePhase(row.contactWindows, now);
+    if (phase === "NEEDS_NEW" || !row.patient) continue;
+    work.push({
+      appointmentId: row.id,
+      code: row.code,
+      phase,
+      patientName: row.patient.name,
+      patientRecordNumber: row.patient.medicalRecordNumber,
+      whatsapp: row.patient.whatsapp,
+      whatsappLink: `https://wa.me/${row.patient.whatsapp}`,
+      doctorName: row.staff.name,
+      purposeLabel: row.intake?.purpose ? INTAKE_PURPOSE_LABEL[row.intake.purpose] : null,
+      intakeId: row.intake && row.intake.status !== "MENUNGGU_DIISI" ? row.intake.id : null,
+      windows: row.contactWindows
+        .filter((w) => w.endAt.getTime() > now.getTime())
+        .map((w) => ({ label: windowLabel(w), current: w.startAt.getTime() <= now.getTime() })),
+      lastAttempt: lastAttemptLabel(row.contactAttempts),
+    });
+  }
+  const nextStart = (row: (typeof rows)[number]) => nextOpenWindow(row.contactWindows, now)?.startAt.getTime() ?? 0;
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  return work.sort(
+    (a, b) =>
+      ONLINE_PHASE_ORDER[a.phase] - ONLINE_PHASE_ORDER[b.phase] ||
+      nextStart(byId.get(a.appointmentId)!) - nextStart(byId.get(b.appointmentId)!),
+  );
 }
