@@ -23,6 +23,7 @@ const options: BookingOptions = {
   treatments: [],
   staff: [{ id: "diane", name: "Dr. Diane", role: "DOKTER", branchIds: ["b1"] }],
   bookingFee: 100000,
+  online: null,
 };
 
 const readyDraft = {
@@ -86,6 +87,7 @@ describe("RegistrationFlow", () => {
           bookingFee: 100000,
           bankAccount: "BCA 1234567890 a.n. SunDY Clinic",
           confirmationLink: "https://wa.me/6285172228900?text=x",
+          online: null,
         },
       },
     });

@@ -19,6 +19,9 @@ const confirmed = {
   canCancel: true,
   canReschedule: true,
   rescheduleLink: "https://wa.me/6285172228900?text=pindah",
+  channel: "KLINIK" as const,
+  windowLines: [],
+  onlineChangeLink: null,
 };
 
 afterEach(() => vi.clearAllMocks());
