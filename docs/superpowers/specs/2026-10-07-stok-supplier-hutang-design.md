@@ -230,7 +230,7 @@ Untuk `payable:manage`, halaman detail faktur menampilkan bagian **Pembayaran**:
 
 - Apoteker tidak melihat booking, rekam medis, hutang, atau angka keuangan.
 - Admin Keuangan tidak melihat booking, jadwal, atau rekam medis, dan tidak bisa mengubah stok.
-- Super Admin membuat akun Apoteker dan Admin Keuangan di halaman **Staf** yang sudah ada. Keduanya tidak bisa dijadwalkan dan tidak tampil di situs (seperti Resepsionis).
+- Akun Apoteker dan Admin Keuangan dibuat dengan cara yang sama seperti akun staf lain: skrip `npm run create-admin` di server (dijalankan Claude lewat SSH; kata sandi tidak lewat chat), yang mendapat argumen peran. Halaman **Staf** menampilkan nama peran barunya. Keduanya tidak bisa dijadwalkan dan tidak tampil di situs (seperti Resepsionis).
 - Dasbor yang sudah ada menampilkan bagian sesuai kemampuan; pemeriksaan di halaman dan di setiap aksi server tetap memakai `requireCapability`.
 
 ### 7.3 Jejak audit
