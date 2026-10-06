@@ -1,6 +1,10 @@
 import type { Branch, Package, PackageItem, Product, Service, Staff } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { ONLINE_SERVICE_SLUG } from "@/lib/online-consultation";
 import { PACKAGE_GROUPS } from "@/lib/package-group";
+
+/** Konsultasi Online hanya dipilih lewat /daftar, tidak tampil di katalog layanan (spec 3.3). */
+const CATALOG_SERVICE = { isActive: true, slug: { not: ONLINE_SERVICE_SLUG } } as const;
 
 export type ServiceCategoryWithServices = Awaited<
   ReturnType<typeof getServiceCategoriesWithServices>
@@ -20,7 +24,7 @@ export async function getServiceCategoriesWithServices() {
     orderBy: { sortOrder: "asc" },
     include: {
       services: {
-        where: { isActive: true },
+        where: CATALOG_SERVICE,
         orderBy: { sortOrder: "asc" },
       },
     },
@@ -31,7 +35,7 @@ export async function getServiceCategoriesWithServices() {
 
 export async function getServiceBySlug(slug: string) {
   return prisma.service.findFirst({
-    where: { slug, isActive: true },
+    where: { isActive: true, AND: [{ slug }, { slug: { not: ONLINE_SERVICE_SLUG } }] },
     include: { category: true },
   });
 }
@@ -52,7 +56,7 @@ export async function getRelatedServices(
   limit = 3,
 ): Promise<Service[]> {
   return prisma.service.findMany({
-    where: { categoryId, isActive: true, id: { not: excludeServiceId } },
+    where: { categoryId, ...CATALOG_SERVICE, id: { not: excludeServiceId } },
     orderBy: { sortOrder: "asc" },
     take: limit,
   });
@@ -60,12 +64,12 @@ export async function getRelatedServices(
 
 /** Jumlah treatment aktif, untuk angka di Beranda. */
 export async function countActiveServices(): Promise<number> {
-  return prisma.service.count({ where: { isActive: true } });
+  return prisma.service.count({ where: CATALOG_SERVICE });
 }
 
 export async function getAllServiceSlugs(): Promise<string[]> {
   const rows = await prisma.service.findMany({
-    where: { isActive: true },
+    where: CATALOG_SERVICE,
     select: { slug: true },
   });
 

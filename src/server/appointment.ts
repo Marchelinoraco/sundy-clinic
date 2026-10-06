@@ -19,7 +19,7 @@ import {
   transferInstructionFor,
   type TransferInstruction,
 } from "@/lib/transfer-instruction";
-import { ACTIVE_STATUSES, rejectedChangeError } from "@/server/appointment-guard";
+import { ACTIVE_STATUSES, rejectedChangeError, rejectedClinicOnlyError } from "@/server/appointment-guard";
 import { recordAudit } from "@/server/audit";
 import {
   confirmationDeadlines,
@@ -29,6 +29,7 @@ import {
 } from "@/server/booking-expiry";
 import { getClinicSetting } from "@/server/clinic-setting";
 import { isExclusionViolation } from "@/server/db-errors";
+import { DAY_LIST_CHANNEL } from "@/server/online-store";
 import { quizLinkFor } from "@/server/quiz-link-code";
 import { requireCapability } from "@/server/session";
 import { publicSiteUrl } from "@/server/site-url";
@@ -144,11 +145,11 @@ export async function rescheduleAppointment(
 
     const { count } = await createWithSlotGuard(() =>
       prisma.appointment.updateMany({
-        where: { id, status: { in: ACTIVE_STATUSES } },
+        where: { id, status: { in: ACTIVE_STATUSES }, channel: "KLINIK" },
         data: { startAt: input.startAt, endAt: input.endAt },
       }),
     );
-    if (count === 0) throw await rejectedChangeError(id);
+    if (count === 0) throw await rejectedClinicOnlyError(id);
 
     await recordAudit({
       actor,
@@ -180,16 +181,24 @@ async function setStatus(
   to: AppointmentStatus,
   action: string,
   summary?: string,
+  options: { clinicOnly?: boolean } = {},
 ): Promise<ActionResult<Appointment>> {
   return runAction(async () => {
     const actor = await requireCapability("booking:manage");
     const needsPatient = to !== "DIBATALKAN";
 
     const { count } = await prisma.appointment.updateMany({
-      where: { id, status: { in: from }, ...(needsPatient ? { patientId: { not: null } } : {}) },
+      where: {
+        id,
+        status: { in: from },
+        ...(needsPatient ? { patientId: { not: null } } : {}),
+        ...(options.clinicOnly ? { channel: "KLINIK" as const } : {}),
+      },
       data: { status: to },
     });
-    if (count === 0) throw await rejectedChangeError(id, needsPatient);
+    if (count === 0) {
+      throw options.clinicOnly ? await rejectedClinicOnlyError(id, needsPatient) : await rejectedChangeError(id, needsPatient);
+    }
 
     await recordAudit({ actor, action, entity: "Appointment", entityId: id, summary });
 
@@ -205,7 +214,7 @@ export async function verifyAppointment(id: string): Promise<ActionResult<Appoin
 }
 
 export async function markNoShow(id: string): Promise<ActionResult<Appointment>> {
-  return setStatus(id, ACTIVE_STATUSES, "TIDAK_HADIR", "appointment.mark-no-show");
+  return setStatus(id, ACTIVE_STATUSES, "TIDAK_HADIR", "appointment.mark-no-show", undefined, { clinicOnly: true });
 }
 
 /**
@@ -274,6 +283,7 @@ export async function listAppointments(filter: {
 
   const appointments = await prisma.appointment.findMany({
     where: {
+      AND: [DAY_LIST_CHANNEL],
       branchId: filter.branchId,
       staffId: filter.staffId,
       status: filter.status,

@@ -94,6 +94,7 @@ const BOOKING_SELECT = {
   code: true,
   status: true,
   type: true,
+  channel: true,
   startAt: true,
   endAt: true,
   service: { select: { name: true } },
@@ -133,6 +134,9 @@ const ALREADY_CHECKED_IN = "Booking ini sudah check-in.";
 async function checkableBooking(appointmentId: unknown): Promise<LoadedBooking & { patient: CheckablePatient }> {
   const booking = await loadBooking(appointmentId);
   if (!booking.patient) throw new UserFacingError("Cocokkan booking ini dengan data pasien lebih dulu.");
+  if (booking.channel === "ONLINE") {
+    throw new UserFacingError("Konsultasi online tidak memakai check-in. Dokter memulainya dari dasbor.");
+  }
   if (booking.patient.mergedIntoId) throw new UserFacingError("Data pasien booking ini baru saja dipindah. Muat ulang halaman.");
   if (booking.status === "HADIR") throw new UserFacingError(ALREADY_CHECKED_IN);
   if (!ACTIVE_STATUSES.includes(booking.status)) throw await rejectedChangeError(booking.id, true);

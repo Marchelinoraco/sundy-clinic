@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { CONSULTATION_SERVICE_SLUG, SLIMMING_CATEGORY_SLUG } from "@/lib/booking-rules";
+import { ONLINE_SERVICE_SLUG } from "@/lib/online-consultation";
 import { getClinicSetting } from "@/server/clinic-setting";
 
 export type PublicService = {
@@ -56,7 +57,7 @@ export async function getBookingOptions(): Promise<BookingOptions> {
     prisma.service.findMany({
       where: {
         isActive: true,
-        slug: { not: CONSULTATION_SERVICE_SLUG },
+        slug: { notIn: [CONSULTATION_SERVICE_SLUG, ONLINE_SERVICE_SLUG] },
         category: { slug: { not: SLIMMING_CATEGORY_SLUG } },
       },
       orderBy: [{ category: { sortOrder: "asc" } }, { sortOrder: "asc" }],
