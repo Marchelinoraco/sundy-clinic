@@ -8,8 +8,10 @@ import { PageBody, PageHeader } from "@/components/admin/page-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { isAppointmentStatus } from "@/lib/appointment-status";
-import { confirmationMessageFor } from "@/lib/booking-messages";
+import { showsContactWindows } from "@/lib/booking-actions";
+import { confirmationMessageFor, requestNewTimeMessageFor } from "@/lib/booking-messages";
 import { formatIndonesianDate, formatShortIndonesianDate } from "@/lib/format";
+import { lastAttemptLabel, onlinePhase, placeLabel, windowDrafts, windowLines } from "@/lib/online-consultation";
 import type { BankAccount } from "@/lib/payment";
 import { can } from "@/lib/permissions";
 import { messageStatusLabels } from "@/lib/reminder-work";
@@ -21,7 +23,7 @@ import {
   witaMinutesOfDay,
 } from "@/lib/time";
 import { bookingServiceName, pendingDeadlineLabel, transferInstructionFor } from "@/lib/transfer-instruction";
-import { listAppointments, listPendingBookings, searchBookings } from "@/server/appointment";
+import { listAppointments, listOnlineBookings, listPendingBookings, searchBookings } from "@/server/appointment";
 import { getBranches } from "@/server/catalog";
 import { getClinicSetting } from "@/server/clinic-setting";
 import { quizLinkFor } from "@/server/quiz-link-code";
@@ -57,7 +59,11 @@ function toRow(a: ListedAppointment, context: RowContext): BookingRow {
     id: a.id,
     code: a.code,
     status: a.status,
-    timeLabel: `${timeLabel(a.startAt)}–${timeLabel(a.endAt)}`,
+    // Booking online yang belum dimulai belum punya jam; sesudah dimulai memakai jam sebenarnya (spec 3.5).
+    timeLabel:
+      a.channel === "ONLINE" && a.status !== "HADIR" && a.status !== "SELESAI"
+        ? "Online"
+        : `${timeLabel(a.startAt)}–${timeLabel(a.endAt)}`,
     patientName: patient?.name ?? a.intake?.name ?? "Tanpa nama",
     patientRecordNumber: patient?.medicalRecordNumber ?? "—",
     needsMatch: patient === null,
@@ -68,7 +74,8 @@ function toRow(a: ListedAppointment, context: RowContext): BookingRow {
     patientId: patient?.id ?? null,
     serviceName: bookingServiceName(a),
     staffName: a.staff.name,
-    branchName: a.branch.name,
+    branchName: placeLabel(a.channel, a.branch.name),
+    channel: a.channel,
     source: a.source,
     sourceLabel: SOURCE_LABEL[a.source] ?? a.source,
     notes: a.notes,
@@ -92,11 +99,30 @@ function toRow(a: ListedAppointment, context: RowContext): BookingRow {
     foodRecall: a.foodRecall?.status ?? null,
     foodRecallAvailable:
       a.status === "HADIR" && witaDateString(a.startAt) === witaDateString(context.now) && a.encounter?.status !== "FINAL",
+    online:
+      a.channel === "ONLINE"
+        ? {
+            windowLines: windowLines(a.contactWindows),
+            phase: a.status === "TERKONFIRMASI" ? onlinePhase(a.contactWindows, context.now) : null,
+            lastAttempt: lastAttemptLabel(a.contactAttempts),
+            requestNewTime:
+              a.status === "TERKONFIRMASI" && onlinePhase(a.contactWindows, context.now) === "NEEDS_NEW"
+                ? { link: requestNewTimeMessageFor(a)?.link ?? null }
+                : null,
+            contactWindows: {
+              appointmentId: a.id,
+              code: a.code,
+              patientName: patient?.name ?? a.intake?.name ?? "Tanpa nama",
+              windows: windowDrafts(a.contactWindows),
+            },
+          }
+        : null,
   };
 }
 
-/** Daftar tanpa batas satu tanggal: jam jadwal ditulis bersama tanggalnya. */
+/** Daftar tanpa batas satu tanggal: jam jadwal ditulis bersama tanggalnya. Booking online yang belum dimulai tidak punya jam. */
 function withDate(row: BookingRow, startAt: Date): BookingRow {
+  if (showsContactWindows(row)) return row;
   return { ...row, timeLabel: `${formatShortIndonesianDate(startAt)} · ${row.timeLabel}` };
 }
 
@@ -126,7 +152,7 @@ export default async function BookingListPage({
   // Selama kotak cari berisi, daftar per tanggal dan filternya disembunyikan (spec C1 5.3).
   const query = params.cari?.trim() ?? "";
 
-  const [appointments, pending, found, staffList, branches, setting] = await Promise.all([
+  const [appointments, pending, found, staffList, branches, setting, onlineBookings] = await Promise.all([
     query
       ? Promise.resolve([] as ListedAppointment[])
       : listAppointments({
@@ -141,6 +167,7 @@ export default async function BookingListPage({
     listSchedulableStaff(),
     getBranches(),
     getClinicSetting(),
+    listOnlineBookings(),
   ]);
   const context: RowContext = { bank: setting, siteUrl: publicSiteUrl(), now };
 
@@ -153,6 +180,7 @@ export default async function BookingListPage({
     deadlineLabel: pendingDeadlineLabel({ kind: a.deadlineKind, deadline: a.deadline, overdue: a.overdue }),
     deadlineOverdue: a.overdue,
   }));
+  const onlineRows = onlineBookings.map((a) => toRow(a, context));
   const foundRows = found.map((a) => withDate(toRow(a, context), a.startAt));
 
   const dayLink = (d: string) => {
@@ -193,7 +221,21 @@ export default async function BookingListPage({
                 Hari Minggu dan hari libur tidak dihitung.
               </p>
             </div>
-            <AppointmentTable rows={pendingRows} canReadRecords={canReadRecords} />
+            <AppointmentTable rows={pendingRows} canReadRecords={canReadRecords} highlightId={params.sorot ?? null} />
+          </section>
+        )}
+
+        {onlineRows.length > 0 && !query && (
+          <section aria-labelledby="booking-online" className="space-y-3 rounded-lg border border-sky-300 bg-sky-50/60 p-4">
+            <div>
+              <h2 id="booking-online" className="text-lg font-medium">
+                Konsultasi online ({onlineRows.length})
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Sudah diverifikasi dan menunggu dihubungi dokter. Yang waktunya sudah lewat ada di atas.
+              </p>
+            </div>
+            <AppointmentTable rows={onlineRows} canReadRecords={canReadRecords} highlightId={params.sorot ?? null} />
           </section>
         )}
 

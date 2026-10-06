@@ -111,3 +111,44 @@ describe("bookingRowActions link kuis (spec C3 4.2)", () => {
     expect(bookingRowActions({ ...waiting, quizLink: null }, true).menu).not.toContain("QUIZ_LINK");
   });
 });
+
+describe("bookingRowActions untuk booking online (spec konsultasi online 5.3)", () => {
+  const onlineWaiting: BookingActionRow = { ...waiting, channel: "ONLINE" };
+  const onlineConfirmed: BookingActionRow = {
+    ...waiting,
+    channel: "ONLINE",
+    status: "TERKONFIRMASI",
+    transferInstruction: null,
+    confirmation: { link: "https://wa.me/6281234567890?text=k" },
+  };
+
+  it("menunggu: tanpa Check-in, Tidak hadir, dan Pindah jadwal; Ubah waktu luang sebelum Batalkan", () => {
+    expect(bookingRowActions(onlineWaiting, true)).toEqual({
+      primary: ["VERIFY", "SEND_TRANSFER"],
+      menu: ["COPY_TRANSFER", "CHANGE_WINDOWS", "CANCEL"],
+    });
+  });
+
+  it("terkonfirmasi: Kirim konfirmasi terlihat, Ubah waktu luang di menu", () => {
+    expect(bookingRowActions(onlineConfirmed, true)).toEqual({
+      primary: ["SEND_CONFIRMATION"],
+      menu: ["COPY_CONFIRMATION", "CHANGE_WINDOWS", "CANCEL"],
+    });
+  });
+
+  it("Perlu waktu baru: Minta waktu baru via WA dan Ubah waktu luang terlihat", () => {
+    const row = { ...onlineConfirmed, requestNewTime: { link: "https://wa.me/6281234567890?text=b" } };
+    expect(bookingRowActions(row, true)).toEqual({
+      primary: ["REQUEST_NEW_TIME", "CHANGE_WINDOWS"],
+      menu: ["SEND_CONFIRMATION", "COPY_CONFIRMATION", "CANCEL"],
+    });
+  });
+
+  it("sudah dimulai: tidak ada Ubah waktu luang", () => {
+    expect(bookingRowActions({ ...onlineConfirmed, status: "HADIR" }, true)).toEqual({ primary: [], menu: [] });
+  });
+
+  it("booking klinik tidak berubah", () => {
+    expect(bookingRowActions({ ...waiting, channel: "KLINIK" }, true).menu).toContain("RESCHEDULE");
+  });
+});

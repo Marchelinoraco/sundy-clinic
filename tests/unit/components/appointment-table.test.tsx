@@ -4,6 +4,7 @@ import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AppointmentTable, type BookingRow } from "@/components/admin/appointment-table";
 import { BookingDialogsProvider } from "@/components/admin/booking-dialogs";
+import { windowDrafts } from "@/lib/online-consultation";
 import { combineWitaDateAndMinutes } from "@/lib/time";
 import { verifyAppointment } from "@/server/appointment";
 import { getBookingMessage, recordAppointmentMessage } from "@/server/appointment-message";
@@ -17,6 +18,7 @@ vi.mock("@/server/appointment", () => ({
   verifyAppointment: vi.fn(),
   rescheduleAppointment: vi.fn(),
 }));
+vi.mock("@/server/online-consultation", () => ({ updateContactWindows: vi.fn() }));
 vi.mock("@/server/appointment-message", () => ({
   getBookingMessage: vi.fn(),
   recordAppointmentMessage: vi.fn(),
@@ -73,6 +75,8 @@ const base: BookingRow = {
   needsFullIntake: false,
   foodRecall: null,
   foodRecallAvailable: false,
+  channel: "KLINIK",
+  online: null,
   reschedule: {
     appointmentId: "a1",
     code: "SDY-8F3K",
@@ -98,6 +102,67 @@ const waRow: BookingRow = {
   transferInstruction: { text: "Halo Siti, mohon transfer…", link: "https://wa.me/6281234567890?text=Halo" },
   reschedule: { ...base.reschedule, appointmentId: "a2", code: "SDY-WA01" },
 };
+
+const day = (offset: number) => combineWitaDateAndMinutes(`2026-10-${String(5 + offset).padStart(2, "0")}`, 0);
+const onlineWindows = [
+  { startAt: new Date(day(2).getTime() + 10 * 3600_000), endAt: new Date(day(2).getTime() + 12 * 3600_000) },
+];
+const onlineRow: BookingRow = {
+  ...waRow,
+  id: "a3",
+  code: "SDY-ON01",
+  channel: "ONLINE",
+  status: "TERKONFIRMASI",
+  timeLabel: "Online",
+  branchName: "Online (WhatsApp)",
+  transferInstruction: null,
+  confirmation: { text: "Halo Siti, pembayaran…", link: "https://wa.me/6281234567890?text=k" },
+  reschedule: { ...base.reschedule, appointmentId: "a3", code: "SDY-ON01" },
+  online: {
+    windowLines: ["• Rabu, 7 Oktober 2026, 10.00–12.00"],
+    phase: "UPCOMING",
+    lastAttempt: null,
+    requestNewTime: null,
+    contactWindows: { appointmentId: "a3", code: "SDY-ON01", patientName: "Siti Rahayu", windows: windowDrafts(onlineWindows) },
+  },
+};
+
+describe("AppointmentTable booking online", () => {
+  it("menampilkan rentang waktu luang menggantikan jam, tanpa Check-in", () => {
+    renderTable([onlineRow]);
+    expect(screen.getByText("• Rabu, 7 Oktober 2026, 10.00–12.00")).toBeInTheDocument();
+    expect(screen.getByText("Online (WhatsApp)")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Check-in" })).not.toBeInTheDocument();
+  });
+
+  it("Perlu waktu baru: tanda, percobaan terakhir, dan tautan Minta waktu baru via WA", () => {
+    renderTable([
+      {
+        ...onlineRow,
+        online: {
+          ...onlineRow.online!,
+          phase: "NEEDS_NEW",
+          lastAttempt: "Dicoba Sel, 6 Okt 08.10 — tidak terhubung (dr. Diane)",
+          requestNewTime: { link: "https://wa.me/6281234567890?text=baru" },
+        },
+      },
+    ]);
+    expect(screen.getByText("Perlu waktu baru")).toBeInTheDocument();
+    expect(screen.getByText("Dicoba Sel, 6 Okt 08.10 — tidak terhubung (dr. Diane)")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Minta waktu baru via WA" })).toHaveAttribute(
+      "href",
+      "https://wa.me/6281234567890?text=baru",
+    );
+  });
+
+  it("Ubah waktu luang dari menu membuka dialog untuk booking itu", async () => {
+    const user = userEvent.setup();
+    renderTable([onlineRow]);
+    await openMenu(user, "SDY-ON01");
+    await user.click(await screen.findByRole("menuitem", { name: "Ubah waktu luang" }));
+    expect(await screen.findByRole("dialog", { name: "Ubah waktu luang — SDY-ON01" })).toBeInTheDocument();
+  });
+});
 
 function renderTable(rows: BookingRow[], options: { canReadRecords?: boolean; highlightId?: string } = {}) {
   return render(

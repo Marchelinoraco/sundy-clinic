@@ -163,4 +163,15 @@ describe("ReminderWorklistView", () => {
 
     expect(await screen.findByRole("dialog", { name: "Pindah jadwal — SDY-006" })).toBeInTheDocument();
   });
+
+  it("booking online: menampilkan rentang, tanpa tombol Pindah jadwal", () => {
+    const online = row("007", "Rina Online", monday(16), {
+      channel: "ONLINE",
+      onlineLabel: "Online · Kamis, 8 April 2032, 19.00–21.00",
+      reminderSent: { messageId: "m7", sentAt, sentByName: "Rina", reply: "MINTA_PINDAH" },
+    });
+    render(<ReminderWorklistView worklist={{ ...WORKLIST, reminded: [online] }} />);
+    expect(screen.getByText(/Online · Kamis, 8 April 2032, 19.00–21.00/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Pindah jadwal" })).not.toBeInTheDocument();
+  });
 });
