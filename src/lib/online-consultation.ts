@@ -226,3 +226,8 @@ export function onlineReminderText(input: {
     .join(" atau ");
   return `Halo ${firstName(input.patientName)}, mengingatkan: pada ${formatIndonesianDate(input.windows[0].startAt)}, ${input.doctorName} akan menghubungi Anda lewat WhatsApp antara ${times} untuk konsultasi online (${input.code}). Mohon pastikan nomor ini aktif.`;
 }
+
+/** Nama tempat di daftar dan riwayat: booking online memakai "Online (WhatsApp)" (spec 3.6). */
+export function placeLabel(channel: "KLINIK" | "ONLINE", branchName: string): string {
+  return channel === "ONLINE" ? ONLINE_BRANCH_LABEL : branchName;
+}

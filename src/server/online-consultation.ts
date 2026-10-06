@@ -9,6 +9,7 @@ import { bookingFeeFor } from "@/lib/payment";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { ACTIVE_STATUSES, rejectedChangeError } from "@/server/appointment-guard";
 import { recordAudit } from "@/server/audit";
+import { lastHeightCm } from "@/server/encounter-store";
 import { getClinicSetting } from "@/server/clinic-setting";
 import { loadOnlineService, ONLINE_SERVICE_OFF, onlineBranchId } from "@/server/online-store";
 import { requireCapability } from "@/server/session";
@@ -137,6 +138,81 @@ export async function updateContactWindows(input: { appointmentId: string; windo
       entityId: id,
       summary: `${booking.code}: ${booking._count.contactWindows} → ${checked.windows.length} waktu luang, mulai ${windowLabel(first)}`,
     });
+    revalidateOnlineViews();
+  });
+}
+
+/**
+ * Mulai konsultasi (spec 6.2): Terkonfirmasi → Hadir dengan jam sebenarnya, lalu kunjungan
+ * dibuat dalam transaksi yang sama. Klik kedua atau dokter lain mendapat kunjungan yang sama.
+ */
+export async function startOnlineConsultation(appointmentId: string): Promise<ActionResult<{ encounterId: string }>> {
+  return runAction(async () => {
+    const actor = await requireCapability("record:write");
+    const id = String(appointmentId ?? "");
+    const booking = await prisma.appointment.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        code: true,
+        channel: true,
+        patientId: true,
+        service: { select: { durationMin: true } },
+        encounter: { select: { id: true } },
+      },
+    });
+    if (!booking) throw new UserFacingError("Booking tidak ditemukan.");
+    if (booking.channel !== "ONLINE") throw new UserFacingError("Hanya untuk konsultasi online.");
+    if (booking.encounter) return { encounterId: booking.encounter.id };
+
+    const now = new Date();
+    const endAt = new Date(now.getTime() + (booking.service?.durationMin ?? 30) * 60_000);
+    const encounterId = await prisma.$transaction(async (tx) => {
+      const { count } = await tx.appointment.updateMany({
+        where: { id, channel: "ONLINE", status: "TERKONFIRMASI", patientId: { not: null } },
+        data: { status: "HADIR", startAt: now, endAt },
+      });
+      if (count === 0) return null;
+      const created = await tx.encounter.create({
+        data: {
+          appointmentId: id,
+          createdById: actor.staffId,
+          createdByName: actor.name,
+          heightCm: await lastHeightCm(tx, booking.patientId!),
+        },
+        select: { id: true },
+      });
+      return created.id;
+    });
+
+    if (encounterId === null) {
+      // Kalah dari klik lain yang sudah memulai: pakai kunjungannya.
+      const existing = await prisma.encounter.findUnique({ where: { appointmentId: id }, select: { id: true } });
+      if (existing) return { encounterId: existing.id };
+      throw await rejectedChangeError(id, true);
+    }
+
+    await recordAudit({ actor, action: "appointment.start-online", entity: "Appointment", entityId: id, summary: booking.code });
+    await recordAudit({ actor, action: "encounter.create", entity: "Encounter", entityId: encounterId, summary: booking.code });
+    revalidateOnlineViews();
+    safeRevalidatePath(`/admin/kunjungan/${encounterId}`);
+    if (booking.patientId) safeRevalidatePath(`/admin/pasien/${booking.patientId}`);
+    return { encounterId };
+  });
+}
+
+/** Tidak terhubung (spec 6.3): satu percobaan tercatat, status booking tetap. */
+export async function recordContactAttempt(appointmentId: string): Promise<ActionResult<void>> {
+  return runAction(async () => {
+    const actor = await requireCapability("record:write");
+    const id = String(appointmentId ?? "");
+    const booking = await prisma.appointment.findUnique({ where: { id }, select: { code: true, channel: true, status: true } });
+    if (!booking) throw new UserFacingError("Booking tidak ditemukan.");
+    if (booking.channel !== "ONLINE") throw new UserFacingError("Hanya untuk konsultasi online.");
+    if (booking.status !== "TERKONFIRMASI") throw await rejectedChangeError(id);
+
+    await prisma.contactAttempt.create({ data: { appointmentId: id, at: new Date(), staffId: actor.staffId, staffName: actor.name } });
+    await recordAudit({ actor, action: "appointment.contact-failed", entity: "Appointment", entityId: id, summary: booking.code });
     revalidateOnlineViews();
   });
 }

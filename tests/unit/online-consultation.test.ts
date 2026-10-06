@@ -9,6 +9,7 @@ import {
   onlineRequestNewTimeText,
   onlineTotal,
   onlineTransferText,
+  placeLabel,
   reminderWindowsOn,
   validateContactWindows,
   windowDrafts,
@@ -181,5 +182,12 @@ describe("teks pesan WhatsApp", () => {
     const text = onlineReminderText({ patientName: "Siti Rahayu", code: "SDY-AB12", doctorName: "dr. Diane", windows: sameDay });
     expect(text).toContain("pada Rabu, 7 Oktober 2026, dr. Diane akan menghubungi Anda lewat WhatsApp antara 10.00–12.00 atau 19.00–21.00");
     expect(text).not.toMatch(/besok|pasien|berobat/i);
+  });
+});
+
+describe("placeLabel", () => {
+  it("booking online memakai Online (WhatsApp), booking klinik memakai nama cabang", () => {
+    expect(placeLabel("ONLINE", "SunDY Mahakeret")).toBe("Online (WhatsApp)");
+    expect(placeLabel("KLINIK", "SunDY Mahakeret")).toBe("SunDY Mahakeret");
   });
 });

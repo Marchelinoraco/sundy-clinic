@@ -47,6 +47,7 @@ export function encounterDetail(patch: Partial<EncounterDetail> = {}): Encounter
       serviceName: "Konsultasi Dokter",
       staffName: "dr. Diane",
       branchName: "SunDY Mahakeret",
+      channel: "KLINIK",
     },
     patient: { id: "p1", name: "Siti Rahayu", medicalRecordNumber: "SDY-2026-0001", ageLabel: "34 tahun", genderLabel: "Perempuan" },
     warnings: { allergies: "Udang", medicalHistory: null, importantNotes: "Takut jarum", paperRecordNumber: "RM-0457", pregnancy: true },

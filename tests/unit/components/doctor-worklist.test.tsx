@@ -22,6 +22,7 @@ const row = (patch: Partial<WorklistRow>): WorklistRow => ({
   encounterId: null,
   state: "BELUM",
   foodRecallFilled: false,
+  online: false,
   ...patch,
 });
 

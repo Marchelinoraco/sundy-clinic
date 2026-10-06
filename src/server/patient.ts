@@ -21,6 +21,7 @@ import { can } from "@/lib/permissions";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { normalizeWhatsapp } from "@/lib/whatsapp";
 import { recordAudit, recordAuditThrottled } from "@/server/audit";
+import { placeLabel } from "@/lib/online-consultation";
 import { isUniqueViolation } from "@/server/db-errors";
 import { insertPatient } from "@/server/patient-store";
 import { requireCapability } from "@/server/session";
@@ -284,6 +285,7 @@ export async function getPatientDetail(id: string): Promise<PatientDetail | null
           type: true,
           startAt: true,
           status: true,
+          channel: true,
           service: { select: { name: true } },
           staff: { select: { name: true } },
           branch: { select: { name: true } },
@@ -323,7 +325,7 @@ export async function getPatientDetail(id: string): Promise<PatientDetail | null
           assessment: true,
           createdByName: true,
           finalizedByName: true,
-          appointment: { select: { id: true, code: true, startAt: true, branch: { select: { name: true } }, foodRecall: { select: FOOD_RECALL_SELECT } } },
+          appointment: { select: { id: true, code: true, startAt: true, channel: true, branch: { select: { name: true } }, foodRecall: { select: FOOD_RECALL_SELECT } } },
         },
       })
     : null;
@@ -361,7 +363,7 @@ export async function getPatientDetail(id: string): Promise<PatientDetail | null
       status: a.status,
       serviceName: a.service?.name ?? (a.type === "KONSULTASI" ? "Konsultasi" : "Treatment"),
       staffName: a.staff.name,
-      branchName: a.branch.name,
+      branchName: placeLabel(a.channel, a.branch.name),
     })),
     intakes: patient.intakes.map((intake) => ({
       id: intake.id,
@@ -378,7 +380,7 @@ export async function getPatientDetail(id: string): Promise<PatientDetail | null
         id: encounter.id,
         code: encounter.appointment.code,
         startAt: encounter.appointment.startAt,
-        branchName: encounter.appointment.branch.name,
+        branchName: placeLabel(encounter.appointment.channel, encounter.appointment.branch.name),
         authorName: encounter.finalizedByName ?? encounter.createdByName,
         assessmentPreview: assessmentPreview(encounter.assessment),
         status: encounter.status,
