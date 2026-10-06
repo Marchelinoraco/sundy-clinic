@@ -136,4 +136,21 @@ describe("EncounterPageView", () => {
     await user.click(screen.getByRole("tab", { name: "Sebelumnya" }));
     expect(screen.getByText("Food recall Selasa, 22 September")).toBeInTheDocument();
   });
+
+  it("konsultasi online diberi label di kepala halaman dan Online (WhatsApp) di tempat cabang", () => {
+    const base = encounterDetail();
+    render(
+      <EncounterPageView
+        encounter={{ ...base, appointment: { ...base.appointment, channel: "ONLINE", branchName: "Online (WhatsApp)" } }}
+        canWrite
+      />,
+    );
+    expect(screen.getByText("Konsultasi online", { exact: true })).toBeInTheDocument();
+    expect(screen.getByText(/Online \(WhatsApp\)/)).toBeInTheDocument();
+  });
+
+  it("kunjungan klinik tidak berlabel konsultasi online", () => {
+    render(<EncounterPageView encounter={encounterDetail()} canWrite />);
+    expect(screen.queryByText("Konsultasi online", { exact: true })).not.toBeInTheDocument();
+  });
 });
