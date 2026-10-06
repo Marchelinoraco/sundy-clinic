@@ -2,7 +2,7 @@
 
 - **Versi:** 1.0
 - **Tanggal:** 7 Oktober 2026
-- **Status:** Menunggu tinjauan pemilik
+- **Status:** Dibangun (belum dideploy)
 - **Bagian dari:** rangkaian keuangan klinik (lihat bagian 2)
 - **Melanjutkan:**
   - hak akses berbasis kemampuan: `src/lib/permissions.ts`;

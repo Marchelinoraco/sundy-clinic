@@ -6454,7 +6454,9 @@ export function PaymentDialog({
   const router = useRouter();
   const title = kind === "BAYAR" ? "Catat pembayaran" : "Catat pengembalian dana";
   const [open, setOpen] = useState(false);
-  const [amount, setAmount] = useState<number | null>(limit);
+  // undefined = belum diubah pengguna: nominal mengikuti sisa terbaru (bisa berubah setelah halaman dimuat ulang).
+  const [typed, setTyped] = useState<number | null | undefined>(undefined);
+  const amount = typed === undefined ? limit : typed;
   const [method, setMethod] = useState<PaymentMethodValue>("TRANSFER");
   const [paidAt, setPaidAt] = useState(today);
   const [reference, setReference] = useState("");
@@ -6491,7 +6493,7 @@ export function PaymentDialog({
       onOpenChange={(next) => {
         setOpen(next);
         if (next) {
-          setAmount(limit);
+          setTyped(undefined);
           setPaidAt(today);
         } else {
           setError(null);
@@ -6513,7 +6515,7 @@ export function PaymentDialog({
         <div className="space-y-3">
           <div className="space-y-1">
             <Label htmlFor="payment-amount">Nominal</Label>
-            <RupiahInput id="payment-amount" value={amount} onChange={setAmount} />
+            <RupiahInput id="payment-amount" value={amount} onChange={setTyped} />
           </div>
           <div className="space-y-1">
             <Label htmlFor="payment-method">Metode</Label>
@@ -7366,7 +7368,7 @@ test("apoteker menambah barang, mencatat barang masuk dua batch, lalu meretur se
   await expect(page.getByText("Rp 80.000")).toBeVisible();
   await page.getByRole("button", { name: "Simpan barang masuk" }).click();
 
-  await expect(page).toHaveURL(/\/admin\/stok\/masuk\/[^/]+$/, { timeout: 30_000 });
+  await expect(page).toHaveURL(/\/admin\/stok\/masuk\/(?!baru)[^/]+$/, { timeout: 30_000 });
   invoicePath = new URL(page.url()).pathname;
   await expect(page.getByText("Belum dibayar", { exact: true })).toBeVisible();
   // Apoteker tidak melihat bagian pembayaran (spec stok 6.2).
