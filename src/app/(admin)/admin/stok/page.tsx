@@ -1,8 +1,13 @@
 import Form from "next/form";
+import Link from "next/link";
 import { AdminHeader } from "@/components/admin/admin-header";
+import { PageTabs } from "@/components/admin/page-tabs";
 import { EmptyState, PageBody, PageHeader, SectionCard } from "@/components/admin/page-layout";
+import { PurchaseTable } from "@/components/admin/stock/purchase-table";
 import { StockItemDialog } from "@/components/admin/stock/stock-item-dialog";
 import { StockItemTable } from "@/components/admin/stock/stock-item-table";
+import { SupplierDialog } from "@/components/admin/stock/supplier-dialog";
+import { SupplierTable } from "@/components/admin/stock/supplier-table";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatRupiah } from "@/lib/format";
@@ -16,12 +21,14 @@ import {
   type StockItemKindValue,
 } from "@/lib/stock";
 import { getBranches } from "@/server/catalog";
+import { listPurchases } from "@/server/purchase-read";
 import { requireCapability } from "@/server/session";
-import { listStockItems } from "@/server/stock-read";
+import { listStockItems, listSuppliers } from "@/server/stock-read";
 
 export const metadata = { title: "Stok" };
 
-type Search = { cabang?: string; jenis?: string; tanda?: string; cari?: string };
+type Search = { tab?: string; cabang?: string; jenis?: string; tanda?: string; cari?: string };
+type Tab = "barang" | "masuk" | "supplier";
 
 const selectClass = "h-9 rounded-md border border-input bg-background px-3 text-sm";
 const FLAGS = Object.keys(STOCK_FLAG_LABEL) as StockFlag[];
@@ -31,17 +38,43 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
   const staff = await requireCapability("stock:read");
   const params = await searchParams;
   const canManage = can(staff.role, "stock:manage");
+  const tab: Tab = params.tab === "masuk" || params.tab === "supplier" ? params.tab : "barang";
+
+  const actions = !canManage ? undefined : tab === "barang" ? (
+    <StockItemDialog triggerLabel="+ Barang" />
+  ) : tab === "masuk" ? (
+    <Button asChild>
+      <Link href="/admin/stok/masuk/baru">+ Barang masuk</Link>
+    </Button>
+  ) : (
+    <SupplierDialog triggerLabel="+ Supplier" />
+  );
 
   return (
     <>
       <AdminHeader title="Stok" />
       <PageBody>
-        <PageHeader
-          title="Stok"
-          description="Obat dan produk per cabang, per batch dan tanggal kedaluwarsa."
-          actions={canManage ? <StockItemDialog triggerLabel="+ Barang" /> : undefined}
+        <PageHeader title="Stok" description="Obat dan produk per cabang, barang masuk dari supplier, dan supplier." actions={actions} />
+        <PageTabs
+          label="Bagian stok"
+          active={tab}
+          tabs={[
+            { id: "barang", label: "Barang", href: "/admin/stok" },
+            { id: "masuk", label: "Barang masuk", href: "/admin/stok?tab=masuk" },
+            { id: "supplier", label: "Supplier", href: "/admin/stok?tab=supplier" },
+          ]}
         />
-        <ItemsTab params={params} />
+        {tab === "barang" && <ItemsTab params={params} />}
+        {tab === "masuk" && (
+          <SectionCard title="Barang masuk" description="Faktur supplier terbaru di atas." flush>
+            <PurchaseTable rows={await listPurchases()} />
+          </SectionCard>
+        )}
+        {tab === "supplier" && (
+          <SectionCard title="Supplier" flush>
+            <SupplierTable rows={await listSuppliers()} canManage={canManage} />
+          </SectionCard>
+        )}
       </PageBody>
     </>
   );
