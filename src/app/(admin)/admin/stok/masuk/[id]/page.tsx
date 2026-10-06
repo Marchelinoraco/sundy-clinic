@@ -2,12 +2,14 @@ import { notFound } from "next/navigation";
 import { AdminHeader } from "@/components/admin/admin-header";
 import { EmptyState, PageBody, PageHeader, SectionCard } from "@/components/admin/page-layout";
 import { CancelPurchaseDialog } from "@/components/admin/stock/cancel-purchase-dialog";
+import { PurchasePaymentsSection } from "@/components/admin/stock/purchase-payments-section";
 import { PayableStatusBadge } from "@/components/admin/stock/payable-status-badge";
 import { SupplierReturnDialog } from "@/components/admin/stock/supplier-return-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDateWithYear, formatRupiah } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { dateLabel } from "@/lib/stock";
+import { witaDateString } from "@/lib/time";
 import { getPurchaseDetail } from "@/server/purchase-read";
 import { requireCapability } from "@/server/session";
 
@@ -89,6 +91,19 @@ export default async function PurchasePage({ params }: { params: Promise<{ id: s
             )}
           </dl>
         </SectionCard>
+
+        {detail.payments && (
+          <PurchasePaymentsSection
+            invoiceId={detail.id}
+            invoiceDate={detail.invoiceDate}
+            dueDate={detail.dueDate}
+            today={witaDateString(new Date())}
+            total={detail.total}
+            summary={detail.summary}
+            payments={detail.payments}
+            cancelled={detail.cancelledAt !== null}
+          />
+        )}
 
         <SectionCard title="Barang" flush>
           <Table>
