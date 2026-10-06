@@ -19,3 +19,17 @@ export const PAYABLE_SELECT = {
 export async function lockInvoice(tx: Prisma.TransactionClient, invoiceId: string): Promise<void> {
   await tx.$queryRaw`SELECT id FROM "PurchaseInvoice" WHERE id = ${invoiceId} FOR UPDATE`;
 }
+
+export const STOCK_NOT_ENOUGH = "Sisa batch tidak cukup. Muat ulang halaman.";
+
+/**
+ * Mengurangi sisa batch dalam satu UPDATE bersyarat (spec stok 4.3). Dua pengurangan bersamaan
+ * tidak bisa sama-sama lolos: yang kedua melihat sisa terbaru dan gagal bila tidak cukup.
+ */
+export async function takeFromBatch(tx: Prisma.TransactionClient, batchId: string, quantity: number): Promise<boolean> {
+  const { count } = await tx.stockBatch.updateMany({
+    where: { id: batchId, quantityRemaining: { gte: quantity } },
+    data: { quantityRemaining: { decrement: quantity } },
+  });
+  return count === 1;
+}
