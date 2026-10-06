@@ -31,6 +31,8 @@ function row(id: string, name: string, startAt: Date, patch: Partial<ReminderRow
     startAt,
     staffName: "dr. Diane",
     branchName: "SunDY Mahakeret",
+    channel: "KLINIK",
+    onlineLabel: null,
     confirmation: { text: `Konfirmasi ${name}`, link: `https://wa.me/6281234567${id}?text=k` },
     reminder: { text: `Pengingat ${name}`, link: `https://wa.me/6281234567${id}?text=p` },
     overdue: false,

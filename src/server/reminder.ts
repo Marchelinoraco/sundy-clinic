@@ -9,6 +9,7 @@ import {
 } from "@/lib/booking-messages";
 import { MAX_LOOKBACK_DAYS } from "@/lib/confirmation-window";
 import { prisma } from "@/lib/db";
+import { nextOpenWindow, ONLINE_BRANCH_LABEL, windowLabel } from "@/lib/online-consultation";
 import { groupReminderWork } from "@/lib/reminder-work";
 import { witaDateString } from "@/lib/time";
 import { closedDatesBetween } from "@/server/booking-expiry";
@@ -24,6 +25,9 @@ export type ReminderRow = {
   startAt: Date;
   staffName: string;
   branchName: string;
+  channel: "KLINIK" | "ONLINE";
+  /** "Online · {rentang terbuka berikutnya}" untuk booking online; null untuk klinik. */
+  onlineLabel: string | null;
   confirmation: WhatsAppMessage | null;
   reminder: WhatsAppMessage | null;
   /** Kotak 2: hari pengingatnya sudah lewat. */
@@ -45,6 +49,7 @@ const WORK_INCLUDE = {
   branch: { select: { name: true, address: true, mapsUrl: true } },
   service: { select: { name: true } },
   intake: { select: { status: true, linkVersion: true } },
+  contactWindows: { orderBy: { startAt: "asc" }, select: { startAt: true, endAt: true } },
   messages: {
     select: { id: true, kind: true, scheduledFor: true, sentAt: true, sentByName: true, revokedAt: true, reply: true },
   },
@@ -52,13 +57,27 @@ const WORK_INCLUDE = {
 
 /** Booking Terkonfirmasi yang jadwalnya belum lewat, dikelompokkan ke tiga kotak (spec C2 bagian 4). */
 async function loadReminderGroups(now: Date) {
-  const bookings = await prisma.appointment.findMany({
-    where: { status: "TERKONFIRMASI", startAt: { gt: now }, patientId: { not: null } },
+  const rows = await prisma.appointment.findMany({
+    where: {
+      status: "TERKONFIRMASI",
+      patientId: { not: null },
+      OR: [
+        { channel: "KLINIK", startAt: { gt: now } },
+        { channel: "ONLINE", contactWindows: { some: { endAt: { gt: now } } } },
+      ],
+    },
     include: WORK_INCLUDE,
     orderBy: { startAt: "asc" },
   });
-  const latest = bookings.length > 0 ? bookings[bookings.length - 1].startAt : now;
-  const closedDates = await closedDatesBetween(new Date(now.getTime() - MAX_LOOKBACK_DAYS * DAY_MS), latest);
+  // Booking online diingatkan untuk rentang terbuka berikutnya (spec konsultasi online 7.4).
+  const bookings = rows.map((row) =>
+    row.channel === "ONLINE" ? { ...row, reminderAt: nextOpenWindow(row.contactWindows, now)!.startAt } : row,
+  );
+  const latest = bookings.reduce(
+    (max, b) => Math.max(max, ("reminderAt" in b && b.reminderAt ? b.reminderAt : b.startAt).getTime()),
+    now.getTime(),
+  );
+  const closedDates = await closedDatesBetween(new Date(now.getTime() - MAX_LOOKBACK_DAYS * DAY_MS), new Date(latest));
   return groupReminderWork(bookings, { now, closedDates });
 }
 
@@ -90,9 +109,14 @@ export async function getReminderWorklist(): Promise<ReminderWorklist> {
     patientName: booking.patient!.name,
     startAt: booking.startAt,
     staffName: booking.staff.name,
-    branchName: booking.branch.name,
+    branchName: booking.channel === "ONLINE" ? ONLINE_BRANCH_LABEL : booking.branch.name,
+    channel: booking.channel,
+    onlineLabel:
+      booking.channel === "ONLINE"
+        ? `Online · ${windowLabel(nextOpenWindow(booking.contactWindows, now) ?? booking.contactWindows[0])}`
+        : null,
     confirmation: confirmationMessageFor(booking, siteUrl, quizLinkFor(booking, siteUrl, now)),
-    reminder: reminderMessageFor(booking, quizLinkFor(booking, siteUrl, now)),
+    reminder: reminderMessageFor(booking, quizLinkFor(booking, siteUrl, now), now),
     overdue: false,
     shifted: false,
     reminderSent: null,

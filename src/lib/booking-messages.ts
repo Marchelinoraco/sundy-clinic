@@ -1,5 +1,13 @@
 import { CLINIC_NAME } from "./clinic";
 import { formatScheduleForMessage } from "./format";
+import {
+  nextOpenWindow,
+  onlineConfirmationText,
+  onlineReminderText,
+  onlineRequestNewTimeText,
+  reminderWindowsOn,
+} from "./online-consultation";
+import { witaDateString } from "./time";
 import { firstName, quizLinkLines } from "./quiz-link";
 import { bookingServiceName } from "./transfer-instruction";
 import { buildWhatsAppLinkTo } from "./whatsapp";
@@ -106,6 +114,9 @@ export type MessageBooking = {
   staff: { name: string };
   branch: { name: string; address: string; mapsUrl: string | null };
   patient: { name: string; whatsapp: string } | null;
+  channel?: "KLINIK" | "ONLINE";
+  contactWindows?: readonly { startAt: Date; endAt: Date }[];
+  contactAttempts?: readonly { at: Date; staffName: string }[];
 };
 
 /** null untuk booking situs yang belum dicocokkan (belum ada pasien). */
@@ -115,6 +126,16 @@ export function confirmationMessageFor(
   quizLink: string | null = null,
 ): WhatsAppMessage | null {
   if (!booking.patient) return null;
+  if (booking.channel === "ONLINE") {
+    const text = onlineConfirmationText({
+      patientName: booking.patient.name,
+      code: booking.code,
+      doctorName: booking.staff.name,
+      windows: booking.contactWindows ?? [],
+      quizLink,
+    });
+    return { text, link: buildWhatsAppLinkTo(booking.patient.whatsapp, text) };
+  }
   const text = confirmationText({
     patientName: booking.patient.name,
     code: booking.code,
@@ -131,8 +152,24 @@ export function confirmationMessageFor(
   return { text, link: buildWhatsAppLinkTo(booking.patient.whatsapp, text) };
 }
 
-export function reminderMessageFor(booking: MessageBooking, quizLink: string | null = null): WhatsAppMessage | null {
+export function reminderMessageFor(
+  booking: MessageBooking,
+  quizLink: string | null = null,
+  now: Date = new Date(),
+): WhatsAppMessage | null {
   if (!booking.patient) return null;
+  if (booking.channel === "ONLINE") {
+    const windows = booking.contactWindows ?? [];
+    const next = nextOpenWindow(windows, now);
+    if (!next) return null;
+    const text = onlineReminderText({
+      patientName: booking.patient.name,
+      code: booking.code,
+      doctorName: booking.staff.name,
+      windows: reminderWindowsOn(windows, witaDateString(next.startAt)),
+    });
+    return { text, link: buildWhatsAppLinkTo(booking.patient.whatsapp, text) };
+  }
   const text = reminderText({
     patientName: booking.patient.name,
     serviceName: bookingServiceName(booking),
@@ -142,6 +179,18 @@ export function reminderMessageFor(booking: MessageBooking, quizLink: string | n
     branchAddress: booking.branch.address,
     mapsUrl: booking.branch.mapsUrl,
     quizLink,
+  });
+  return { text, link: buildWhatsAppLinkTo(booking.patient.whatsapp, text) };
+}
+
+/** "Minta waktu baru via WA" untuk booking online yang semua rentangnya lewat (spec 5.3, 7.3). */
+export function requestNewTimeMessageFor(booking: MessageBooking): WhatsAppMessage | null {
+  if (booking.channel !== "ONLINE" || !booking.patient) return null;
+  const text = onlineRequestNewTimeText({
+    patientName: booking.patient.name,
+    code: booking.code,
+    doctorName: booking.staff.name,
+    hadAttempt: (booking.contactAttempts ?? []).length > 0,
   });
   return { text, link: buildWhatsAppLinkTo(booking.patient.whatsapp, text) };
 }

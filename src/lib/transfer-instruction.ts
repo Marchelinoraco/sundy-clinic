@@ -1,6 +1,7 @@
 import { CLINIC_NAME } from "./clinic";
 import { confirmationDeadline } from "./confirmation-window";
 import { formatRupiah, formatScheduleForMessage, formatShortIndonesianDate } from "./format";
+import { onlineTransferText } from "./online-consultation";
 import { formatBankAccount, type BankAccount, type BookingSourceValue } from "./payment";
 import { quizLinkLines } from "./quiz-link";
 import { minutesToTimeLabel, witaMinutesOfDay } from "./time";
@@ -98,6 +99,10 @@ export type TransferBooking = {
   staff: { name: string };
   branch: { name: string };
   patient: { name: string; whatsapp: string } | null;
+  /** Konsultasi online (spec konsultasi online 7.1): teksnya memakai total dan rentang waktu luang. */
+  channel?: "KLINIK" | "ONLINE";
+  servicePrice?: number | null;
+  contactWindows?: readonly { startAt: Date; endAt: Date }[];
 };
 
 /** null bila booking tidak menunggu transfer (walk-in, tanpa biaya, situs, atau sudah diverifikasi). */
@@ -108,18 +113,31 @@ export function transferInstructionFor(
 ): TransferInstruction | null {
   if (!booking.transferDeadline || booking.bookingFee === null || !booking.patient) return null;
   const bankAccount = formatBankAccount(bank);
-  const text = transferInstructionText({
-    patientName: booking.patient.name,
-    code: booking.code,
-    serviceName: bookingServiceName(booking),
-    startAt: booking.startAt,
-    staffName: booking.staff.name,
-    branchName: booking.branch.name,
-    fee: booking.bookingFee,
-    deadline: booking.transferDeadline,
-    bankAccount,
-    quizLink,
-  });
+  const text =
+    booking.channel === "ONLINE"
+      ? onlineTransferText({
+          patientName: booking.patient.name,
+          code: booking.code,
+          doctorName: booking.staff.name,
+          windows: booking.contactWindows ?? [],
+          bookingFee: booking.bookingFee,
+          servicePrice: booking.servicePrice ?? 0,
+          deadline: booking.transferDeadline,
+          bankLine: bankAccount ?? MISSING_BANK_ACCOUNT_LINE,
+          quizLink,
+        })
+      : transferInstructionText({
+          patientName: booking.patient.name,
+          code: booking.code,
+          serviceName: bookingServiceName(booking),
+          startAt: booking.startAt,
+          staffName: booking.staff.name,
+          branchName: booking.branch.name,
+          fee: booking.bookingFee,
+          deadline: booking.transferDeadline,
+          bankAccount,
+          quizLink,
+        });
   return {
     text,
     link: buildWhatsAppLinkTo(booking.patient.whatsapp, text),
