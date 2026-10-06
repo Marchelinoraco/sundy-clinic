@@ -99,6 +99,7 @@ describe("halaman link kuis (publik)", () => {
       kind: "LENGKAP",
       missing: ["birthDate", "gender", "occupation", "address"],
       feeConsent: { bookingFee: 100000 },
+      online: null,
     });
   });
 

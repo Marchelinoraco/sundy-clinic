@@ -13,6 +13,8 @@ export type QuizLinkBooking = {
   status: AppointmentStatusValue;
   startAt: Date;
   patientId: string | null;
+  /** Kosong dianggap klinik. Booking online tidak punya jam mulai tunggal, jadi tidak ditutup oleh waktu. */
+  channel?: "KLINIK" | "ONLINE";
   intake: { status: "MENUNGGU_DIISI" | "TERISI" | "DIPERIKSA"; linkVersion: number } | null;
 };
 
@@ -29,7 +31,9 @@ export type QuizLinkState = "OPEN" | "SUBMITTED" | "CLOSED";
 export function quizLinkState(booking: QuizLinkBooking, now: Date, closesAt: Date = booking.startAt): QuizLinkState {
   if (!QUIZ_LINK_SOURCES.includes(booking.source) || booking.patientId === null) return "CLOSED";
   if (booking.intake && booking.intake.status !== "MENUNGGU_DIISI") return "SUBMITTED";
-  if (!LINK_STATUSES.includes(booking.status) || closesAt.getTime() <= now.getTime()) return "CLOSED";
+  if (!LINK_STATUSES.includes(booking.status)) return "CLOSED";
+  // Konsultasi online ditutup oleh statusnya (dimulai, dibatalkan), bukan oleh jam: rentang pertama boleh sudah mulai.
+  if (booking.channel !== "ONLINE" && closesAt.getTime() <= now.getTime()) return "CLOSED";
   return "OPEN";
 }
 
@@ -94,7 +98,9 @@ export type QuizLinkPage =
       branchName: string;
       kind: QuizKind;
       missing: IdentityField[];
-      feeConsent: { bookingFee: number } | null;
+      feeConsent: { bookingFee: number; /** Total transfer konsultasi online (biaya booking + layanan). */ onlineTotal?: number } | null;
+      /** Konsultasi online: rentang waktu luang menggantikan jam dan cabang. */
+      online: { windowLines: string[] } | null;
     }
   | { state: "SUBMITTED" }
   | { state: "CLOSED" };

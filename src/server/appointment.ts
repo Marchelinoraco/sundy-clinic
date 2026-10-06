@@ -287,7 +287,8 @@ export async function listAppointments(filter: {
 
   const appointments = await prisma.appointment.findMany({
     where: {
-      AND: [DAY_LIST_CHANNEL],
+      // Daftar per tanggal tidak memuat booking online yang belum dimulai; pencarian lintas tanggal (filter isian) memuatnya.
+      ...(filter.date ? { AND: [DAY_LIST_CHANNEL] } : {}),
       branchId: filter.branchId,
       staffId: filter.staffId,
       status: filter.status,

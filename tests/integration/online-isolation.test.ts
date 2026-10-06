@@ -61,6 +61,7 @@ describe("booking online tidak ikut jalur klinik", () => {
   });
 
   beforeEach(async () => {
+    await prisma.intake.deleteMany({ where: { appointment: { staff: { slug: { startsWith: SLUG } } } } });
     await prisma.appointment.deleteMany({ where: { staff: { slug: { startsWith: SLUG } } } });
   });
 
@@ -97,6 +98,16 @@ describe("booking online tidak ikut jalur klinik", () => {
     const ids = (await listAppointments({ date })).map((row) => row.id);
     expect(ids).toEqual(expect.arrayContaining([started.id, clinic.id]));
     expect(ids).not.toContain(waiting.id);
+  });
+
+  it("filter isian belum diperiksa (semua tanggal) tetap memuat booking online yang belum dimulai", async () => {
+    const waiting = await booking({ channel: "ONLINE", time: "12:30" });
+    await prisma.intake.create({
+      data: { appointmentId: waiting.id, patientId, status: "TERISI", kind: "LENGKAP", purpose: "SLIMMING", submittedAt: new Date() },
+    });
+    const unreviewed = (await listAppointments({ intakeStatus: "TERISI" })).map((row) => row.id);
+    expect(unreviewed).toContain(waiting.id);
+    expect((await listAppointments({ date })).map((row) => row.id)).not.toContain(waiting.id);
   });
 
   it("garis waktu dasbor hari ini tidak memuat booking online yang belum dimulai", async () => {

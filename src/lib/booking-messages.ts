@@ -201,7 +201,15 @@ export function quizLinkMessageText(input: {
   serviceName: string;
   startAt: Date;
   link: string;
+  /** Konsultasi online: tanpa jam janji temu (spec konsultasi online 3.5). */
+  online?: boolean;
 }): string {
+  if (input.online) {
+    return [
+      `Halo ${firstName(input.patientName)}, ini ${CLINIC_NAME}. Sebelum konsultasi online, mohon isi form singkat ini (±5 menit): ${input.link}`,
+      "Jawaban Anda hanya dibaca dokter kami.",
+    ].join("\n");
+  }
   return [
     `Halo ${firstName(input.patientName)}, ini ${CLINIC_NAME}. Sebelum ${input.serviceName} ${formatScheduleForMessage(input.startAt)}, mohon isi form singkat ini (±5 menit): ${input.link}`,
     "Jawaban Anda hanya dibaca dokter kami.",
