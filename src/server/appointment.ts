@@ -11,6 +11,7 @@ import type {
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
 import { generateBookingCode } from "@/lib/booking-code";
 import { prisma } from "@/lib/db";
+import { nextOpenWindow, onlinePhase, type OnlinePhase } from "@/lib/online-consultation";
 import { bookingFeeFor } from "@/lib/payment";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { addDaysToDateString, combineWitaDateAndMinutes, witaDateString } from "@/lib/time";
@@ -257,6 +258,9 @@ const BOOKING_LIST_INCLUDE = {
   // Status food recall saja: isinya catatan klinis, dan daftar ini juga dibuka resepsionis.
   foodRecall: { select: { status: true } },
   encounter: { select: { status: true } },
+  // Rentang waktu luang dan percobaan menghubungi booking online (spec 5.2); tanpa data klinis.
+  contactWindows: { orderBy: { startAt: "asc" }, select: { startAt: true, endAt: true } },
+  contactAttempts: { orderBy: { at: "asc" }, select: { at: true, staffName: true } },
   // Catatan pesan untuk keterangan "Konfirmasi terkirim …" di baris booking (spec C2 4.5).
   messages: {
     select: { id: true, kind: true, scheduledFor: true, sentAt: true, sentByName: true, revokedAt: true, reply: true },
@@ -358,6 +362,32 @@ export async function countPendingBookings(): Promise<number> {
       OR: [{ source: "SITUS", createdAt: { gte: cutoff } }, WAITING_TRANSFER],
     },
   });
+}
+
+const PHASE_ORDER: Record<OnlinePhase, number> = { NEEDS_NEW: 0, NOW: 1, TODAY: 2, UPCOMING: 3 };
+
+/**
+ * Bagian "Konsultasi online" di halaman Booking (spec 5.2): booking online yang sudah
+ * diverifikasi dan menunggu dihubungi. "Perlu waktu baru" paling atas, lalu menurut
+ * rentang terbuka terdekat.
+ */
+export async function listOnlineBookings() {
+  await requireCapability("booking:manage");
+  const now = new Date();
+  const rows = await withTransferDeadlines(
+    await prisma.appointment.findMany({
+      where: { channel: "ONLINE", status: "TERKONFIRMASI" },
+      include: BOOKING_LIST_INCLUDE,
+    }),
+  );
+  return rows
+    .map((row) => ({ ...row, phase: onlinePhase(row.contactWindows, now) }))
+    .sort((a, b) => {
+      const byPhase = PHASE_ORDER[a.phase] - PHASE_ORDER[b.phase];
+      if (byPhase !== 0) return byPhase;
+      const next = (row: typeof a) => nextOpenWindow(row.contactWindows, now)?.startAt.getTime() ?? row.startAt.getTime();
+      return next(a) - next(b);
+    });
 }
 
 const SEARCH_LOOKBACK_DAYS = 30;
