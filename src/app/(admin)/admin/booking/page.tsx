@@ -181,6 +181,9 @@ export default async function BookingListPage({
     deadlineOverdue: a.overdue,
   }));
   const onlineRows = onlineBookings.map((a) => toRow(a, context));
+  // Sorotan di bagian Menunggu konfirmasi hanya bila barisnya tidak juga ada di daftar per tanggal
+  // (booking online belum punya jam, jadi hanya tampil di sana); tanpa ini baris tersorot dua kali.
+  const pendingHighlight = rows.some((row) => row.id === params.sorot) ? null : (params.sorot ?? null);
   const foundRows = found.map((a) => withDate(toRow(a, context), a.startAt));
 
   const dayLink = (d: string) => {
@@ -221,7 +224,7 @@ export default async function BookingListPage({
                 Hari Minggu dan hari libur tidak dihitung.
               </p>
             </div>
-            <AppointmentTable rows={pendingRows} canReadRecords={canReadRecords} highlightId={params.sorot ?? null} />
+            <AppointmentTable rows={pendingRows} canReadRecords={canReadRecords} highlightId={pendingHighlight} />
           </section>
         )}
 

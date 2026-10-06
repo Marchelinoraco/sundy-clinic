@@ -2,7 +2,7 @@
 
 - **Versi:** 1.0
 - **Tanggal:** 6 Oktober 2026
-- **Status:** Menunggu tinjauan pemilik
+- **Status:** Dibangun (belum dideploy)
 - **Melanjutkan:**
   - pendaftaran pasien & `/daftar`: `docs/superpowers/specs/2026-09-28-pendaftaran-pasien-design.md`;
   - booking admin & daftar booking: `docs/superpowers/specs/2026-10-01-ui-booking-admin-design.md`;

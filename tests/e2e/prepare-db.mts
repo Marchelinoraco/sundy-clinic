@@ -171,6 +171,45 @@ for (const [index, project] of ["desktop", "mobile"].entries()) {
   });
 }
 
+// Konsultasi online (online-consultation.spec.ts): layanan diaktifkan berharga Rp 250.000, dan satu
+// booking online terkonfirmasi per proyek yang semua rentang waktu luangnya sudah lewat (kemarin),
+// sehingga muncul "Perlu waktu baru". Tanpa slot klinik, jadi jamnya tidak berebut dengan uji lain.
+await prisma.service.update({
+  where: { slug: "konsultasi-online" },
+  data: { promoPrice: 250000, durationMin: 30, isActive: true },
+});
+const onlineService = await prisma.service.findUniqueOrThrow({ where: { slug: "konsultasi-online" } });
+const yesterday = addDaysToDateString(today, -1);
+for (const [index, project] of ["desktop", "mobile"].entries()) {
+  const patient = await prisma.patient.create({
+    data: {
+      medicalRecordNumber: `SDY-E2E-ONLINE-${index + 1}`,
+      name: `Pasien Online Lapsed ${project}`,
+      whatsapp: `6281200081${index}01`,
+    },
+  });
+  const from = combineWitaDateAndMinutes(yesterday, 10 * 60);
+  const to = combineWitaDateAndMinutes(yesterday, 12 * 60);
+  const appointment = await prisma.appointment.create({
+    data: {
+      code: `E2E-ONLINE-${index + 1}`,
+      type: "KONSULTASI",
+      channel: "ONLINE",
+      startAt: from,
+      endAt: to,
+      status: "TERKONFIRMASI",
+      source: "WHATSAPP",
+      bookingFee: 100000,
+      servicePrice: 250000,
+      branchId: visitBranch.id,
+      staffId: visitDoctor.id,
+      serviceId: onlineService.id,
+      patientId: patient.id,
+    },
+  });
+  await prisma.contactWindow.create({ data: { appointmentId: appointment.id, startAt: from, endAt: to } });
+}
+
 // Check-in (check-in.spec.ts): booking terkonfirmasi HARI INI per proyek, pukul 04.00/04.30
 // dengan isian Slimming (food recall ditawarkan), dan 05.00/05.30 untuk pasien rangkap yang
 // NIK-nya milik pasien lama. Di luar jam buka dan sebelum booking 06.00 uji lain.
