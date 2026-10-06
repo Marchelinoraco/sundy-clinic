@@ -106,4 +106,30 @@ describe("BookingStatusLookup", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Batalkan booking" }));
     expect(screen.getByText("Jam Anda akan dilepas agar bisa dipesan orang lain.")).toBeInTheDocument();
   });
+
+  it("konsultasi online: rentang waktu dan tautan WA, tanpa batal atau pindah jadwal", async () => {
+    actions.findBookingStatus.mockResolvedValue({
+      ok: true,
+      data: {
+        ...confirmed,
+        branchName: "Online (WhatsApp)",
+        serviceName: "Konsultasi Online",
+        canCancel: false,
+        canReschedule: false,
+        rescheduleLink: null,
+        channel: "ONLINE",
+        windowLines: ["• Kamis, 8 Oktober 2026, 19.00–21.00"],
+        onlineChangeLink: "https://wa.me/6285172228900?text=ganti",
+      },
+    });
+    render(<BookingStatusLookup />);
+    await lookUp();
+    expect(await screen.findByText("Kamis, 8 Oktober 2026, 19.00–21.00")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ganti waktu atau batalkan via WhatsApp" })).toHaveAttribute(
+      "href",
+      "https://wa.me/6285172228900?text=ganti",
+    );
+    expect(screen.queryByRole("button", { name: "Batalkan booking" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Kurang dari 2 jam/)).not.toBeInTheDocument();
+  });
 });

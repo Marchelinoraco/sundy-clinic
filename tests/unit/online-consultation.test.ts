@@ -12,6 +12,7 @@ import {
   placeLabel,
   reminderWindowsOn,
   validateContactWindows,
+  windowDraftsError,
   windowDrafts,
   windowLabel,
   windowLines,
@@ -189,5 +190,15 @@ describe("placeLabel", () => {
   it("booking online memakai Online (WhatsApp), booking klinik memakai nama cabang", () => {
     expect(placeLabel("ONLINE", "SunDY Mahakeret")).toBe("Online (WhatsApp)");
     expect(placeLabel("KLINIK", "SunDY Mahakeret")).toBe("SunDY Mahakeret");
+  });
+});
+
+describe("windowDraftsError", () => {
+  it("meminta tanggal lebih dulu, lalu memakai aturan rentang", () => {
+    expect(windowDraftsError([{ date: "", startMinute: 600, endMinute: 720 }], "CUSTOMER", NOW)).toBe(
+      "Pilih tanggal untuk setiap waktu.",
+    );
+    expect(windowDraftsError([draft("2026-10-08", 600, 630)], "CUSTOMER", NOW)).toBe("Setiap waktu minimal 1 jam.");
+    expect(windowDraftsError([draft("2026-10-08", 600, 720)], "CUSTOMER", NOW)).toBeNull();
   });
 });

@@ -231,3 +231,17 @@ export function onlineReminderText(input: {
 export function placeLabel(channel: "KLINIK" | "ONLINE", branchName: string): string {
   return channel === "ONLINE" ? ONLINE_BRANCH_LABEL : branchName;
 }
+
+/** Rentang baru di form: tanggal dipilih customer, jam awal 19.00–21.00. */
+export const EMPTY_WINDOW_DRAFT: WindowDraft = { date: "", startMinute: 19 * 60, endMinute: 21 * 60 };
+
+/** Aturan biaya versi online di /daftar (spec 4.3). */
+export const ONLINE_FEE_TERMS =
+  "Total biaya (biaya booking + Konsultasi Online) dibayar di muka dan tidak dikembalikan, tetapi tetap berlaku bila waktu Anda perlu diganti.";
+
+/** Pesan galat form waktu luang: tanggal kosong lebih dulu, lalu aturan rentang. */
+export function windowDraftsError(windows: readonly WindowDraft[], audience: WindowAudience, now: Date): string | null {
+  if (windows.some((w) => !w.date)) return "Pilih tanggal untuk setiap waktu.";
+  const checked = validateContactWindows(windows, { now, audience });
+  return checked.ok ? null : checked.message;
+}

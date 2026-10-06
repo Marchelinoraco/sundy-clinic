@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DRAFT_STORAGE_KEY, RECEIPT_STORAGE_KEY, RegistrationFlow } from "@/components/pendaftaran/registration-flow";
+import { addDaysToDateString, witaDateString } from "@/lib/time";
 import type { BookingOptions } from "@/server/public-booking-data";
 import { slimmingNewPatient } from "../../fixtures/quiz-answers-v2";
 
@@ -9,6 +10,7 @@ const actions = vi.hoisted(() => ({
   getPublicSlots: vi.fn().mockResolvedValue({ ok: true, data: [] }),
   holdSlot: vi.fn(),
   submitSiteBooking: vi.fn(),
+  submitOnlineBooking: vi.fn(),
 }));
 vi.mock("@/server/public-booking", () => actions);
 const toasts = vi.hoisted(() => ({ info: vi.fn(), error: vi.fn(), success: vi.fn() }));
@@ -53,6 +55,21 @@ const readyDraft = {
     consentData: true,
     consentFee: true,
     website: "",
+  },
+};
+
+const onlineOptions: BookingOptions = {
+  ...options,
+  online: { serviceId: "online", serviceName: "Konsultasi Online", price: 250000, doctors: [{ id: "diane", name: "Dr. Diane" }] },
+};
+const inTwoDays = addDaysToDateString(witaDateString(new Date()), 2);
+const onlineDraft = {
+  ...readyDraft,
+  mode: "ONLINE",
+  online: {
+    staffId: null,
+    windows: [{ date: inTwoDays, startMinute: 1140, endMinute: 1260 }],
+    submissionKey: "kunci-kiriman-online-uji-0001",
   },
 };
 
@@ -151,5 +168,73 @@ describe("RegistrationFlow", () => {
   it("kuitansi yang tersimpan sebelum kuis v2 tetap dibaca dari kunci yang sama", () => {
     expect(DRAFT_STORAGE_KEY).toBe("sundy-daftar-v2");
     expect(RECEIPT_STORAGE_KEY).toBe("sundy-daftar-kuitansi-v1");
+  });
+
+  it("layar Layanan menawarkan konsultasi online beserta total transfer", async () => {
+    window.sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({ ...readyDraft, screen: "L" }));
+    render(<RegistrationFlow options={onlineOptions} />);
+    await userEvent.click(await screen.findByRole("radio", { name: /Online lewat WhatsApp/ }));
+    expect(screen.getByText("Rp 350.000")).toBeInTheDocument();
+    expect(JSON.parse(window.sessionStorage.getItem(DRAFT_STORAGE_KEY)!).mode).toBe("ONLINE");
+  });
+
+  it("tanpa layanan online aktif, pilihan Cara konsultasi tidak muncul", async () => {
+    window.sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({ ...readyDraft, screen: "L" }));
+    render(<RegistrationFlow options={options} />);
+    expect(await screen.findByRole("heading", { name: "Layanan & biaya" })).toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: "Cara konsultasi" })).not.toBeInTheDocument();
+  });
+
+  it("mode online: langkah jadwal menjadi waktu luang", async () => {
+    window.sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({ ...onlineDraft, screen: "J" }));
+    render(<RegistrationFlow options={onlineOptions} />);
+    expect(await screen.findByRole("heading", { name: "Kapan Anda bisa dihubungi?" })).toBeInTheDocument();
+    expect(screen.getByText("Dengan Dr. Diane")).toBeInTheDocument();
+    expect(screen.getByLabelText("Tanggal waktu 1")).toHaveValue(inTwoDays);
+  });
+
+  it("Kirim online memanggil submitOnlineBooking, lalu kwitansi online bertahan saat dimuat ulang", async () => {
+    window.sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(onlineDraft));
+    actions.submitOnlineBooking.mockResolvedValue({
+      ok: true,
+      data: {
+        receipt: {
+          code: "SDY-ON12",
+          patientName: "Siti Rahayu",
+          serviceName: "Konsultasi Online",
+          staffName: "Dr. Diane",
+          branchName: "Online (WhatsApp)",
+          startAt: new Date("2026-10-08T11:00:00Z"),
+          bookingFee: 100000,
+          bankAccount: "BCA 1234567890 a.n. SunDY Clinic",
+          confirmationLink: "https://wa.me/6285172228900?text=x",
+          online: {
+            windowLines: ["• Kamis, 8 Oktober 2026, 19.00–21.00"],
+            servicePrice: 250000,
+            total: 350000,
+            maskedWhatsapp: "0812-****-7890",
+          },
+        },
+      },
+    });
+
+    const { unmount } = render(<RegistrationFlow options={onlineOptions} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Kirim pendaftaran" }));
+    expect(actions.submitOnlineBooking).toHaveBeenCalledWith(
+      expect.objectContaining({
+        submissionKey: "kunci-kiriman-online-uji-0001",
+        staffId: "diane",
+        windows: [{ date: inTwoDays, startMinute: 1140, endMinute: 1260 }],
+      }),
+    );
+    expect(actions.submitSiteBooking).not.toHaveBeenCalled();
+    expect(await screen.findByText("SDY-ON12")).toBeInTheDocument();
+    expect(screen.getByText("Kamis, 8 Oktober 2026, 19.00–21.00")).toBeInTheDocument();
+    expect(screen.getByText(/Rp 350.000/)).toBeInTheDocument();
+    unmount();
+
+    render(<RegistrationFlow options={onlineOptions} />);
+    expect(await screen.findByText("Kamis, 8 Oktober 2026, 19.00–21.00")).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/pasien|berobat/i);
   });
 });
