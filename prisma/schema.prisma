@@ -30,6 +30,8 @@ model Branch {
   scheduleExceptions ScheduleException[]
   appointments       Appointment[]
   slotHolds          SlotHold[]
+  purchaseInvoices   PurchaseInvoice[]
+  stockBatches       StockBatch[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -62,6 +64,10 @@ enum StaffRole {
   DOKTER
   TERAPIS
   RESEPSIONIS
+  /// Mengelola barang, barang masuk, retur, dan penyesuaian stok (spec stok 7).
+  APOTEKER
+  /// Mengelola hutang ke supplier dan melihat angka keuangan (spec stok 7).
+  ADMIN_KEUANGAN
 }
 
 model Staff {
@@ -747,4 +753,217 @@ model EncounterAddendum {
   createdAt   DateTime  @default(now())
 
   @@index([encounterId])
+}
+
+// ---------------------------------------------------------------------------
+// Stok barang, supplier, dan hutang (spec docs/superpowers/specs/2026-10-07-stok-supplier-hutang-design.md)
+// ---------------------------------------------------------------------------
+
+enum StockItemKind {
+  OBAT
+  PRODUK
+}
+
+enum StockMovementKind {
+  MASUK
+  RETUR
+  PENYESUAIAN
+}
+
+enum StockAdjustReason {
+  RUSAK
+  HILANG
+  KEDALUWARSA
+  SELISIH_HITUNG
+  LAINNYA
+}
+
+enum SupplierPaymentKind {
+  /// Klinik membayar supplier.
+  BAYAR
+  /// Supplier mengembalikan uang karena kredit dari retur (spec stok 6.3).
+  PENGEMBALIAN
+}
+
+enum PaymentMethod {
+  TUNAI
+  TRANSFER
+  QRIS
+}
+
+/// Barang yang distok: obat dan produk jual. Terpisah dari Product (katalog situs publik).
+model StockItem {
+  id        String        @id @default(cuid())
+  code      String        @unique
+  name      String
+  kind      StockItemKind
+  /// Satuan terkecil yang dihitung, mis. tablet, kapsul, botol.
+  unit      String
+  /// Harga jual dalam rupiah; boleh kosong sampai dibutuhkan tagihan.
+  sellPrice Int?
+  /// Batas "menipis" per cabang; 0 berarti tidak pernah ditandai menipis.
+  minStock  Int           @default(0)
+  isActive  Boolean       @default(true)
+  notes     String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  purchaseLines PurchaseLine[]
+  batches       StockBatch[]
+
+  @@index([isActive, name])
+}
+
+model Supplier {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String?
+  address   String?
+  notes     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  invoices PurchaseInvoice[]
+
+  @@index([isActive, name])
+}
+
+/// Faktur pembelian dari supplier; sisa hutangnya dihitung dari total, pembayaran, dan retur.
+model PurchaseInvoice {
+  id              String    @id @default(cuid())
+  supplierId      String
+  supplier        Supplier  @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  /// Cabang penerima barang.
+  branchId        String
+  branch          Branch    @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  /// Nomor yang tertulis di faktur supplier.
+  invoiceNumber   String
+  invoiceDate     DateTime  @db.Date
+  dueDate         DateTime  @db.Date
+  /// Jumlah baris (jumlah × harga beli), dihitung server saat faktur dibuat.
+  total           Int
+  notes           String?
+  createdById     String
+  createdByName   String
+  createdAt       DateTime  @default(now())
+  cancelledAt     DateTime?
+  cancelledByName String?
+  cancelReason    String?
+
+  lines    PurchaseLine[]
+  returns  SupplierReturn[]
+  payments SupplierPayment[]
+
+  @@unique([supplierId, invoiceNumber])
+  @@index([dueDate])
+  @@index([branchId, invoiceDate])
+}
+
+model PurchaseLine {
+  id          String          @id @default(cuid())
+  invoiceId   String
+  invoice     PurchaseInvoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  itemId      String
+  item        StockItem       @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  quantity    Int
+  unitCost    Int
+  batchNumber String?
+  expiryDate  DateTime?       @db.Date
+  sortOrder   Int             @default(0)
+
+  batch StockBatch?
+
+  @@index([invoiceId])
+}
+
+/// Stok fisik satu batch di satu cabang. Sisa hanya berubah bersama baris StockMovement.
+model StockBatch {
+  id                String       @id @default(cuid())
+  itemId            String
+  item              StockItem    @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  branchId          String
+  branch            Branch       @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  purchaseLineId    String       @unique
+  purchaseLine      PurchaseLine @relation(fields: [purchaseLineId], references: [id], onDelete: Restrict)
+  batchNumber       String?
+  expiryDate        DateTime?    @db.Date
+  unitCost          Int
+  quantityReceived  Int
+  quantityRemaining Int
+  createdAt         DateTime     @default(now())
+
+  movements   StockMovement[]
+  returnLines SupplierReturnLine[]
+
+  @@index([itemId, branchId])
+  @@index([branchId, expiryDate])
+}
+
+/// Jurnal stok: setiap perubahan sisa batch. Tidak pernah diubah atau dihapus.
+model StockMovement {
+  id               String             @id @default(cuid())
+  batchId          String
+  batch            StockBatch         @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  kind             StockMovementKind
+  /// Bertanda: positif menambah, negatif mengurangi sisa batch.
+  quantity         Int
+  /// Hanya untuk PENYESUAIAN (CHECK stock_movement_reason).
+  reason           StockAdjustReason?
+  note             String?
+  staffId          String
+  staffName        String
+  supplierReturnId String?
+  createdAt        DateTime           @default(now())
+
+  @@index([batchId, createdAt])
+}
+
+model SupplierReturn {
+  id        String          @id @default(cuid())
+  invoiceId String
+  invoice   PurchaseInvoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  total     Int
+  note      String?
+  staffId   String
+  staffName String
+  createdAt DateTime        @default(now())
+
+  lines SupplierReturnLine[]
+
+  @@index([invoiceId])
+}
+
+model SupplierReturnLine {
+  id             String         @id @default(cuid())
+  returnId       String
+  supplierReturn SupplierReturn @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  batchId        String
+  batch          StockBatch     @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  quantity       Int
+  /// Disalin dari batch saat retur.
+  unitCost       Int
+  amount         Int
+
+  @@index([returnId])
+}
+
+/// Uang antara klinik dan supplier untuk satu faktur. Salah input dibatalkan (revokedAt), tidak dihapus.
+model SupplierPayment {
+  id            String              @id @default(cuid())
+  invoiceId     String
+  invoice       PurchaseInvoice     @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  kind          SupplierPaymentKind
+  amount        Int
+  method        PaymentMethod
+  paidAt        DateTime            @db.Date
+  reference     String?
+  staffId       String
+  staffName     String
+  createdAt     DateTime            @default(now())
+  revokedAt     DateTime?
+  revokedByName String?
+  revokeReason  String?
+
+  @@index([invoiceId])
 }

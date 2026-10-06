@@ -53,3 +53,28 @@ describe("migrasi konsultasi online", () => {
     expect(sql).toMatch(/'konsultasi-online'[\s\S]*false, false, 99/);
   });
 });
+
+describe("migrasi stok dan hutang", () => {
+  const sql = readFileSync("prisma/migrations/20261007120000_stok_hutang/migration.sql", "utf8");
+
+  it("hanya menambah: tanpa DROP", () => {
+    expect(sql).not.toMatch(/\bDROP\b/i);
+  });
+
+  it("menjaga sisa batch, nilai faktur, alasan penyesuaian, dan pembayaran di basis data", () => {
+    for (const name of [
+      "stock_batch_remaining_nonnegative",
+      "purchase_invoice_dates",
+      "purchase_line_values",
+      "stock_movement_reason",
+      "supplier_payment_amount_positive",
+    ]) {
+      expect(sql).toContain(name);
+    }
+  });
+
+  it("menambah peran Apoteker dan Admin Keuangan", () => {
+    expect(sql).toMatch(/ADD VALUE 'APOTEKER'/);
+    expect(sql).toMatch(/ADD VALUE 'ADMIN_KEUANGAN'/);
+  });
+});

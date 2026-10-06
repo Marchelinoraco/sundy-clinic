@@ -13,6 +13,8 @@ const ROLE_LABEL: Record<string, string> = {
   DOKTER: "Dokter",
   RESEPSIONIS: "Resepsionis",
   TERAPIS: "Terapis",
+  APOTEKER: "Apoteker",
+  ADMIN_KEUANGAN: "Admin Keuangan",
   SISTEM: "Sistem",
   PASIEN: "Pasien",
 };
