@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatRupiah } from "@/lib/format";
 import { validateLinkIdentity, type IdentityField, type LinkIdentity } from "@/lib/kuis/identity";
+import { ONLINE_FEE_TERMS } from "@/lib/online-consultation";
 import { BOOKING_FEE_TERMS } from "@/lib/payment";
 import { witaDateString } from "@/lib/time";
 
@@ -41,10 +42,13 @@ export function linkIdentityPayload(draft: LinkIdentityDraft, missing: readonly 
   return payload;
 }
 
+/** Persetujuan biaya halaman link; `onlineTotal` terisi untuk konsultasi online (dibayar di muka). */
+export type LinkFeeConsent = { bookingFee: number; onlineTotal?: number };
+
 export function linkIdentityError(
   draft: LinkIdentityDraft,
   missing: readonly IdentityField[],
-  feeConsent: { bookingFee: number } | null,
+  feeConsent: LinkFeeConsent | null,
 ): string | null {
   const checked = validateLinkIdentity(linkIdentityPayload(draft, missing), missing);
   if (!checked.ok) return checked.message;
@@ -71,7 +75,7 @@ export function LinkIdentityStep({
   onChange,
 }: {
   missing: readonly IdentityField[];
-  feeConsent: { bookingFee: number } | null;
+  feeConsent: LinkFeeConsent | null;
   value: LinkIdentityDraft;
   onChange: (next: LinkIdentityDraft) => void;
 }) {
@@ -152,7 +156,16 @@ export function LinkIdentityStep({
             onChange={(e) => set("consentFee", e.target.checked)}
           />
           <span>
-            Saya akan mentransfer biaya booking {formatRupiah(feeConsent.bookingFee)}. {BOOKING_FEE_TERMS}
+            {feeConsent.onlineTotal !== undefined ? (
+              <>
+                Saya akan mentransfer {formatRupiah(feeConsent.onlineTotal)} (biaya booking + Konsultasi Online).{" "}
+                {ONLINE_FEE_TERMS}
+              </>
+            ) : (
+              <>
+                Saya akan mentransfer biaya booking {formatRupiah(feeConsent.bookingFee)}. {BOOKING_FEE_TERMS}
+              </>
+            )}
           </span>
         </label>
       )}

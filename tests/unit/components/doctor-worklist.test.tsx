@@ -22,6 +22,7 @@ const row = (patch: Partial<WorklistRow>): WorklistRow => ({
   encounterId: null,
   state: "BELUM",
   foodRecallFilled: false,
+  online: false,
   ...patch,
 });
 
@@ -80,5 +81,18 @@ describe("DoctorWorklistView", () => {
   it("menandai customer yang sudah mengisi food recall", () => {
     render(<DoctorWorklistView worklist={{ today: [row({ foodRecallFilled: true })], unfinished: [] }} />);
     expect(screen.getByText("food recall ✓")).toBeInTheDocument();
+  });
+
+  it("booking online yang sudah dimulai diberi label Online", () => {
+    render(
+      <DoctorWorklistView
+        worklist={{
+          today: [row({ online: true, branchName: "Online (WhatsApp)", state: "DRAF", encounterId: "e2" })],
+          unfinished: [],
+        }}
+      />,
+    );
+    expect(screen.getByText("Online (WhatsApp)")).toBeInTheDocument();
+    expect(screen.getByText("Online", { exact: true })).toBeInTheDocument();
   });
 });

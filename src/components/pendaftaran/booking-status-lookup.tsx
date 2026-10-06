@@ -115,9 +115,20 @@ export function BookingStatusLookup({ initialCode = "" }: { initialCode?: string
           <dl className="space-y-1 text-sm text-brown-700">
             <div>{status.serviceName} · {status.staffName}</div>
             <div>{status.branchName}</div>
-            <div>
-              {formatIndonesianDate(status.startAt)}, pukul {minutesToTimeLabel(witaMinutesOfDay(status.startAt))} WITA
-            </div>
+            {status.channel === "ONLINE" ? (
+              <div>
+                Waktu Anda bisa dihubungi:
+                <ul className="list-disc pl-5">
+                  {status.windowLines.map((line) => (
+                    <li key={line}>{line.replace(/^• /, "")}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <div>
+                {formatIndonesianDate(status.startAt)}, pukul {minutesToTimeLabel(witaMinutesOfDay(status.startAt))} WITA
+              </div>
+            )}
             <div>{status.maskedWhatsapp}</div>
           </dl>
 
@@ -131,6 +142,13 @@ export function BookingStatusLookup({ initialCode = "" }: { initialCode?: string
           )}
 
           <div className="flex flex-wrap gap-2">
+            {status.channel === "ONLINE" && status.onlineChangeLink && (
+              <Button asChild variant="outline">
+                <a href={status.onlineChangeLink} target="_blank" rel="noopener noreferrer">
+                  Ganti waktu atau batalkan via WhatsApp
+                </a>
+              </Button>
+            )}
             {status.canReschedule && status.rescheduleLink && (
               <Button asChild variant="outline">
                 <a href={status.rescheduleLink} target="_blank" rel="noopener noreferrer">
@@ -145,7 +163,7 @@ export function BookingStatusLookup({ initialCode = "" }: { initialCode?: string
             )}
           </div>
 
-          {!status.canCancel && ACTIVE.includes(status.status) && (
+          {status.channel === "KLINIK" && !status.canCancel && ACTIVE.includes(status.status) && (
             <p className="text-sm text-brown-700">
               Kurang dari 2 jam sebelum jadwal. Untuk batal atau pindah jadwal, hubungi kami lewat{" "}
               <a

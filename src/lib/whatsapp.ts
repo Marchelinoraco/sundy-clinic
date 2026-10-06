@@ -91,3 +91,21 @@ export function siteBookingWhatsAppMessage(input: {
 export function rescheduleRequestMessage(input: { code: string; dateLabel: string; timeLabel: string }): string {
   return `Halo ${CLINIC_NAME}, saya ingin pindah jadwal booking ${input.code} (${input.dateLabel} pukul ${input.timeLabel}).`;
 }
+
+/** Pesan customer ke klinik setelah mendaftar konsultasi online di situs, untuk mengantar bukti transfer. */
+export function onlineSiteBookingWhatsAppMessage(input: {
+  patientName: string;
+  code: string;
+  staffName: string;
+  total: number;
+}): string {
+  return (
+    `Halo ${CLINIC_NAME}, saya sudah mendaftar konsultasi online. Kode: ${input.code}, ` +
+    `atas nama ${input.patientName}, dengan ${input.staffName}. Berikut bukti transfer ${formatRupiah(input.total)}.`
+  );
+}
+
+/** Dari /cek-booking: customer meminta ganti waktu atau batal konsultasi online lewat WA (spec 4.5). */
+export function onlineChangeRequestMessage(code: string): string {
+  return `Halo ${CLINIC_NAME}, saya ingin mengganti waktu atau membatalkan konsultasi online ${code}.`;
+}

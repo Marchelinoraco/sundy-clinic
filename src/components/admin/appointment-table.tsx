@@ -30,10 +30,13 @@ import type { AppointmentStatusValue } from "@/lib/appointment-status";
 import {
   BOOKING_ACTION_LABEL,
   bookingRowActions,
+  showsContactWindows,
   type BookingAction,
+  type ContactWindowsTarget,
   type RescheduleTarget,
 } from "@/lib/booking-actions";
 import type { MessageKind } from "@/lib/booking-messages";
+import type { OnlinePhase } from "@/lib/online-consultation";
 import type { BookingSourceValue } from "@/lib/payment";
 import { cn } from "@/lib/utils";
 import {
@@ -45,6 +48,17 @@ import { AppointmentStatusBadge } from "./appointment-status-badge";
 import { useBookingDialogs } from "./booking-dialogs";
 import { MatchPatientDialog } from "./match-patient-dialog";
 import { recordSentMessage, WhatsAppSendButton } from "./whatsapp-send-button";
+
+/** Keterangan baris booking online; rentang dan percobaan tanpa data klinis. */
+export type OnlineRowInfo = {
+  windowLines: string[];
+  /** Hanya untuk booking terkonfirmasi; null selain itu. */
+  phase: OnlinePhase | null;
+  lastAttempt: string | null;
+  /** Tautan WA "Minta waktu baru"; hanya saat Perlu waktu baru. */
+  requestNewTime: { link: string | null } | null;
+  contactWindows: ContactWindowsTarget;
+};
 
 /** Hanya kolom yang dibutuhkan tabel — data klinis pasien tidak pernah dikirim ke browser. */
 export type BookingRow = {
@@ -90,6 +104,10 @@ export type BookingRow = {
   foodRecall: "DITAWARKAN" | "DIISI" | null;
   /** Aksi "Food recall" tersedia: sudah check-in hari ini dan catatan dokter belum final. */
   foodRecallAvailable: boolean;
+  /** Kanal booking (spec konsultasi online 3.1). */
+  channel: "KLINIK" | "ONLINE";
+  /** Booking online (spec konsultasi online 5.2); null untuk booking klinik. */
+  online: OnlineRowInfo | null;
 };
 
 const INTAKE_STATUS_LABEL: Record<NonNullable<BookingRow["intakeStatus"]>, string> = {
@@ -191,6 +209,10 @@ export function AppointmentTable({
           onSelect: () =>
             dialogs.openQuizLink({ appointmentId: row.id, code: row.code, patientName: row.patientName }),
         };
+      case "CHANGE_WINDOWS":
+        return { onSelect: () => row.online && dialogs.openContactWindows(row.online.contactWindows) };
+      case "REQUEST_NEW_TIME":
+        return { href: row.online?.requestNewTime?.link ?? "", external: true };
       case "CANCEL":
         return { onSelect: () => setCancelTarget(row) };
       case "MATCH":
@@ -222,7 +244,7 @@ export function AppointmentTable({
   function primaryAction(action: BookingAction, row: BookingRow) {
     const target = actionTarget(action, row);
     const label = BOOKING_ACTION_LABEL[action];
-    const variant = action === "VERIFY" || action === "MATCH" ? "default" : "outline";
+    const variant = action === "VERIFY" || action === "MATCH" || action === "REQUEST_NEW_TIME" ? "default" : "outline";
     if ("send" in target) {
       return (
         <WhatsAppSendButton
@@ -303,7 +325,7 @@ export function AppointmentTable({
         </TableHeader>
         <TableBody>
           {rows.map((row) => {
-            const actions = bookingRowActions(row, canReadRecords);
+            const actions = bookingRowActions({ ...row, requestNewTime: row.online?.requestNewTime ?? null }, canReadRecords);
             const highlighted = row.id === highlightId;
             return (
               <TableRow
@@ -313,7 +335,27 @@ export function AppointmentTable({
                 className={cn(highlighted && "bg-amber-100/70 hover:bg-amber-100")}
               >
                 <TableCell className="align-top whitespace-nowrap">
-                  <div className="font-medium">{row.timeLabel}</div>
+                  {showsContactWindows(row) && row.online ? (
+                    <div className="space-y-0.5 whitespace-normal">
+                      <Badge variant="outline">Online</Badge>
+                      {row.online.windowLines.map((line) => (
+                        <div key={line} className="text-sm font-medium">
+                          {line}
+                        </div>
+                      ))}
+                      {row.online.phase === "NEEDS_NEW" && (
+                        <Badge variant="destructive">Perlu waktu baru</Badge>
+                      )}
+                      {row.online.lastAttempt && (
+                        <div className="text-xs text-muted-foreground">{row.online.lastAttempt}</div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="font-medium">
+                      {row.online && <Badge variant="outline" className="mr-1">Online</Badge>}
+                      {row.timeLabel}
+                    </div>
+                  )}
                   <div className="font-mono text-xs text-muted-foreground">{row.code}</div>
                   {row.deadlineLabel && (
                     <div

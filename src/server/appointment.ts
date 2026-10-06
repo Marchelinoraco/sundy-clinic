@@ -11,6 +11,7 @@ import type {
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
 import { generateBookingCode } from "@/lib/booking-code";
 import { prisma } from "@/lib/db";
+import { nextOpenWindow, onlinePhase, type OnlinePhase } from "@/lib/online-consultation";
 import { bookingFeeFor } from "@/lib/payment";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { addDaysToDateString, combineWitaDateAndMinutes, witaDateString } from "@/lib/time";
@@ -19,7 +20,7 @@ import {
   transferInstructionFor,
   type TransferInstruction,
 } from "@/lib/transfer-instruction";
-import { ACTIVE_STATUSES, rejectedChangeError } from "@/server/appointment-guard";
+import { ACTIVE_STATUSES, rejectedChangeError, rejectedClinicOnlyError } from "@/server/appointment-guard";
 import { recordAudit } from "@/server/audit";
 import {
   confirmationDeadlines,
@@ -29,6 +30,7 @@ import {
 } from "@/server/booking-expiry";
 import { getClinicSetting } from "@/server/clinic-setting";
 import { isExclusionViolation } from "@/server/db-errors";
+import { DAY_LIST_CHANNEL } from "@/server/online-store";
 import { quizLinkFor } from "@/server/quiz-link-code";
 import { requireCapability } from "@/server/session";
 import { publicSiteUrl } from "@/server/site-url";
@@ -144,11 +146,11 @@ export async function rescheduleAppointment(
 
     const { count } = await createWithSlotGuard(() =>
       prisma.appointment.updateMany({
-        where: { id, status: { in: ACTIVE_STATUSES } },
+        where: { id, status: { in: ACTIVE_STATUSES }, channel: "KLINIK" },
         data: { startAt: input.startAt, endAt: input.endAt },
       }),
     );
-    if (count === 0) throw await rejectedChangeError(id);
+    if (count === 0) throw await rejectedClinicOnlyError(id);
 
     await recordAudit({
       actor,
@@ -180,16 +182,24 @@ async function setStatus(
   to: AppointmentStatus,
   action: string,
   summary?: string,
+  options: { clinicOnly?: boolean } = {},
 ): Promise<ActionResult<Appointment>> {
   return runAction(async () => {
     const actor = await requireCapability("booking:manage");
     const needsPatient = to !== "DIBATALKAN";
 
     const { count } = await prisma.appointment.updateMany({
-      where: { id, status: { in: from }, ...(needsPatient ? { patientId: { not: null } } : {}) },
+      where: {
+        id,
+        status: { in: from },
+        ...(needsPatient ? { patientId: { not: null } } : {}),
+        ...(options.clinicOnly ? { channel: "KLINIK" as const } : {}),
+      },
       data: { status: to },
     });
-    if (count === 0) throw await rejectedChangeError(id, needsPatient);
+    if (count === 0) {
+      throw options.clinicOnly ? await rejectedClinicOnlyError(id, needsPatient) : await rejectedChangeError(id, needsPatient);
+    }
 
     await recordAudit({ actor, action, entity: "Appointment", entityId: id, summary });
 
@@ -205,7 +215,7 @@ export async function verifyAppointment(id: string): Promise<ActionResult<Appoin
 }
 
 export async function markNoShow(id: string): Promise<ActionResult<Appointment>> {
-  return setStatus(id, ACTIVE_STATUSES, "TIDAK_HADIR", "appointment.mark-no-show");
+  return setStatus(id, ACTIVE_STATUSES, "TIDAK_HADIR", "appointment.mark-no-show", undefined, { clinicOnly: true });
 }
 
 /**
@@ -248,6 +258,9 @@ const BOOKING_LIST_INCLUDE = {
   // Status food recall saja: isinya catatan klinis, dan daftar ini juga dibuka resepsionis.
   foodRecall: { select: { status: true } },
   encounter: { select: { status: true } },
+  // Rentang waktu luang dan percobaan menghubungi booking online (spec 5.2); tanpa data klinis.
+  contactWindows: { orderBy: { startAt: "asc" }, select: { startAt: true, endAt: true } },
+  contactAttempts: { orderBy: { at: "asc" }, select: { at: true, staffName: true } },
   // Catatan pesan untuk keterangan "Konfirmasi terkirim …" di baris booking (spec C2 4.5).
   messages: {
     select: { id: true, kind: true, scheduledFor: true, sentAt: true, sentByName: true, revokedAt: true, reply: true },
@@ -274,6 +287,8 @@ export async function listAppointments(filter: {
 
   const appointments = await prisma.appointment.findMany({
     where: {
+      // Daftar per tanggal tidak memuat booking online yang belum dimulai; pencarian lintas tanggal (filter isian) memuatnya.
+      ...(filter.date ? { AND: [DAY_LIST_CHANNEL] } : {}),
       branchId: filter.branchId,
       staffId: filter.staffId,
       status: filter.status,
@@ -348,6 +363,32 @@ export async function countPendingBookings(): Promise<number> {
       OR: [{ source: "SITUS", createdAt: { gte: cutoff } }, WAITING_TRANSFER],
     },
   });
+}
+
+const PHASE_ORDER: Record<OnlinePhase, number> = { NEEDS_NEW: 0, NOW: 1, TODAY: 2, UPCOMING: 3 };
+
+/**
+ * Bagian "Konsultasi online" di halaman Booking (spec 5.2): booking online yang sudah
+ * diverifikasi dan menunggu dihubungi. "Perlu waktu baru" paling atas, lalu menurut
+ * rentang terbuka terdekat.
+ */
+export async function listOnlineBookings() {
+  await requireCapability("booking:manage");
+  const now = new Date();
+  const rows = await withTransferDeadlines(
+    await prisma.appointment.findMany({
+      where: { channel: "ONLINE", status: "TERKONFIRMASI" },
+      include: BOOKING_LIST_INCLUDE,
+    }),
+  );
+  return rows
+    .map((row) => ({ ...row, phase: onlinePhase(row.contactWindows, now) }))
+    .sort((a, b) => {
+      const byPhase = PHASE_ORDER[a.phase] - PHASE_ORDER[b.phase];
+      if (byPhase !== 0) return byPhase;
+      const next = (row: typeof a) => nextOpenWindow(row.contactWindows, now)?.startAt.getTime() ?? row.startAt.getTime();
+      return next(a) - next(b);
+    });
 }
 
 const SEARCH_LOOKBACK_DAYS = 30;

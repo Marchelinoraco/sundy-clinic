@@ -24,13 +24,22 @@ import { PRIVACY_POLICY_VERSION } from "@/lib/privacy";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import type { SlotOption } from "@/lib/slot";
+import { boundsOf, ONLINE_BRANCH_LABEL, onlineTotal, validateContactWindows, windowLines } from "@/lib/online-consultation";
 import { minutesToTimeLabel, witaDateString, witaMinutesOfDay } from "@/lib/time";
-import { buildWhatsAppLink, maskWhatsapp, rescheduleRequestMessage, siteBookingWhatsAppMessage } from "@/lib/whatsapp";
+import {
+  buildWhatsAppLink,
+  maskWhatsapp,
+  onlineChangeRequestMessage,
+  onlineSiteBookingWhatsAppMessage,
+  rescheduleRequestMessage,
+  siteBookingWhatsAppMessage,
+} from "@/lib/whatsapp";
 import { recordAudit, SITE_PATIENT_ACTOR } from "@/server/audit";
 import { computeAvailability } from "@/server/availability";
 import { expireStaleSiteBookings } from "@/server/booking-expiry";
 import { getClinicSetting } from "@/server/clinic-setting";
 import { isExclusionViolation, isUniqueViolation } from "@/server/db-errors";
+import { loadOnlineService, onlineBranchId } from "@/server/online-store";
 import { guardRate } from "@/server/request-guard";
 
 // Setiap ekspor berkas ini bisa dipanggil siapa pun dari browser tanpa login.
@@ -198,6 +207,9 @@ export type SiteBookingInput = {
   website: string;
 };
 
+/** Bagian kwitansi khusus konsultasi online (spec 4.4). Hanya teks dan angka, aman disimpan di sessionStorage. */
+export type OnlineReceipt = { windowLines: string[]; servicePrice: number; total: number; maskedWhatsapp: string };
+
 export type BookingReceipt = {
   code: string;
   patientName: string;
@@ -209,6 +221,7 @@ export type BookingReceipt = {
   /** "BCA 123… a.n. …", atau null bila rekening belum diisi di pengaturan. */
   bankAccount: string | null;
   confirmationLink: string;
+  online: OnlineReceipt | null;
 };
 
 export type SubmitOutcome = { kind: "booked"; receipt: BookingReceipt } | { kind: "slot-taken" };
@@ -230,20 +243,46 @@ async function buildReceipt(appointmentId: string): Promise<BookingReceipt> {
       where: { id: appointmentId },
       select: {
         code: true,
+        channel: true,
         startAt: true,
         bookingFee: true,
+        servicePrice: true,
         service: { select: { name: true } },
         staff: { select: { name: true } },
         branch: { select: { name: true } },
-        intake: { select: { name: true } },
+        intake: { select: { name: true, whatsapp: true } },
+        contactWindows: { orderBy: { startAt: "asc" }, select: { startAt: true, endAt: true } },
       },
     }),
     getClinicSetting(),
   ]);
   const patientName = appointment.intake?.name ?? "";
   const serviceName = appointment.service?.name ?? "Konsultasi Dokter";
-  const timeLabel = minutesToTimeLabel(witaMinutesOfDay(appointment.startAt));
 
+  if (appointment.channel === "ONLINE") {
+    const total = onlineTotal(appointment);
+    return {
+      code: appointment.code,
+      patientName,
+      serviceName,
+      staffName: appointment.staff.name,
+      branchName: ONLINE_BRANCH_LABEL,
+      startAt: appointment.startAt,
+      bookingFee: appointment.bookingFee,
+      bankAccount: formatBankAccount(setting),
+      confirmationLink: buildWhatsAppLink(
+        onlineSiteBookingWhatsAppMessage({ patientName, code: appointment.code, staffName: appointment.staff.name, total }),
+      ),
+      online: {
+        windowLines: windowLines(appointment.contactWindows),
+        servicePrice: appointment.servicePrice ?? 0,
+        total,
+        maskedWhatsapp: maskWhatsapp(appointment.intake?.whatsapp ?? ""),
+      },
+    };
+  }
+
+  const timeLabel = minutesToTimeLabel(witaMinutesOfDay(appointment.startAt));
   return {
     code: appointment.code,
     patientName,
@@ -265,6 +304,7 @@ async function buildReceipt(appointmentId: string): Promise<BookingReceipt> {
         bookingFee: appointment.bookingFee,
       }),
     ),
+    online: null,
   };
 }
 
@@ -277,6 +317,38 @@ function assertServiceFits(service: { slug: string; category: { slug: string } }
       "Silakan pilih Konsultasi Dokter. Treatment ditentukan dokter setelah pemeriksaan.",
     );
   }
+}
+
+type ValidIdentity = Extract<ReturnType<typeof validateIdentity>, { ok: true }>["identity"];
+
+/** Isian dari kiriman /daftar, sama untuk booking klinik dan online. */
+function siteIntake(
+  answers: QuizAnswers,
+  identity: ValidIdentity,
+  patientType: "BARU" | "LAMA",
+  now: Date,
+  submissionKey: string,
+): Omit<Prisma.IntakeUncheckedCreateInput, "appointmentId"> {
+  return {
+    status: "TERISI",
+    kind: patientType === "LAMA" ? "PENDEK" : "LENGKAP",
+    purpose: answers.purpose,
+    claimsReturning: patientType === "LAMA",
+    quizVersion: QUIZ_VERSION,
+    answers: answersForStorage(answers) as Prisma.InputJsonValue,
+    name: identity.name,
+    whatsapp: identity.whatsapp,
+    birthDate: new Date(`${identity.birthDate}T00:00:00Z`),
+    gender: identity.gender,
+    occupation: identity.occupation,
+    address: identity.address,
+    selfWeightKg: answers.body?.weightKg,
+    selfHeightCm: answers.body?.heightCm,
+    consentAt: now,
+    consentVersion: PRIVACY_POLICY_VERSION,
+    submittedAt: now,
+    submissionKey,
+  };
 }
 
 /**
@@ -401,26 +473,7 @@ export async function submitSiteBooking(input: SiteBookingInput): Promise<Action
           patientId: null,
           bookingFee: bookingFeeFor("SITUS", setting.bookingFee),
         },
-        {
-          status: "TERISI",
-          kind: patientType === "LAMA" ? "PENDEK" : "LENGKAP",
-          purpose: answers.purpose,
-          claimsReturning: patientType === "LAMA",
-          quizVersion: QUIZ_VERSION,
-          answers: answersForStorage(answers) as Prisma.InputJsonValue,
-          name: identity.name,
-          whatsapp: identity.whatsapp,
-          birthDate: new Date(`${identity.birthDate}T00:00:00Z`),
-          gender: identity.gender,
-          occupation: identity.occupation,
-          address: identity.address,
-          selfWeightKg: answers.body?.weightKg,
-          selfHeightCm: answers.body?.heightCm,
-          consentAt: now,
-          consentVersion: PRIVACY_POLICY_VERSION,
-          submittedAt: now,
-          submissionKey: input.holdToken,
-        },
+        siteIntake(answers, identity, patientType, now, input.holdToken),
         input.holdToken,
       );
     } catch (error) {
@@ -449,6 +502,96 @@ export async function submitSiteBooking(input: SiteBookingInput): Promise<Action
   });
 }
 
+export type OnlineBookingInput = {
+  /** Kunci kiriman buatan browser; kiriman ulang dengan kunci yang sama mengembalikan booking yang sama. */
+  submissionKey: string;
+  staffId: string;
+  windows: unknown;
+  answers: unknown;
+  identity: unknown;
+  consentData: boolean;
+  consentFee: boolean;
+  /** Kolom jebakan: tersembunyi dari manusia, diisi bot. */
+  website: string;
+};
+
+const ONLINE_UNAVAILABLE = "Konsultasi online sedang tidak tersedia. Silakan pilih datang ke klinik.";
+
+/**
+ * Konsultasi online dari /daftar (spec 4): tanpa slot dan tanpa hold. Rentang waktu luang,
+ * dokter, layanan, dan biaya diperiksa ulang di sini; booking dan isian dibuat dalam satu transaksi.
+ */
+export async function submitOnlineBooking(input: OnlineBookingInput): Promise<ActionResult<{ receipt: BookingReceipt }>> {
+  return runAction(async () => {
+    await guardRate(submitLimiter);
+    if (input.website) throw new UserFacingError(GENERIC_FAILURE);
+    const key = input.submissionKey;
+    if (typeof key !== "string" || key.length < 16 || key.length > 100) throw new UserFacingError(GENERIC_FAILURE);
+
+    const previous = await findSubmitted(key);
+    if (previous) return { receipt: await buildReceipt(previous) };
+
+    if (input.consentData !== true || input.consentFee !== true) {
+      throw new UserFacingError("Centang kedua persetujuan untuk melanjutkan.");
+    }
+    const quiz = validateQuizAnswers(input.answers, { askPatientType: true });
+    if (!quiz.ok) throw new UserFacingError(quiz.message);
+    const answers = quiz.answers;
+    const patientType = answers.patientType;
+    if (!patientType) throw new UserFacingError(GENERIC_FAILURE);
+    const checked = validateIdentity(input.identity, patientType);
+    if (!checked.ok) throw new UserFacingError(checked.message);
+
+    const now = new Date();
+    const windows = validateContactWindows(input.windows, { now, audience: "CUSTOMER" });
+    if (!windows.ok) throw new UserFacingError(windows.message);
+    if (typeof input.staffId !== "string" || !input.staffId) throw new UserFacingError("Pilih dokter lebih dulu.");
+
+    const [service, branchId, setting] = await Promise.all([loadOnlineService(), onlineBranchId(), getClinicSetting()]);
+    if (!service || !branchId) throw new UserFacingError(ONLINE_UNAVAILABLE);
+    const [doctor] = await eligibleStaff({ requiresDoctor: true }, input.staffId);
+    const first = boundsOf(windows.windows);
+
+    let appointmentId: string;
+    try {
+      appointmentId = await createSiteBooking(
+        {
+          type: "KONSULTASI",
+          channel: "ONLINE",
+          startAt: first.startAt,
+          endAt: first.endAt,
+          source: "SITUS",
+          branchId,
+          staffId: doctor.id,
+          serviceId: service.id,
+          patientId: null,
+          bookingFee: bookingFeeFor("SITUS", setting.bookingFee),
+          servicePrice: service.promoPrice,
+          contactWindows: { create: windows.windows.map((w) => ({ startAt: w.startAt, endAt: w.endAt })) },
+        },
+        siteIntake(answers, checked.identity, patientType, now, key),
+        key,
+      );
+    } catch (error) {
+      // Dua Kirim bersamaan dengan kunci yang sama: yang kalah gagal di batas unik isian.
+      const raced = isUniqueViolation(error) ? await findSubmitted(key) : null;
+      if (raced) return { receipt: await buildReceipt(raced) };
+      throw error;
+    }
+
+    const receipt = await buildReceipt(appointmentId);
+    await recordAudit({
+      actor: SITE_PATIENT_ACTOR,
+      action: "appointment.site-create",
+      entity: "Appointment",
+      entityId: appointmentId,
+      summary: `${receipt.code} — online, ${windows.windows.length} waktu luang`,
+    });
+    safeRevalidatePath("/admin/booking");
+    return { receipt };
+  });
+}
+
 export type PublicBookingStatus = {
   code: string;
   status: AppointmentStatusValue;
@@ -462,6 +605,11 @@ export type PublicBookingStatus = {
   canCancel: boolean;
   canReschedule: boolean;
   rescheduleLink: string | null;
+  channel: "KLINIK" | "ONLINE";
+  /** Rentang waktu luang booking online (spec 4.5); kosong untuk booking klinik. */
+  windowLines: string[];
+  /** Tautan WA ke klinik untuk mengganti waktu atau membatalkan konsultasi online. */
+  onlineChangeLink: string | null;
 };
 
 const lookupLimiter = createRateLimiter({ limit: 10, windowMs: 10 * 60_000 });
@@ -510,6 +658,8 @@ async function findOwnBooking(code: string, last4: string) {
       branch: { select: { name: true } },
       patient: { select: { whatsapp: true } },
       intake: { select: { whatsapp: true } },
+      channel: true,
+      contactWindows: { orderBy: { startAt: "asc" }, select: { startAt: true, endAt: true } },
     },
   });
   // Nomor yang diketik pemesan (isian) didahulukan: setelah admin mencocokkan
@@ -526,6 +676,25 @@ function toPublicStatus(
   booking: NonNullable<Awaited<ReturnType<typeof findOwnBooking>>>,
   now: Date,
 ): PublicBookingStatus {
+  if (booking.channel === "ONLINE") {
+    return {
+      code: booking.code,
+      status: booking.status,
+      statusLabel: STATUS_LABEL[booking.status],
+      serviceName: booking.service?.name ?? "Konsultasi Online",
+      staffName: booking.staff.name,
+      branchName: ONLINE_BRANCH_LABEL,
+      startAt: booking.startAt,
+      maskedWhatsapp: maskWhatsapp(booking.whatsapp),
+      bookingFee: booking.bookingFee,
+      canCancel: false,
+      canReschedule: false,
+      rescheduleLink: null,
+      channel: "ONLINE",
+      windowLines: windowLines(booking.contactWindows),
+      onlineChangeLink: ACTIVE.includes(booking.status) ? buildWhatsAppLink(onlineChangeRequestMessage(booking.code)) : null,
+    };
+  }
   const changeable = canPatientChange(booking.startAt, now);
   const canReschedule = booking.status === "TERKONFIRMASI" && changeable;
   return {
@@ -549,6 +718,9 @@ function toPublicStatus(
           }),
         )
       : null,
+    channel: "KLINIK",
+    windowLines: [],
+    onlineChangeLink: null,
   };
 }
 
@@ -576,6 +748,9 @@ export async function cancelSiteBooking(input: {
 
     const booking = await findOwnBooking(code, last4);
     if (!booking) throw new UserFacingError("Booking tidak ditemukan. Periksa kode dan nomor WhatsApp.");
+    if (booking.channel === "ONLINE") {
+      throw new UserFacingError("Untuk membatalkan konsultasi online, hubungi kami lewat WhatsApp.");
+    }
     const now = new Date();
     if (!ACTIVE.includes(booking.status)) {
       throw new UserFacingError(`Booking ini sudah berstatus ${STATUS_LABEL[booking.status].toLowerCase()}.`);

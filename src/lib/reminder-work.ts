@@ -52,7 +52,16 @@ export function reminderDay(date: string, closedDates: ReadonlySet<string>): str
   return day;
 }
 
-export type WorkBooking = { startAt: Date; messages: readonly MessageRecord[] };
+export type WorkBooking = {
+  startAt: Date;
+  messages: readonly MessageRecord[];
+  /**
+   * Konsultasi online: awal rentang terbuka berikutnya (spec konsultasi online 7.4). Menggantikan
+   * startAt untuk hari pengingat; pesan tetap dicocokkan dengan startAt booking. Pemanggil hanya
+   * mengirim booking online yang masih punya rentang terbuka.
+   */
+  reminderAt?: Date;
+};
 
 export type ReminderGroups<T> = {
   confirm: T[];
@@ -73,7 +82,7 @@ export function groupReminderWork<T extends WorkBooking>(
   const groups: ReminderGroups<T> = { confirm: [], remind: [], reminded: [] };
 
   for (const booking of bookings) {
-    if (booking.startAt.getTime() <= context.now.getTime()) continue;
+    if (booking.reminderAt === undefined && booking.startAt.getTime() <= context.now.getTime()) continue;
 
     const confirmation = latestValidMessage(booking.messages, "KONFIRMASI", booking.startAt);
     if (!confirmation) {
@@ -87,7 +96,7 @@ export function groupReminderWork<T extends WorkBooking>(
       continue;
     }
 
-    const date = witaDateString(booking.startAt);
+    const date = witaDateString(booking.reminderAt ?? booking.startAt);
     const day = reminderDay(date, context.closedDates);
     // Pasien yang baru menerima konfirmasi pada hari pengingat tidak perlu diingatkan lagi.
     if (witaDateString(confirmation.sentAt) >= day) continue;

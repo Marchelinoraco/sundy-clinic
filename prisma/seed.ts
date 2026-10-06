@@ -750,6 +750,27 @@ export async function seed(): Promise<void> {
       TRANSACTION_OPTIONS,
     );
 
+    // Konsultasi Online dibuat nonaktif dan sengaja tidak ada di daftar `services` di atas: seed
+    // mengulang upsert dengan `update: data` dan akan menimpa harga/status yang diatur pemilik.
+    const slimmingCategoryId = categoryIdBySlug.get("slimming");
+    if (slimmingCategoryId) {
+      await prisma.service.upsert({
+        where: { slug: "konsultasi-online" },
+        update: {},
+        create: {
+          slug: "konsultasi-online",
+          name: "Konsultasi Online",
+          description: "Konsultasi dokter lewat WhatsApp (telepon atau video).",
+          promoPrice: 0,
+          durationMin: 30,
+          requiresDoctor: true,
+          isActive: false,
+          sortOrder: 99,
+          categoryId: slimmingCategoryId,
+        },
+      });
+    }
+
     await prisma.$transaction(
       // Isi paket ditangani terpisah di bawah, jadi di sini hanya kolom paketnya.
       packages.map(({ slug, name, groupName, monthlyPrice, sortOrder }) =>

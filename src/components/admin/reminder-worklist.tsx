@@ -53,7 +53,7 @@ function Who({ row, children }: { row: ReminderRow; children?: ReactNode }) {
     <div className="text-sm">
       <span className="font-medium">{row.patientName}</span>{" "}
       <span className="text-muted-foreground">
-        · {row.code} · {schedule(row.startAt)} · {row.staffName}
+        · {row.code} · {row.onlineLabel ?? schedule(row.startAt)} · {row.staffName}
       </span>
       {children}
     </div>
@@ -171,7 +171,7 @@ export function ReminderWorklistView({ worklist }: { worklist: ReminderWorklist 
                     </Button>
                   </>
                 )}
-                {sent.reply === "MINTA_PINDAH" && (
+                {sent.reply === "MINTA_PINDAH" && row.channel === "KLINIK" && (
                   <Button type="button" size="sm" onClick={() => setReschedule(row.reschedule)}>
                     Pindah jadwal
                   </Button>
