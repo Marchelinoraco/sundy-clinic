@@ -109,14 +109,17 @@ describe("skema pengeluaran", () => {
 
   beforeAll(async () => {
     await cleanupBillingWorld(SLUG, [WA]);
+    await prisma.expense.deleteMany({ where: { category: { name: { startsWith: SLUG } } } });
+    await prisma.recurringExpense.deleteMany({ where: { category: { name: { startsWith: SLUG } } } });
     await prisma.expenseCategory.deleteMany({ where: { name: { startsWith: SLUG } } });
     world = await createBillingWorld(SLUG, WA);
-    branchName = (await prisma.branch.findUniqueOrThrow({ where: { id: world.branchId } })).name;
     categoryId = (await prisma.expenseCategory.create({ data: { name: `${SLUG} Sewa` } })).id;
   });
 
   afterAll(async () => {
     await cleanupBillingWorld(SLUG, [WA]);
+    await prisma.expense.deleteMany({ where: { category: { name: { startsWith: SLUG } } } });
+    await prisma.recurringExpense.deleteMany({ where: { category: { name: { startsWith: SLUG } } } });
     await prisma.expenseCategory.deleteMany({ where: { name: { startsWith: SLUG } } });
     await prisma.$disconnect();
   });
@@ -1297,6 +1300,7 @@ describe("pengeluaran dan kategori", () => {
     await cleanupBillingWorld(SLUG, [WA]);
     await prisma.expenseCategory.deleteMany({ where: { name: { startsWith: SLUG } } });
     world = await createBillingWorld(SLUG, WA);
+    branchName = (await prisma.branch.findUniqueOrThrow({ where: { id: world.branchId } })).name;
     categoryId = (await prisma.expenseCategory.create({ data: { name: `${SLUG} Sewa` } })).id;
     comingSoonBranchId = (
       await prisma.branch.create({

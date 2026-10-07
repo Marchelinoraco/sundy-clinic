@@ -12,21 +12,23 @@ enum BranchStatus {
 }
 
 model Branch {
-  dispensings  Dispensing[]
-  invoices     Invoice[]
-  id           String       @id @default(cuid())
-  slug         String       @unique
-  name         String
-  address      String
-  mapsUrl      String?
-  latitude     Float?
-  longitude    Float?
-  whatsapp     String
-  openingHours String
+  expenses          Expense[]
+  recurringExpenses RecurringExpense[]
+  dispensings       Dispensing[]
+  invoices          Invoice[]
+  id                String             @id @default(cuid())
+  slug              String             @unique
+  name              String
+  address           String
+  mapsUrl           String?
+  latitude          Float?
+  longitude         Float?
+  whatsapp          String
+  openingHours      String
   /// Cabang baru bawaannya SEGERA_HADIR: yang belum jelas statusnya tidak
   /// boleh langsung bisa dibooking pasien.
-  status       BranchStatus @default(SEGERA_HADIR)
-  sortOrder    Int          @default(0)
+  status            BranchStatus       @default(SEGERA_HADIR)
+  sortOrder         Int                @default(0)
 
   scheduleTemplates  ScheduleTemplate[]
   scheduleExceptions ScheduleException[]
@@ -1154,4 +1156,71 @@ model DispensingLine {
   invoiceLine InvoiceLine?
 
   @@index([dispensingId])
+}
+
+// ---------------------------------------------------------------------------
+// Pengeluaran dan laporan untung-rugi (spec docs/superpowers/specs/2026-10-07-pengeluaran-laporan-untung-rugi-design.md)
+// ---------------------------------------------------------------------------
+
+model ExpenseCategory {
+  id        String   @id @default(cuid())
+  /// Unik tanpa membedakan huruf besar-kecil (indeks expense_category_name_lower di migrasi).
+  name      String
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  expenses   Expense[]
+  recurrings RecurringExpense[]
+}
+
+/// Satu pengeluaran. Salah catat dibatalkan (voidedAt), tidak dihapus.
+model Expense {
+  id             String            @id @default(cuid())
+  date           DateTime          @db.Date
+  categoryId     String
+  category       ExpenseCategory   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  amount         Int
+  note           String?
+  /// Kosong = pengeluaran umum (hanya ikut laporan "semua cabang").
+  branchId       String?
+  branch         Branch?           @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  /// Terisi bila catatan dibuat dari templat berulang; unik per bulan.
+  recurringId    String?
+  recurring      RecurringExpense? @relation(fields: [recurringId], references: [id], onDelete: Restrict)
+  recurringMonth String?
+
+  createdById   String
+  createdByName String
+  createdAt     DateTime  @default(now())
+  voidedAt      DateTime?
+  voidedByName  String?
+  voidReason    String?
+
+  @@unique([recurringId, recurringMonth])
+  @@index([date])
+  @@index([categoryId])
+}
+
+/// Templat pengeluaran bulanan; catatannya dibuat susulan saat daftar atau laporan dibuka.
+model RecurringExpense {
+  id         String          @id @default(cuid())
+  categoryId String
+  category   ExpenseCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  amount     Int
+  note       String?
+  branchId   String?
+  branch     Branch?         @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  /// 1–28 agar bulan pendek tidak bermasalah.
+  dayOfMonth Int
+  /// "YYYY-MM".
+  startMonth String
+  endMonth   String?
+  isActive   Boolean         @default(true)
+
+  createdById   String
+  createdByName String
+  createdAt     DateTime @default(now())
+
+  expenses Expense[]
 }

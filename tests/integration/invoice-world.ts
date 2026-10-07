@@ -140,6 +140,8 @@ export async function cleanupBillingWorld(slug: string, patientWhatsapps: string
   await prisma.invoicePayment.deleteMany({ where: { invoice: { branch } } });
   await prisma.invoiceLine.deleteMany({ where: { invoice: { branch } } });
   await prisma.invoice.deleteMany({ where: { branch } });
+  await prisma.expense.deleteMany({ where: { branch } });
+  await prisma.recurringExpense.deleteMany({ where: { branch } });
   await prisma.dispensingLine.deleteMany({ where: { dispensing: { branch } } });
   await prisma.dispensing.deleteMany({ where: { branch } });
   await prisma.stockMovement.deleteMany({ where: { batch: { branch } } });

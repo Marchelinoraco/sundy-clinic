@@ -141,3 +141,19 @@ describe("hak akses penyerahan obat (spec penyerahan 5)", () => {
     }
   });
 });
+
+describe("hak akses pengeluaran dan laporan (spec laporan 6)", () => {
+  it("Admin Keuangan dan Super Admin mencatat pengeluaran dan melihat laporan", () => {
+    for (const role of ["ADMIN_KEUANGAN", "SUPER_ADMIN"] as const) {
+      expect(can(role, "expense:manage")).toBe(true);
+      expect(can(role, "profit:read")).toBe(true);
+    }
+  });
+
+  it("Dokter, Apoteker, Resepsionis, dan Terapis tidak punya akses", () => {
+    for (const role of ["DOKTER", "APOTEKER", "RESEPSIONIS", "TERAPIS"] as const) {
+      expect(can(role, "expense:manage")).toBe(false);
+      expect(can(role, "profit:read")).toBe(false);
+    }
+  });
+});
