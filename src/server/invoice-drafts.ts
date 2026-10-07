@@ -16,6 +16,7 @@ import { can } from "@/lib/permissions";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { recordAudit } from "@/server/audit";
 import { isExclusionViolation } from "@/server/db-errors";
+import { handedInvoiceLines, lockDispensingRow } from "@/server/dispensing-store";
 import { guardDiscount, touchDraft } from "@/server/invoice-store";
 import { requireCapability } from "@/server/session";
 
@@ -75,16 +76,27 @@ export async function createInvoiceFromVisit(appointmentId: string): Promise<Act
     });
 
     try {
-      const created = await prisma.invoice.create({
-        data: {
-          patientId: appointment.patientId,
-          appointmentId: id,
-          branchId: appointment.branchId,
-          createdById: actor.staffId,
-          createdByName: actor.name,
-          lines: { create: lines.map((line, index) => ({ ...line, sortOrder: index })) },
-        },
-        select: { id: true },
+      const created = await prisma.$transaction(async (tx) => {
+        // Baris penyerahan dikunci dulu, supaya pembuatan tagihan dan penyelesaian penyerahan bergiliran
+        // (spec penyerahan 4.3): yang kedua selalu melihat hasil yang pertama.
+        const dispensing = await tx.dispensing.findUnique({ where: { appointmentId: id }, select: { id: true } });
+        let handed: Awaited<ReturnType<typeof handedInvoiceLines>> = [];
+        if (dispensing) {
+          await lockDispensingRow(tx, dispensing.id);
+          handed = await handedInvoiceLines(tx, dispensing.id);
+        }
+        const all = [...lines.map((line) => ({ ...line, dispensingLineId: null as string | null })), ...handed];
+        return tx.invoice.create({
+          data: {
+            patientId: appointment.patientId!,
+            appointmentId: id,
+            branchId: appointment.branchId,
+            createdById: actor.staffId,
+            createdByName: actor.name,
+            lines: { create: all.map((line, index) => ({ ...line, sortOrder: index })) },
+          },
+          select: { id: true },
+        });
       });
       await recordAudit({
         actor,
