@@ -37,15 +37,19 @@ export async function listInvoices(filter: { view: Exclude<InvoiceView, "PERLU_D
   await requireCapability("invoice:read");
   const q = filter.q?.trim();
   const invoices = await prisma.invoice.findMany({
-    where: q
-      ? {
-          OR: [
-            { number: { contains: q, mode: "insensitive" } },
-            { patient: { name: { contains: q, mode: "insensitive" } } },
-            { patient: { medicalRecordNumber: { contains: q, mode: "insensitive" } } },
-          ],
-        }
-      : undefined,
+    where: {
+      // Status disaring di basis data sebelum batas 300, agar tagihan lama tidak hilang dari tampilannya.
+      status: filter.view === "DRAF" ? "DRAF" : filter.view === "DIBATALKAN" ? "DIBATALKAN" : "FINAL",
+      ...(q
+        ? {
+            OR: [
+              { number: { contains: q, mode: "insensitive" } },
+              { patient: { name: { contains: q, mode: "insensitive" } } },
+              { patient: { medicalRecordNumber: { contains: q, mode: "insensitive" } } },
+            ],
+          }
+        : {}),
+    },
     orderBy: { createdAt: "desc" },
     take: 300,
     select: {

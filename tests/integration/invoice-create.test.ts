@@ -170,6 +170,16 @@ describe("membuat tagihan", () => {
     expect((await listInvoices({ view: "DRAF", q: "tidak-ada-orang-ini" })).map((row) => row.id)).not.toContain(id);
   });
 
+  it("tampilan Belum lunas tetap memuat tagihan lama walau ada lebih dari 300 tagihan yang lebih baru", async () => {
+    const old = await unwrap(createDirectSale({ patientId: world.patientId }));
+    await prisma.invoiceLine.create({ data: { invoiceId: old.id, kind: "LAYANAN", name: "Lama", quantity: 1, unitPrice: 1000 } });
+    await prisma.invoice.update({ where: { id: old.id }, data: { status: "FINAL", number: `TG-2031-${Date.now() % 100000}`, finalizedAt: new Date(), createdAt: new Date("2020-01-01T00:00:00Z") } });
+    await prisma.invoice.createMany({
+      data: Array.from({ length: 305 }, () => ({ patientId: world.patientId, branchId: world.branchId, createdById: "s1", createdByName: "Uji" })),
+    });
+    expect((await listInvoices({ view: "BELUM_LUNAS" })).map((row) => row.id)).toContain(old.id);
+  });
+
   it("katalog barang untuk tagihan: hanya yang berharga jual, dengan stok tersedia di cabang", async () => {
     await billingBatch(world, { invoiceNumber: "BT-1", itemId: world.drugId, quantity: 8, expiryDate: addDaysToDateString(today, 100) });
     await billingBatch(world, { invoiceNumber: "BT-2", itemId: world.drugId, quantity: 3, expiryDate: addDaysToDateString(today, -1) });

@@ -175,6 +175,26 @@ describe("mengubah draf tagihan", () => {
     expect((await getInvoiceDetail(id))?.lines).toHaveLength(2);
   });
 
+  it("diskon di atas 20% yang disetujui Admin Keuangan tidak bisa diperbesar resepsionis lewat baris", async () => {
+    const { id, version } = await draft();
+    const a = await unwrap(free(id, version, { name: "Konsultasi", unitPrice: 100000 }));
+    actor.role = "ADMIN_KEUANGAN";
+    const b = await unwrap(setInvoiceDiscount({ invoiceId: id, version: a.version, kind: "PERSEN", value: 50, reason: "Kebijakan pemilik" }));
+    actor.role = "RESEPSIONIS";
+    const grown = await free(id, b.version, { name: "Serum", quantity: 10, unitPrice: 150000 });
+    expect(grown).toEqual({ ok: false, error: "Perubahan ini membuat diskon melebihi 20%. Ubah diskon dulu atau minta Admin Keuangan." });
+    expect((await getInvoiceDetail(id))?.lines).toHaveLength(1);
+
+    // Diskon nominal yang disetujui: menghapus baris membuat porsinya membesar.
+    actor.role = "ADMIN_KEUANGAN";
+    const c = await unwrap(setInvoiceDiscount({ invoiceId: id, version: b.version, kind: "NOMINAL", value: 30000, reason: "Kebijakan pemilik" }));
+    actor.role = "RESEPSIONIS";
+    const d = await unwrap(free(id, c.version, { name: "Besar", unitPrice: 300000 }));
+    const lines = (await getInvoiceDetail(id))!.lines;
+    const small = lines.find((line) => line.name === "Konsultasi")!;
+    expect((await removeInvoiceLine({ invoiceId: id, version: d.version, lineId: small.id })).ok).toBe(true);
+  });
+
   it("segarkan harga katalog: baris katalog mengikuti harga sekarang, baris bebas tetap", async () => {
     const { appointmentId } = await finalVisit(world);
     const { id } = await unwrap(createInvoiceFromVisit(appointmentId));

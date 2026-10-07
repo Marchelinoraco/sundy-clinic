@@ -51,7 +51,8 @@ export async function touchDraft(tx: Prisma.TransactionClient, invoiceId: string
 /**
  * Menjalankan perubahan baris, lalu menolaknya bila membuat diskon resepsionis melewati batas
  * (spec tagihan TG9): diskon nominal yang tadinya ≤ 20% bisa jadi lebih besar setelah baris
- * dihapus. Diskon yang sejak awal di atas batas (disetujui Admin Keuangan) tidak dipersoalkan.
+ * dihapus. Diskon yang sudah di atas batas (disetujui Admin Keuangan) boleh tetap, tetapi
+ * tidak boleh membesar, baik nilainya maupun porsinya terhadap subtotal.
  */
 export async function guardDiscount(
   tx: Prisma.TransactionClient,
@@ -65,12 +66,15 @@ export async function guardDiscount(
       select: { discountKind: true, discountValue: true, lines: { select: { quantity: true, unitPrice: true } } },
     });
     const subtotal = invoiceSubtotal(invoice.lines);
-    return { within: discountAmount(subtotal, invoice.discountKind, invoice.discountValue) <= discountLimit(subtotal) };
+    const amount = discountAmount(subtotal, invoice.discountKind, invoice.discountValue);
+    return { subtotal, amount, within: amount <= discountLimit(subtotal) };
   };
   const before = await read();
   await mutate();
   const after = await read();
-  if (!canExceed && before.within && !after.within) {
+  // Porsi membesar: amount/subtotal naik (dibandingkan silang agar tanpa pembagian).
+  const grew = after.amount > before.amount || after.amount * before.subtotal > before.amount * after.subtotal;
+  if (!canExceed && !after.within && (before.within || grew)) {
     throw new UserFacingError(
       `Perubahan ini membuat diskon melebihi ${DISCOUNT_LIMIT_PERCENT}%. Ubah diskon dulu atau minta Admin Keuangan.`,
     );
