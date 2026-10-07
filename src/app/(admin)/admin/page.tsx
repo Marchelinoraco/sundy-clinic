@@ -4,6 +4,8 @@ import { DashboardNumbersCard } from "@/components/admin/dashboard-numbers";
 import { DashboardWork } from "@/components/admin/dashboard-work";
 import { DoctorWorklistView } from "@/components/admin/doctor-worklist";
 import { OnlineWorkView } from "@/components/admin/online-work";
+import { PayableTiles } from "@/components/admin/stock/payable-tiles";
+import { StockAlertTiles } from "@/components/admin/stock/stock-alert-tiles";
 import { FailedSection, PageBody, PageHeader } from "@/components/admin/page-layout";
 import { ScheduleTimeline } from "@/components/admin/schedule-timeline";
 import { Button } from "@/components/ui/button";
@@ -15,7 +17,9 @@ import { witaDateString, witaMinutesOfDay } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { getDashboardNumbers, getTodaySchedule, getTodayWork } from "@/server/dashboard";
 import { listDoctorWorklist, listOnlineWork } from "@/server/encounter-read";
+import { payablesOverview } from "@/server/payable-read";
 import { requireStaff } from "@/server/session";
+import { countStockAlerts } from "@/server/stock-read";
 
 export const metadata = { title: "Dasbor" };
 
@@ -30,12 +34,14 @@ export default async function AdminDashboardPage({
   const canBook = can(staff.role, "booking:manage");
 
   // Setiap bagian dimuat sendiri-sendiri dan hanya bila berhak (spec D 4.6–4.7).
-  const [work, schedule, worklist, online, numbers] = await Promise.all([
+  const [work, schedule, worklist, online, numbers, stock, payables] = await Promise.all([
     canBook ? settle(getTodayWork(now), "pekerjaan hari ini") : null,
     canBook ? settle(getTodaySchedule(now), "jadwal hari ini") : null,
     can(staff.role, "record:read") ? settle(listDoctorWorklist(), "daftar dokter") : null,
     can(staff.role, "record:write") ? settle(listOnlineWork(), "konsultasi online") : null,
     can(staff.role, "report:read") ? settle(getDashboardNumbers(period, now), "angka") : null,
+    can(staff.role, "stock:read") ? settle(countStockAlerts(), "stok") : null,
+    can(staff.role, "payable:manage") ? settle(payablesOverview(), "hutang") : null,
   ]);
 
   const dayLabel =
@@ -68,6 +74,8 @@ export default async function AdminDashboardPage({
           ) : (
             <FailedSection title="Jadwal hari ini" />
           ))}
+        {stock && (stock.ok ? <StockAlertTiles alerts={stock.data} /> : <FailedSection title="Stok" />)}
+        {payables && (payables.ok ? <PayableTiles overview={payables.data} /> : <FailedSection title="Hutang" />)}
         {online && (online.ok ? <OnlineWorkView rows={online.data} /> : <FailedSection title="Konsultasi online" />)}
         {(worklist || numbers) && (
           // grid-cols-1 = minmax(0, 1fr): tanpa itu tabel daftar dokter melebarkan halaman di ponsel.

@@ -1,5 +1,6 @@
 "use client";
 
+import { STAFF_ROLE_LABEL } from "@/lib/staff-role";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -14,13 +15,6 @@ import {
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
 import { signOut } from "@/lib/auth-client";
 import type { CurrentStaff } from "@/server/session";
-
-const ROLE_LABEL: Record<CurrentStaff["role"], string> = {
-  SUPER_ADMIN: "Super Admin",
-  DOKTER: "Dokter",
-  TERAPIS: "Terapis",
-  RESEPSIONIS: "Resepsionis",
-};
 
 export function NavUser({ staff }: { staff: CurrentStaff }) {
   const router = useRouter();
@@ -43,7 +37,7 @@ export function NavUser({ staff }: { staff: CurrentStaff }) {
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{staff.name}</span>
-                <span className="truncate text-xs">{ROLE_LABEL[staff.role]}</span>
+                <span className="truncate text-xs">{STAFF_ROLE_LABEL[staff.role]}</span>
               </div>
             </SidebarMenuButton>
           </DropdownMenuTrigger>

@@ -7,14 +7,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { STAFF_ROLE_LABEL } from "@/lib/staff-role";
 import type { Staff } from "@prisma/client";
-
-const ROLE_LABEL: Record<Staff["role"], string> = {
-  SUPER_ADMIN: "Super Admin",
-  DOKTER: "Dokter",
-  TERAPIS: "Terapis",
-  RESEPSIONIS: "Resepsionis",
-};
 
 export function StaffTable({ staff }: { staff: Staff[] }) {
   return (
@@ -32,7 +26,7 @@ export function StaffTable({ staff }: { staff: Staff[] }) {
           <TableRow key={person.id}>
             <TableCell className="font-medium">{person.name}</TableCell>
             <TableCell>
-              <Badge variant="outline">{ROLE_LABEL[person.role]}</Badge>
+              <Badge variant="outline">{STAFF_ROLE_LABEL[person.role]}</Badge>
             </TableCell>
             <TableCell>{person.showOnWebsite ? "Ya" : "Tidak"}</TableCell>
             <TableCell>

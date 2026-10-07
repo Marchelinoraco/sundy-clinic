@@ -6,7 +6,7 @@ import "dotenv/config";
 import { auth } from "../../src/lib/auth";
 import { prisma } from "../../src/lib/db";
 import { addDaysToDateString, combineWitaDateAndMinutes, witaDateString, witaWeekday } from "../../src/lib/time";
-import { E2E_ADMIN, E2E_RESEPSIONIS } from "./credentials";
+import { E2E_ADMIN, E2E_APOTEKER, E2E_KEUANGAN, E2E_RESEPSIONIS } from "./credentials";
 import { purgeEncounters } from "../purge-encounters";
 import { slimmingNewPatient } from "../fixtures/quiz-answers-v2";
 
@@ -18,11 +18,21 @@ await prisma.intake.deleteMany();
 await prisma.appointment.deleteMany();
 await prisma.patient.deleteMany();
 await prisma.patientNumberCounter.deleteMany();
+// Stok dan hutang (stok-hutang.spec.ts) dimulai kosong setiap putaran; urutan anak ke induk.
+await prisma.stockMovement.deleteMany();
+await prisma.supplierReturnLine.deleteMany();
+await prisma.supplierReturn.deleteMany();
+await prisma.supplierPayment.deleteMany();
+await prisma.stockBatch.deleteMany();
+await prisma.purchaseLine.deleteMany();
+await prisma.purchaseInvoice.deleteMany();
+await prisma.supplier.deleteMany();
+await prisma.stockItem.deleteMany();
 
 async function ensureAccount(
   account: { email: string; password: string; name: string },
   slug: string,
-  role: "SUPER_ADMIN" | "RESEPSIONIS",
+  role: "SUPER_ADMIN" | "RESEPSIONIS" | "APOTEKER" | "ADMIN_KEUANGAN",
 ) {
   const existing = await prisma.user.findFirst({ where: { email: account.email } });
   if (existing) return;
@@ -39,6 +49,8 @@ async function ensureAccount(
 
 await ensureAccount(E2E_ADMIN, "staf-e2e", "SUPER_ADMIN");
 await ensureAccount(E2E_RESEPSIONIS, "resepsionis-e2e", "RESEPSIONIS");
+await ensureAccount(E2E_APOTEKER, "apoteker-e2e", "APOTEKER");
+await ensureAccount(E2E_KEUANGAN, "keuangan-e2e", "ADMIN_KEUANGAN");
 
 // Rekening uji: halaman sukses menampilkan instruksi transfer yang lengkap.
 await prisma.clinicSetting.update({

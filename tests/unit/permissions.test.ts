@@ -40,6 +40,8 @@ describe("hak akses", () => {
       "DOKTER",
       "TERAPIS",
       "RESEPSIONIS",
+      "APOTEKER",
+      "ADMIN_KEUANGAN",
     ];
     for (const role of roles) {
       expect(can(role, "audit:read")).toBe(false);
@@ -51,10 +53,39 @@ describe("hak akses", () => {
     expect(can("SUPER_ADMIN", "tidak:ada" as Capability)).toBe(false);
   });
 
-  it("Angka dasbor (report:read) hanya untuk Super Admin (spec D 4.6)", () => {
+  it("Angka dasbor (report:read) untuk Super Admin dan Admin Keuangan (spec D 4.6, spec stok 7.2)", () => {
     expect(can("SUPER_ADMIN", "report:read")).toBe(true);
+    expect(can("ADMIN_KEUANGAN", "report:read")).toBe(true);
     expect(can("DOKTER", "report:read")).toBe(false);
     expect(can("RESEPSIONIS", "report:read")).toBe(false);
     expect(can("TERAPIS", "report:read")).toBe(false);
+    expect(can("APOTEKER", "report:read")).toBe(false);
+  });
+});
+
+describe("hak akses stok dan hutang (spec stok 7)", () => {
+  it("Apoteker mengelola stok, tetapi tidak hutang, booking, rekam medis, atau angka", () => {
+    expect(can("APOTEKER", "stock:read")).toBe(true);
+    expect(can("APOTEKER", "stock:manage")).toBe(true);
+    for (const capability of ["payable:manage", "booking:manage", "record:read", "report:read", "staff:manage"] as const) {
+      expect(can("APOTEKER", capability)).toBe(false);
+    }
+  });
+
+  it("Admin Keuangan membaca stok, mengelola hutang, dan melihat Angka, tetapi tidak mengubah stok", () => {
+    expect(can("ADMIN_KEUANGAN", "stock:read")).toBe(true);
+    expect(can("ADMIN_KEUANGAN", "payable:manage")).toBe(true);
+    expect(can("ADMIN_KEUANGAN", "report:read")).toBe(true);
+    for (const capability of ["stock:manage", "booking:manage", "schedule:manage", "record:read", "staff:manage"] as const) {
+      expect(can("ADMIN_KEUANGAN", capability)).toBe(false);
+    }
+  });
+
+  it("Dokter, Resepsionis, dan Terapis belum punya akses stok atau hutang", () => {
+    for (const role of ["DOKTER", "RESEPSIONIS", "TERAPIS"] as const) {
+      for (const capability of ["stock:read", "stock:manage", "payable:manage"] as const) {
+        expect(can(role, capability)).toBe(false);
+      }
+    }
   });
 });
