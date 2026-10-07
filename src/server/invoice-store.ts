@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { UserFacingError } from "@/lib/action-result";
+import { discountAmount, discountLimit, DISCOUNT_LIMIT_PERCENT, invoiceSubtotal } from "@/lib/invoice";
 
 // Tanpa "use server": pembantu server untuk tagihan, tidak dipanggil browser.
 
@@ -45,4 +46,33 @@ export async function touchDraft(tx: Prisma.TransactionClient, invoiceId: string
   if (invoice.version !== version) throw new UserFacingError(STALE_DRAFT);
   await tx.invoice.update({ where: { id: invoiceId }, data: { version: { increment: 1 } } });
   return invoice.version + 1;
+}
+
+/**
+ * Menjalankan perubahan baris, lalu menolaknya bila membuat diskon resepsionis melewati batas
+ * (spec tagihan TG9): diskon nominal yang tadinya ≤ 20% bisa jadi lebih besar setelah baris
+ * dihapus. Diskon yang sejak awal di atas batas (disetujui Admin Keuangan) tidak dipersoalkan.
+ */
+export async function guardDiscount(
+  tx: Prisma.TransactionClient,
+  invoiceId: string,
+  canExceed: boolean,
+  mutate: () => Promise<void>,
+): Promise<void> {
+  const read = async () => {
+    const invoice = await tx.invoice.findUniqueOrThrow({
+      where: { id: invoiceId },
+      select: { discountKind: true, discountValue: true, lines: { select: { quantity: true, unitPrice: true } } },
+    });
+    const subtotal = invoiceSubtotal(invoice.lines);
+    return { within: discountAmount(subtotal, invoice.discountKind, invoice.discountValue) <= discountLimit(subtotal) };
+  };
+  const before = await read();
+  await mutate();
+  const after = await read();
+  if (!canExceed && before.within && !after.within) {
+    throw new UserFacingError(
+      `Perubahan ini membuat diskon melebihi ${DISCOUNT_LIMIT_PERCENT}%. Ubah diskon dulu atau minta Admin Keuangan.`,
+    );
+  }
 }
