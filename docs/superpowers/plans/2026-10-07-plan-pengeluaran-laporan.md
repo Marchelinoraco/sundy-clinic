@@ -1298,6 +1298,8 @@ describe("pengeluaran dan kategori", () => {
 
   beforeAll(async () => {
     await cleanupBillingWorld(SLUG, [WA]);
+    await prisma.expense.deleteMany({ where: { category: { name: { startsWith: SLUG } } } });
+    await prisma.recurringExpense.deleteMany({ where: { category: { name: { startsWith: SLUG } } } });
     await prisma.expenseCategory.deleteMany({ where: { name: { startsWith: SLUG } } });
     world = await createBillingWorld(SLUG, WA);
     branchName = (await prisma.branch.findUniqueOrThrow({ where: { id: world.branchId } })).name;
@@ -1314,6 +1316,8 @@ describe("pengeluaran dan kategori", () => {
   afterAll(async () => {
     await cleanupBillingWorld(SLUG, [WA]);
     await prisma.branch.deleteMany({ where: { slug: `${SLUG}-segera` } });
+    await prisma.expense.deleteMany({ where: { category: { name: { startsWith: SLUG } } } });
+    await prisma.recurringExpense.deleteMany({ where: { category: { name: { startsWith: SLUG } } } });
     await prisma.expenseCategory.deleteMany({ where: { name: { startsWith: SLUG } } });
     await prisma.$disconnect();
   });
