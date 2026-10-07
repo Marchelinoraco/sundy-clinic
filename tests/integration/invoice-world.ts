@@ -146,6 +146,7 @@ export async function cleanupBillingWorld(slug: string, patientWhatsapps: string
   await prisma.dispensing.deleteMany({ where: { branch } });
   await prisma.stockMovement.deleteMany({ where: { batch: { branch } } });
   await prisma.stockBatch.deleteMany({ where: { branch } });
+  await prisma.supplierPayment.deleteMany({ where: { invoice: { branch } } });
   await prisma.purchaseLine.deleteMany({ where: { invoice: { branch } } });
   await prisma.purchaseInvoice.deleteMany({ where: { branch } });
   await prisma.supplier.deleteMany({ where: { name: { startsWith: slug } } });
