@@ -17,6 +17,8 @@ import { witaDateString, witaMinutesOfDay } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { getDashboardNumbers, getTodaySchedule, getTodayWork } from "@/server/dashboard";
 import { listDoctorWorklist, listOnlineWork } from "@/server/encounter-read";
+import { BillingTiles } from "@/components/admin/billing/billing-tiles";
+import { countBillable, unpaidOverview } from "@/server/invoice-read";
 import { payablesOverview } from "@/server/payable-read";
 import { requireStaff } from "@/server/session";
 import { countStockAlerts } from "@/server/stock-read";
@@ -34,7 +36,7 @@ export default async function AdminDashboardPage({
   const canBook = can(staff.role, "booking:manage");
 
   // Setiap bagian dimuat sendiri-sendiri dan hanya bila berhak (spec D 4.6–4.7).
-  const [work, schedule, worklist, online, numbers, stock, payables] = await Promise.all([
+  const [work, schedule, worklist, online, numbers, stock, payables, billable, unpaid] = await Promise.all([
     canBook ? settle(getTodayWork(now), "pekerjaan hari ini") : null,
     canBook ? settle(getTodaySchedule(now), "jadwal hari ini") : null,
     can(staff.role, "record:read") ? settle(listDoctorWorklist(), "daftar dokter") : null,
@@ -42,6 +44,8 @@ export default async function AdminDashboardPage({
     can(staff.role, "report:read") ? settle(getDashboardNumbers(period, now), "angka") : null,
     can(staff.role, "stock:read") ? settle(countStockAlerts(), "stok") : null,
     can(staff.role, "payable:manage") ? settle(payablesOverview(), "hutang") : null,
+    can(staff.role, "invoice:manage") ? settle(countBillable(), "perlu ditagih") : null,
+    can(staff.role, "invoice:correct") ? settle(unpaidOverview(), "tagihan") : null,
   ]);
 
   const dayLabel =
@@ -76,6 +80,12 @@ export default async function AdminDashboardPage({
           ))}
         {stock && (stock.ok ? <StockAlertTiles alerts={stock.data} /> : <FailedSection title="Stok" />)}
         {payables && (payables.ok ? <PayableTiles overview={payables.data} /> : <FailedSection title="Hutang" />)}
+        {(billable || unpaid) &&
+          (billable?.ok !== false && unpaid?.ok !== false ? (
+            <BillingTiles billable={billable?.ok ? billable.data : null} unpaid={unpaid?.ok ? unpaid.data : null} />
+          ) : (
+            <FailedSection title="Tagihan" />
+          ))}
         {online && (online.ok ? <OnlineWorkView rows={online.data} /> : <FailedSection title="Konsultasi online" />)}
         {(worklist || numbers) && (
           // grid-cols-1 = minmax(0, 1fr): tanpa itu tabel daftar dokter melebarkan halaman di ponsel.

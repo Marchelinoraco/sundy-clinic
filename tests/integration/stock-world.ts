@@ -52,7 +52,7 @@ export async function createStockWorld(slug: string): Promise<StockWorld> {
 
 /** Faktur satu baris + batch + jurnal MASUK, dibuat langsung di basis data (tanpa aksi server). */
 export async function seedBatch(
-  world: StockWorld,
+  world: Pick<StockWorld, "supplierId" | "branchId">,
   input: {
     invoiceNumber: string;
     itemId: string;

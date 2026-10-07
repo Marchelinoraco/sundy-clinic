@@ -435,3 +435,15 @@ h3 {
     transform: translate3d(0, -4.5rem, 0);
   }
 }
+
+/* Cetak tagihan: hanya isi halaman, tanpa menu samping dan tombol. */
+@media print {
+  [data-sidebar],
+  header,
+  .print\:hidden {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+  }
+}

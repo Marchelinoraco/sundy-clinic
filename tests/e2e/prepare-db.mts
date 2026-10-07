@@ -13,6 +13,12 @@ import { slimmingNewPatient } from "../fixtures/quiz-answers-v2";
 // Booking dan pasien dari putaran sebelumnya dibuang agar slot yang
 // ditawarkan selalu sama di setiap putaran.
 await purgeEncounters(prisma);
+// Tagihan (tagihan.spec.ts) merujuk booking dan pasien, jadi dibuang lebih dulu.
+await prisma.invoicePayment.deleteMany();
+await prisma.invoiceStockUse.deleteMany();
+await prisma.invoiceLine.deleteMany();
+await prisma.invoice.deleteMany();
+await prisma.invoiceNumberCounter.deleteMany();
 await prisma.slotHold.deleteMany();
 await prisma.intake.deleteMany();
 await prisma.appointment.deleteMany();

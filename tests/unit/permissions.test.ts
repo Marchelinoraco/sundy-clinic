@@ -89,3 +89,28 @@ describe("hak akses stok dan hutang (spec stok 7)", () => {
     }
   });
 });
+
+describe("hak akses tagihan (spec tagihan 6)", () => {
+  it("Resepsionis menagih tetapi tidak mengoreksi", () => {
+    expect(can("RESEPSIONIS", "invoice:read")).toBe(true);
+    expect(can("RESEPSIONIS", "invoice:manage")).toBe(true);
+    expect(can("RESEPSIONIS", "invoice:correct")).toBe(false);
+  });
+
+  it("Admin Keuangan melihat dan mengoreksi tetapi tidak membuat tagihan", () => {
+    expect(can("ADMIN_KEUANGAN", "invoice:read")).toBe(true);
+    expect(can("ADMIN_KEUANGAN", "invoice:correct")).toBe(true);
+    expect(can("ADMIN_KEUANGAN", "invoice:manage")).toBe(false);
+  });
+
+  it("Dokter, Apoteker, dan Terapis tidak mengakses tagihan; Super Admin semuanya", () => {
+    for (const role of ["DOKTER", "APOTEKER", "TERAPIS"] as const) {
+      for (const capability of ["invoice:read", "invoice:manage", "invoice:correct"] as const) {
+        expect(can(role, capability)).toBe(false);
+      }
+    }
+    for (const capability of ["invoice:read", "invoice:manage", "invoice:correct"] as const) {
+      expect(can("SUPER_ADMIN", capability)).toBe(true);
+    }
+  });
+});
