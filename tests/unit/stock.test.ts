@@ -69,7 +69,7 @@ describe("payableSummary", () => {
     expect(payableSummary({ ...base, dueDate: day("2026-10-06") }, TODAY).overdue).toBe(true);
     expect(payableSummary({ ...base, dueDate: day("2026-10-07") }, TODAY).overdue).toBe(false);
     const cancelled = { ...base, dueDate: day("2026-10-01"), cancelledAt: new Date() };
-    expect(payableSummary(cancelled, TODAY)).toMatchObject({ status: "DIBATALKAN", overdue: false });
+    expect(payableSummary(cancelled, TODAY)).toMatchObject({ status: "DIBATALKAN", overdue: false, balance: 0 });
   });
 });
 
@@ -89,6 +89,15 @@ describe("tampilan dan urutan hutang", () => {
     expect(matchesPayableView(row({ dueDate: "2026-10-14" }), "JATUH_TEMPO", TODAY)).toBe(true);
     expect(matchesPayableView(row({ dueDate: "2026-10-15" }), "JATUH_TEMPO", TODAY)).toBe(false);
     expect(matchesPayableView(row({ status: "DIBATALKAN" }), "DIBATALKAN", TODAY)).toBe(true);
+  });
+
+  it("faktur dibatalkan tidak masuk Jatuh tempo 7 hari walau tanggalnya sudah lewat", () => {
+    const cancelledRow = payableSummary(
+      { total: 100000, cancelledAt: new Date(), dueDate: day("2026-09-01"), payments: [], returns: [] },
+      TODAY,
+    );
+    expect(matchesPayableView({ ...cancelledRow, dueDate: "2026-09-01" }, "JATUH_TEMPO", TODAY)).toBe(false);
+    expect(matchesPayableView({ ...cancelledRow, dueDate: "2026-09-01" }, "BELUM_LUNAS", TODAY)).toBe(false);
   });
 
   it("terlambat paling atas, lalu jatuh tempo terdekat", () => {

@@ -140,7 +140,8 @@ export function payableSummary(invoice: PayableInput, today: string): PayableSum
     else refunded += payment.amount;
   }
   const returned = invoice.returns.reduce((sum, r) => sum + r.total, 0);
-  const balance = invoice.total - paid - returned + refunded;
+  // Faktur dibatalkan tidak berhutang (spec stok 6.4).
+  const balance = invoice.cancelledAt ? 0 : invoice.total - paid - returned + refunded;
   const status: PayableStatus = invoice.cancelledAt
     ? "DIBATALKAN"
     : balance === 0

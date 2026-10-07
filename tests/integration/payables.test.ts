@@ -8,6 +8,7 @@ import { recordSupplierPayment, revokeSupplierPayment, updateDueDate } from "@/s
 import { getPurchaseDetail } from "@/server/purchase-read";
 import { cancelPurchase } from "@/server/purchases";
 import { createSupplierReturn } from "@/server/stock-movements";
+import { listSuppliers } from "@/server/stock-read";
 import { cleanupStockWorld, createStockWorld, seedBatch, type StockWorld } from "./stock-world";
 import { unwrap } from "./unwrap";
 
@@ -159,6 +160,16 @@ describe("hutang ke supplier", () => {
     expect(overview.overdueCount).toBeGreaterThanOrEqual(1);
     expect(overview.totalBalance).toBeGreaterThanOrEqual(300000);
     expect(await countOverduePayables()).toBe(overview.overdueCount);
+  });
+
+  it("faktur dibatalkan tidak dihitung sebagai hutang: tidak di Jatuh tempo 7 hari dan tidak di sisa per supplier", async () => {
+    const before = (await listSuppliers()).find((s) => s.id === world.supplierId)?.balance ?? 0;
+    const { invoiceId } = await invoice({ invoiceDate: addDaysToDateString(today, -40), dueDate: addDaysToDateString(today, -20) });
+    expect((await listSuppliers()).find((s) => s.id === world.supplierId)?.balance).toBe(before + 100000);
+    await unwrap(cancelPurchase({ invoiceId, reason: "Faktur ganda" }));
+    expect((await listSuppliers()).find((s) => s.id === world.supplierId)?.balance).toBe(before);
+    expect((await listPayables({ view: "JATUH_TEMPO" })).map((row) => row.id)).not.toContain(invoiceId);
+    expect((await listPayables({ view: "DIBATALKAN" })).find((row) => row.id === invoiceId)).toMatchObject({ balance: 0, status: "DIBATALKAN" });
   });
 
   it("hak akses: Apoteker dan Resepsionis tidak mengurus hutang", async () => {
