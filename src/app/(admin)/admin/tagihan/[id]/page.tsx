@@ -1,11 +1,13 @@
 import { notFound } from "next/navigation";
 import { AdminHeader } from "@/components/admin/admin-header";
+import { InvoiceFinalView } from "@/components/admin/billing/invoice-final-view";
 import { InvoiceDraftEditor } from "@/components/admin/billing/invoice-draft-editor";
 import { InvoiceStatusBadge } from "@/components/admin/billing/invoice-status-badge";
 import { PageBody, PageHeader } from "@/components/admin/page-layout";
 import { can } from "@/lib/permissions";
 import { getInvoiceDetail, listBillingItems } from "@/server/invoice-read";
 import { requireCapability } from "@/server/session";
+import { witaDateString } from "@/lib/time";
 
 export const metadata = { title: "Tagihan" };
 
@@ -31,7 +33,15 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           ) : (
             <p role="status" className="text-sm text-muted-foreground">Tagihan ini masih draf; hanya resepsionis yang bisa mengubahnya.</p>
           )
-        ) : null}
+        ) : (
+          <InvoiceFinalView
+            detail={detail}
+            today={witaDateString(new Date())}
+            canManage={canManage}
+            canCorrect={can(staff.role, "invoice:correct")}
+            canSeeCost={can(staff.role, "stock:read")}
+          />
+        )}
       </PageBody>
     </>
   );
