@@ -279,6 +279,17 @@ describe("EncounterForm", () => {
     expect(bar).toHaveClass("sticky", "bottom-0");
     expect(bar).toContainElement(screen.getByRole("status"));
   });
+
+  it("ada kolom Catatan untuk Apoteker di bagian Plan, dan ketikan ikut tersimpan otomatis", async () => {
+    vi.mocked(saveEncounterDraft).mockResolvedValueOnce(saved("v2"));
+    renderForm();
+    const field = screen.getByLabelText("Catatan untuk Apoteker");
+    expect(field).toHaveAttribute("maxlength", "1000");
+    await userEvent.type(field, "Amoxicillin 3x1");
+    expect(field).toHaveValue("Amoxicillin 3x1");
+    await waitFor(() => expect(saveEncounterDraft).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(saveEncounterDraft).mock.calls[0][0].draft.pharmacyNote).toBe("Amoxicillin 3x1");
+  });
 });
 
 describe("EncounterForm: menambah ke S dari tab food recall", () => {

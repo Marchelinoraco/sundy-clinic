@@ -108,6 +108,7 @@ async function writeDraft(
       physicalExam: draft.physicalExam,
       assessment: draft.assessment,
       plan: draft.plan,
+      pharmacyNote: draft.pharmacyNote,
       ...draft.vitals,
     },
   });
@@ -221,7 +222,7 @@ export async function finalizeEncounter(input: {
 
     const encounter = await prisma.encounter.findUnique({
       where: { id: encounterId },
-      select: { appointment: { select: { id: true, code: true, startAt: true, patientId: true } } },
+      select: { appointment: { select: { id: true, code: true, startAt: true, patientId: true, branchId: true } } },
     });
     if (!encounter) throw new UserFacingError(GONE);
     const { appointment } = encounter;
@@ -229,7 +230,7 @@ export async function finalizeEncounter(input: {
     if (!patientId) throw new UserFacingError(GONE);
     const treatments = await resolveTreatments(draft);
 
-    await guardLocked(() =>
+    const dispensingId = await guardLocked(() =>
       prisma.$transaction(async (tx) => {
         const updatedAt = await writeDraft(tx, encounterId, version, draft, treatments);
         if (!updatedAt) throw new UserFacingError(await whyUnchanged(tx, encounterId));
@@ -246,10 +247,21 @@ export async function finalizeEncounter(input: {
           where: { id: patientId, OR: [{ lastVisitAt: null }, { lastVisitAt: { lt: appointment.startAt } }] },
           data: { lastVisitAt: appointment.startAt },
         });
+        // Catatan untuk Apoteker terisi: satu penyerahan Menunggu di cabang booking (spec penyerahan 3.3).
+        if (!draft.pharmacyNote) return null;
+        const created = await tx.dispensing.create({
+          data: { appointmentId: appointment.id, branchId: appointment.branchId },
+          select: { id: true },
+        });
+        return created.id;
       }),
     );
 
     await recordAudit({ actor, action: "encounter.finalize", entity: "Encounter", entityId: encounterId, summary: appointment.code });
+    if (dispensingId) {
+      await recordAudit({ actor, action: "dispensing.create", entity: "Dispensing", entityId: dispensingId, summary: appointment.code });
+      safeRevalidatePath("/admin/resep");
+    }
     revalidateEncounter(encounterId, patientId);
     safeRevalidatePath("/admin/booking");
   });

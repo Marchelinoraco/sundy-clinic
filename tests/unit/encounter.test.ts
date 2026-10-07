@@ -52,6 +52,17 @@ describe("parseEncounterDraft", () => {
     expect(parsed).toMatchObject({ ok: true, value: { subjective: "Pusing", plan: null, assessment: null } });
   });
 
+  it("Catatan untuk Apoteker: dipangkas, kosong menjadi null, paling banyak 1.000 karakter", () => {
+    expect(parseEncounterDraft(draft({ pharmacyNote: "  Amoxicillin 3x1  " }))).toMatchObject({ ok: true, value: { pharmacyNote: "Amoxicillin 3x1" } });
+    expect(parseEncounterDraft(draft({ pharmacyNote: "   " }))).toMatchObject({ ok: true, value: { pharmacyNote: null } });
+    expect(parseEncounterDraft(draft({ pharmacyNote: "x".repeat(1000) })).ok).toBe(true);
+    expect(parseEncounterDraft(draft({ pharmacyNote: "x".repeat(1001) }))).toEqual({
+      ok: false,
+      message: "Catatan untuk Apoteker terlalu panjang (maks. 1.000 karakter).",
+    });
+    expect(emptyDraftInput().pharmacyNote).toBe("");
+  });
+
   it("tensi harus berpasangan, dan diastolik lebih kecil dari sistolik", () => {
     expect(parseEncounterDraft(draft({ vitals: { systolic: "120" } }))).toEqual({
       ok: false,
