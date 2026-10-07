@@ -118,6 +118,23 @@ describe("siklus penyerahan obat", () => {
     });
   });
 
+  it("menolak selesai bila obat nonaktif atau harga jualnya dikosongkan setelah ditambahkan", async () => {
+    const { dispensingId } = await visit();
+    let version = await addDrug(dispensingId, 1, { itemId: world.productId, quantity: 1 });
+    await billingBatch(world, { invoiceNumber: "SP-2", itemId: world.productId, quantity: 5, expiryDate: addDaysToDateString(today, 365) });
+    await prisma.stockItem.update({ where: { id: world.productId }, data: { isActive: false } });
+    expect(await completeDispensing({ dispensingId, version })).toEqual({
+      ok: false,
+      error: `Obat ${SLUG} Serum C sudah nonaktif atau belum punya harga jual.`,
+    });
+    await prisma.stockItem.update({ where: { id: world.productId }, data: { isActive: true, sellPrice: null } });
+    expect((await completeDispensing({ dispensingId, version })).ok).toBe(false);
+    await prisma.stockItem.update({ where: { id: world.productId }, data: { sellPrice: 150000 } });
+    expect((await status(dispensingId)).status).toBe("MENUNGGU");
+    version = (await status(dispensingId)).version;
+    await unwrap(completeDispensing({ dispensingId, version }));
+  });
+
   it("tanpa obat: hanya bila tidak ada obat; melepas penahanan; audit tercatat", async () => {
     const { dispensingId } = await visit();
     const version = await addDrug(dispensingId, 1);

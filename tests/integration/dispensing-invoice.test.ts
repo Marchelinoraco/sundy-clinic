@@ -6,7 +6,7 @@ import { addDispensingLine } from "@/server/dispensing-drafts";
 import { completeDispensing, markNoDispensing, reopenDispensing } from "@/server/dispensing-lifecycle";
 import { createDirectSale, createInvoiceFromVisit, removeInvoiceLine, updateInvoiceLine } from "@/server/invoice-drafts";
 import { cancelInvoice, finalizeInvoice } from "@/server/invoice-lifecycle";
-import { getInvoiceDetail } from "@/server/invoice-read";
+import { getInvoiceDetail, listBillableVisits } from "@/server/invoice-read";
 import { billingBatch, cleanupBillingWorld, createBillingWorld, finalVisit, seedDispensing, type BillingWorld } from "./invoice-world";
 import { unwrap } from "./unwrap";
 
@@ -171,6 +171,16 @@ describe("tagihan dan penyerahan obat", () => {
       expect(dispensing.status).toBe("MENUNGGU");
       expect(linked).toBe(0);
     }
+  });
+
+  it("konsultasi online tanpa treatment tetap bisa ditagih bila punya penyerahan", async () => {
+    const plain = await finalVisit(world, { channel: "ONLINE", treatments: [] });
+    const withNote = await finalVisit(world, { channel: "ONLINE", treatments: [], pharmacyNote: "Amoxicillin" });
+    await seedDispensing(world, withNote.appointmentId);
+    as("RESEPSIONIS");
+    const ids = (await listBillableVisits()).map((v) => v.appointmentId);
+    expect(ids).toContain(withNote.appointmentId);
+    expect(ids).not.toContain(plain.appointmentId);
   });
 
   it("rincian tagihan: status penyerahan dan tanda baris obat, tanpa isi Catatan untuk Apoteker", async () => {

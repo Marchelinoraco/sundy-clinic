@@ -54,6 +54,10 @@ export async function completeDispensing(input: { dispensingId: string; version:
         select: { itemId: true, quantityRemaining: true, expiryDate: true, unitCost: true },
       });
       const available = new Map(needed.map((n) => [n.itemId, stockFlags(batches.filter((b) => b.itemId === n.itemId), 0, today).available]));
+      // Obat yang dinonaktifkan atau kehilangan harga jual sejak ditambahkan tidak boleh masuk tagihan (spec penyerahan 7).
+      const items = await tx.stockItem.findMany({ where: { id: { in: needed.map((n) => n.itemId) } }, select: { id: true, name: true, isActive: true, sellPrice: true } });
+      const unsellable = items.find((item) => !item.isActive || item.sellPrice === null);
+      if (unsellable) throw new UserFacingError(`Obat ${unsellable.name} sudah nonaktif atau belum punya harga jual.`);
       const shortage = stockShortage(needed, available);
       if (shortage) throw new UserFacingError(shortageMessage(shortage));
 

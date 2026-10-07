@@ -81,13 +81,14 @@ export async function listInvoices(filter: { view: Exclude<InvoiceView, "PERLU_D
     .filter((row) => matchesInvoiceView(row, filter.view));
 }
 
-/** Kunjungan final dalam 30 hari terakhir tanpa tagihan aktif; Konsultasi Online tanpa treatment tidak ikut. */
+/** Kunjungan final dalam 30 hari terakhir tanpa tagihan aktif; Konsultasi Online tanpa treatment dan tanpa penyerahan tidak ikut. */
 function billableWhere(now: Date): Prisma.EncounterWhereInput {
   return {
     status: "FINAL",
     finalizedAt: { gte: new Date(now.getTime() - BILLABLE_DAYS * 24 * 3600_000) },
     appointment: { patientId: { not: null }, invoices: { none: { status: { not: "DIBATALKAN" } } } },
-    OR: [{ appointment: { channel: "KLINIK" } }, { treatments: { some: {} } }],
+    // Konsultasi Online tanpa treatment hanya ikut bila dokter menitipkan obat lewat penyerahan (spec penyerahan 7).
+    OR: [{ appointment: { channel: "KLINIK" } }, { treatments: { some: {} } }, { appointment: { dispensing: { isNot: null } } }],
   };
 }
 
