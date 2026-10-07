@@ -3407,7 +3407,7 @@ describe("daftar tagihan", () => {
     render(<InvoiceTable rows={[row(), row({ id: "i2", number: null, display: "DRAF", patientName: "Citra Uji", balance: 50000 })]} />);
     expect(screen.getByRole("link", { name: "TG-2026-0001" })).toHaveAttribute("href", "/admin/tagihan/i1");
     expect(screen.getByText("Ani Uji")).toBeInTheDocument();
-    expect(screen.getByText("Sebagian dibayar")).toBeInTheDocument();
+    expect(screen.getByText("Sebagian")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Draf" })).toHaveAttribute("href", "/admin/tagihan/i2");
   });
 
@@ -3748,7 +3748,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
 ```
 
 Run: `npx vitest run tests/unit/billing-list.test.tsx && npx eslint src/components/admin/billing "src/app/(admin)/admin/tagihan" tests/unit/billing-list.test.tsx && npx tsc --noEmit -p . > "$WS/t7-tsc.log" 2>&1; echo "tsc exit $?"`
-Expected: PASS semua uji, eslint bersih, `tsc exit 0`. (Jika `INVOICE_STATUS_LABEL.SEBAGIAN` bukan "Sebagian dibayar", sesuaikan teks uji dengan label di Task 2, bukan sebaliknya.)
+Expected: PASS semua uji, eslint bersih, `tsc exit 0`. (Jika `INVOICE_STATUS_LABEL.SEBAGIAN` bukan "Sebagian", sesuaikan teks uji dengan label di Task 2, bukan sebaliknya.)
 
 - [ ] **Step 4: Uji arsitektur dan commit**
 
@@ -4417,9 +4417,9 @@ Buat `tests/e2e/tagihan.spec.ts` dengan pola `stok-hutang.spec.ts` (`test.descri
 
 1. **Siapkan data** (sebagai Apoteker, `/admin/stok`): tambah barang `Vitamin E2E {t}` (harga jual 25000) dan catat barang masuk 10 buah (pola `stok-hutang.spec.ts`), agar ada stok. Data kunjungan final: pakai pembantu e2e yang sudah ada untuk membuat kunjungan final (lihat `tests/e2e/kunjungan.spec.ts` / `check-in.spec.ts`); bila tidak ada pembantu, gunakan "Penjualan langsung" untuk pasien yang dibuat lewat `PatientPicker` (tombol "Pasien baru" sudah ada) sehingga cerita tidak bergantung pada kunjungan.
 2. **Resepsionis menagih**: `signIn(E2E_RESEPSIONIS)`, `/admin/tagihan` → "+ Penjualan langsung" → pilih pasien → halaman draf terbuka (`/admin/tagihan/[id]`); "Tambah barang" `Vitamin E2E` jumlah 2 → baris tampil, total `Rp 50.000`; tambah baris layanan bebas "Layanan E2E" 100000 → total `Rp 150.000`; diskon Persen 30 → pesan batas 20% tampil (`role="alert"`); ubah ke 10% dengan alasan "Pelanggan lama" → total `Rp 135.000`; "Finalkan tagihan" → "Finalkan" → nomor `TG-` tampil, status "Belum dibayar".
-3. **Bayar sebagian lalu lunas**: "Catat pembayaran" 50000 Tunai → status "Sebagian dibayar", sisa `Rp 85.000`; nominal `90000` ditolak ("melebihi sisa"); bayar 85000 QRIS → "Lunas"; tombol "Catat pembayaran" hilang.
+3. **Bayar sebagian lalu lunas**: "Catat pembayaran" 50000 Tunai → status "Sebagian", sisa `Rp 85.000`; nominal `90000` ditolak ("melebihi sisa"); bayar 85000 QRIS → "Lunas"; tombol "Catat pembayaran" hilang.
 4. **Hak akses Resepsionis**: tidak ada tombol "Batalkan pembayaran" dan "Tambah diskon".
-5. **Admin Keuangan** (`signIn(E2E_KEUANGAN)`): membuka tagihan yang sama; tidak ada "Catat pembayaran"; "Batalkan pembayaran" pembayaran 50000 dengan alasan → status "Sebagian dibayar", sisa `Rp 50.000`; dasbor menampilkan kotak "Tagihan belum lunas".
+5. **Admin Keuangan** (`signIn(E2E_KEUANGAN)`): membuka tagihan yang sama; tidak ada "Catat pembayaran"; "Batalkan pembayaran" pembayaran 50000 dengan alasan → status "Sebagian", sisa `Rp 50.000`; dasbor menampilkan kotak "Tagihan belum lunas".
 6. **Stok**: Apoteker membuka `/admin/stok` → `Vitamin E2E` tersisa 8 (jumlah masuk 10 − 2).
 7. **Batalkan tagihan** (Admin Keuangan): "Batalkan tagihan" dengan alasan → status "Dibatalkan"; stok `Vitamin E2E` kembali 10.
 8. **Dokter** (`signIn(E2E_DOKTER)`): `page.goto("/admin/tagihan")` → tidak ada daftar tagihan (halaman ditolak/dialihkan; ikuti perilaku `requireCapability` yang dipakai tes `stok-hutang.spec.ts` untuk peran yang tidak berhak).
