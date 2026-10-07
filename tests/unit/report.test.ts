@@ -42,6 +42,9 @@ describe("periode", () => {
       ok: false,
       message: "Tanggal dari tidak boleh setelah tanggal sampai.",
     });
+    expect(validatePeriod({ from: "9999-12-01", to: "9999-12-31" })).toEqual({ ok: false, message: "Tanggal laporan tidak sah." });
+    expect(validatePeriod({ from: "1999-12-01", to: "2000-01-31" })).toEqual({ ok: false, message: "Tanggal laporan tidak sah." });
+    expect(validatePeriod({ from: "2100-01-01", to: "2100-01-31" }).ok).toBe(true);
     for (const raw of [{ from: "2026-02-31", to: "2026-03-01" }, { from: "", to: "2026-03-01" }, { from: "2026-03-01" }, null, "x"]) {
       expect(validatePeriod(raw)).toEqual({ ok: false, message: "Isi tanggal dari dan sampai." });
     }

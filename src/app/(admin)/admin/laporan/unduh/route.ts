@@ -1,5 +1,5 @@
 import { can } from "@/lib/permissions";
-import { exportReportCsv } from "@/server/report-export";
+import { exportReportCsv, ReportInputError } from "@/server/report-export";
 import { getCurrentStaff } from "@/server/session";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +24,8 @@ export async function GET(request: Request): Promise<Response> {
       },
     });
   } catch (error) {
-    return new Response(error instanceof Error ? error.message : "Gagal membuat laporan.", { status: 400 });
+    if (error instanceof ReportInputError) return new Response(error.message, { status: 400 });
+    console.error("Gagal membuat unduhan laporan", error);
+    return new Response("Gagal membuat laporan.", { status: 500 });
   }
 }

@@ -2,7 +2,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET } from "@/app/(admin)/admin/laporan/unduh/route";
 import { prisma } from "@/lib/db";
-import { exportReportCsv } from "@/server/report-export";
+import { exportReportCsv, ReportInputError } from "@/server/report-export";
 import { cleanupBillingWorld, createBillingWorld, type BillingWorld } from "./invoice-world";
 
 type Role = "SUPER_ADMIN" | "RESEPSIONIS" | "ADMIN_KEUANGAN" | "APOTEKER" | "DOKTER";
@@ -87,6 +87,7 @@ describe("ekspor laporan CSV", () => {
       "Tanggal dari tidak boleh setelah tanggal sampai.",
     );
     await expect(exportReportCsv({ period: MARCH, branchId: "tidak-ada" })).rejects.toThrow("Cabang tidak ditemukan.");
+    await expect(exportReportCsv({ period: MARCH, branchId: "tidak-ada" })).rejects.toBeInstanceOf(ReportInputError);
   });
 
   it("rute: 200 untuk Admin Keuangan dengan header unduhan", async () => {

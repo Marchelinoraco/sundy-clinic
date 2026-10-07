@@ -5,6 +5,9 @@ import { addDaysToDateString, combineWitaDateAndMinutes } from "./time";
 // Aturan murni laporan untung-rugi (spec laporan 3, 8). Dipakai server dan browser; tanpa akses basis data.
 
 export const MAX_REPORT_DAYS = 366;
+/** Batas tanggal laporan; di luar ini perhitungan tanggal (hari berikutnya) bisa keluar dari rentang yang didukung. */
+export const MIN_REPORT_DATE = "2000-01-01";
+export const MAX_REPORT_DATE = "2100-12-31";
 
 export type ReportPeriod = { from: string; to: string };
 export type ReportPreset = "BULAN_INI" | "BULAN_LALU" | "TAHUN_INI" | "RENTANG";
@@ -52,6 +55,7 @@ export function validatePeriod(raw: unknown): Validation<ReportPeriod> {
   if (typeof raw !== "object" || raw === null) return fail("Isi tanggal dari dan sampai.");
   const { from, to } = raw as Record<string, unknown>;
   if (!isDateString(from) || !isDateString(to)) return fail("Isi tanggal dari dan sampai.");
+  if (from < MIN_REPORT_DATE || to > MAX_REPORT_DATE) return fail("Tanggal laporan tidak sah.");
   if (from > to) return fail("Tanggal dari tidak boleh setelah tanggal sampai.");
   if (periodDays({ from, to }) > MAX_REPORT_DAYS) return fail(`Rentang laporan paling lama ${MAX_REPORT_DAYS} hari.`);
   return { ok: true, value: { from, to } };

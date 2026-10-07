@@ -979,6 +979,7 @@ model SupplierPayment {
   revokeReason  String?
 
   @@index([invoiceId])
+  @@index([paidAt])
 }
 
 // ---------------------------------------------------------------------------
@@ -1047,6 +1048,7 @@ model Invoice {
   @@index([status, createdAt])
   @@index([patientId])
   @@index([appointmentId])
+  @@index([status, finalizedAt])
 }
 
 model InvoiceLine {
@@ -1105,6 +1107,7 @@ model InvoicePayment {
   revokeReason  String?
 
   @@index([invoiceId])
+  @@index([paidAt])
 }
 
 // ---------------------------------------------------------------------------

@@ -137,3 +137,14 @@ describe("migrasi pengeluaran", () => {
     }
   });
 });
+
+describe("migrasi indeks laporan", () => {
+  const sql = readFileSync("prisma/migrations/20261007230000_indeks_laporan/migration.sql", "utf8");
+
+  it("hanya menambah indeks untuk saringan laporan", () => {
+    expect(sql).not.toMatch(/\bDROP\b/i);
+    for (const name of ["Invoice_status_finalizedAt_idx", "InvoicePayment_paidAt_idx", "SupplierPayment_paidAt_idx"]) {
+      expect(sql).toContain(name);
+    }
+  });
+});

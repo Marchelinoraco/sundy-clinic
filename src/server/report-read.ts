@@ -97,14 +97,14 @@ export async function collectReport(period: ReportPeriod, branchId: string | nul
  */
 async function upfrontFor(start: Date, end: Date, branch: { branchId?: string }): Promise<{ fee: number; online: number }> {
   const inRange = await prisma.auditLog.findMany({
-    where: { action: "appointment.verify", createdAt: { gte: start, lt: end } },
+    where: { action: "appointment.verify", entity: "Appointment", createdAt: { gte: start, lt: end } },
     select: { entityId: true },
     distinct: ["entityId"],
   });
   if (inRange.length === 0) return { fee: 0, online: 0 };
   const earliest = await prisma.auditLog.groupBy({
     by: ["entityId"],
-    where: { action: "appointment.verify", entityId: { in: inRange.map((row) => row.entityId) } },
+    where: { action: "appointment.verify", entity: "Appointment", entityId: { in: inRange.map((row) => row.entityId) } },
     _min: { createdAt: true },
   });
   const firstHere = earliest
