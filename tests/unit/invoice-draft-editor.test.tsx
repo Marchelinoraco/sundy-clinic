@@ -144,4 +144,31 @@ describe("editor draf tagihan", () => {
     render(<InvoiceDraftEditor detail={empty} items={items} canExceedDiscount={false} />);
     expect(screen.getByRole("button", { name: "Finalkan tagihan" })).toBeDisabled();
   });
+
+  it("selama penyerahan Menunggu: pita status tampil dan Finalkan nonaktif", () => {
+    render(<InvoiceDraftEditor detail={detail({ dispensing: "MENUNGGU" })} items={items} canExceedDiscount={false} />);
+    expect(screen.getByRole("status")).toHaveTextContent("Menunggu Apoteker menyerahkan obat.");
+    expect(screen.getByRole("button", { name: "Finalkan tagihan" })).toBeDisabled();
+  });
+
+  it("penyerahan Selesai: pita 'Obat sudah diserahkan' dan Finalkan aktif; tanpa penyerahan: tanpa pita", () => {
+    const { unmount } = render(<InvoiceDraftEditor detail={detail({ dispensing: "SELESAI" })} items={items} canExceedDiscount={false} />);
+    expect(screen.getByRole("status")).toHaveTextContent("Obat sudah diserahkan.");
+    expect(screen.getByRole("button", { name: "Finalkan tagihan" })).toBeEnabled();
+    unmount();
+    render(<InvoiceDraftEditor detail={detail()} items={items} canExceedDiscount={false} />);
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("baris dari penyerahan: ada tanda, jumlah terkunci, tanpa tombol Hapus; baris lain tetap bisa diubah", () => {
+    const base = detail();
+    const lines = base.lines.map((line) => (line.id === "l2" ? { ...line, fromDispensing: true } : line));
+    render(<InvoiceDraftEditor detail={{ ...base, lines }} items={items} canExceedDiscount={false} />);
+    expect(screen.getByLabelText("Dari penyerahan Apoteker")).toBeInTheDocument();
+    expect(screen.getByLabelText("Jumlah Vitamin C")).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Hapus Vitamin C" })).toBeNull();
+    expect(screen.getByLabelText("Harga Vitamin C")).toBeEnabled();
+    expect(screen.getByLabelText("Jumlah Konsultasi Gizi")).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Hapus Konsultasi Gizi" })).toBeInTheDocument();
+  });
 });
