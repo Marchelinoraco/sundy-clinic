@@ -78,3 +78,27 @@ describe("migrasi stok dan hutang", () => {
     expect(sql).toMatch(/ADD VALUE 'ADMIN_KEUANGAN'/);
   });
 });
+
+describe("migrasi tagihan", () => {
+  const sql = readFileSync("prisma/migrations/20261007180000_tagihan/migration.sql", "utf8");
+
+  it("hanya menambah: tanpa DROP", () => {
+    expect(sql).not.toMatch(/\bDROP\b/i);
+  });
+
+  it("menjaga status tagihan, diskon, baris, dan pembayaran di basis data", () => {
+    for (const name of [
+      "invoice_status_fields",
+      "invoice_discount_values",
+      "invoice_one_active_per_appointment",
+      "invoice_line_values",
+      "invoice_payment_amount_positive",
+    ]) {
+      expect(sql).toContain(name);
+    }
+  });
+
+  it("menambah jenis stok KELUAR", () => {
+    expect(sql).toMatch(/ADD VALUE 'KELUAR'/);
+  });
+});

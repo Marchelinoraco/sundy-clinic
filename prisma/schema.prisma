@@ -12,6 +12,7 @@ enum BranchStatus {
 }
 
 model Branch {
+  invoices     Invoice[]
   id           String       @id @default(cuid())
   slug         String       @unique
   name         String
@@ -340,6 +341,7 @@ model PatientNumberCounter {
 
 /// Tidak terikat cabang — pasien yang pindah cabang tetap satu rekam medis.
 model Patient {
+  invoices            Invoice[]
   id                  String               @id @default(cuid())
   medicalRecordNumber String               @unique
   name                String
@@ -437,8 +439,9 @@ model ContactAttempt {
 /// constraint pada staffId x rentang waktu), bukan di sini — lihat PRD
 /// bagian 9 "Catatan integritas slot". Model ini hanya mendefinisikan kolom.
 model Appointment {
-  id   String @id @default(cuid())
-  code String @unique
+  invoices Invoice[]
+  id       String    @id @default(cuid())
+  code     String    @unique
 
   type    AppointmentType
   startAt DateTime
@@ -768,6 +771,7 @@ enum StockMovementKind {
   MASUK
   RETUR
   PENYESUAIAN
+  KELUAR
 }
 
 enum StockAdjustReason {
@@ -914,6 +918,8 @@ model StockMovement {
   staffId          String
   staffName        String
   supplierReturnId String?
+  /// Tagihan yang mengeluarkan atau mengembalikan stok ini (KELUAR, atau PENYESUAIAN dari pembatalan tagihan).
+  invoiceId        String?
   createdAt        DateTime           @default(now())
 
   @@index([batchId, createdAt])
@@ -961,6 +967,129 @@ model SupplierPayment {
   staffId       String
   staffName     String
   createdAt     DateTime            @default(now())
+  revokedAt     DateTime?
+  revokedByName String?
+  revokeReason  String?
+
+  @@index([invoiceId])
+}
+
+// ---------------------------------------------------------------------------
+// Tagihan dan pembayaran customer (spec docs/superpowers/specs/2026-10-07-tagihan-pembayaran-design.md)
+// ---------------------------------------------------------------------------
+
+enum InvoiceStatus {
+  DRAF
+  FINAL
+  DIBATALKAN
+}
+
+enum InvoiceLineKind {
+  LAYANAN
+  TREATMENT
+  BARANG
+}
+
+enum DiscountKind {
+  NOMINAL
+  PERSEN
+}
+
+/// Penghitung nomor tagihan per tahun; diambil atomik saat tagihan difinalkan.
+model InvoiceNumberCounter {
+  year  Int @id
+  value Int @default(0)
+}
+
+/// Tagihan customer. Draf bisa diubah; Final terkunci dan memotong stok; Dibatalkan tetap tercatat.
+model Invoice {
+  id      String        @id @default(cuid())
+  /// "TG-2026-0001"; kosong selama draf (CHECK invoice_status_fields).
+  number  String?       @unique
+  status  InvoiceStatus @default(DRAF)
+  /// Naik setiap perubahan draf; menolak suntingan bersamaan dari halaman yang usang.
+  version Int           @default(1)
+
+  patientId     String
+  patient       Patient      @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  /// Kosong untuk penjualan langsung. Satu tagihan aktif per kunjungan (constraint invoice_one_active_per_appointment).
+  appointmentId String?
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
+  branchId      String
+  branch        Branch       @relation(fields: [branchId], references: [id], onDelete: Restrict)
+
+  discountKind   DiscountKind?
+  discountValue  Int           @default(0)
+  discountReason String?
+  discountByName String?
+
+  notes           String?
+  createdById     String
+  createdByName   String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  finalizedAt     DateTime?
+  finalizedByName String?
+  cancelledAt     DateTime?
+  cancelledByName String?
+  cancelReason    String?
+
+  lines    InvoiceLine[]
+  payments InvoicePayment[]
+
+  @@index([status, createdAt])
+  @@index([patientId])
+  @@index([appointmentId])
+}
+
+model InvoiceLine {
+  id                   String          @id @default(cuid())
+  invoiceId            String
+  invoice              Invoice         @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  kind                 InvoiceLineKind
+  /// Disalin saat baris dibuat, bukan dirujuk: perubahan katalog tidak mengubah tagihan.
+  name                 String
+  quantity             Int
+  unitPrice            Int
+  sortOrder            Int             @default(0)
+  serviceId            String?
+  /// Treatment di catatan dokter asal baris ini; mencegah treatment yang sama masuk dua kali.
+  encounterTreatmentId String?
+  itemId               String?
+  /// Catatan bila harga diubah dari harga katalog.
+  priceNote            String?
+
+  stockUses InvoiceStockUse[]
+
+  @@unique([invoiceId, encounterTreatmentId])
+  @@index([invoiceId])
+}
+
+/// Stok yang diambil untuk satu baris barang, per batch, dengan harga pokoknya (untuk laporan nanti).
+model InvoiceStockUse {
+  id       String      @id @default(cuid())
+  lineId   String
+  line     InvoiceLine @relation(fields: [lineId], references: [id], onDelete: Restrict)
+  batchId  String
+  quantity Int
+  /// Disalin dari batch saat stok diambil.
+  unitCost Int
+
+  @@index([lineId])
+}
+
+/// Uang masuk dari customer. Salah input dibatalkan (revokedAt), tidak dihapus.
+model InvoicePayment {
+  id            String        @id @default(cuid())
+  invoiceId     String
+  invoice       Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  amount        Int
+  method        PaymentMethod
+  paidAt        DateTime      @db.Date
+  reference     String?
+  staffId       String
+  staffName     String
+  createdAt     DateTime      @default(now())
   revokedAt     DateTime?
   revokedByName String?
   revokeReason  String?

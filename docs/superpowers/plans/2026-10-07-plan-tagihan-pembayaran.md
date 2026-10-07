@@ -199,7 +199,7 @@ export async function finalVisit(
   });
   await prisma.encounter.update({
     where: { id: encounter.id },
-    data: { status: "FINAL", finalizedAt: input.finalizedAt ?? new Date(), finalizedById: world.doctorId, finalizedByName: "dr. Uji" },
+    data: { status: "FINAL", assessment: "Uji", finalizedAt: input.finalizedAt ?? new Date(), finalizedById: world.doctorId, finalizedByName: "dr. Uji" },
   });
   return { appointmentId: appointment.id, encounterId: encounter.id };
 }

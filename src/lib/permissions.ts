@@ -18,7 +18,10 @@ export type Capability =
   | "audit:read"
   | "stock:read"
   | "stock:manage"
-  | "payable:manage";
+  | "payable:manage"
+  | "invoice:read"
+  | "invoice:manage"
+  | "invoice:correct";
 
 export const CAPABILITIES_BY_ROLE: Record<StaffRole, readonly Capability[]> = {
   SUPER_ADMIN: [
@@ -33,6 +36,9 @@ export const CAPABILITIES_BY_ROLE: Record<StaffRole, readonly Capability[]> = {
     "stock:read",
     "stock:manage",
     "payable:manage",
+    "invoice:read",
+    "invoice:manage",
+    "invoice:correct",
   ],
 
   // Dokter memegang rekam medis, tetapi tidak mengelola akun staf.
@@ -41,7 +47,8 @@ export const CAPABILITIES_BY_ROLE: Record<StaffRole, readonly Capability[]> = {
 
   // Resepsionis mengurus booking dan jadwal. Catatan klinis sengaja tidak ada
   // di daftar ini — lihat PRD bagian 4.
-  RESEPSIONIS: ["booking:manage", "schedule:manage"],
+  // Resepsionis juga menagih customer (spec tagihan 6); koreksi uang masuk ada di Admin Keuangan.
+  RESEPSIONIS: ["booking:manage", "schedule:manage", "invoice:read", "invoice:manage"],
 
   // Terapis adalah sumber daya jadwal, bukan pengguna panel. Ia punya baris
   // Staff agar dapat dijadwalkan, tanpa akses apa pun ke panel admin.
@@ -53,7 +60,7 @@ export const CAPABILITIES_BY_ROLE: Record<StaffRole, readonly Capability[]> = {
 
   // Admin Keuangan melihat stok, mengelola hutang ke supplier, dan melihat Angka dasbor.
   // Tidak mengubah stok, booking, jadwal, rekam medis, atau akun staf (spec stok 7.2).
-  ADMIN_KEUANGAN: ["stock:read", "payable:manage", "report:read"],
+  ADMIN_KEUANGAN: ["stock:read", "payable:manage", "report:read", "invoice:read", "invoice:correct"],
 };
 
 export function can(role: StaffRole, capability: Capability): boolean {
