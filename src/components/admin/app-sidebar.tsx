@@ -9,6 +9,8 @@ import {
   Scissors,
   Settings,
   Users,
+  Banknote,
+  ChartColumn,
   Pill,
   PillBottle,
   Receipt,
@@ -60,6 +62,8 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
       { title: "Stok", url: "/admin/stok", icon: Package, needs: "stock:read" },
       { title: "Stok obat", url: "/admin/stok-dokter", icon: PillBottle, needs: "stock:availability", hideWith: "stock:read" },
       { title: "Hutang", url: "/admin/hutang", icon: Wallet, needs: "payable:manage" },
+      { title: "Pengeluaran", url: "/admin/pengeluaran", icon: Banknote, needs: "expense:manage" },
+      { title: "Laporan", url: "/admin/laporan", icon: ChartColumn, needs: "profit:read" },
     ],
   },
   {

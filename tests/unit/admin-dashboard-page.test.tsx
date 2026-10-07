@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AdminDashboardPage from "@/app/(admin)/admin/page";
 import { getDashboardNumbers, getTodaySchedule, getTodayWork } from "@/server/dashboard";
+import { getMonthProfit } from "@/server/report-read";
 import { countPendingDispensings } from "@/server/dispensing-read";
 import { countBillable, unpaidOverview } from "@/server/invoice-read";
 import { payablesOverview } from "@/server/payable-read";
@@ -19,6 +20,7 @@ vi.mock("@/server/online-consultation", () => ({ startOnlineConsultation: vi.fn(
 vi.mock("@/server/dashboard", () => ({ getTodayWork: vi.fn(), getTodaySchedule: vi.fn(), getDashboardNumbers: vi.fn() }));
 vi.mock("@/server/stock-read", () => ({ countStockAlerts: vi.fn() }));
 vi.mock("@/server/payable-read", () => ({ payablesOverview: vi.fn() }));
+vi.mock("@/server/report-read", () => ({ getMonthProfit: vi.fn() }));
 vi.mock("@/server/dispensing-read", () => ({ countPendingDispensings: vi.fn() }));
 vi.mock("@/server/invoice-read", () => ({ countBillable: vi.fn(), unpaidOverview: vi.fn() }));
 
@@ -44,6 +46,7 @@ beforeEach(() => {
   vi.mocked(listOnlineWork).mockResolvedValue([]);
   vi.mocked(countBillable).mockResolvedValue(0);
   vi.mocked(countPendingDispensings).mockResolvedValue(0);
+  vi.mocked(getMonthProfit).mockResolvedValue({ month: "2026-10", revenue: 0, netProfit: 0 });
   vi.mocked(unpaidOverview).mockResolvedValue({ count: 0, balance: 0 });
 });
 
@@ -166,6 +169,26 @@ describe("halaman Dasbor (spec D 4)", () => {
     document.body.innerHTML = "";
     await renderPage();
     expect(countPendingDispensings).not.toHaveBeenCalled();
+  });
+
+  it("Admin Keuangan melihat kotak Laba bersih bulan ini; resepsionis tidak memanggilnya", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(requireStaff).mockResolvedValue({ userId: "u4", staffId: "s4", name: "Budi Keuangan", role: "ADMIN_KEUANGAN", email: "k@sundy.test" } as never);
+    vi.mocked(countStockAlerts).mockResolvedValue({ low: 0, expiringSoon: 0, expired: 0 });
+    vi.mocked(payablesOverview).mockResolvedValue({ totalBalance: 0, overdueBalance: 0, overdueCount: 0, dueSoonCount: 0, credit: 0, bySupplier: [] });
+    vi.mocked(getDashboardNumbers).mockRejectedValue(new Error("tidak dimuat di uji ini"));
+    vi.mocked(getMonthProfit).mockResolvedValue({ month: "2026-10", revenue: 2_000_000, netProfit: 750_000 });
+    await renderPage();
+    const tile = within(screen.getByRole("region", { name: "Laporan" })).getByRole("link", { name: /Laba bersih bulan ini/ });
+    expect(tile).toHaveAttribute("href", "/admin/laporan");
+    expect(tile).toHaveTextContent("750.000");
+
+    vi.mocked(getMonthProfit).mockClear();
+    vi.mocked(requireStaff).mockResolvedValue({ userId: "u2", staffId: "s2", name: "Rina", role: "RESEPSIONIS", email: "r@sundy.test" } as never);
+    document.body.innerHTML = "";
+    await renderPage();
+    expect(getMonthProfit).not.toHaveBeenCalled();
+    log.mockRestore();
   });
 
   it("bagian Hutang yang gagal dimuat tidak menjatuhkan halaman", async () => {

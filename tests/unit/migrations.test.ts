@@ -116,3 +116,35 @@ describe("migrasi penyerahan obat", () => {
     }
   });
 });
+
+describe("migrasi pengeluaran", () => {
+  const sql = readFileSync("prisma/migrations/20261007220000_pengeluaran/migration.sql", "utf8");
+
+  it("hanya menambah: tanpa DROP", () => {
+    expect(sql).not.toMatch(/\bDROP\b/i);
+  });
+
+  it("menjaga nominal, pembatalan, templat, dan nama kategori di basis data", () => {
+    for (const name of ["expense_amount_positive", "expense_void_fields", "recurring_expense_values", "expense_category_name_lower"]) {
+      expect(sql).toContain(name);
+    }
+  });
+
+  it("mengisi tujuh kategori bawaan", () => {
+    expect(sql).toMatch(/INSERT INTO "ExpenseCategory"/);
+    for (const name of ["Gaji", "Sewa", "Listrik dan air", "Internet dan telepon", "Perlengkapan", "Pemasaran", "Lain-lain"]) {
+      expect(sql).toContain(`'${name}'`);
+    }
+  });
+});
+
+describe("migrasi indeks laporan", () => {
+  const sql = readFileSync("prisma/migrations/20261007230000_indeks_laporan/migration.sql", "utf8");
+
+  it("hanya menambah indeks untuk saringan laporan", () => {
+    expect(sql).not.toMatch(/\bDROP\b/i);
+    for (const name of ["Invoice_status_finalizedAt_idx", "InvoicePayment_paidAt_idx", "SupplierPayment_paidAt_idx"]) {
+      expect(sql).toContain(name);
+    }
+  });
+});

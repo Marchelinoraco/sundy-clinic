@@ -13,6 +13,10 @@ import { slimmingNewPatient } from "../fixtures/quiz-answers-v2";
 // Booking dan pasien dari putaran sebelumnya dibuang agar slot yang
 // ditawarkan selalu sama di setiap putaran.
 await purgeEncounters(prisma);
+// Pengeluaran dan kategori buatan e2e (laporan.spec.ts) dibuang tiap putaran; kategori bawaan dari migrasi tetap.
+await prisma.expense.deleteMany();
+await prisma.recurringExpense.deleteMany();
+await prisma.expenseCategory.deleteMany({ where: { name: { startsWith: "E2E" } } });
 // Tagihan (tagihan.spec.ts) merujuk booking dan pasien, jadi dibuang lebih dulu.
 await prisma.invoicePayment.deleteMany();
 await prisma.invoiceStockUse.deleteMany();

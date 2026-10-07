@@ -46,4 +46,13 @@ describe("menu stok per peran", () => {
       expect(titlesFor(role)).not.toContain("Stok obat");
     }
   });
+
+  it("Admin Keuangan melihat Pengeluaran dan Laporan; peran lain tidak", () => {
+    expect(titlesFor("ADMIN_KEUANGAN")).toContain("Pengeluaran");
+    expect(titlesFor("ADMIN_KEUANGAN")).toContain("Laporan");
+    for (const role of ["RESEPSIONIS", "DOKTER", "APOTEKER"] as const) {
+      expect(titlesFor(role)).not.toContain("Pengeluaran");
+      expect(titlesFor(role)).not.toContain("Laporan");
+    }
+  });
 });
