@@ -2,6 +2,8 @@ import { prisma } from "@/lib/db";
 import { isMonthString } from "@/lib/expense";
 import { monthPeriod } from "@/lib/report";
 import { dateOnly, dateOnlyString } from "@/lib/stock";
+import { witaDateString } from "@/lib/time";
+import { ensureRecurringExpenses } from "@/server/expense-store";
 import { requireCapability } from "@/server/session";
 
 export type ExpenseRow = {
@@ -21,6 +23,7 @@ export type ExpenseRow = {
 /** Daftar pengeluaran satu bulan (spec laporan 7): tanggal turun; yang dibatalkan ikut dengan tandanya. */
 export async function listExpenses(filter: { month: string; categoryId?: string; branchId?: string }): Promise<ExpenseRow[]> {
   await requireCapability("expense:manage");
+  await ensureRecurringExpenses(witaDateString(new Date()));
   if (!isMonthString(filter.month)) return [];
   const period = monthPeriod(filter.month);
   const rows = await prisma.expense.findMany({
@@ -71,4 +74,40 @@ export async function listCategories(options: { includeInactive?: boolean } = {}
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     select: { id: true, name: true, isActive: true },
   });
+}
+
+export type RecurringRow = {
+  id: string;
+  categoryId: string;
+  categoryName: string;
+  amount: number;
+  note: string | null;
+  branchId: string | null;
+  branchName: string | null;
+  dayOfMonth: number;
+  startMonth: string;
+  endMonth: string | null;
+  isActive: boolean;
+};
+
+/** Templat pengeluaran berulang; yang aktif lebih dulu. */
+export async function listRecurring(): Promise<RecurringRow[]> {
+  await requireCapability("expense:manage");
+  const rows = await prisma.recurringExpense.findMany({
+    orderBy: [{ isActive: "desc" }, { createdAt: "desc" }],
+    select: {
+      id: true,
+      categoryId: true,
+      amount: true,
+      note: true,
+      branchId: true,
+      dayOfMonth: true,
+      startMonth: true,
+      endMonth: true,
+      isActive: true,
+      category: { select: { name: true } },
+      branch: { select: { name: true } },
+    },
+  });
+  return rows.map(({ category, branch, ...row }) => ({ ...row, categoryName: category.name, branchName: branch?.name ?? null }));
 }

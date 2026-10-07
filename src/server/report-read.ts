@@ -18,6 +18,7 @@ import {
 } from "@/lib/report";
 import { dateOnly } from "@/lib/stock";
 import { witaDateString } from "@/lib/time";
+import { ensureRecurringExpenses } from "@/server/expense-store";
 import { requireCapability } from "@/server/session";
 
 /**
@@ -137,6 +138,7 @@ export type ProfitReport = {
 /** Laporan satu periode dan cabang, dengan pembanding dan tren 12 bulan (spec laporan 3, 7). */
 export async function getProfitReport(filter: { period: ReportPeriod; branchId: string | null }, now: Date = new Date()): Promise<ProfitReport> {
   await requireCapability("profit:read");
+  await ensureRecurringExpenses(witaDateString(now));
   const checked = validatePeriod(filter.period);
   if (!checked.ok) throw new Error(checked.message);
   let branchName = "Semua cabang";
@@ -170,6 +172,7 @@ export async function getProfitReport(filter: { period: ReportPeriod; branchId: 
 /** Pendapatan dan laba bersih bulan berjalan, semua cabang, untuk kotak dasbor. */
 export async function getMonthProfit(now: Date = new Date()): Promise<{ month: string; revenue: number; netProfit: number }> {
   await requireCapability("profit:read");
+  await ensureRecurringExpenses(witaDateString(now));
   const month = currentMonthOf(witaDateString(now));
   const view = summarizeReport(await collectReport(monthPeriod(month), null));
   return { month, revenue: view.totals.revenue, netProfit: view.totals.netProfit };
