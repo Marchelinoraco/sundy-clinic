@@ -2,7 +2,7 @@
 
 - **Versi:** 1.0
 - **Tanggal:** 7 Oktober 2026
-- **Status:** Menunggu tinjauan pemilik
+- **Status:** Dibangun (belum dideploy)
 - **Bagian dari:** rangkaian keuangan klinik (`docs/superpowers/specs/2026-10-07-stok-supplier-hutang-design.md`, bagian 2)
 - **Melanjutkan:**
   - tagihan dan pembayaran: `docs/superpowers/specs/2026-10-07-tagihan-pembayaran-design.md`;
