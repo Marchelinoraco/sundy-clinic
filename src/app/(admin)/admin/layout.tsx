@@ -2,6 +2,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppSidebar } from "@/components/admin/app-sidebar";
+import { LiveNotifier } from "@/components/admin/live-notifier";
 import { can } from "@/lib/permissions";
 import { countPendingBookings } from "@/server/appointment";
 import { countPendingDispensings } from "@/server/dispensing-read";
@@ -37,6 +38,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <SidebarInset>{children}</SidebarInset>
         {/* Kanan atas: bar aksi halaman kunjungan menempel di bawah, dan toast di sana menutupi Finalisasi. */}
         <Toaster position="top-right" />
+        <LiveNotifier initialSince={new Date().toISOString()} role={staff.role} />
       </SidebarProvider>
     </TooltipProvider>
   );
