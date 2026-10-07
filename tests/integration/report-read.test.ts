@@ -1,6 +1,8 @@
 // @vitest-environment node
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
+import { discountAmount, invoiceTotals } from "@/lib/invoice";
+import { monthPeriod, trendMonths } from "@/lib/report";
 import { getMonthProfit, getProfitReport } from "@/server/report-read";
 import { cleanupBillingWorld, createBillingWorld, finalVisit, type BillingWorld } from "./invoice-world";
 
@@ -41,6 +43,7 @@ describe("laporan untung-rugi", () => {
     branchId?: string;
     lines: { kind: "LAYANAN" | "TREATMENT" | "BARANG"; quantity: number; unitPrice: number; cost?: number }[];
     discount?: number;
+    discountKind?: "NOMINAL" | "PERSEN";
     payments?: { amount: number; paidAt: string; revoked?: boolean }[];
   }) {
     const status = input.status ?? "FINAL";
@@ -53,7 +56,7 @@ describe("laporan untung-rugi", () => {
         number: status === "DRAF" ? null : `TG-2035-${String(seq).padStart(4, "0")}`,
         finalizedAt: status === "FINAL" ? (input.finalizedAt ?? at("2035-03-10")) : null,
         cancelledAt: status === "DIBATALKAN" ? new Date() : null,
-        discountKind: input.discount ? "NOMINAL" : null,
+        discountKind: input.discount ? (input.discountKind ?? "NOMINAL") : null,
         discountValue: input.discount ?? 0,
         discountReason: input.discount ? "Uji" : null,
         createdById: "s1",
@@ -152,6 +155,20 @@ describe("laporan untung-rugi", () => {
     await verify(klinik2.appointmentId, "2035-02-20"); // pertama kali di Februari
     await verify(klinik2.appointmentId, "2035-03-15"); // diverifikasi ulang di Maret: tidak dihitung lagi
     await verify(klinik3.appointmentId, "2035-04-03"); // April
+
+    // Juni 2035 (di luar jendela tren): diskon persen bulat ke bawah dan nominal yang melebihi subtotal.
+    await invoice({
+      finalizedAt: at("2035-06-10"),
+      lines: [{ kind: "LAYANAN", quantity: 1, unitPrice: 333_335 }],
+      discount: 33,
+      discountKind: "PERSEN",
+      payments: [{ amount: 100_000, paidAt: "2035-06-11" }],
+    }); // diskon floor(333.335 × 33 / 100) = 110.000
+    await invoice({
+      finalizedAt: at("2035-06-20", "23:59"),
+      lines: [{ kind: "BARANG", quantity: 2, unitPrice: 50_000, cost: 12_345 }],
+      discount: 900_000,
+    }); // diskon nominal dibatasi subtotal 100.000; harga pokok 24.690
 
     // Pengeluaran.
     await expense("2035-03-02", sewa, 400_000);
@@ -283,6 +300,69 @@ describe("laporan untung-rugi", () => {
     expect(report.trend[11]).toEqual({ month: "2035-03", revenue: 2_350_000, cost: 1_120_000, netProfit: 1_230_000 });
     expect(report.trend[10]).toEqual({ month: "2035-02", revenue: 421_000, cost: 0, netProfit: 421_000 });
     expect(report.trend[9]).toEqual({ month: "2035-01", revenue: 0, cost: 0, netProfit: 0 });
+  });
+
+  it("SQL sama dengan aturan di kode: diskon persen dibulatkan ke bawah, nominal dibatasi subtotal, belum tertagih", async () => {
+    const june = await getProfitReport({ period: { from: "2035-06-01", to: "2035-06-30" }, branchId: world.branchId }, NOW);
+    expect(june.current.totals).toMatchObject({ service: 333_335, goods: 100_000, discount: 110_000 + 100_000, cogs: 24_690 });
+    expect(june.current.totals.outstanding).toBe(333_335 - 110_000 - 100_000);
+    expect(june.current.invoiceCount).toBe(2);
+  });
+
+  it("pembanding independen: jumlah dari fungsi aturan atas semua tagihan final cabang uji sama dengan laporan, per bulan", async () => {
+    const invoices = await prisma.invoice.findMany({
+      where: { branchId: world.branchId, status: "FINAL" },
+      select: {
+        finalizedAt: true,
+        status: true,
+        discountKind: true,
+        discountValue: true,
+        lines: { select: { kind: true, quantity: true, unitPrice: true, stockUses: { select: { quantity: true, unitCost: true } } } },
+        payments: { select: { amount: true, revokedAt: true } },
+      },
+    });
+    for (const month of ["2035-02", "2035-03", "2035-04", "2035-06"]) {
+      const expected = { service: 0, treatment: 0, goods: 0, discount: 0, cogs: 0, outstanding: 0 };
+      for (const invoice of invoices) {
+        const key = new Date(invoice.finalizedAt!.getTime() + 8 * 3600_000).toISOString().slice(0, 7);
+        if (key !== month) continue;
+        let subtotal = 0;
+        for (const line of invoice.lines) {
+          const amount = line.quantity * line.unitPrice;
+          subtotal += amount;
+          if (line.kind === "LAYANAN") expected.service += amount;
+          else if (line.kind === "TREATMENT") expected.treatment += amount;
+          else expected.goods += amount;
+          for (const use of line.stockUses) expected.cogs += use.quantity * use.unitCost;
+        }
+        expected.discount += discountAmount(subtotal, invoice.discountKind, invoice.discountValue);
+        expected.outstanding += Math.max(0, invoiceTotals(invoice).balance);
+      }
+      const report = await getProfitReport({ period: monthPeriod(month), branchId: world.branchId }, NOW);
+      expect(report.current.totals, month).toMatchObject(expected);
+    }
+  });
+
+  it("tren sama dengan laporan periode per bulan (pendapatan, biaya, laba) untuk ke-12 bulan", async () => {
+    const trendReport = await getProfitReport({ period: MARCH, branchId: world.branchId }, NOW);
+    for (const point of trendReport.trend) {
+      const month = await getProfitReport({ period: monthPeriod(point.month), branchId: world.branchId }, NOW);
+      expect(point, point.month).toEqual({
+        month: point.month,
+        revenue: month.current.totals.revenue,
+        cost: month.current.totals.cogs + month.current.totals.expenses,
+        netProfit: month.current.totals.netProfit,
+      });
+    }
+    expect(trendReport.trend.map((p) => p.month)).toEqual(trendMonths("2035-03-15"));
+  });
+
+  it("tren semua cabang sama dengan laporan per bulan, termasuk pengeluaran umum dan cabang lain", async () => {
+    const trendReport = await getProfitReport({ period: MARCH, branchId: null }, NOW);
+    const march = trendReport.trend[11];
+    const month = await getProfitReport({ period: monthPeriod("2035-03"), branchId: null }, NOW);
+    expect(march.revenue).toBe(month.current.totals.revenue);
+    expect(march.cost).toBe(month.current.totals.cogs + month.current.totals.expenses);
   });
 
   it("periode kosong menghasilkan nol, bukan galat; kategori nonaktif tetap tampil", async () => {
