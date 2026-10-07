@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import type { DispensingStatusValue } from "@/lib/dispensing";
 import {
   BILLABLE_DAYS,
   invoiceTotals,
@@ -159,6 +160,8 @@ export type InvoiceLineRow = {
   itemId: string | null;
   /** Berasal dari katalog (layanan atau barang): harga yang diubah wajib catatan. */
   catalogLinked: boolean;
+  /** Berasal dari penyerahan Apoteker: jumlah terkunci dan tidak bisa dihapus resepsionis. */
+  fromDispensing: boolean;
   /** Harga pokok baris barang; null bila pengguna tidak memegang stock:read atau bukan barang. */
   cost: number | null;
 };
@@ -185,6 +188,8 @@ export type InvoiceDetail = {
   branchId: string;
   branchName: string;
   appointmentId: string | null;
+  /** Status penyerahan obat kunjungan ini; null bila tidak ada. Tidak pernah memuat isi catatan. */
+  dispensing: DispensingStatusValue | null;
   visitDate: Date | null;
   discountKind: DiscountKindValue | null;
   discountValue: number;
@@ -233,7 +238,7 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
       appointmentId: true,
       patient: { select: { id: true, name: true, medicalRecordNumber: true } },
       branch: { select: { name: true } },
-      appointment: { select: { startAt: true } },
+      appointment: { select: { startAt: true, dispensing: { select: { status: true } } } },
       lines: {
         orderBy: { sortOrder: "asc" },
         select: {
@@ -245,6 +250,7 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
           priceNote: true,
           serviceId: true,
           itemId: true,
+          dispensingLineId: true,
           stockUses: { select: { quantity: true, unitCost: true } },
         },
       },
@@ -264,6 +270,7 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
     serviceId: line.serviceId,
     itemId: line.itemId,
     catalogLinked: line.serviceId !== null || line.itemId !== null,
+    fromDispensing: line.dispensingLineId !== null,
     cost: withCost && line.kind === "BARANG" ? line.stockUses.reduce((sum, use) => sum + use.quantity * use.unitCost, 0) : null,
   }));
   return {
@@ -275,6 +282,7 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
     branchId: invoice.branchId,
     branchName: invoice.branch.name,
     appointmentId: invoice.appointmentId,
+    dispensing: invoice.appointment?.dispensing?.status ?? null,
     visitDate: invoice.appointment?.startAt ?? null,
     discountKind: invoice.discountKind,
     discountValue: invoice.discountValue,

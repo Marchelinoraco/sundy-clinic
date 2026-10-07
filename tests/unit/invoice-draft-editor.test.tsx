@@ -31,8 +31,8 @@ vi.mock("@/server/invoice-lifecycle", () => ({ finalizeInvoice: mocks.finalizeIn
 
 function detail(patch: Partial<InvoiceDetail> = {}): InvoiceDetail {
   const lines: InvoiceDetail["lines"] = [
-    { id: "l1", kind: "LAYANAN", name: "Konsultasi Gizi", quantity: 1, unitPrice: 150000, amount: 150000, priceNote: null, serviceId: "s1", itemId: null, catalogLinked: true, cost: null },
-    { id: "l2", kind: "BARANG", name: "Vitamin C", quantity: 2, unitPrice: 25000, amount: 50000, priceNote: null, serviceId: null, itemId: "it1", catalogLinked: true, cost: null },
+    { id: "l1", kind: "LAYANAN", name: "Konsultasi Gizi", quantity: 1, unitPrice: 150000, amount: 150000, priceNote: null, serviceId: "s1", itemId: null, catalogLinked: true, fromDispensing: false, cost: null },
+    { id: "l2", kind: "BARANG", name: "Vitamin C", quantity: 2, unitPrice: 25000, amount: 50000, priceNote: null, serviceId: null, itemId: "it1", catalogLinked: true, fromDispensing: false, cost: null },
   ];
   const base = { status: "DRAF" as const, discountKind: null, discountValue: 0, lines, payments: [] };
   return {
@@ -44,6 +44,7 @@ function detail(patch: Partial<InvoiceDetail> = {}): InvoiceDetail {
     branchId: "b1",
     branchName: "Manado",
     appointmentId: "a1",
+    dispensing: null,
     visitDate: new Date("2026-10-07T03:00:00Z"),
     discountKind: null,
     discountValue: 0,

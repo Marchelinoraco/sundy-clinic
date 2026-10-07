@@ -20,6 +20,9 @@ import { handedInvoiceLines, lockDispensingRow } from "@/server/dispensing-store
 import { guardDiscount, touchDraft } from "@/server/invoice-store";
 import { requireCapability } from "@/server/session";
 
+const DISPENSED_QUANTITY = "Jumlah obat dari penyerahan tidak bisa diubah. Minta Apoteker membuka kembali penyerahan.";
+const DISPENSED_REMOVE = "Obat dari penyerahan tidak bisa dihapus. Minta Apoteker membuka kembali penyerahan.";
+
 function revalidateInvoices(invoiceId?: string) {
   safeRevalidatePath("/admin/tagihan");
   safeRevalidatePath("/admin");
@@ -244,9 +247,10 @@ export async function updateInvoiceLine(input: {
       const version = await touchDraft(tx, invoiceId, input.version);
       const line = await tx.invoiceLine.findFirst({
         where: { id: String(input.lineId ?? ""), invoiceId },
-        select: { id: true, name: true, unitPrice: true, priceNote: true, serviceId: true, itemId: true },
+        select: { id: true, name: true, quantity: true, unitPrice: true, priceNote: true, serviceId: true, itemId: true, dispensingLineId: true },
       });
       if (!line) throw new UserFacingError("Baris tidak ditemukan.");
+      if (line.dispensingLineId && input.quantity !== line.quantity) throw new UserFacingError(DISPENSED_QUANTITY);
 
       const catalogPrice = line.itemId
         ? (await tx.stockItem.findUnique({ where: { id: line.itemId }, select: { sellPrice: true } }))?.sellPrice ?? null
@@ -283,8 +287,9 @@ export async function removeInvoiceLine(input: { invoiceId: string; version: num
 
     const result = await prisma.$transaction(async (tx) => {
       const version = await touchDraft(tx, invoiceId, input.version);
-      const line = await tx.invoiceLine.findFirst({ where: { id: String(input.lineId ?? ""), invoiceId }, select: { id: true, name: true } });
+      const line = await tx.invoiceLine.findFirst({ where: { id: String(input.lineId ?? ""), invoiceId }, select: { id: true, name: true, dispensingLineId: true } });
       if (!line) throw new UserFacingError("Baris tidak ditemukan.");
+      if (line.dispensingLineId) throw new UserFacingError(DISPENSED_REMOVE);
       await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
         await tx.invoiceLine.delete({ where: { id: line.id } });
       });

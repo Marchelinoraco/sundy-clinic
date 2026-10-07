@@ -2,6 +2,7 @@
 
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
 import { prisma } from "@/lib/db";
+import { HOLD_MESSAGE } from "@/lib/dispensing";
 import { fefoPlan, formatInvoiceNumber, invoiceTotals, type BatchStock } from "@/lib/invoice";
 import { can } from "@/lib/permissions";
 import { safeRevalidatePath } from "@/lib/revalidate";
@@ -42,6 +43,7 @@ export async function finalizeInvoice(input: { invoiceId: string; version: numbe
           id: true,
           version: true,
           branchId: true,
+          appointmentId: true,
           branch: { select: { name: true } },
           ...TOTALS_SELECT,
           lines: { orderBy: { sortOrder: "asc" }, select: { id: true, kind: true, name: true, itemId: true, quantity: true, unitPrice: true } },
@@ -50,6 +52,11 @@ export async function finalizeInvoice(input: { invoiceId: string; version: numbe
       if (!invoice) throw new UserFacingError("Tagihan tidak ditemukan.");
       if (invoice.status !== "DRAF") throw new UserFacingError("Tagihan ini sudah difinalkan atau dibatalkan. Muat ulang halaman.");
       if (invoice.version !== input.version) throw new UserFacingError(STALE_DRAFT);
+      // Penyerahan obat harus selesai lebih dulu (spec penyerahan 4.4); status dibaca setelah tagihan dikunci.
+      if (invoice.appointmentId) {
+        const hold = await tx.dispensing.findUnique({ where: { appointmentId: invoice.appointmentId }, select: { status: true } });
+        if (hold?.status === "MENUNGGU") throw new UserFacingError(HOLD_MESSAGE);
+      }
       if (invoice.lines.length === 0) throw new UserFacingError("Tagihan kosong tidak bisa difinalkan. Tambahkan baris dulu.");
 
       // Stok tiap barang dimuat sekali dan dikurangi di memori setiap baris, supaya barang yang sama
@@ -135,6 +142,7 @@ export async function cancelInvoice(input: { invoiceId: string; reason: string }
         select: {
           status: true,
           number: true,
+          appointmentId: true,
           patient: { select: { name: true } },
           payments: { select: { revokedAt: true } },
           lines: { select: { stockUses: { select: { batchId: true, quantity: true } } } },
@@ -162,6 +170,15 @@ export async function cancelInvoice(input: { invoiceId: string; reason: string }
             staffId: actor.staffId,
             staffName: actor.name,
           },
+        });
+      }
+      // Baris asal penyerahan dilepas supaya penyerahan bisa ditagih lagi; penyerahan tagihan final kembali Menunggu
+      // (spec penyerahan 4.6). Urutan kunci tetap tagihan → penyerahan.
+      await tx.invoiceLine.updateMany({ where: { invoiceId, dispensingLineId: { not: null } }, data: { dispensingLineId: null } });
+      if (invoice.status === "FINAL" && invoice.appointmentId) {
+        await tx.dispensing.updateMany({
+          where: { appointmentId: invoice.appointmentId, status: { not: "MENUNGGU" } },
+          data: { status: "MENUNGGU", completedAt: null, completedById: null, completedByName: null, version: { increment: 1 } },
         });
       }
       await tx.invoice.update({
