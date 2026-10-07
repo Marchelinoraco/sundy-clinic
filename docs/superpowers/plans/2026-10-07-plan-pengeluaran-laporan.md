@@ -2676,7 +2676,7 @@ describe("ekspor laporan CSV", () => {
     await cleanupBillingWorld(SLUG, [WA]);
     await prisma.expense.deleteMany({ where: { category: { name: { contains: SLUG } } } });
     await prisma.expenseCategory.deleteMany({ where: { name: { contains: SLUG } } });
-    await prisma.auditLog.deleteMany({ where: { action: "report.export", summary: { contains: SLUG } } });
+    await prisma.auditLog.deleteMany({ where: { action: "report.export", summary: { contains: "2035-03-01 sampai 2035-03-31" } } });
   }
 
   beforeAll(async () => {
@@ -2719,7 +2719,7 @@ describe("ekspor laporan CSV", () => {
     expect(csv).toContain("Pengeluaran,123000");
     expect(csv).toContain(`'=HACK() ${SLUG},123000`);
     expect(csv).not.toMatch(/(^|\r\n)=HACK/);
-    const audit = await prisma.auditLog.findFirstOrThrow({ where: { action: "report.export", summary: { contains: SLUG } } });
+    const audit = await prisma.auditLog.findFirstOrThrow({ where: { action: "report.export", summary: { contains: "2035-03-01 sampai 2035-03-31" } } });
     expect(audit.entity).toBe("Report");
     expect(audit.summary).toContain("2035-03-01");
   });
