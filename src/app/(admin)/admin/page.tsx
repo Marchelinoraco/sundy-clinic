@@ -18,6 +18,8 @@ import { cn } from "@/lib/utils";
 import { getDashboardNumbers, getTodaySchedule, getTodayWork } from "@/server/dashboard";
 import { listDoctorWorklist, listOnlineWork } from "@/server/encounter-read";
 import { BillingTiles } from "@/components/admin/billing/billing-tiles";
+import { DispensingTiles } from "@/components/admin/dispensing/dispensing-tiles";
+import { countPendingDispensings } from "@/server/dispensing-read";
 import { countBillable, unpaidOverview } from "@/server/invoice-read";
 import { payablesOverview } from "@/server/payable-read";
 import { requireStaff } from "@/server/session";
@@ -36,7 +38,7 @@ export default async function AdminDashboardPage({
   const canBook = can(staff.role, "booking:manage");
 
   // Setiap bagian dimuat sendiri-sendiri dan hanya bila berhak (spec D 4.6–4.7).
-  const [work, schedule, worklist, online, numbers, stock, payables, billable, unpaid] = await Promise.all([
+  const [work, schedule, worklist, online, numbers, stock, payables, billable, unpaid, dispensing] = await Promise.all([
     canBook ? settle(getTodayWork(now), "pekerjaan hari ini") : null,
     canBook ? settle(getTodaySchedule(now), "jadwal hari ini") : null,
     can(staff.role, "record:read") ? settle(listDoctorWorklist(), "daftar dokter") : null,
@@ -46,6 +48,7 @@ export default async function AdminDashboardPage({
     can(staff.role, "payable:manage") ? settle(payablesOverview(), "hutang") : null,
     can(staff.role, "invoice:manage") ? settle(countBillable(), "perlu ditagih") : null,
     can(staff.role, "invoice:correct") ? settle(unpaidOverview(), "tagihan") : null,
+    can(staff.role, "dispense:read") ? settle(countPendingDispensings(), "resep") : null,
   ]);
 
   const dayLabel =
@@ -86,6 +89,7 @@ export default async function AdminDashboardPage({
           ) : (
             <FailedSection title="Tagihan" />
           ))}
+        {dispensing && (dispensing.ok ? <DispensingTiles pending={dispensing.data} /> : <FailedSection title="Resep" />)}
         {online && (online.ok ? <OnlineWorkView rows={online.data} /> : <FailedSection title="Konsultasi online" />)}
         {(worklist || numbers) && (
           // grid-cols-1 = minmax(0, 1fr): tanpa itu tabel daftar dokter melebarkan halaman di ponsel.
