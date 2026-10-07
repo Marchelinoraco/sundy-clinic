@@ -19,6 +19,9 @@ await prisma.invoiceStockUse.deleteMany();
 await prisma.invoiceLine.deleteMany();
 await prisma.invoice.deleteMany();
 await prisma.invoiceNumberCounter.deleteMany();
+// Penyerahan obat (resep.spec.ts) merujuk booking dan baris tagihan, jadi dibuang sesudah tagihan dan sebelum booking.
+await prisma.dispensingLine.deleteMany();
+await prisma.dispensing.deleteMany();
 await prisma.slotHold.deleteMany();
 await prisma.intake.deleteMany();
 await prisma.appointment.deleteMany();
@@ -138,6 +141,35 @@ for (const [index, project] of ["desktop", "mobile"].entries()) {
       quizVersion: 2,
       answers: slimmingNewPatient,
       submittedAt: new Date(),
+    },
+  });
+}
+
+// Penyerahan obat (resep.spec.ts): satu pasien hadir hari ini per proyek, pukul 03.00/03.30
+// (di luar jam buka, tidak bentrok dengan seed lain).
+for (const [index, project] of ["desktop", "mobile"].entries()) {
+  const patient = await prisma.patient.create({
+    data: {
+      medicalRecordNumber: `SDY-E2E-RESEP-${index + 1}`,
+      name: `Pasien Resep ${project}`,
+      whatsapp: `6281200081${index}01`,
+      birthDate: new Date("1991-03-17T00:00:00Z"),
+      gender: "P",
+    },
+  });
+  const startAt = combineWitaDateAndMinutes(today, 3 * 60 + index * 30);
+  await prisma.appointment.create({
+    data: {
+      code: `E2E-RESEP-${index + 1}`,
+      type: "KONSULTASI",
+      startAt,
+      endAt: new Date(startAt.getTime() + 30 * 60_000),
+      status: "HADIR",
+      source: "WALK_IN",
+      branchId: visitBranch.id,
+      staffId: visitDoctor.id,
+      serviceId: visitService.id,
+      patientId: patient.id,
     },
   });
 }

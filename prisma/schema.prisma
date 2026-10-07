@@ -12,6 +12,7 @@ enum BranchStatus {
 }
 
 model Branch {
+  dispensings  Dispensing[]
   invoices     Invoice[]
   id           String       @id @default(cuid())
   slug         String       @unique
@@ -439,9 +440,10 @@ model ContactAttempt {
 /// constraint pada staffId x rentang waktu), bukan di sini — lihat PRD
 /// bagian 9 "Catatan integritas slot". Model ini hanya mendefinisikan kolom.
 model Appointment {
-  invoices Invoice[]
-  id       String    @id @default(cuid())
-  code     String    @unique
+  dispensing Dispensing?
+  invoices   Invoice[]
+  id         String      @id @default(cuid())
+  code       String      @unique
 
   type    AppointmentType
   startAt DateTime
@@ -697,6 +699,8 @@ model Encounter {
   physicalExam String?
   assessment   String?
   plan         String?
+  /// Catatan dokter untuk Apoteker (spec penyerahan 3.1); terkunci saat final. Paling banyak 1.000 karakter.
+  pharmacyNote String?
 
   systolic     Int?
   diastolic    Int?
@@ -797,20 +801,21 @@ enum PaymentMethod {
 
 /// Barang yang distok: obat dan produk jual. Terpisah dari Product (katalog situs publik).
 model StockItem {
-  id        String        @id @default(cuid())
-  code      String        @unique
-  name      String
-  kind      StockItemKind
+  dispensingLines DispensingLine[]
+  id              String           @id @default(cuid())
+  code            String           @unique
+  name            String
+  kind            StockItemKind
   /// Satuan terkecil yang dihitung, mis. tablet, kapsul, botol.
-  unit      String
+  unit            String
   /// Harga jual dalam rupiah; boleh kosong sampai dibutuhkan tagihan.
-  sellPrice Int?
+  sellPrice       Int?
   /// Batas "menipis" per cabang; 0 berarti tidak pernah ditandai menipis.
-  minStock  Int           @default(0)
-  isActive  Boolean       @default(true)
-  notes     String?
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  minStock        Int              @default(0)
+  isActive        Boolean          @default(true)
+  notes           String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   purchaseLines PurchaseLine[]
   batches       StockBatch[]
@@ -1058,6 +1063,9 @@ model InvoiceLine {
   itemId               String?
   /// Catatan bila harga diubah dari harga katalog.
   priceNote            String?
+  /// Baris penyerahan asal baris ini (spec penyerahan 4.3); kosong untuk baris biasa. Dilepas bila tagihan dibatalkan.
+  dispensingLineId     String?         @unique
+  dispensingLine       DispensingLine? @relation(fields: [dispensingLineId], references: [id], onDelete: Restrict)
 
   stockUses InvoiceStockUse[]
 
@@ -1095,4 +1103,55 @@ model InvoicePayment {
   revokeReason  String?
 
   @@index([invoiceId])
+}
+
+// ---------------------------------------------------------------------------
+// Penyerahan obat (spec docs/superpowers/specs/2026-10-07-resep-penyerahan-obat-design.md)
+// ---------------------------------------------------------------------------
+
+enum DispensingStatus {
+  MENUNGGU
+  SELESAI
+  TANPA_OBAT
+}
+
+/// Penyerahan obat satu kunjungan; dibuat otomatis saat catatan dokter final dengan Catatan untuk Apoteker.
+model Dispensing {
+  id            String           @id @default(cuid())
+  appointmentId String           @unique
+  appointment   Appointment      @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
+  branchId      String
+  branch        Branch           @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  status        DispensingStatus @default(MENUNGGU)
+  /// Naik setiap perubahan; menolak suntingan dari halaman yang usang.
+  version       Int              @default(1)
+
+  completedAt     DateTime?
+  completedById   String?
+  completedByName String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lines DispensingLine[]
+
+  @@index([status, createdAt])
+}
+
+model DispensingLine {
+  id           String     @id @default(cuid())
+  dispensingId String
+  dispensing   Dispensing @relation(fields: [dispensingId], references: [id], onDelete: Restrict)
+  itemId       String
+  item         StockItem  @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  /// Disalin saat baris dibuat, agar riwayat tidak ikut berubah.
+  itemName     String
+  quantity     Int
+  /// Aturan pakai, mis. "3 x 1 sesudah makan".
+  usage        String
+  sortOrder    Int        @default(0)
+
+  invoiceLine InvoiceLine?
+
+  @@index([dispensingId])
 }

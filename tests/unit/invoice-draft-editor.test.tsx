@@ -31,8 +31,8 @@ vi.mock("@/server/invoice-lifecycle", () => ({ finalizeInvoice: mocks.finalizeIn
 
 function detail(patch: Partial<InvoiceDetail> = {}): InvoiceDetail {
   const lines: InvoiceDetail["lines"] = [
-    { id: "l1", kind: "LAYANAN", name: "Konsultasi Gizi", quantity: 1, unitPrice: 150000, amount: 150000, priceNote: null, serviceId: "s1", itemId: null, catalogLinked: true, cost: null },
-    { id: "l2", kind: "BARANG", name: "Vitamin C", quantity: 2, unitPrice: 25000, amount: 50000, priceNote: null, serviceId: null, itemId: "it1", catalogLinked: true, cost: null },
+    { id: "l1", kind: "LAYANAN", name: "Konsultasi Gizi", quantity: 1, unitPrice: 150000, amount: 150000, priceNote: null, serviceId: "s1", itemId: null, catalogLinked: true, fromDispensing: false, cost: null },
+    { id: "l2", kind: "BARANG", name: "Vitamin C", quantity: 2, unitPrice: 25000, amount: 50000, priceNote: null, serviceId: null, itemId: "it1", catalogLinked: true, fromDispensing: false, cost: null },
   ];
   const base = { status: "DRAF" as const, discountKind: null, discountValue: 0, lines, payments: [] };
   return {
@@ -44,6 +44,7 @@ function detail(patch: Partial<InvoiceDetail> = {}): InvoiceDetail {
     branchId: "b1",
     branchName: "Manado",
     appointmentId: "a1",
+    dispensing: null,
     visitDate: new Date("2026-10-07T03:00:00Z"),
     discountKind: null,
     discountValue: 0,
@@ -142,5 +143,32 @@ describe("editor draf tagihan", () => {
     const empty = detail({ lines: [], totals: invoiceTotals({ status: "DRAF", discountKind: null, discountValue: 0, lines: [], payments: [] }) });
     render(<InvoiceDraftEditor detail={empty} items={items} canExceedDiscount={false} />);
     expect(screen.getByRole("button", { name: "Finalkan tagihan" })).toBeDisabled();
+  });
+
+  it("selama penyerahan Menunggu: pita status tampil dan Finalkan nonaktif", () => {
+    render(<InvoiceDraftEditor detail={detail({ dispensing: "MENUNGGU" })} items={items} canExceedDiscount={false} />);
+    expect(screen.getByRole("status")).toHaveTextContent("Menunggu Apoteker menyerahkan obat.");
+    expect(screen.getByRole("button", { name: "Finalkan tagihan" })).toBeDisabled();
+  });
+
+  it("penyerahan Selesai: pita 'Obat sudah diserahkan' dan Finalkan aktif; tanpa penyerahan: tanpa pita", () => {
+    const { unmount } = render(<InvoiceDraftEditor detail={detail({ dispensing: "SELESAI" })} items={items} canExceedDiscount={false} />);
+    expect(screen.getByRole("status")).toHaveTextContent("Obat sudah diserahkan.");
+    expect(screen.getByRole("button", { name: "Finalkan tagihan" })).toBeEnabled();
+    unmount();
+    render(<InvoiceDraftEditor detail={detail()} items={items} canExceedDiscount={false} />);
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("baris dari penyerahan: ada tanda, jumlah terkunci, tanpa tombol Hapus; baris lain tetap bisa diubah", () => {
+    const base = detail();
+    const lines = base.lines.map((line) => (line.id === "l2" ? { ...line, fromDispensing: true } : line));
+    render(<InvoiceDraftEditor detail={{ ...base, lines }} items={items} canExceedDiscount={false} />);
+    expect(screen.getByLabelText("Dari penyerahan Apoteker")).toBeInTheDocument();
+    expect(screen.getByLabelText("Jumlah Vitamin C")).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Hapus Vitamin C" })).toBeNull();
+    expect(screen.getByLabelText("Harga Vitamin C")).toBeEnabled();
+    expect(screen.getByLabelText("Jumlah Konsultasi Gizi")).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Hapus Konsultasi Gizi" })).toBeInTheDocument();
   });
 });

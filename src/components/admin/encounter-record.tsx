@@ -48,6 +48,7 @@ export function EncounterRecord({ encounter }: { encounter: EncounterDetail }) {
       </Part>
       <Part id="bagian-p" title="P — Plan">
         <RecordText label={TEXT_FIELDS.plan} value={draft.plan} />
+        <RecordText label={TEXT_FIELDS.pharmacyNote} value={draft.pharmacyNote} />
       </Part>
       <Part id="bagian-treatment" title="Treatment yang dilakukan">
         {encounter.treatments.length === 0 ? (

@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatRupiah } from "@/lib/format";
+import { Lock } from "lucide-react";
+import { dispensingNotice } from "@/lib/dispensing";
 import { INVOICE_LINE_KIND_LABEL, validateLineEdit } from "@/lib/invoice";
 import type { ActionResult } from "@/lib/action-result";
 import { removeInvoiceLine, refreshCatalogPrices, updateInvoiceLine } from "@/server/invoice-drafts";
@@ -67,12 +69,17 @@ function LineRow({ detail, line, disabled, run, fail }: {
       <TableCell>
         <span className="font-medium">{line.name}</span>
         <div className="text-xs text-muted-foreground">{INVOICE_LINE_KIND_LABEL[line.kind]}</div>
+        {line.fromDispensing && (
+          <span className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
+            <Lock aria-label="Dari penyerahan Apoteker" className="size-3" /> Dari penyerahan Apoteker
+          </span>
+        )}
         {priceChanged && line.catalogLinked && (
           <Input aria-label={`Catatan harga ${line.name}`} placeholder="Alasan harga diubah" value={note} onChange={(e) => setNote(e.target.value)} className="mt-1" />
         )}
       </TableCell>
       <TableCell className="w-24">
-        <Input aria-label={`Jumlah ${line.name}`} type="number" min={1} value={quantity ?? ""} onChange={(e) => setQuantity(e.target.value === "" ? null : Number(e.target.value))} />
+        <Input aria-label={`Jumlah ${line.name}`} type="number" min={1} disabled={line.fromDispensing} value={quantity ?? ""} onChange={(e) => setQuantity(e.target.value === "" ? null : Number(e.target.value))} />
       </TableCell>
       <TableCell className="w-40">
         <RupiahInput aria-label={`Harga ${line.name}`} value={unitPrice} onChange={setUnitPrice} />
@@ -82,9 +89,11 @@ function LineRow({ detail, line, disabled, run, fail }: {
         <Button type="button" size="sm" variant="outline" disabled={disabled} onClick={save} aria-label={`Simpan baris ${line.name}`}>
           Simpan
         </Button>
-        <Button type="button" size="sm" variant="ghost" disabled={disabled} aria-label={`Hapus ${line.name}`} onClick={() => run(() => removeInvoiceLine({ invoiceId: detail.id, version: detail.version, lineId: line.id }))}>
-          Hapus
-        </Button>
+        {!line.fromDispensing && (
+          <Button type="button" size="sm" variant="ghost" disabled={disabled} aria-label={`Hapus ${line.name}`} onClick={() => run(() => removeInvoiceLine({ invoiceId: detail.id, version: detail.version, lineId: line.id }))}>
+            Hapus
+          </Button>
+        )}
       </TableCell>
     </TableRow>
   );
@@ -105,6 +114,12 @@ export function InvoiceDraftEditor({ detail, items, canExceedDiscount }: { detai
           Segarkan harga katalog
         </Button>
       </div>
+
+      {dispensingNotice(detail.dispensing) && (
+        <p role="status" className="rounded-md border bg-muted/40 p-3 text-sm">
+          {dispensingNotice(detail.dispensing)}
+        </p>
+      )}
 
       <Table>
         <TableHeader>
@@ -147,7 +162,7 @@ export function InvoiceDraftEditor({ detail, items, canExceedDiscount }: { detai
         <CancelInvoiceDialog invoiceId={detail.id} label="Draf" draft />
         <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
           <DialogTrigger asChild>
-            <Button type="button" disabled={pending || detail.lines.length === 0}>
+            <Button type="button" disabled={pending || detail.lines.length === 0 || detail.dispensing === "MENUNGGU"}>
               Finalkan tagihan
             </Button>
           </DialogTrigger>

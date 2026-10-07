@@ -8,6 +8,7 @@ import { formatShortIndonesianDate } from "./format";
  */
 
 export const ENCOUNTER_TEXT_MAX = 5000;
+export const PHARMACY_NOTE_MAX = 1000;
 export const TREATMENT_TEXT_MAX = { area: 100, dose: 100, notes: 1000 } as const;
 export const TREATMENTS_MAX = 20;
 export const IMPORTANT_NOTES_MAX = 2000;
@@ -34,6 +35,7 @@ export const TEXT_FIELDS = {
   physicalExam: "Pemeriksaan fisik",
   assessment: "Penilaian / diagnosis",
   plan: "Rencana, program, dan resep",
+  pharmacyNote: "Catatan untuk Apoteker",
 } as const;
 
 export type TextKey = keyof typeof TEXT_FIELDS;
@@ -74,6 +76,7 @@ export const encounterDraftInputSchema = z
     physicalExam: text,
     assessment: text,
     plan: text,
+    pharmacyNote: text,
     vitals: z
       .object({
         systolic: vital,
@@ -142,7 +145,8 @@ export function parseEncounterDraft(input: EncounterDraftInput): Parsed<Encounte
   const texts = {} as Record<TextKey, string | null>;
   for (const key of TEXT_KEYS) {
     const value = clean(input[key]);
-    if (value && value.length > ENCOUNTER_TEXT_MAX) return { ok: false, message: tooLong(TEXT_FIELDS[key], ENCOUNTER_TEXT_MAX) };
+    const max = key === "pharmacyNote" ? PHARMACY_NOTE_MAX : ENCOUNTER_TEXT_MAX;
+    if (value && value.length > max) return { ok: false, message: tooLong(TEXT_FIELDS[key], max) };
     texts[key] = value;
   }
 
@@ -182,6 +186,7 @@ export function emptyDraftInput(): EncounterDraftInput {
     physicalExam: "",
     assessment: "",
     plan: "",
+    pharmacyNote: "",
     vitals: { systolic: "", diastolic: "", pulse: "", temperatureC: "", weightKg: "", heightCm: "", waistCm: "" },
     treatments: [],
   };

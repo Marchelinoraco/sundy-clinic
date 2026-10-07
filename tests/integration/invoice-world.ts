@@ -54,6 +54,7 @@ export async function finalVisit(
     channel?: "KLINIK" | "ONLINE";
     serviceId?: string;
     finalizedAt?: Date;
+    pharmacyNote?: string;
   } = {},
 ): Promise<{ appointmentId: string; encounterId: string }> {
   visitCount += 1;
@@ -81,6 +82,7 @@ export async function finalVisit(
       appointmentId: appointment.id,
       createdById: world.doctorId,
       createdByName: "dr. Uji",
+      pharmacyNote: input.pharmacyNote ?? null,
       treatments: {
         create: treatments.map((t, index) => ({
           serviceId: t.serviceId,
@@ -99,6 +101,38 @@ export async function finalVisit(
   return { appointmentId: appointment.id, encounterId: encounter.id };
 }
 
+/** Penyerahan langsung di basis data (tanpa aksi server). `lines` bawaan kosong; status bawaan MENUNGGU. */
+export async function seedDispensing(
+  world: BillingWorld,
+  appointmentId: string,
+  input: { status?: "MENUNGGU" | "SELESAI" | "TANPA_OBAT"; lines?: { itemId: string; quantity: number; usage?: string }[] } = {},
+): Promise<{ id: string; lineIds: string[] }> {
+  const status = input.status ?? "MENUNGGU";
+  const done = status === "MENUNGGU" ? {} : { completedAt: new Date(), completedById: world.doctorId, completedByName: "Apoteker Uji" };
+  const names = new Map(
+    (await prisma.stockItem.findMany({ select: { id: true, name: true } })).map((item) => [item.id, item.name] as const),
+  );
+  const dispensing = await prisma.dispensing.create({
+    data: {
+      appointmentId,
+      branchId: world.branchId,
+      status,
+      ...done,
+      lines: {
+        create: (input.lines ?? []).map((line, index) => ({
+          itemId: line.itemId,
+          itemName: names.get(line.itemId) ?? "Obat",
+          quantity: line.quantity,
+          usage: line.usage ?? "3 x 1 sesudah makan",
+          sortOrder: index,
+        })),
+      },
+    },
+    select: { id: true, lines: { orderBy: { sortOrder: "asc" }, select: { id: true } } },
+  });
+  return { id: dispensing.id, lineIds: dispensing.lines.map((line) => line.id) };
+}
+
 /** Menghapus semua data dunia uji, dari anak ke induk (relasi tagihan dan stok memakai Restrict). */
 export async function cleanupBillingWorld(slug: string, patientWhatsapps: string[] = []): Promise<void> {
   const branch = { slug: { startsWith: slug } };
@@ -106,6 +140,8 @@ export async function cleanupBillingWorld(slug: string, patientWhatsapps: string
   await prisma.invoicePayment.deleteMany({ where: { invoice: { branch } } });
   await prisma.invoiceLine.deleteMany({ where: { invoice: { branch } } });
   await prisma.invoice.deleteMany({ where: { branch } });
+  await prisma.dispensingLine.deleteMany({ where: { dispensing: { branch } } });
+  await prisma.dispensing.deleteMany({ where: { branch } });
   await prisma.stockMovement.deleteMany({ where: { batch: { branch } } });
   await prisma.stockBatch.deleteMany({ where: { branch } });
   await prisma.purchaseLine.deleteMany({ where: { invoice: { branch } } });

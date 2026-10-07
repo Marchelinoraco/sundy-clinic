@@ -20,6 +20,7 @@ import { appendToSubjective } from "@/lib/food-recall";
 import {
   ENCOUNTER_TEXT_MAX,
   FINALIZE_NEEDS_ASSESSMENT,
+  PHARMACY_NOTE_MAX,
   TEXT_FIELDS,
   TREATMENT_TEXT_MAX,
   VITALS,
@@ -63,19 +64,27 @@ function statusText(status: AutosaveStatus): string {
   }
 }
 
-function TextField({ label, value, onChange, rows = 3 }: { label: string; value: string; onChange: (value: string) => void; rows?: number }) {
+function TextField({
+  label,
+  value,
+  onChange,
+  rows = 3,
+  maxLength = ENCOUNTER_TEXT_MAX,
+  hint,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  rows?: number;
+  maxLength?: number;
+  hint?: string;
+}) {
   const id = useId();
   return (
     <div className="space-y-1">
       <Label htmlFor={id}>{label}</Label>
-      <textarea
-        id={id}
-        rows={rows}
-        maxLength={ENCOUNTER_TEXT_MAX}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={textareaClass}
-      />
+      <textarea id={id} rows={rows} maxLength={maxLength} value={value} onChange={(e) => onChange(e.target.value)} className={textareaClass} />
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
   );
 }
@@ -369,6 +378,14 @@ export function EncounterForm(props: EncounterFormProps) {
           P — Plan
         </h2>
         <TextField label={TEXT_FIELDS.plan} value={draft.plan} onChange={(v) => setText("plan", v)} />
+        <TextField
+          label={TEXT_FIELDS.pharmacyNote}
+          value={draft.pharmacyNote}
+          onChange={(v) => setText("pharmacyNote", v)}
+          rows={2}
+          maxLength={PHARMACY_NOTE_MAX}
+          hint="Diisi bila pasien perlu obat. Apoteker hanya membaca kolom ini, bukan catatan klinis lain."
+        />
       </section>
 
       <section aria-labelledby="bagian-treatment" className="space-y-3">

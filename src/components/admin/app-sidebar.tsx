@@ -9,6 +9,8 @@ import {
   Scissors,
   Settings,
   Users,
+  Pill,
+  PillBottle,
   Receipt,
   Wallet,
 } from "lucide-react";
@@ -30,9 +32,16 @@ import { can, type Capability } from "@/lib/permissions";
 import type { CurrentStaff } from "@/server/session";
 import { NavUser } from "./nav-user";
 
-type NavItem = { title: string; url: string; icon: typeof LayoutDashboard; needs?: Capability };
+export type NavItem = {
+  title: string;
+  url: string;
+  icon: typeof LayoutDashboard;
+  needs?: Capability;
+  /** Menu disembunyikan bagi peran yang memegang kemampuan ini (mis. Apoteker sudah punya menu Stok penuh). */
+  hideWith?: Capability;
+};
 
-const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
+export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   {
     title: "Utama",
     items: [
@@ -47,7 +56,9 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
     title: "Persediaan & keuangan",
     items: [
       { title: "Tagihan", url: "/admin/tagihan", icon: Receipt, needs: "invoice:read" },
+      { title: "Resep", url: "/admin/resep", icon: Pill, needs: "dispense:read" },
       { title: "Stok", url: "/admin/stok", icon: Package, needs: "stock:read" },
+      { title: "Stok obat", url: "/admin/stok-dokter", icon: PillBottle, needs: "stock:availability", hideWith: "stock:read" },
       { title: "Hutang", url: "/admin/hutang", icon: Wallet, needs: "payable:manage" },
     ],
   },
@@ -61,6 +72,12 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   },
 ];
 
+export function isNavItemVisible(role: CurrentStaff["role"], item: NavItem): boolean {
+  if (item.needs && !can(role, item.needs)) return false;
+  if (item.hideWith && can(role, item.hideWith)) return false;
+  return true;
+}
+
 export function AppSidebar({
   staff,
   pendingBookings = 0,
@@ -68,6 +85,7 @@ export function AppSidebar({
   stockAlerts = 0,
   overduePayables = 0,
   billable = 0,
+  pendingDispensing = 0,
 }: {
   staff: CurrentStaff;
   /** Booking yang menunggu konfirmasi (situs dan WA/telepon), angka di menu Booking. */
@@ -80,11 +98,14 @@ export function AppSidebar({
   overduePayables?: number;
   /** Kunjungan final yang belum ditagih, angka di menu Tagihan. */
   billable?: number;
+  /** Resep menunggu penyerahan, angka di menu Resep. */
+  pendingDispensing?: number;
 }) {
   const badges: Record<string, { count: number; label: string }> = {
     "/admin/booking": { count: pendingBookings, label: `${pendingBookings} booking menunggu konfirmasi` },
     "/admin/pengingat": { count: reminderWork, label: `${reminderWork} pesan WhatsApp belum dikirim` },
     "/admin/tagihan": { count: billable, label: `${billable} kunjungan perlu ditagih` },
+    "/admin/resep": { count: pendingDispensing, label: `${pendingDispensing} resep menunggu` },
     "/admin/stok": { count: stockAlerts, label: `${stockAlerts} barang menipis atau kedaluwarsa` },
     "/admin/hutang": { count: overduePayables, label: `${overduePayables} faktur hutang terlambat` },
   };
@@ -118,7 +139,7 @@ export function AppSidebar({
           // Menu yang tidak berhak diakses tidak ditampilkan. Ini kenyamanan,
           // bukan keamanan — halamannya sendiri tetap memanggil
           // requireCapability(), karena URL bisa diketik langsung.
-          const visible = group.items.filter((item) => !item.needs || can(staff.role, item.needs));
+          const visible = group.items.filter((item) => isNavItemVisible(staff.role, item));
           if (visible.length === 0) return null;
 
           return (

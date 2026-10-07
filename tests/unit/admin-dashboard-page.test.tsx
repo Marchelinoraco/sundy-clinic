@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AdminDashboardPage from "@/app/(admin)/admin/page";
 import { getDashboardNumbers, getTodaySchedule, getTodayWork } from "@/server/dashboard";
+import { countPendingDispensings } from "@/server/dispensing-read";
 import { countBillable, unpaidOverview } from "@/server/invoice-read";
 import { payablesOverview } from "@/server/payable-read";
 import { countStockAlerts } from "@/server/stock-read";
@@ -18,6 +19,7 @@ vi.mock("@/server/online-consultation", () => ({ startOnlineConsultation: vi.fn(
 vi.mock("@/server/dashboard", () => ({ getTodayWork: vi.fn(), getTodaySchedule: vi.fn(), getDashboardNumbers: vi.fn() }));
 vi.mock("@/server/stock-read", () => ({ countStockAlerts: vi.fn() }));
 vi.mock("@/server/payable-read", () => ({ payablesOverview: vi.fn() }));
+vi.mock("@/server/dispensing-read", () => ({ countPendingDispensings: vi.fn() }));
 vi.mock("@/server/invoice-read", () => ({ countBillable: vi.fn(), unpaidOverview: vi.fn() }));
 
 const WORK = {
@@ -41,6 +43,7 @@ beforeEach(() => {
   vi.mocked(listDoctorWorklist).mockResolvedValue({ today: [], unfinished: [] });
   vi.mocked(listOnlineWork).mockResolvedValue([]);
   vi.mocked(countBillable).mockResolvedValue(0);
+  vi.mocked(countPendingDispensings).mockResolvedValue(0);
   vi.mocked(unpaidOverview).mockResolvedValue({ count: 0, balance: 0 });
 });
 
@@ -147,6 +150,22 @@ describe("halaman Dasbor (spec D 4)", () => {
     expect(within(screen.getByRole("region", { name: "Tagihan" })).getByRole("link", { name: /Tagihan belum lunas/ })).toHaveTextContent("Rp 170.000");
     expect(countBillable).not.toHaveBeenCalled();
     log.mockRestore();
+  });
+
+  it("Apoteker melihat kotak Resep menunggu; resepsionis tidak memanggilnya", async () => {
+    vi.mocked(requireStaff).mockResolvedValue({ userId: "u3", staffId: "s3", name: "Rina Apoteker", role: "APOTEKER", email: "a@sundy.test" } as never);
+    vi.mocked(countStockAlerts).mockResolvedValue({ low: 0, expiringSoon: 0, expired: 0 });
+    vi.mocked(countPendingDispensings).mockResolvedValue(2);
+    await renderPage();
+    const tile = within(screen.getByRole("region", { name: "Resep" })).getByRole("link", { name: /Resep menunggu/ });
+    expect(tile).toHaveAttribute("href", "/admin/resep");
+    expect(tile).toHaveTextContent("2");
+
+    vi.mocked(countPendingDispensings).mockClear();
+    vi.mocked(requireStaff).mockResolvedValue({ userId: "u2", staffId: "s2", name: "Rina", role: "RESEPSIONIS", email: "r@sundy.test" } as never);
+    document.body.innerHTML = "";
+    await renderPage();
+    expect(countPendingDispensings).not.toHaveBeenCalled();
   });
 
   it("bagian Hutang yang gagal dimuat tidak menjatuhkan halaman", async () => {

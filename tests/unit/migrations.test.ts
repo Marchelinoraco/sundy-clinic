@@ -102,3 +102,17 @@ describe("migrasi tagihan", () => {
     expect(sql).toMatch(/ADD VALUE 'KELUAR'/);
   });
 });
+
+describe("migrasi penyerahan obat", () => {
+  const sql = readFileSync("prisma/migrations/20261007200000_penyerahan_obat/migration.sql", "utf8");
+
+  it("hanya menambah: tanpa DROP", () => {
+    expect(sql).not.toMatch(/\bDROP\b/i);
+  });
+
+  it("menjaga status, baris, dan panjang catatan di basis data", () => {
+    for (const name of ["dispensing_status_fields", "dispensing_line_values", "encounter_pharmacy_note_length"]) {
+      expect(sql).toContain(name);
+    }
+  });
+});

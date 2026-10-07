@@ -16,8 +16,12 @@ import { can } from "@/lib/permissions";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { recordAudit } from "@/server/audit";
 import { isExclusionViolation } from "@/server/db-errors";
+import { handedInvoiceLines, lockDispensingRow } from "@/server/dispensing-store";
 import { guardDiscount, touchDraft } from "@/server/invoice-store";
 import { requireCapability } from "@/server/session";
+
+const DISPENSED_QUANTITY = "Jumlah obat dari penyerahan tidak bisa diubah. Minta Apoteker membuka kembali penyerahan.";
+const DISPENSED_REMOVE = "Obat dari penyerahan tidak bisa dihapus. Minta Apoteker membuka kembali penyerahan.";
 
 function revalidateInvoices(invoiceId?: string) {
   safeRevalidatePath("/admin/tagihan");
@@ -75,16 +79,27 @@ export async function createInvoiceFromVisit(appointmentId: string): Promise<Act
     });
 
     try {
-      const created = await prisma.invoice.create({
-        data: {
-          patientId: appointment.patientId,
-          appointmentId: id,
-          branchId: appointment.branchId,
-          createdById: actor.staffId,
-          createdByName: actor.name,
-          lines: { create: lines.map((line, index) => ({ ...line, sortOrder: index })) },
-        },
-        select: { id: true },
+      const created = await prisma.$transaction(async (tx) => {
+        // Baris penyerahan dikunci dulu, supaya pembuatan tagihan dan penyelesaian penyerahan bergiliran
+        // (spec penyerahan 4.3): yang kedua selalu melihat hasil yang pertama.
+        const dispensing = await tx.dispensing.findUnique({ where: { appointmentId: id }, select: { id: true } });
+        let handed: Awaited<ReturnType<typeof handedInvoiceLines>> = [];
+        if (dispensing) {
+          await lockDispensingRow(tx, dispensing.id);
+          handed = await handedInvoiceLines(tx, dispensing.id);
+        }
+        const all = [...lines.map((line) => ({ ...line, dispensingLineId: null as string | null })), ...handed];
+        return tx.invoice.create({
+          data: {
+            patientId: appointment.patientId!,
+            appointmentId: id,
+            branchId: appointment.branchId,
+            createdById: actor.staffId,
+            createdByName: actor.name,
+            lines: { create: all.map((line, index) => ({ ...line, sortOrder: index })) },
+          },
+          select: { id: true },
+        });
       });
       await recordAudit({
         actor,
@@ -232,9 +247,10 @@ export async function updateInvoiceLine(input: {
       const version = await touchDraft(tx, invoiceId, input.version);
       const line = await tx.invoiceLine.findFirst({
         where: { id: String(input.lineId ?? ""), invoiceId },
-        select: { id: true, name: true, unitPrice: true, priceNote: true, serviceId: true, itemId: true },
+        select: { id: true, name: true, quantity: true, unitPrice: true, priceNote: true, serviceId: true, itemId: true, dispensingLineId: true },
       });
       if (!line) throw new UserFacingError("Baris tidak ditemukan.");
+      if (line.dispensingLineId && input.quantity !== line.quantity) throw new UserFacingError(DISPENSED_QUANTITY);
 
       const catalogPrice = line.itemId
         ? (await tx.stockItem.findUnique({ where: { id: line.itemId }, select: { sellPrice: true } }))?.sellPrice ?? null
@@ -271,8 +287,9 @@ export async function removeInvoiceLine(input: { invoiceId: string; version: num
 
     const result = await prisma.$transaction(async (tx) => {
       const version = await touchDraft(tx, invoiceId, input.version);
-      const line = await tx.invoiceLine.findFirst({ where: { id: String(input.lineId ?? ""), invoiceId }, select: { id: true, name: true } });
+      const line = await tx.invoiceLine.findFirst({ where: { id: String(input.lineId ?? ""), invoiceId }, select: { id: true, name: true, dispensingLineId: true } });
       if (!line) throw new UserFacingError("Baris tidak ditemukan.");
+      if (line.dispensingLineId) throw new UserFacingError(DISPENSED_REMOVE);
       await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
         await tx.invoiceLine.delete({ where: { id: line.id } });
       });

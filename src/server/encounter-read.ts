@@ -272,6 +272,7 @@ export async function getEncounterForStaff(encounterId: string): Promise<Encount
       physicalExam: true,
       assessment: true,
       plan: true,
+      pharmacyNote: true,
       ...VITAL_SELECT,
       createdByName: true,
       finalizedByName: true,
@@ -377,6 +378,7 @@ export async function getEncounterForStaff(encounterId: string): Promise<Encount
       physicalExam: row.physicalExam ?? "",
       assessment: row.assessment ?? "",
       plan: row.plan ?? "",
+      pharmacyNote: row.pharmacyNote ?? "",
       vitals: vitalInputs,
       treatments: row.treatments.map((t) => ({
         serviceId: t.serviceId,
