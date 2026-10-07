@@ -9,6 +9,7 @@ import {
   Scissors,
   Settings,
   Users,
+  Receipt,
   Wallet,
 } from "lucide-react";
 import {
@@ -45,6 +46,7 @@ const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
 {
     title: "Persediaan & keuangan",
     items: [
+      { title: "Tagihan", url: "/admin/tagihan", icon: Receipt, needs: "invoice:read" },
       { title: "Stok", url: "/admin/stok", icon: Package, needs: "stock:read" },
       { title: "Hutang", url: "/admin/hutang", icon: Wallet, needs: "payable:manage" },
     ],
@@ -65,6 +67,7 @@ export function AppSidebar({
   reminderWork = 0,
   stockAlerts = 0,
   overduePayables = 0,
+  billable = 0,
 }: {
   staff: CurrentStaff;
   /** Booking yang menunggu konfirmasi (situs dan WA/telepon), angka di menu Booking. */
@@ -75,10 +78,13 @@ export function AppSidebar({
   stockAlerts?: number;
   /** Faktur hutang yang lewat jatuh tempo, angka di menu Hutang. */
   overduePayables?: number;
+  /** Kunjungan final yang belum ditagih, angka di menu Tagihan. */
+  billable?: number;
 }) {
   const badges: Record<string, { count: number; label: string }> = {
     "/admin/booking": { count: pendingBookings, label: `${pendingBookings} booking menunggu konfirmasi` },
     "/admin/pengingat": { count: reminderWork, label: `${reminderWork} pesan WhatsApp belum dikirim` },
+    "/admin/tagihan": { count: billable, label: `${billable} kunjungan perlu ditagih` },
     "/admin/stok": { count: stockAlerts, label: `${stockAlerts} barang menipis atau kedaluwarsa` },
     "/admin/hutang": { count: overduePayables, label: `${overduePayables} faktur hutang terlambat` },
   };

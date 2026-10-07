@@ -339,3 +339,19 @@ export async function listBillingItems(branchId: string): Promise<BillingItem[]>
     available: stockFlags(item.batches, 0, today).available,
   }));
 }
+
+/** Tagihan final yang belum lunas (spec tagihan 8): jumlah dan total sisanya. */
+export async function unpaidOverview(): Promise<{ count: number; balance: number }> {
+  await requireCapability("invoice:read");
+  const rows = await prisma.invoice.findMany({ where: { status: "FINAL" }, select: TOTALS_SELECT });
+  let count = 0;
+  let balance = 0;
+  for (const row of rows) {
+    const { balance: left } = invoiceTotals(row);
+    if (left > 0) {
+      count += 1;
+      balance += left;
+    }
+  }
+  return { count, balance };
+}

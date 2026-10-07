@@ -2,6 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AdminDashboardPage from "@/app/(admin)/admin/page";
 import { getDashboardNumbers, getTodaySchedule, getTodayWork } from "@/server/dashboard";
+import { countBillable, unpaidOverview } from "@/server/invoice-read";
 import { payablesOverview } from "@/server/payable-read";
 import { countStockAlerts } from "@/server/stock-read";
 import { listDoctorWorklist, listOnlineWork } from "@/server/encounter-read";
@@ -17,7 +18,7 @@ vi.mock("@/server/online-consultation", () => ({ startOnlineConsultation: vi.fn(
 vi.mock("@/server/dashboard", () => ({ getTodayWork: vi.fn(), getTodaySchedule: vi.fn(), getDashboardNumbers: vi.fn() }));
 vi.mock("@/server/stock-read", () => ({ countStockAlerts: vi.fn() }));
 vi.mock("@/server/payable-read", () => ({ payablesOverview: vi.fn() }));
-vi.mock("@/server/payable-read", () => ({ payablesOverview: vi.fn() }));
+vi.mock("@/server/invoice-read", () => ({ countBillable: vi.fn(), unpaidOverview: vi.fn() }));
 
 const WORK = {
   pending: 0,
@@ -39,6 +40,8 @@ beforeEach(() => {
   vi.mocked(getTodaySchedule).mockResolvedValue({ date: "2031-02-12", holidayName: null, lanes: [], offStaff: [] });
   vi.mocked(listDoctorWorklist).mockResolvedValue({ today: [], unfinished: [] });
   vi.mocked(listOnlineWork).mockResolvedValue([]);
+  vi.mocked(countBillable).mockResolvedValue(0);
+  vi.mocked(unpaidOverview).mockResolvedValue({ count: 0, balance: 0 });
 });
 
 async function renderPage() {
@@ -120,6 +123,29 @@ describe("halaman Dasbor (spec D 4)", () => {
     expect(screen.getByRole("region", { name: "Stok" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Angka" })).toBeInTheDocument();
     expect(getTodayWork).not.toHaveBeenCalled();
+    log.mockRestore();
+  });
+
+  it("resepsionis melihat kotak Perlu ditagih, bukan Tagihan belum lunas", async () => {
+    vi.mocked(requireStaff).mockResolvedValue({ userId: "u2", staffId: "s2", name: "Rina", role: "RESEPSIONIS", email: "r@sundy.test" } as never);
+    vi.mocked(countBillable).mockResolvedValue(4);
+    await renderPage();
+    const tiles = screen.getByRole("region", { name: "Tagihan" });
+    expect(within(tiles).getByRole("link", { name: /Perlu ditagih/ })).toHaveTextContent("4");
+    expect(within(tiles).queryByText("Tagihan belum lunas")).not.toBeInTheDocument();
+    expect(unpaidOverview).not.toHaveBeenCalled();
+  });
+
+  it("Admin Keuangan melihat Tagihan belum lunas; kegagalan memuatnya tidak menjatuhkan halaman", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(requireStaff).mockResolvedValue({ userId: "u4", staffId: "s4", name: "Budi Keuangan", role: "ADMIN_KEUANGAN", email: "k@sundy.test" } as never);
+    vi.mocked(countStockAlerts).mockResolvedValue({ low: 0, expiringSoon: 0, expired: 0 });
+    vi.mocked(payablesOverview).mockResolvedValue({ totalBalance: 0, overdueBalance: 0, overdueCount: 0, dueSoonCount: 0, credit: 0, bySupplier: [] });
+    vi.mocked(getDashboardNumbers).mockRejectedValue(new Error("tidak dimuat di uji ini"));
+    vi.mocked(unpaidOverview).mockResolvedValue({ count: 2, balance: 170000 });
+    await renderPage();
+    expect(within(screen.getByRole("region", { name: "Tagihan" })).getByRole("link", { name: /Tagihan belum lunas/ })).toHaveTextContent("Rp 170.000");
+    expect(countBillable).not.toHaveBeenCalled();
     log.mockRestore();
   });
 

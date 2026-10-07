@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppSidebar } from "@/components/admin/app-sidebar";
 import { can } from "@/lib/permissions";
 import { countPendingBookings } from "@/server/appointment";
+import { countBillable } from "@/server/invoice-read";
 import { countOverduePayables } from "@/server/payable-read";
 import { countReminderWork } from "@/server/reminder";
 import { requireStaff } from "@/server/session";
@@ -18,9 +19,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const [pendingBookings, reminderWork] = can(staff.role, "booking:manage")
     ? await Promise.all([countPendingBookings(), countReminderWork()])
     : [0, 0];
-  const [stockAlerts, overduePayables] = await Promise.all([
+  const [stockAlerts, overduePayables, billable] = await Promise.all([
     can(staff.role, "stock:read") ? countStockAlerts().then((alerts) => alerts.low + alerts.expired) : 0,
     can(staff.role, "payable:manage") ? countOverduePayables() : 0,
+    can(staff.role, "invoice:manage") ? countBillable() : 0,
   ]);
 
   return (
@@ -29,7 +31,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     // hanya panel admin yang memakai sidebar bertooltip.
     <TooltipProvider>
       <SidebarProvider>
-        <AppSidebar staff={staff} pendingBookings={pendingBookings} reminderWork={reminderWork} stockAlerts={stockAlerts} overduePayables={overduePayables} />
+        <AppSidebar staff={staff} pendingBookings={pendingBookings} reminderWork={reminderWork} stockAlerts={stockAlerts} overduePayables={overduePayables} billable={billable} />
         <SidebarInset>{children}</SidebarInset>
         {/* Kanan atas: bar aksi halaman kunjungan menempel di bawah, dan toast di sana menutupi Finalisasi. */}
         <Toaster position="top-right" />
