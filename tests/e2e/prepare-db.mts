@@ -178,6 +178,37 @@ for (const [index, project] of ["desktop", "mobile"].entries()) {
   });
 }
 
+// Pemberitahuan langsung (pemberitahuan.spec.ts): dua pasien hadir hari ini per proyek (satu untuk resep, satu tanpa resep),
+// pukul 01.00/01.30 (desktop) dan 02.00/02.30 (ponsel), di luar jam buka.
+for (const [index, project] of ["desktop", "mobile"].entries()) {
+  for (const [offset, label] of ["A", "B"].entries()) {
+    const patient = await prisma.patient.create({
+      data: {
+        medicalRecordNumber: `SDY-E2E-NOTIF-${label}${index + 1}`,
+        name: `Pasien Notif ${label} ${project}`,
+        whatsapp: `6281200082${index}${offset}1`,
+        birthDate: new Date("1993-02-11T00:00:00Z"),
+        gender: "P",
+      },
+    });
+    const startAt = combineWitaDateAndMinutes(today, (1 + index) * 60 + offset * 30);
+    await prisma.appointment.create({
+      data: {
+        code: `E2E-NOTIF-${label}${index + 1}`,
+        type: "KONSULTASI",
+        startAt,
+        endAt: new Date(startAt.getTime() + 30 * 60_000),
+        status: "HADIR",
+        source: "WALK_IN",
+        branchId: visitBranch.id,
+        staffId: visitDoctor.id,
+        serviceId: visitService.id,
+        patientId: patient.id,
+      },
+    });
+  }
+}
+
 // Pengingat H-1 (pengingat.spec.ts): satu booking terkonfirmasi per proyek di hari buka
 // berikutnya, pukul 06.00/06.30 (di luar jam buka). Hari pengingatnya hari ini (atau kemarin
 // bila uji dijalankan hari Minggu). Konfirmasinya tercatat tiga hari lalu, jadi booking ini
