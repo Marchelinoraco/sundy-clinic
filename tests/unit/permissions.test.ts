@@ -114,3 +114,30 @@ describe("hak akses tagihan (spec tagihan 6)", () => {
     }
   });
 });
+
+describe("hak akses penyerahan obat (spec penyerahan 5)", () => {
+  it("Apoteker menyerahkan obat dan melihat stok; tidak membaca catatan klinis", () => {
+    for (const capability of ["dispense:read", "dispense:manage", "stock:availability"] as const) {
+      expect(can("APOTEKER", capability)).toBe(true);
+    }
+    expect(can("APOTEKER", "record:read")).toBe(false);
+  });
+
+  it("Dokter hanya melihat ketersediaan stok", () => {
+    expect(can("DOKTER", "stock:availability")).toBe(true);
+    expect(can("DOKTER", "dispense:read")).toBe(false);
+    expect(can("DOKTER", "dispense:manage")).toBe(false);
+    expect(can("DOKTER", "stock:read")).toBe(false);
+  });
+
+  it("Resepsionis, Admin Keuangan, dan Terapis tidak punya akses; Super Admin semuanya", () => {
+    for (const role of ["RESEPSIONIS", "ADMIN_KEUANGAN", "TERAPIS"] as const) {
+      for (const capability of ["dispense:read", "dispense:manage", "stock:availability"] as const) {
+        expect(can(role, capability)).toBe(false);
+      }
+    }
+    for (const capability of ["dispense:read", "dispense:manage", "stock:availability"] as const) {
+      expect(can("SUPER_ADMIN", capability)).toBe(true);
+    }
+  });
+});

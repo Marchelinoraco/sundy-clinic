@@ -21,7 +21,10 @@ export type Capability =
   | "payable:manage"
   | "invoice:read"
   | "invoice:manage"
-  | "invoice:correct";
+  | "invoice:correct"
+  | "dispense:read"
+  | "dispense:manage"
+  | "stock:availability";
 
 export const CAPABILITIES_BY_ROLE: Record<StaffRole, readonly Capability[]> = {
   SUPER_ADMIN: [
@@ -39,11 +42,14 @@ export const CAPABILITIES_BY_ROLE: Record<StaffRole, readonly Capability[]> = {
     "invoice:read",
     "invoice:manage",
     "invoice:correct",
+    "dispense:read",
+    "dispense:manage",
+    "stock:availability",
   ],
 
   // Dokter memegang rekam medis, tetapi tidak mengelola akun staf.
   // report:read (Angka dasbor, termasuk biaya booking masuk) hanya untuk Super Admin dan Admin Keuangan (spec D 4.6, spec stok 7.2).
-  DOKTER: ["booking:manage", "schedule:manage", "record:read", "record:write"],
+  DOKTER: ["booking:manage", "schedule:manage", "record:read", "record:write", "stock:availability"],
 
   // Resepsionis mengurus booking dan jadwal. Catatan klinis sengaja tidak ada
   // di daftar ini — lihat PRD bagian 4.
@@ -56,7 +62,7 @@ export const CAPABILITIES_BY_ROLE: Record<StaffRole, readonly Capability[]> = {
 
   // Apoteker mengelola barang, barang masuk, retur, dan penyesuaian stok (spec stok 7).
   // Ia mengisi harga beli dari faktur kertas, tetapi tidak mengurus pembayaran hutang.
-  APOTEKER: ["stock:read", "stock:manage"],
+  APOTEKER: ["stock:read", "stock:manage", "dispense:read", "dispense:manage", "stock:availability"],
 
   // Admin Keuangan melihat stok, mengelola hutang ke supplier, dan melihat Angka dasbor.
   // Tidak mengubah stok, booking, jadwal, rekam medis, atau akun staf (spec stok 7.2).
