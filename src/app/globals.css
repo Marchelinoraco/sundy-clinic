@@ -80,8 +80,9 @@ h3 {
 }
 
 /* Panel admin: aturan judul situs publik di atas tidak berlapis sehingga mengalahkan gaya MUI (berlapis).
-   revert-layer mengembalikan judul admin ke huruf dan warna tema MUI, termasuk mode gelap. */
-.MuiScopedCssBaseline-root :is(h1, h2, h3) {
+   revert-layer mengembalikan judul admin ke huruf dan warna tema MUI, termasuk mode gelap. Dialog, menu,
+   dan laci MUI dirender lewat portal di luar akar panel, jadi akarnya disebut juga. */
+:is(.MuiScopedCssBaseline-root, .MuiDialog-root, .MuiDrawer-root, .MuiPopover-root, .MuiPopper-root) :is(h1, h2, h3) {
   font-family: revert-layer;
   color: revert-layer;
 }

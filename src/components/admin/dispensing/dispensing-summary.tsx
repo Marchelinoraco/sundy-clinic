@@ -1,54 +1,65 @@
-import Link from "next/link";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import Stack from "@mui/material/Stack";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
+import Typography from "@mui/material/Typography";
 import { formatDateWithYear } from "@/lib/format";
 import type { DispensingDetail } from "@/server/dispensing-read";
+import { TextLink } from "../mui/links";
 import { DispensingStatusBadge } from "./dispensing-status-badge";
 import { ReopenDispensingButton } from "./reopen-dispensing-button";
 
 /** Penyerahan yang sudah diproses (Selesai atau Tanpa obat). */
 export function DispensingSummary({ detail }: { detail: DispensingDetail }) {
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2 text-sm">
+    <Stack spacing={2}>
+      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
         <DispensingStatusBadge status={detail.status} />
         {detail.completedAt && (
-          <span className="text-muted-foreground">
+          <Typography variant="body2" component="span" sx={{ color: "text.secondary" }}>
             {formatDateWithYear(detail.completedAt)} oleh {detail.completedByName}
-          </span>
+          </Typography>
         )}
-      </div>
+      </Stack>
       {detail.lines.length > 0 && (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Obat</TableHead>
-              <TableHead className="text-right">Jumlah</TableHead>
-              <TableHead>Aturan pakai</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {detail.lines.map((line) => (
-              <TableRow key={line.id}>
-                <TableCell className="font-medium">{line.itemName}</TableCell>
-                <TableCell className="text-right">{line.quantity}</TableCell>
-                <TableCell>{line.usage}</TableCell>
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Obat</TableCell>
+                <TableCell align="right">Jumlah</TableCell>
+                <TableCell>Aturan pakai</TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHead>
+            <TableBody>
+              {detail.lines.map((line) => (
+                <TableRow key={line.id}>
+                  <TableCell sx={{ fontWeight: 500 }}>{line.itemName}</TableCell>
+                  <TableCell align="right">{line.quantity}</TableCell>
+                  <TableCell>{line.usage}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
       )}
-      <div className="flex flex-wrap items-start gap-3">
+      <Stack direction="row" spacing={1.5} useFlexGap sx={{ flexWrap: "wrap", alignItems: "flex-start" }}>
         {detail.lines.length > 0 && (
-          <Link href={`/admin/resep/${detail.id}/etiket`} className="text-sm underline underline-offset-4">
+          <TextLink href={`/admin/resep/${detail.id}/etiket`} underline="always" sx={{ fontSize: "0.875rem" }}>
             Cetak etiket
-          </Link>
+          </TextLink>
         )}
         {detail.canReopen ? (
           <ReopenDispensingButton dispensingId={detail.id} />
         ) : (
-          <p className="text-sm text-muted-foreground">Tidak bisa dibuka kembali karena tagihan sudah final.</p>
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            Tidak bisa dibuka kembali karena tagihan sudah final.
+          </Typography>
         )}
-      </div>
-    </div>
+      </Stack>
+    </Stack>
   );
 }

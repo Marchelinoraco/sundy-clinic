@@ -1,7 +1,9 @@
 "use client";
 
+import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
+import Stack from "@mui/material/Stack";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { reopenDispensing } from "@/server/dispensing-lifecycle";
 import { useDispensingAction } from "./use-dispensing-action";
 
@@ -9,15 +11,16 @@ import { useDispensingAction } from "./use-dispensing-action";
 export function ReopenDispensingButton({ dispensingId }: { dispensingId: string }) {
   const { run, error, pending } = useDispensingAction();
   return (
-    <div className="space-y-1">
-      <Button type="button" variant="outline" disabled={pending} onClick={() => run(() => reopenDispensing({ dispensingId }), () => toast.success("Penyerahan dibuka kembali."))}>
+    <Stack spacing={0.5} sx={{ alignItems: "flex-start" }}>
+      <Button
+        type="button"
+        variant="outlined"
+        disabled={pending}
+        onClick={() => run(() => reopenDispensing({ dispensingId }), () => toast.success("Penyerahan dibuka kembali."))}
+      >
         Buka kembali
       </Button>
-      {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
-    </div>
+      {error && <Alert severity="error">{error}</Alert>}
+    </Stack>
   );
 }

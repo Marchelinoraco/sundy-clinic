@@ -46,10 +46,25 @@ export function PageHeader({ title, description, trail, actions }: { title: stri
   );
 }
 
-/** Jarak tepi dan lebar isi yang sama di semua halaman. Halaman kunjungan memakai `wide`. */
+/**
+ * Jarak tepi dan lebar isi yang sama di semua halaman. Halaman kunjungan memakai `wide`. Jarak bawah lebih
+ * besar supaya isi terakhir bisa digulir ke atas tombol bunyi notifikasi yang mengambang di pojok kanan bawah.
+ */
 export function PageBody({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
   return (
-    <Box sx={{ mx: "auto", width: "100%", maxWidth: wide ? "none" : 1152, p: { xs: 2, sm: 3 }, display: "flex", flexDirection: "column", gap: 3 }}>
+    <Box
+      sx={{
+        mx: "auto",
+        width: "100%",
+        maxWidth: wide ? "none" : 1152,
+        pt: { xs: 2, sm: 3 },
+        px: { xs: 2, sm: 3 },
+        pb: 10,
+        display: "flex",
+        flexDirection: "column",
+        gap: 3,
+      }}
+    >
       {children}
     </Box>
   );

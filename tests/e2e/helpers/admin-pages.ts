@@ -18,8 +18,9 @@ export const ADMIN_PAGES: AdminPage[] = [
   { path: "/admin/tagihan" },
   { path: "/admin/tagihan/[id]", from: "/admin/tagihan?lihat=BELUM_LUNAS", link: 'a[href^="/admin/tagihan/"]' },
   { path: "/admin/resep" },
-  { path: "/admin/resep/[id]", from: "/admin/resep", link: 'a[href^="/admin/resep/"]' },
-  { path: "/admin/resep/[id]/etiket", from: "/admin/resep", via: 'a[href^="/admin/resep/"]', link: 'a[href$="/etiket"]' },
+  // Dari tampilan Selesai: resep yang diserahkan spek E2E tidak lagi ada di tampilan bawaan (Menunggu), dan etiket hanya ada untuk yang Selesai.
+  { path: "/admin/resep/[id]", from: "/admin/resep?lihat=SELESAI", link: 'a[href^="/admin/resep/"]' },
+  { path: "/admin/resep/[id]/etiket", from: "/admin/resep?lihat=SELESAI", via: 'a[href^="/admin/resep/"]', link: 'a[href$="/etiket"]' },
   { path: "/admin/stok" },
   { path: "/admin/stok/barang/[id]", from: "/admin/stok", link: 'a[href^="/admin/stok/barang/"]' },
   { path: "/admin/stok/masuk/[id]", from: "/admin/stok?tab=masuk", link: 'a[href^="/admin/stok/masuk/"]' },

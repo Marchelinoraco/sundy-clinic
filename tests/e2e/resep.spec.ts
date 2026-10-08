@@ -1,5 +1,6 @@
 import { expect, test, type TestInfo } from "@playwright/test";
 import { E2E_ADMIN, E2E_APOTEKER, E2E_KEUANGAN, E2E_RESEPSIONIS } from "./credentials";
+import { pilihOpsi } from "./helpers/mui";
 import { signIn } from "./helpers/quiz";
 
 // Satu cerita berurutan per proyek (desktop/ponsel, data masing-masing):
@@ -85,7 +86,7 @@ test("apoteker menyerahkan obat dan mencetak etiket; data klinis lain tertutup",
   await expect(page.getByRole("region", { name: "Catatan untuk Apoteker" })).toContainText("Amoxicillin 3x1 selama 5 hari");
   await expect(page.getByText("Infeksi saluran napas")).toHaveCount(0);
 
-  await page.getByLabel("Obat", { exact: true }).selectOption({ label: `${itemName} (E2E-${t}-RSP) — sisa 10 kapsul` });
+  await pilihOpsi(page, "Obat", `${itemName} (E2E-${t}-RSP) — sisa 10 kapsul`);
   await page.getByLabel("Jumlah", { exact: true }).fill("2");
   await page.getByLabel("Aturan pakai", { exact: true }).fill("3 x 1 sesudah makan");
   await page.getByRole("button", { name: "+ Tambah obat" }).click();

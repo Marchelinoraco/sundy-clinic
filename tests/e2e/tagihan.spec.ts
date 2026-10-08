@@ -1,5 +1,6 @@
 import { expect, test, type TestInfo } from "@playwright/test";
 import { E2E_APOTEKER, E2E_KEUANGAN, E2E_RESEPSIONIS } from "./credentials";
+import { pilihOpsi } from "./helpers/mui";
 import { signIn } from "./helpers/quiz";
 
 // Satu cerita berurutan per proyek (desktop/ponsel, data masing-masing):
@@ -68,7 +69,7 @@ test("resepsionis menagih penjualan langsung, memfinalkan, dan menerima pembayar
 
   await page.getByRole("button", { name: "+ Tambah barang" }).click();
   const itemDialog = page.getByRole("dialog", { name: "Tambah barang" });
-  await itemDialog.getByLabel("Barang", { exact: true }).selectOption({ label: `${itemName} (E2E-${t}-VIT) — sisa 10 tablet` });
+  await pilihOpsi(itemDialog, "Barang", `${itemName} (E2E-${t}-VIT) — sisa 10 tablet`);
   await itemDialog.getByLabel("Jumlah").fill("2");
   await itemDialog.getByRole("button", { name: "Tambah" }).click();
   await expect(itemDialog).toBeHidden({ timeout: 30_000 });
@@ -92,6 +93,14 @@ test("resepsionis menagih penjualan langsung, memfinalkan, dan menerima pembayar
   await page.getByLabel("Nilai diskon").fill("10");
   await page.getByRole("button", { name: "Terapkan diskon" }).click();
   await expect(summary).toContainText("Rp 135.000", { timeout: 30_000 });
+
+  // Tombol bunyi notifikasi mengambang di pojok kanan bawah tidak menutupi tombol terakhir halaman.
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  const finalizeBox = await page.getByRole("button", { name: "Finalkan tagihan" }).boundingBox();
+  const bellBox = await page.getByRole("button", { name: /Bunyi notifikasi/ }).boundingBox();
+  expect(finalizeBox && bellBox, "tombol Finalkan dan tombol bunyi terlihat").toBeTruthy();
+  const apart = finalizeBox!.x + finalizeBox!.width <= bellBox!.x || finalizeBox!.y + finalizeBox!.height <= bellBox!.y;
+  expect(apart, `Finalkan ${JSON.stringify(finalizeBox)} tertutup tombol bunyi ${JSON.stringify(bellBox)}`).toBe(true);
 
   await page.getByRole("button", { name: "Finalkan tagihan" }).click();
   await page.getByRole("dialog", { name: "Finalkan tagihan?" }).getByRole("button", { name: "Finalkan" }).click();

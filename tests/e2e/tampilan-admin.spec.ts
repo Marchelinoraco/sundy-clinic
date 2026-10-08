@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { E2E_ADMIN } from "./credentials";
+import { tungguHidrasi } from "./helpers/mui";
 import { signIn } from "./helpers/quiz";
 
 test.setTimeout(180_000);
@@ -30,6 +31,18 @@ test("setiap halaman admin punya tepat satu judul besar, tanpa gulir mendatar di
       expect(overflow, `${path} melebar ${overflow}px`).toBeLessThanOrEqual(1);
     }
   }
+});
+
+test("judul dialog di mode gelap memakai warna teks tema, bukan warna judul situs publik", async ({ page }) => {
+  // Dialog MUI dirender di luar akar panel (portal), jadi aturan judul situs publik harus dikembalikan di sana juga.
+  await signIn(page, E2E_ADMIN);
+  await page.goto("/admin/tagihan");
+  await tungguHidrasi(page);
+  await page.getByRole("group", { name: "Mode tampilan" }).getByRole("button", { name: "Gelap" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-dark", "");
+  await page.getByRole("button", { name: "+ Penjualan langsung" }).click();
+  const title = page.getByRole("dialog", { name: "Penjualan langsung" }).getByRole("heading", { name: "Penjualan langsung" });
+  await expect(title).toHaveCSS("color", "rgb(247, 237, 212)"); // DARK.text #f7edd4
 });
 
 test("jadwal: buka hari Minggu untuk terapis, simpan, lalu tutup lagi", async ({ page }, testInfo) => {

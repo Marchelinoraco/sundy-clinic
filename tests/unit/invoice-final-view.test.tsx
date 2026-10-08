@@ -1,10 +1,11 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { InvoiceFinalView } from "@/components/admin/billing/invoice-final-view";
 import { InvoicePaymentDialog } from "@/components/admin/billing/invoice-payment-dialog";
 import { invoiceTotals } from "@/lib/invoice";
 import type { InvoiceDetail, InvoicePaymentRow } from "@/server/invoice-read";
+import { renderAdmin } from "./helpers/render-admin";
 
 const mocks = vi.hoisted(() => ({
   refresh: vi.fn(),
@@ -77,7 +78,7 @@ beforeEach(() => vi.clearAllMocks());
 
 describe("tampilan tagihan final", () => {
   it("menampilkan baris, total, dibayar, sisa, dan riwayat pembayaran", () => {
-    render(<InvoiceFinalView detail={finalDetail()} today="2026-10-07" canManage canCorrect={false} canSeeCost={false} />);
+    renderAdmin(<InvoiceFinalView detail={finalDetail()} today="2026-10-07" canManage canCorrect={false} canSeeCost={false} />);
     const summary = screen.getByRole("region", { name: "Ringkasan tagihan" });
     expect(summary).toHaveTextContent("Rp 200.000");
     expect(summary).toHaveTextContent("Rp 160.000");
@@ -87,14 +88,14 @@ describe("tampilan tagihan final", () => {
   });
 
   it("resepsionis: bisa mencatat pembayaran, tidak bisa membatalkan pembayaran atau memberi diskon", () => {
-    render(<InvoiceFinalView detail={finalDetail()} today="2026-10-07" canManage canCorrect={false} canSeeCost={false} />);
+    renderAdmin(<InvoiceFinalView detail={finalDetail()} today="2026-10-07" canManage canCorrect={false} canSeeCost={false} />);
     expect(screen.getByRole("button", { name: "Catat pembayaran" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Batalkan pembayaran/ })).toBeNull();
     expect(screen.queryByRole("button", { name: "Tambah diskon" })).toBeNull();
   });
 
   it("Admin Keuangan: membatalkan pembayaran, menambah diskon, membatalkan tagihan; tidak mencatat pembayaran", () => {
-    render(<InvoiceFinalView detail={finalDetail()} today="2026-10-07" canManage={false} canCorrect canSeeCost={false} />);
+    renderAdmin(<InvoiceFinalView detail={finalDetail()} today="2026-10-07" canManage={false} canCorrect canSeeCost={false} />);
     expect(screen.queryByRole("button", { name: "Catat pembayaran" })).toBeNull();
     expect(screen.getByRole("button", { name: /Batalkan pembayaran/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Tambah diskon" })).toBeInTheDocument();
@@ -103,13 +104,13 @@ describe("tampilan tagihan final", () => {
 
   it("tagihan lunas atau dibatalkan tidak menawarkan pembayaran; pembayaran dibatalkan ditandai", () => {
     const paid = finalDetail({ payments: [{ ...payment, amount: 200000 }] });
-    render(<InvoiceFinalView detail={paid} today="2026-10-07" canManage canCorrect={false} canSeeCost={false} />);
+    renderAdmin(<InvoiceFinalView detail={paid} today="2026-10-07" canManage canCorrect={false} canSeeCost={false} />);
     expect(screen.queryByRole("button", { name: "Catat pembayaran" })).toBeNull();
   });
 
   it("harga pokok hanya tampil bila diizinkan", () => {
     const withCost = finalDetail({ cost: 30000 });
-    const { rerender } = render(<InvoiceFinalView detail={withCost} today="2026-10-07" canManage canCorrect={false} canSeeCost={false} />);
+    const { rerender } = renderAdmin(<InvoiceFinalView detail={withCost} today="2026-10-07" canManage canCorrect={false} canSeeCost={false} />);
     expect(screen.queryByText(/Harga pokok/)).toBeNull();
     rerender(<InvoiceFinalView detail={withCost} today="2026-10-07" canManage canCorrect={false} canSeeCost />);
     expect(screen.getByText(/Harga pokok/)).toBeInTheDocument();
@@ -117,7 +118,7 @@ describe("tampilan tagihan final", () => {
 
   it("dialog pembayaran: nominal di atas sisa ditolak di layar; yang sah dikirim", async () => {
     mocks.recordInvoicePayment.mockResolvedValue({ ok: true, data: { id: "pay2" } });
-    render(<InvoicePaymentDialog invoiceId="inv1" limit={160000} finalizedDate="2026-10-07" today="2026-10-07" />);
+    renderAdmin(<InvoicePaymentDialog invoiceId="inv1" limit={160000} finalizedDate="2026-10-07" today="2026-10-07" />);
     await userEvent.click(screen.getByRole("button", { name: "Catat pembayaran" }));
     const dialog = await screen.findByRole("dialog");
     const amount = within(dialog).getByLabelText("Nominal");

@@ -1,10 +1,12 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BillableTable } from "@/components/admin/billing/billable-table";
 import { InvoiceStatusBadge } from "@/components/admin/billing/invoice-status-badge";
 import { InvoiceTable } from "@/components/admin/billing/invoice-table";
 import type { BillableVisit, InvoiceRow } from "@/server/invoice-read";
+import { mockGridLayout } from "./helpers/mui";
+import { renderAdmin } from "./helpers/render-admin";
 
 const { push, refresh, createFromVisit } = vi.hoisted(() => ({
   push: vi.fn(),
@@ -42,10 +44,11 @@ const visit = (patch: Partial<BillableVisit> = {}): BillableVisit => ({
 });
 
 beforeEach(() => vi.clearAllMocks());
+beforeEach(() => mockGridLayout());
 
 describe("daftar tagihan", () => {
   it("menampilkan nomor, pasien, total, sisa, dan status; draf tanpa nomor", () => {
-    render(<InvoiceTable rows={[row(), row({ id: "i2", number: null, display: "DRAF", patientName: "Citra Uji", balance: 50000 })]} />);
+    renderAdmin(<InvoiceTable rows={[row(), row({ id: "i2", number: null, display: "DRAF", patientName: "Citra Uji", balance: 50000 })]} />);
     expect(screen.getByRole("link", { name: "TG-2026-0001" })).toHaveAttribute("href", "/admin/tagihan/i1");
     expect(screen.getByText("Ani Uji")).toBeInTheDocument();
     expect(screen.getByText("Sebagian", { exact: true })).toBeInTheDocument();
@@ -53,12 +56,12 @@ describe("daftar tagihan", () => {
   });
 
   it("kosong menampilkan keterangan", () => {
-    render(<InvoiceTable rows={[]} />);
+    renderAdmin(<InvoiceTable rows={[]} />);
     expect(screen.getByText("Tidak ada tagihan di tampilan ini.")).toBeInTheDocument();
   });
 
   it("label status", () => {
-    render(<InvoiceStatusBadge status="LUNAS" />);
+    renderAdmin(<InvoiceStatusBadge status="LUNAS" />);
     expect(screen.getByText("Lunas")).toBeInTheDocument();
   });
 });
@@ -66,7 +69,7 @@ describe("daftar tagihan", () => {
 describe("perlu ditagih", () => {
   it("resepsionis menekan Buat tagihan: tagihan dibuat lalu halaman draf dibuka", async () => {
     createFromVisit.mockResolvedValue({ ok: true, data: { id: "inv9", existing: false } });
-    render(<BillableTable rows={[visit()]} canManage />);
+    renderAdmin(<BillableTable rows={[visit()]} canManage />);
     expect(screen.getByText("Budi Uji")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Buat tagihan Budi Uji" }));
     await waitFor(() => expect(push).toHaveBeenCalledWith("/admin/tagihan/inv9"));
@@ -75,20 +78,20 @@ describe("perlu ditagih", () => {
 
   it("tagihan sudah ada (dibuat orang lain): tetap membuka tagihan itu", async () => {
     createFromVisit.mockResolvedValue({ ok: true, data: { id: "inv1", existing: true } });
-    render(<BillableTable rows={[visit()]} canManage />);
+    renderAdmin(<BillableTable rows={[visit()]} canManage />);
     await userEvent.click(screen.getByRole("button", { name: "Buat tagihan Budi Uji" }));
     await waitFor(() => expect(push).toHaveBeenCalledWith("/admin/tagihan/inv1"));
   });
 
   it("Admin Keuangan hanya melihat: tanpa tombol buat tagihan", () => {
-    render(<BillableTable rows={[visit({ online: true })]} canManage={false} />);
+    renderAdmin(<BillableTable rows={[visit({ online: true })]} canManage={false} />);
     expect(screen.queryByRole("button", { name: /Buat tagihan/ })).toBeNull();
     expect(screen.getByText("Online")).toBeInTheDocument();
   });
 
   it("kegagalan membuat tagihan ditampilkan, tidak berpindah halaman", async () => {
     createFromVisit.mockResolvedValue({ ok: false, error: "Kunjungan ini belum final." });
-    render(<BillableTable rows={[visit()]} canManage />);
+    renderAdmin(<BillableTable rows={[visit()]} canManage />);
     await userEvent.click(screen.getByRole("button", { name: "Buat tagihan Budi Uji" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Kunjungan ini belum final.");
     expect(push).not.toHaveBeenCalled();

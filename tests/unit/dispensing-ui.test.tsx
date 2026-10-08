@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DispensingEditor } from "@/components/admin/dispensing/dispensing-editor";
@@ -8,6 +8,8 @@ import { DispensingTable } from "@/components/admin/dispensing/dispensing-table"
 import { DispensingTiles } from "@/components/admin/dispensing/dispensing-tiles";
 import { ReopenDispensingButton } from "@/components/admin/dispensing/reopen-dispensing-button";
 import type { DispenseItem, DispensingDetail, DispensingRow } from "@/server/dispensing-read";
+import { mockGridLayout, pickOption } from "./helpers/mui";
+import { renderAdmin } from "./helpers/render-admin";
 
 const mocks = vi.hoisted(() => ({
   refresh: vi.fn(),
@@ -57,6 +59,7 @@ function detail(patch: Partial<DispensingDetail> = {}): DispensingDetail {
 }
 
 beforeEach(() => vi.clearAllMocks());
+beforeEach(() => mockGridLayout());
 
 describe("antrean resep", () => {
   const row: DispensingRow = {
@@ -71,19 +74,19 @@ describe("antrean resep", () => {
   };
 
   it("menampilkan pasien, cabang, dan tautan ke rincian", () => {
-    render(<DispensingTable rows={[row]} />);
+    renderAdmin(<DispensingTable rows={[row]} />);
     expect(screen.getByRole("link", { name: "Ani Uji" })).toHaveAttribute("href", "/admin/resep/d1");
     expect(screen.getByText("Manado")).toBeInTheDocument();
     expect(screen.getByText("Menunggu")).toBeInTheDocument();
   });
 
   it("kosong menampilkan keterangan", () => {
-    render(<DispensingTable rows={[]} />);
+    renderAdmin(<DispensingTable rows={[]} />);
     expect(screen.getByText("Tidak ada resep di tampilan ini.")).toBeInTheDocument();
   });
 
   it("kotak dasbor Resep menunggu", () => {
-    render(<DispensingTiles pending={3} />);
+    renderAdmin(<DispensingTiles pending={3} />);
     const tile = screen.getByRole("link", { name: /Resep menunggu/ });
     expect(tile).toHaveAttribute("href", "/admin/resep");
     expect(tile).toHaveTextContent("3");
@@ -92,7 +95,7 @@ describe("antrean resep", () => {
 
 describe("editor penyerahan", () => {
   it("menampilkan Catatan untuk Apoteker (hanya baca) dan daftar obat", () => {
-    render(<DispensingEditor detail={detail()} items={items} />);
+    renderAdmin(<DispensingEditor detail={detail()} items={items} />);
     expect(screen.getByText("Amoxicillin 3x1 selama 5 hari")).toBeInTheDocument();
     expect(screen.getByLabelText("Jumlah Amoxicillin")).toHaveValue(15);
     expect(screen.getByLabelText("Aturan pakai Amoxicillin")).toHaveValue("3 x 1 sesudah makan");
@@ -100,8 +103,8 @@ describe("editor penyerahan", () => {
 
   it("menambah obat dengan nomor versi; aturan pakai kosong ditolak di layar", async () => {
     mocks.addDispensingLine.mockResolvedValue({ ok: true, data: { version: 4 } });
-    render(<DispensingEditor detail={detail({ lines: [] })} items={items} />);
-    await userEvent.selectOptions(screen.getByLabelText("Obat"), "it1");
+    renderAdmin(<DispensingEditor detail={detail({ lines: [] })} items={items} />);
+    await pickOption(userEvent.setup(), "Obat", "Amoxicillin (AMX) — sisa 40 kapsul");
     await userEvent.clear(screen.getByLabelText("Jumlah"));
     await userEvent.type(screen.getByLabelText("Jumlah"), "10");
     await userEvent.click(screen.getByRole("button", { name: "+ Tambah obat" }));
@@ -116,15 +119,16 @@ describe("editor penyerahan", () => {
     expect(mocks.refresh).toHaveBeenCalled();
   });
 
-  it("obat yang stoknya habis tidak bisa dipilih", () => {
-    render(<DispensingEditor detail={detail()} items={items} />);
-    expect(screen.getByRole("option", { name: /Vitamin C/ })).toBeDisabled();
+  it("obat yang stoknya habis tidak bisa dipilih", async () => {
+    renderAdmin(<DispensingEditor detail={detail()} items={items} />);
+    await userEvent.click(screen.getByRole("combobox", { name: "Obat" }));
+    expect(await screen.findByRole("option", { name: /Vitamin C/ })).toHaveAttribute("aria-disabled", "true");
   });
 
   it("menyimpan dan menghapus baris dengan nomor versi", async () => {
     mocks.updateDispensingLine.mockResolvedValue({ ok: true, data: { version: 4 } });
     mocks.removeDispensingLine.mockResolvedValue({ ok: true, data: { version: 5 } });
-    render(<DispensingEditor detail={detail()} items={items} />);
+    renderAdmin(<DispensingEditor detail={detail()} items={items} />);
     const quantity = screen.getByLabelText("Jumlah Amoxicillin");
     await userEvent.clear(quantity);
     await userEvent.type(quantity, "20");
@@ -132,13 +136,16 @@ describe("editor penyerahan", () => {
     await waitFor(() =>
       expect(mocks.updateDispensingLine).toHaveBeenCalledWith({ dispensingId: "d1", version: 3, lineId: "l1", quantity: 20, usage: "3 x 1 sesudah makan" }),
     );
-    await userEvent.click(screen.getByRole("button", { name: "Hapus Amoxicillin" }));
+    // Tombol aktif lagi setelah simpan selesai; tombol MUI nonaktif menolak klik (pointer-events: none).
+    const remove = screen.getByRole("button", { name: "Hapus Amoxicillin" });
+    await waitFor(() => expect(remove).toBeEnabled());
+    await userEvent.click(remove);
     await waitFor(() => expect(mocks.removeDispensingLine).toHaveBeenCalledWith({ dispensingId: "d1", version: 3, lineId: "l1" }));
   });
 
   it("Selesai memanggil server dengan versi; pesan stok kurang dari server ditampilkan", async () => {
     mocks.completeDispensing.mockResolvedValue({ ok: false, error: "Stok Amoxicillin tidak cukup (tersedia 8)." });
-    render(<DispensingEditor detail={detail()} items={items} />);
+    renderAdmin(<DispensingEditor detail={detail()} items={items} />);
     await userEvent.click(screen.getByRole("button", { name: "Selesai" }));
     await waitFor(() => expect(mocks.completeDispensing).toHaveBeenCalledWith({ dispensingId: "d1", version: 3 }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Stok Amoxicillin tidak cukup (tersedia 8).");
@@ -146,7 +153,7 @@ describe("editor penyerahan", () => {
 
   it("Selesai nonaktif tanpa obat; Tanpa obat nonaktif bila ada obat", async () => {
     mocks.markNoDispensing.mockResolvedValue({ ok: true, data: undefined });
-    const { rerender } = render(<DispensingEditor detail={detail({ lines: [] })} items={items} />);
+    const { rerender } = renderAdmin(<DispensingEditor detail={detail({ lines: [] })} items={items} />);
     expect(screen.getByRole("button", { name: "Selesai" })).toBeDisabled();
     await userEvent.click(screen.getByRole("button", { name: "Tanpa obat" }));
     await waitFor(() => expect(mocks.markNoDispensing).toHaveBeenCalledWith({ dispensingId: "d1", version: 3 }));
@@ -164,27 +171,27 @@ describe("ringkasan, buka kembali, dan etiket", () => {
   });
 
   it("ringkasan menampilkan obat, tautan etiket, dan Buka kembali bila boleh", () => {
-    render(<DispensingSummary detail={done} />);
+    renderAdmin(<DispensingSummary detail={done} />);
     expect(screen.getByText("Amoxicillin")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Cetak etiket" })).toHaveAttribute("href", "/admin/resep/d1/etiket");
     expect(screen.getByRole("button", { name: "Buka kembali" })).toBeInTheDocument();
   });
 
   it("tanpa hak buka kembali (tagihan final) tombolnya tidak ada dan alasannya ditulis", () => {
-    render(<DispensingSummary detail={{ ...done, canReopen: false, invoiceState: "FINAL" }} />);
+    renderAdmin(<DispensingSummary detail={{ ...done, canReopen: false, invoiceState: "FINAL" }} />);
     expect(screen.queryByRole("button", { name: "Buka kembali" })).toBeNull();
     expect(screen.getByText(/tagihan sudah final/i)).toBeInTheDocument();
   });
 
   it("Buka kembali memanggil server", async () => {
     mocks.reopenDispensing.mockResolvedValue({ ok: true, data: undefined });
-    render(<ReopenDispensingButton dispensingId="d1" />);
+    renderAdmin(<ReopenDispensingButton dispensingId="d1" />);
     await userEvent.click(screen.getByRole("button", { name: "Buka kembali" }));
     await waitFor(() => expect(mocks.reopenDispensing).toHaveBeenCalledWith({ dispensingId: "d1" }));
   });
 
   it("etiket memuat klinik, pasien, obat, jumlah, dan aturan pakai, tanpa harga", () => {
-    render(<DispensingLabel detail={done} clinicName="SunDY Clinic" />);
+    renderAdmin(<DispensingLabel detail={done} clinicName="SunDY Clinic" />);
     expect(screen.getByText("SunDY Clinic")).toBeInTheDocument();
     expect(screen.getByText("Ani Uji")).toBeInTheDocument();
     expect(screen.getByText("Amoxicillin")).toBeInTheDocument();

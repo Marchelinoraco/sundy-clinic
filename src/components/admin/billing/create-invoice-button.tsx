@@ -1,8 +1,10 @@
 "use client";
 
+import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
+import Stack from "@mui/material/Stack";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Button } from "@/components/ui/button";
 import { createInvoiceFromVisit } from "@/server/invoice-drafts";
 
 /** Buat tagihan dari kunjungan final; bila sudah ada (dibuat orang lain), buka tagihan itu. */
@@ -28,15 +30,15 @@ export function CreateInvoiceButton({ appointmentId, patientName }: { appointmen
   }
 
   return (
-    <div className="space-y-1">
-      <Button type="button" size="sm" onClick={create} disabled={pending} aria-label={`Buat tagihan ${patientName}`}>
+    <Stack spacing={0.5} sx={{ alignItems: "flex-end" }}>
+      <Button type="button" size="small" variant="contained" onClick={create} disabled={pending} aria-label={`Buat tagihan ${patientName}`}>
         {pending ? "Membuat…" : "Buat tagihan"}
       </Button>
       {error && (
-        <p role="alert" className="text-xs text-destructive">
+        <Alert severity="error" sx={{ py: 0, fontSize: "0.75rem" }}>
           {error}
-        </p>
+        </Alert>
       )}
-    </div>
+    </Stack>
   );
 }

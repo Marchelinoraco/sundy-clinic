@@ -1,9 +1,10 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { InvoiceDraftEditor } from "@/components/admin/billing/invoice-draft-editor";
 import { invoiceTotals } from "@/lib/invoice";
 import type { InvoiceDetail } from "@/server/invoice-read";
+import { renderAdmin } from "./helpers/render-admin";
 
 const mocks = vi.hoisted(() => ({
   refresh: vi.fn(),
@@ -73,14 +74,14 @@ beforeEach(() => vi.clearAllMocks());
 
 describe("editor draf tagihan", () => {
   it("menampilkan baris, subtotal, dan total", () => {
-    render(<InvoiceDraftEditor detail={detail()} items={items} canExceedDiscount={false} />);
+    renderAdmin(<InvoiceDraftEditor detail={detail()} items={items} canExceedDiscount={false} />);
     expect(screen.getByText("Konsultasi Gizi")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Ringkasan tagihan" })).toHaveTextContent("Rp 200.000");
   });
 
   it("menyimpan perubahan jumlah dengan nomor versi tagihan", async () => {
     mocks.updateInvoiceLine.mockResolvedValue({ ok: true, data: { version: 4 } });
-    render(<InvoiceDraftEditor detail={detail()} items={items} canExceedDiscount={false} />);
+    renderAdmin(<InvoiceDraftEditor detail={detail()} items={items} canExceedDiscount={false} />);
     const qty = screen.getByLabelText("Jumlah Vitamin C");
     await userEvent.clear(qty);
     await userEvent.type(qty, "3");
@@ -92,7 +93,7 @@ describe("editor draf tagihan", () => {
   });
 
   it("harga katalog yang diubah tanpa catatan ditolak di layar sebelum dikirim", async () => {
-    render(<InvoiceDraftEditor detail={detail()} items={items} canExceedDiscount={false} />);
+    renderAdmin(<InvoiceDraftEditor detail={detail()} items={items} canExceedDiscount={false} />);
     const price = screen.getByLabelText("Harga Konsultasi Gizi");
     await userEvent.clear(price);
     await userEvent.type(price, "100000");
@@ -103,14 +104,14 @@ describe("editor draf tagihan", () => {
 
   it("pesan versi usang dari server ditampilkan", async () => {
     mocks.removeInvoiceLine.mockResolvedValue({ ok: false, error: "Tagihan ini baru diubah orang lain. Muat ulang halaman." });
-    render(<InvoiceDraftEditor detail={detail()} items={items} canExceedDiscount={false} />);
+    renderAdmin(<InvoiceDraftEditor detail={detail()} items={items} canExceedDiscount={false} />);
     await userEvent.click(screen.getByRole("button", { name: "Hapus Vitamin C" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Muat ulang halaman");
   });
 
   it("diskon resepsionis di atas 20% ditolak di layar; Admin Keuangan boleh", async () => {
     mocks.setInvoiceDiscount.mockResolvedValue({ ok: true, data: { version: 4 } });
-    const { unmount } = render(<InvoiceDraftEditor detail={detail()} items={items} canExceedDiscount={false} />);
+    const { unmount } = renderAdmin(<InvoiceDraftEditor detail={detail()} items={items} canExceedDiscount={false} />);
     await userEvent.selectOptions(screen.getByLabelText("Jenis diskon"), "PERSEN");
     await userEvent.type(screen.getByLabelText("Nilai diskon"), "30");
     await userEvent.type(screen.getByLabelText("Alasan diskon"), "Kompensasi");
@@ -119,7 +120,7 @@ describe("editor draf tagihan", () => {
     expect(mocks.setInvoiceDiscount).not.toHaveBeenCalled();
     unmount();
 
-    render(<InvoiceDraftEditor detail={detail()} items={items} canExceedDiscount />);
+    renderAdmin(<InvoiceDraftEditor detail={detail()} items={items} canExceedDiscount />);
     await userEvent.selectOptions(screen.getByLabelText("Jenis diskon"), "PERSEN");
     await userEvent.type(screen.getByLabelText("Nilai diskon"), "30");
     await userEvent.type(screen.getByLabelText("Alasan diskon"), "Kompensasi");
@@ -131,7 +132,7 @@ describe("editor draf tagihan", () => {
 
   it("finalkan: konfirmasi dulu, lalu memanggil server dengan versi", async () => {
     mocks.finalizeInvoice.mockResolvedValue({ ok: true, data: { number: "TG-2026-0001" } });
-    render(<InvoiceDraftEditor detail={detail()} items={items} canExceedDiscount={false} />);
+    renderAdmin(<InvoiceDraftEditor detail={detail()} items={items} canExceedDiscount={false} />);
     await userEvent.click(screen.getByRole("button", { name: "Finalkan tagihan" }));
     const dialog = await screen.findByRole("dialog", { name: "Finalkan tagihan?" });
     await userEvent.click(within(dialog).getByRole("button", { name: "Finalkan" }));
@@ -141,29 +142,29 @@ describe("editor draf tagihan", () => {
 
   it("tagihan tanpa baris tidak bisa difinalkan", () => {
     const empty = detail({ lines: [], totals: invoiceTotals({ status: "DRAF", discountKind: null, discountValue: 0, lines: [], payments: [] }) });
-    render(<InvoiceDraftEditor detail={empty} items={items} canExceedDiscount={false} />);
+    renderAdmin(<InvoiceDraftEditor detail={empty} items={items} canExceedDiscount={false} />);
     expect(screen.getByRole("button", { name: "Finalkan tagihan" })).toBeDisabled();
   });
 
   it("selama penyerahan Menunggu: pita status tampil dan Finalkan nonaktif", () => {
-    render(<InvoiceDraftEditor detail={detail({ dispensing: "MENUNGGU" })} items={items} canExceedDiscount={false} />);
+    renderAdmin(<InvoiceDraftEditor detail={detail({ dispensing: "MENUNGGU" })} items={items} canExceedDiscount={false} />);
     expect(screen.getByRole("status")).toHaveTextContent("Menunggu Apoteker menyerahkan obat.");
     expect(screen.getByRole("button", { name: "Finalkan tagihan" })).toBeDisabled();
   });
 
   it("penyerahan Selesai: pita 'Obat sudah diserahkan' dan Finalkan aktif; tanpa penyerahan: tanpa pita", () => {
-    const { unmount } = render(<InvoiceDraftEditor detail={detail({ dispensing: "SELESAI" })} items={items} canExceedDiscount={false} />);
+    const { unmount } = renderAdmin(<InvoiceDraftEditor detail={detail({ dispensing: "SELESAI" })} items={items} canExceedDiscount={false} />);
     expect(screen.getByRole("status")).toHaveTextContent("Obat sudah diserahkan.");
     expect(screen.getByRole("button", { name: "Finalkan tagihan" })).toBeEnabled();
     unmount();
-    render(<InvoiceDraftEditor detail={detail()} items={items} canExceedDiscount={false} />);
+    renderAdmin(<InvoiceDraftEditor detail={detail()} items={items} canExceedDiscount={false} />);
     expect(screen.queryByRole("status")).toBeNull();
   });
 
   it("baris dari penyerahan: ada tanda, jumlah terkunci, tanpa tombol Hapus; baris lain tetap bisa diubah", () => {
     const base = detail();
     const lines = base.lines.map((line) => (line.id === "l2" ? { ...line, fromDispensing: true } : line));
-    render(<InvoiceDraftEditor detail={{ ...base, lines }} items={items} canExceedDiscount={false} />);
+    renderAdmin(<InvoiceDraftEditor detail={{ ...base, lines }} items={items} canExceedDiscount={false} />);
     expect(screen.getByLabelText("Dari penyerahan Apoteker")).toBeInTheDocument();
     expect(screen.getByLabelText("Jumlah Vitamin C")).toBeDisabled();
     expect(screen.queryByRole("button", { name: "Hapus Vitamin C" })).toBeNull();
