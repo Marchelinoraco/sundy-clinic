@@ -1,3 +1,6 @@
+import Box from "@mui/material/Box";
+import Card from "@mui/material/Card";
+import Typography from "@mui/material/Typography";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { SignInForm } from "@/components/admin/sign-in-form";
@@ -14,12 +17,16 @@ export default async function SignInPage() {
   if (await getCurrentStaff()) redirect("/admin");
 
   return (
-    <div className="flex min-h-svh items-center justify-center bg-cream-50 px-4">
-      <div className="w-full max-w-sm rounded-2xl border border-cream-300 bg-white p-8 shadow-sm">
-        <h1 className="font-display text-2xl text-brown-900">Panel Admin</h1>
-        <p className="mt-1 mb-6 text-sm text-brown-600">{CLINIC_FULL_NAME}</p>
+    <Box sx={{ minHeight: "100svh", display: "grid", placeItems: "center", px: 2, bgcolor: "background.default" }}>
+      <Card sx={{ width: "100%", maxWidth: 384, p: 4 }}>
+        <Typography variant="h1" sx={{ fontSize: "1.75rem" }}>
+          Panel Admin
+        </Typography>
+        <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5, mb: 3 }}>
+          {CLINIC_FULL_NAME}
+        </Typography>
         <SignInForm />
-      </div>
-    </div>
+      </Card>
+    </Box>
   );
 }

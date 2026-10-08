@@ -1,63 +1,55 @@
 "use client";
 
-import { STAFF_ROLE_LABEL } from "@/lib/staff-role";
+import Logout from "@mui/icons-material/Logout";
+import Avatar from "@mui/material/Avatar";
+import Box from "@mui/material/Box";
+import Divider from "@mui/material/Divider";
+import IconButton from "@mui/material/IconButton";
+import ListItemIcon from "@mui/material/ListItemIcon";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
+import Typography from "@mui/material/Typography";
 import { useRouter } from "next/navigation";
-import { LogOut } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
+import { useState } from "react";
 import { signOut } from "@/lib/auth-client";
+import { STAFF_ROLE_LABEL } from "@/lib/staff-role";
 import type { CurrentStaff } from "@/server/session";
 
+/** Menu pengguna di bilah atas (spec MUI 4): inisial, lalu nama, peran, email, dan Keluar. */
 export function NavUser({ staff }: { staff: CurrentStaff }) {
   const router = useRouter();
-
-  const initials = staff.name
-    .split(" ")
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase();
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const initials = staff.name.split(" ").slice(0, 2).map((part) => part[0]).join("").toUpperCase();
 
   return (
-    <SidebarMenu>
-      <SidebarMenuItem>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <SidebarMenuButton size="lg">
-              <Avatar className="h-8 w-8">
-                <AvatarFallback>{initials}</AvatarFallback>
-              </Avatar>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{staff.name}</span>
-                <span className="truncate text-xs">{STAFF_ROLE_LABEL[staff.role]}</span>
-              </div>
-            </SidebarMenuButton>
-          </DropdownMenuTrigger>
-
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel className="text-xs font-normal">{staff.email}</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onSelect={async () => {
-                await signOut();
-                router.push("/masuk");
-                router.refresh();
-              }}
-            >
-              <LogOut />
-              Keluar
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </SidebarMenuItem>
-    </SidebarMenu>
+    <>
+      <IconButton aria-label={`Menu pengguna ${staff.name}`} aria-haspopup="menu" onClick={(e) => setAnchor(e.currentTarget)} size="small">
+        <Avatar sx={{ width: 32, height: 32, fontSize: "0.8rem", bgcolor: "secondary.main", color: "secondary.contrastText" }}>{initials}</Avatar>
+      </IconButton>
+      <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={() => setAnchor(null)} anchorOrigin={{ vertical: "bottom", horizontal: "right" }} transformOrigin={{ vertical: "top", horizontal: "right" }}>
+        <Box sx={{ px: 2, py: 1, maxWidth: 280 }}>
+          <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
+            {staff.name}
+          </Typography>
+          <Typography variant="caption" sx={{ color: "text.secondary", display: "block" }} noWrap>
+            {STAFF_ROLE_LABEL[staff.role]} · {staff.email}
+          </Typography>
+        </Box>
+        <Divider />
+        <MenuItem
+          onClick={async () => {
+            setAnchor(null);
+            await signOut();
+            router.push("/masuk");
+            router.refresh();
+          }}
+        >
+          <ListItemIcon>
+            <Logout fontSize="small" />
+          </ListItemIcon>
+          Keluar
+        </MenuItem>
+      </Menu>
+    </>
   );
 }

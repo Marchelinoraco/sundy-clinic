@@ -1,10 +1,11 @@
 "use client";
 
-import { Bell, BellOff } from "lucide-react";
+import NotificationsActiveOutlined from "@mui/icons-material/NotificationsActiveOutlined";
+import NotificationsOffOutlined from "@mui/icons-material/NotificationsOffOutlined";
+import IconButton from "@mui/material/IconButton";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { eventHref, eventMessage, freshEvents, LIVE_POLL_MS, nextSince, watchedKinds, type LiveEvent } from "@/lib/live-events";
 import type { can } from "@/lib/permissions";
 
@@ -130,16 +131,15 @@ export function LiveNotifier({ initialSince, role }: { initialSince: string; rol
   }
 
   return (
-    <Button
+    <IconButton
       type="button"
-      size="icon"
-      variant="outline"
       onClick={toggle}
       aria-label={soundOn ? "Bunyi notifikasi hidup" : "Bunyi notifikasi mati"}
       title={soundOn ? "Bunyi notifikasi hidup (klik untuk mematikan)" : "Bunyi notifikasi mati (klik untuk menyalakan)"}
-      className="fixed bottom-4 right-4 z-40 rounded-full shadow-md print:hidden"
+      className="print:hidden"
+      sx={{ position: "fixed", bottom: 16, right: 16, zIndex: 1200, bgcolor: "background.paper", border: 1, borderColor: "divider", boxShadow: 2, "&:hover": { bgcolor: "background.paper" } }}
     >
-      {soundOn ? <Bell /> : <BellOff />}
-    </Button>
+      {soundOn ? <NotificationsActiveOutlined /> : <NotificationsOffOutlined />}
+    </IconButton>
   );
 }

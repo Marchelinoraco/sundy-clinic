@@ -37,7 +37,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     // Kelas variabel font dipasang di <html>, bukan <body>: --font-sans dan
     // --font-display (globals.css) dibaca di :root. Bila kelasnya di <body>,
     // var(--font-jakarta) belum terdefinisi di :root dan seluruh situs jatuh ke Times.
-    <html lang="id" className={`${display.variable} ${sans.variable}`}>
+    // suppressHydrationWarning: di panel admin, skrip skema warna MUI menambah atribut
+    // data-light/data-dark ke <html> sebelum React berjalan (hanya atribut elemen ini).
+    <html lang="id" className={`${display.variable} ${sans.variable}`} suppressHydrationWarning>
       <body>{children}</body>
     </html>
   );

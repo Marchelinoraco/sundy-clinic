@@ -1,8 +1,8 @@
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { AdminToaster } from "@/components/admin/mui/admin-toaster";
-import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppSidebar } from "@/components/admin/app-sidebar";
 import { LiveNotifier } from "@/components/admin/live-notifier";
+import { AdminShell } from "@/components/admin/mui/admin-shell";
+import { AdminToaster } from "@/components/admin/mui/admin-toaster";
+import { NavUser } from "@/components/admin/nav-user";
 import { can } from "@/lib/permissions";
 import { countPendingBookings } from "@/server/appointment";
 import { countPendingDispensings } from "@/server/dispensing-read";
@@ -29,17 +29,18 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   ]);
 
   return (
-    // TooltipProvider dibutuhkan SidebarMenuButton (label saat sidebar
-    // diciutkan jadi ikon). Dipasang di sini, bukan di root layout, karena
-    // hanya panel admin yang memakai sidebar bertooltip.
-    <TooltipProvider>
-      <SidebarProvider>
-        <AppSidebar staff={staff} pendingBookings={pendingBookings} reminderWork={reminderWork} stockAlerts={stockAlerts} overduePayables={overduePayables} billable={billable} pendingDispensing={pendingDispensing} />
-        <SidebarInset>{children}</SidebarInset>
-        {/* Kanan atas: bar aksi halaman kunjungan menempel di bawah, dan toast di sana menutupi Finalisasi. */}
-        <AdminToaster />
-        <LiveNotifier initialSince={new Date().toISOString()} role={staff.role} />
-      </SidebarProvider>
-    </TooltipProvider>
+    <>
+      <AdminShell
+        sidebar={
+          <AppSidebar staff={staff} pendingBookings={pendingBookings} reminderWork={reminderWork} stockAlerts={stockAlerts} overduePayables={overduePayables} billable={billable} pendingDispensing={pendingDispensing} />
+        }
+        userMenu={<NavUser staff={staff} />}
+      >
+        {children}
+      </AdminShell>
+      {/* Kanan atas: bar aksi halaman kunjungan menempel di bawah, dan toast di sana menutupi Finalisasi. */}
+      <AdminToaster />
+      <LiveNotifier initialSince={new Date().toISOString()} role={staff.role} />
+    </>
   );
 }

@@ -1,31 +1,44 @@
-import Link from "next/link";
-import { cn } from "@/lib/utils";
+"use client";
+
+import Box from "@mui/material/Box";
+import MuiLink from "@mui/material/Link";
+import NextLink from "next/link";
 
 export type PageTab = { id: string; label: string; href: string };
 
 /** Tab sebagai tautan (`?tab=`), bukan tab ARIA: setiap tab adalah alamat sendiri (spec D 3.1). */
 export function PageTabs({ tabs, active, label }: { tabs: PageTab[]; active: string; label: string }) {
   return (
-    <nav aria-label={label} className="overflow-x-auto border-b">
-      <ul className="flex gap-6">
+    <Box component="nav" aria-label={label} sx={{ borderBottom: 1, borderColor: "divider", overflowX: "auto" }}>
+      <Box component="ul" sx={{ display: "flex", gap: 3, listStyle: "none", m: 0, p: 0 }}>
         {tabs.map((tab) => {
           const current = tab.id === active;
           return (
             <li key={tab.id}>
-              <Link
+              <MuiLink
+                component={NextLink}
                 href={tab.href}
                 aria-current={current ? "page" : undefined}
-                className={cn(
-                  "-mb-px inline-block whitespace-nowrap border-b-2 py-2 text-sm",
-                  current ? "border-gold-500 font-semibold text-brown-900" : "border-transparent text-muted-foreground hover:text-brown-900",
-                )}
+                underline="none"
+                sx={{
+                  display: "inline-block",
+                  py: 1,
+                  mb: "-1px",
+                  borderBottom: 2,
+                  borderColor: current ? "primary.main" : "transparent",
+                  color: current ? "text.primary" : "text.secondary",
+                  fontWeight: current ? 600 : 400,
+                  fontSize: "0.875rem",
+                  whiteSpace: "nowrap",
+                  "&:hover": { color: "text.primary" },
+                }}
               >
                 {tab.label}
-              </Link>
+              </MuiLink>
             </li>
           );
         })}
-      </ul>
-    </nav>
+      </Box>
+    </Box>
   );
 }
