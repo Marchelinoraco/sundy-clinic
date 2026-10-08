@@ -33,7 +33,7 @@ export default defineConfig({
   // server yang sudah berjalan — server lain di port ini bisa saja terhubung ke
   // basis data lain, dan uji ini menulis booking sungguhan.
   webServer: {
-    command: `npx next dev -p ${E2E_PORT}`,
+    command: `npx next dev --turbopack -p ${E2E_PORT}`,
     url: E2E_BASE_URL,
     reuseExistingServer: false,
     timeout: 180_000,

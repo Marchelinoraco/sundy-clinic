@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { formatIndonesianDate, formatShortIndonesianDate } from "@/lib/format";
 import { combineWitaDateAndMinutes } from "@/lib/time";
 import { cn } from "@/lib/utils";
-import { getStaffAvailabilityRange, type DayAvailability } from "@/server/schedule";
+import type { DayAvailability } from "@/server/availability";
+import { getStaffAvailabilityRange } from "@/server/schedule";
 
 export const STRIP_DAYS = 14;
 

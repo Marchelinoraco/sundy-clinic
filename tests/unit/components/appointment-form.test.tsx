@@ -6,7 +6,8 @@ import { AppointmentForm } from "@/components/admin/appointment-form";
 import { addDaysToDateString, combineWitaDateAndMinutes } from "@/lib/time";
 import { createAppointment, getTransferInstruction } from "@/server/appointment";
 import { searchPatients, type PatientSummary } from "@/server/patient";
-import { getStaffAvailabilityForAdmin, getStaffAvailabilityRange, type DayAvailability } from "@/server/schedule";
+import type { DayAvailability } from "@/server/availability";
+import { getStaffAvailabilityForAdmin, getStaffAvailabilityRange } from "@/server/schedule";
 import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));

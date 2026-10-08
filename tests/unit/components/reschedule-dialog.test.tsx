@@ -7,7 +7,8 @@ import type { RescheduleTarget } from "@/lib/booking-actions";
 import { addDaysToDateString, combineWitaDateAndMinutes } from "@/lib/time";
 import { rescheduleAppointment } from "@/server/appointment";
 import { getBookingMessage } from "@/server/appointment-message";
-import { getStaffAvailabilityForAdmin, getStaffAvailabilityRange, type DayAvailability } from "@/server/schedule";
+import type { DayAvailability } from "@/server/availability";
+import { getStaffAvailabilityForAdmin, getStaffAvailabilityRange } from "@/server/schedule";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/server/appointment", () => ({ rescheduleAppointment: vi.fn() }));

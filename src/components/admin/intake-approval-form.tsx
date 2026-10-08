@@ -5,7 +5,8 @@ import { useId, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { approveIntakeToPatient, type IntakeApproval } from "@/server/intake";
+import { approveIntakeToPatient } from "@/server/intake";
+import type { IntakeApproval } from "@/server/intake-clinical";
 
 type ReadyApproval = Extract<IntakeApproval, { state: "ready" }>;
 

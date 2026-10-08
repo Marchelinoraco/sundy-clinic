@@ -3,7 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DateStrip } from "@/components/admin/date-strip";
 import { addDaysToDateString } from "@/lib/time";
-import { getStaffAvailabilityRange, type DayAvailability } from "@/server/schedule";
+import type { DayAvailability } from "@/server/availability";
+import { getStaffAvailabilityRange } from "@/server/schedule";
 
 vi.mock("@/server/schedule", () => ({ getStaffAvailabilityRange: vi.fn() }));
 

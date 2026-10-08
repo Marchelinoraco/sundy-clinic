@@ -15,7 +15,6 @@ import {
 } from "@/server/availability";
 import { requireCapability } from "@/server/session";
 
-export type { DayAvailability } from "@/server/availability";
 
 /** Staf yang punya antrean jadwal sendiri: dokter dan terapis aktif. */
 export async function listSchedulableStaff(): Promise<Staff[]> {
