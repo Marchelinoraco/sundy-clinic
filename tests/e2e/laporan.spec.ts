@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { expect, test, type TestInfo } from "@playwright/test";
 import { E2E_APOTEKER, E2E_KEUANGAN, E2E_RESEPSIONIS } from "./credentials";
 import { signIn } from "./helpers/quiz";
+import { isiTanggal } from "./helpers/mui";
 
 // Satu cerita berurutan per proyek (desktop/ponsel, data masing-masing):
 // Admin Keuangan mengelola kategori, mencatat dan membatalkan pengeluaran, membuat dan mengubah pengeluaran
@@ -91,6 +92,10 @@ test("laporan: ringkasan, rincian tanpa pengeluaran yang dibatalkan, periode, da
   await page.getByLabel("Periode").selectOption("TAHUN_INI");
   await page.getByRole("button", { name: "Tampilkan" }).click();
   await expect(page).toHaveURL(/periode=TAHUN_INI/, { timeout: 30_000 });
+  await isiTanggal(page, "Dari tanggal", "2026-10-02");
+  await expect(page.getByLabel("Periode")).toHaveValue("RENTANG");
+  await page.getByRole("button", { name: "Tampilkan" }).click();
+  await expect(page).toHaveURL(/periode=RENTANG&dari=2026-10-02&sampai=/, { timeout: 30_000 });
 
   await page.goto("/admin/laporan?periode=RENTANG&dari=2026-10-10&sampai=2026-10-01");
   await expect(page.getByRole("alert").filter({ hasText: "Tanggal dari tidak boleh setelah tanggal sampai." })).toBeVisible();
