@@ -1,22 +1,21 @@
 "use client";
 
+import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { validateDueDateChange, validateReason } from "@/lib/stock";
 import { updateDueDate } from "@/server/payables";
+import { DateField } from "../mui/date-field";
+import { DialogCloseButton } from "../mui/dialog-close-button";
 
 /** Ubah jatuh tempo beralasan (spec stok 6.2). */
 export function DueDateDialog({ invoiceId, dueDate, invoiceDate }: { invoiceId: string; dueDate: string; invoiceDate: string }) {
@@ -55,45 +54,33 @@ export function DueDateDialog({ invoiceId, dueDate, invoiceDate }: { invoiceId: 
     });
   }
 
+  function close() {
+    setOpen(false);
+    setError(null);
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) setError(null);
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button type="button" variant="outline">
-          Ubah jatuh tempo
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Ubah jatuh tempo</DialogTitle>
-          <DialogDescription>Perubahan tercatat di jejak audit bersama alasannya.</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label htmlFor="due-date-new">Jatuh tempo baru</Label>
-            <Input id="due-date-new" type="date" min={invoiceDate} value={value} onChange={(e) => setValue(e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="due-date-reason">Alasan</Label>
-            <Input id="due-date-reason" value={reason} onChange={(e) => setReason(e.target.value)} />
-          </div>
-        </div>
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        )}
-        <DialogFooter>
-          <Button type="button" onClick={save} disabled={pending}>
+    <>
+      <Button type="button" variant="outlined" onClick={() => setOpen(true)}>
+        Ubah jatuh tempo
+      </Button>
+      <Dialog open={open} onClose={close} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ pr: 6 }}>Ubah jatuh tempo</DialogTitle>
+        <DialogCloseButton onClick={close} />
+        <DialogContent>
+          <DialogContentText>Perubahan tercatat di jejak audit bersama alasannya.</DialogContentText>
+          <Stack spacing={2} sx={{ pt: 2 }}>
+            <DateField id="due-date-new" label="Jatuh tempo baru" min={invoiceDate} value={value} onChange={setValue} fullWidth />
+            <TextField id="due-date-reason" label="Alasan" value={reason} onChange={(e) => setReason(e.target.value)} fullWidth />
+            {error && <Alert severity="error">{error}</Alert>}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button type="button" variant="contained" onClick={save} disabled={pending}>
             {pending ? "Menyimpan…" : "Simpan"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }

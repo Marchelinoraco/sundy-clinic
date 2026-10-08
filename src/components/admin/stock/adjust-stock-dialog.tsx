@@ -1,25 +1,25 @@
 "use client";
 
+import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { ADJUST_REASON_LABEL, DECREASE_REASONS, INCREASE_REASONS, validateAdjustment, type AdjustReasonValue } from "@/lib/stock";
 import { adjustStock } from "@/server/stock-movements";
+import { DialogCloseButton } from "../mui/dialog-close-button";
+import { SelectField } from "../mui/select-field";
 
 type Direction = "KURANGI" | "TAMBAH";
-const selectClass = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm";
 
 /** Penyesuaian satu batch (spec stok 5.4). Batas sisa diperiksa lagi di server secara atomik. */
 export function AdjustStockDialog({ batch }: { batch: { id: string; label: string; remaining: number; unit: string } }) {
@@ -69,76 +69,63 @@ export function AdjustStockDialog({ batch }: { batch: { id: string; label: strin
     });
   }
 
+  function close() {
+    setOpen(false);
+    setError(null);
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) setError(null);
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button size="sm" variant="outline" aria-label={`Penyesuaian ${batch.label}`}>
-          Penyesuaian
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Penyesuaian stok</DialogTitle>
-          <DialogDescription>
+    <>
+      <Button size="small" variant="outlined" aria-label={`Penyesuaian ${batch.label}`} onClick={() => setOpen(true)}>
+        Penyesuaian
+      </Button>
+      <Dialog open={open} onClose={close} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ pr: 6 }}>Penyesuaian stok</DialogTitle>
+        <DialogCloseButton onClick={close} />
+        <DialogContent>
+          <DialogContentText>
             {batch.label} · sisa {batch.remaining} {batch.unit}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div className="flex gap-2" role="group" aria-label="Arah penyesuaian">
-            {(["KURANGI", "TAMBAH"] as const).map((value) => (
-              <Button
-                key={value}
-                type="button"
-                size="sm"
-                variant={direction === value ? "default" : "outline"}
-                aria-pressed={direction === value}
-                onClick={() => changeDirection(value)}
-              >
-                {value === "KURANGI" ? "Kurangi" : "Tambah"}
-              </Button>
-            ))}
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="adjust-quantity">Jumlah</Label>
-            <Input id="adjust-quantity" type="number" min={1} inputMode="numeric" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="adjust-reason">Alasan</Label>
-            <select
-              id="adjust-reason"
-              className={selectClass}
-              value={reason}
-              onChange={(e) => setReason(e.target.value as AdjustReasonValue)}
+          </DialogContentText>
+          <Stack spacing={2} sx={{ pt: 2 }}>
+            <ToggleButtonGroup
+              exclusive
+              size="small"
+              aria-label="Arah penyesuaian"
+              value={direction}
+              onChange={(_, next: Direction | null) => next && changeDirection(next)}
             >
+              {(["KURANGI", "TAMBAH"] as const).map((value) => (
+                <ToggleButton key={value} value={value} sx={{ px: 2 }}>
+                  {value === "KURANGI" ? "Kurangi" : "Tambah"}
+                </ToggleButton>
+              ))}
+            </ToggleButtonGroup>
+            <TextField
+              id="adjust-quantity"
+              label="Jumlah"
+              type="number"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              fullWidth
+              slotProps={{ htmlInput: { min: 1, inputMode: "numeric" } }}
+            />
+            <SelectField id="adjust-reason" label="Alasan" value={reason} onChange={(value) => setReason(value as AdjustReasonValue)}>
               {reasons.map((value) => (
                 <option key={value} value={value}>
                   {ADJUST_REASON_LABEL[value]}
                 </option>
               ))}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="adjust-note">Catatan</Label>
-            <Input id="adjust-note" value={note} onChange={(e) => setNote(e.target.value)} />
-          </div>
-        </div>
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        )}
-        <DialogFooter>
-          <Button type="button" onClick={save} disabled={pending}>
+            </SelectField>
+            <TextField id="adjust-note" label="Catatan" value={note} onChange={(e) => setNote(e.target.value)} fullWidth />
+            {error && <Alert severity="error">{error}</Alert>}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button type="button" variant="contained" onClick={save} disabled={pending}>
             {pending ? "Menyimpan…" : "Simpan"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }

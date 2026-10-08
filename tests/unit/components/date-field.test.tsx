@@ -21,6 +21,13 @@ function Controlled({ initial = "", onValue, min, max }: { initial?: string; onV
 }
 
 describe("DateField", () => {
+  it("ukuran dan warna fokusnya sama dengan isian teks admin (kecil, sekunder)", () => {
+    renderAdmin(<DateField label="Tanggal bayar" value="" onChange={() => {}} />);
+    const base = screen.getByRole("group", { name: "Tanggal bayar" });
+    expect(base.className).toMatch(/MuiPickersInputBase-colorSecondary/);
+    expect(base.className).toMatch(/MuiPickersInputBase-.*[sS]izeSmall/);
+  });
+
   it("tanggal lengkap yang diketik menjadi teks YYYY-MM-DD yang sama persis", () => {
     const onValue = vi.fn();
     renderAdmin(<Controlled onValue={onValue} />);

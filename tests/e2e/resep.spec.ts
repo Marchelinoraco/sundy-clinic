@@ -1,6 +1,6 @@
 import { expect, test, type TestInfo } from "@playwright/test";
 import { E2E_ADMIN, E2E_APOTEKER, E2E_KEUANGAN, E2E_RESEPSIONIS } from "./credentials";
-import { pilihOpsi } from "./helpers/mui";
+import { isiTanggal, pilihOpsi } from "./helpers/mui";
 import { signIn } from "./helpers/quiz";
 
 // Satu cerita berurutan per proyek (desktop/ponsel, data masing-masing):
@@ -41,11 +41,11 @@ test("apoteker menyiapkan obat dengan stok 10", async ({ page }, testInfo) => {
   await expect(supplierDialog).toBeHidden({ timeout: 30_000 });
   await expect(page.getByLabel("Supplier", { exact: true })).not.toHaveValue("");
   await page.getByLabel("Nomor faktur").fill(`RSP-E2E-${t}-001`);
-  await page.getByLabel("Barang baris 1").selectOption({ label: `${itemName} (E2E-${t}-RSP)` });
+  await pilihOpsi(page, "Barang baris 1", `${itemName} (E2E-${t}-RSP)`);
   await page.getByLabel("Jumlah baris 1").fill("10");
   await page.getByLabel("Harga beli baris 1").fill("1000");
   await page.getByLabel("Batch baris 1").fill("B-01");
-  await page.getByLabel("Kedaluwarsa baris 1").fill(dayFromToday(365));
+  await isiTanggal(page, "Kedaluwarsa baris 1", dayFromToday(365));
   await page.getByRole("button", { name: "Simpan barang masuk" }).click();
   await expect(page).toHaveURL(/\/admin\/stok\/masuk\/(?!baru)[^/]+$/, { timeout: 30_000 });
 });

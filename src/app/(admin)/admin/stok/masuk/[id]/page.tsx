@@ -1,3 +1,11 @@
+import Box from "@mui/material/Box";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
+import Typography from "@mui/material/Typography";
 import { notFound } from "next/navigation";
 import { AdminHeader } from "@/components/admin/admin-header";
 import { EmptyState, PageBody, PageHeader, SectionCard } from "@/components/admin/page-layout";
@@ -5,7 +13,6 @@ import { CancelPurchaseDialog } from "@/components/admin/stock/cancel-purchase-d
 import { PurchasePaymentsSection } from "@/components/admin/stock/purchase-payments-section";
 import { PayableStatusBadge } from "@/components/admin/stock/payable-status-badge";
 import { SupplierReturnDialog } from "@/components/admin/stock/supplier-return-dialog";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDateWithYear, formatRupiah } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { dateLabel } from "@/lib/stock";
@@ -52,44 +59,61 @@ export default async function PurchasePage({ params }: { params: Promise<{ id: s
         />
 
         {detail.cancelledAt && (
-          <p role="status" className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+          <Typography
+            role="status"
+            variant="body2"
+            sx={{ p: 1.5, border: 1, borderColor: "error.main", borderRadius: 1, bgcolor: "rgba(var(--mui-palette-error-mainChannel) / 0.06)" }}
+          >
             Dibatalkan {formatDateWithYear(detail.cancelledAt)} oleh {detail.cancelledByName}: {detail.cancelReason}
-          </p>
+          </Typography>
         )}
 
         <SectionCard title="Faktur">
-          <dl className="grid gap-4 text-sm sm:grid-cols-3">
+          <Box
+            component="dl"
+            sx={{
+              m: 0,
+              display: "grid",
+              gap: 2,
+              gridTemplateColumns: { xs: "1fr", sm: "repeat(3, 1fr)" },
+              fontSize: "0.875rem",
+              "& dt": { color: "text.secondary" },
+              "& dd": { m: 0 },
+            }}
+          >
             <div>
-              <dt className="text-muted-foreground">Tanggal faktur</dt>
+              <dt>Tanggal faktur</dt>
               <dd>{dateLabel(detail.invoiceDate)}</dd>
             </div>
             <div>
-              <dt className="text-muted-foreground">Jatuh tempo</dt>
+              <dt>Jatuh tempo</dt>
               <dd>{dateLabel(detail.dueDate)}</dd>
             </div>
             <div>
-              <dt className="text-muted-foreground">Status</dt>
+              <dt>Status</dt>
               <dd>
                 <PayableStatusBadge status={detail.summary.status} overdue={detail.summary.overdue} />
               </dd>
             </div>
             <div>
-              <dt className="text-muted-foreground">Total</dt>
-              <dd className="text-lg font-semibold">{formatRupiah(detail.total)}</dd>
+              <dt>Total</dt>
+              <Box component="dd" sx={{ fontSize: "1.125rem", fontWeight: 600 }}>
+                {formatRupiah(detail.total)}
+              </Box>
             </div>
             <div>
-              <dt className="text-muted-foreground">Dicatat oleh</dt>
+              <dt>Dicatat oleh</dt>
               <dd>
                 {detail.createdByName}, {formatDateWithYear(detail.createdAt)}
               </dd>
             </div>
             {detail.notes && (
               <div>
-                <dt className="text-muted-foreground">Catatan</dt>
+                <dt>Catatan</dt>
                 <dd>{detail.notes}</dd>
               </div>
             )}
-          </dl>
+          </Box>
         </SectionCard>
 
         {detail.payments && (
@@ -106,60 +130,64 @@ export default async function PurchasePage({ params }: { params: Promise<{ id: s
         )}
 
         <SectionCard title="Barang" flush>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Barang</TableHead>
-                <TableHead>Batch</TableHead>
-                <TableHead>Kedaluwarsa</TableHead>
-                <TableHead className="text-right">Jumlah</TableHead>
-                <TableHead className="text-right">Harga beli</TableHead>
-                <TableHead className="text-right">Subtotal</TableHead>
-                <TableHead className="text-right">Sisa batch</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {detail.lines.map((line) => (
-                <TableRow key={line.id}>
-                  <TableCell>
-                    {line.itemName}
-                    <div className="font-mono text-xs text-muted-foreground">{line.itemCode}</div>
-                  </TableCell>
-                  <TableCell>{line.batchNumber ?? "—"}</TableCell>
-                  <TableCell>{dateLabel(line.expiryDate)}</TableCell>
-                  <TableCell className="text-right">
-                    {line.quantity} {line.unit}
-                  </TableCell>
-                  <TableCell className="text-right">{formatRupiah(line.unitCost)}</TableCell>
-                  <TableCell className="text-right">{formatRupiah(line.amount)}</TableCell>
-                  <TableCell className="text-right">
-                    {line.batchRemaining} {line.unit}
-                  </TableCell>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Barang</TableCell>
+                  <TableCell>Batch</TableCell>
+                  <TableCell>Kedaluwarsa</TableCell>
+                  <TableCell align="right">Jumlah</TableCell>
+                  <TableCell align="right">Harga beli</TableCell>
+                  <TableCell align="right">Subtotal</TableCell>
+                  <TableCell align="right">Sisa batch</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHead>
+              <TableBody>
+                {detail.lines.map((line) => (
+                  <TableRow key={line.id}>
+                    <TableCell>
+                      {line.itemName}
+                      <Typography component="div" sx={{ fontFamily: "ui-monospace, monospace", fontSize: "0.75rem", color: "text.secondary" }}>
+                        {line.itemCode}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>{line.batchNumber ?? "—"}</TableCell>
+                    <TableCell>{dateLabel(line.expiryDate)}</TableCell>
+                    <TableCell align="right">
+                      {line.quantity} {line.unit}
+                    </TableCell>
+                    <TableCell align="right">{formatRupiah(line.unitCost)}</TableCell>
+                    <TableCell align="right">{formatRupiah(line.amount)}</TableCell>
+                    <TableCell align="right">
+                      {line.batchRemaining} {line.unit}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
         </SectionCard>
 
         <SectionCard title="Retur" flush>
           {detail.returns.length === 0 ? (
             <EmptyState>Belum ada retur.</EmptyState>
           ) : (
-            <ul className="divide-y text-sm">
+            <Box component="ul" sx={{ listStyle: "none", m: 0, p: 0, fontSize: "0.875rem", "& > li + li": { borderTop: 1, borderColor: "divider" } }}>
               {detail.returns.map((r) => (
-                <li key={r.id} className="space-y-1 p-4">
-                  <div className="font-medium">
+                <Box component="li" key={r.id} sx={{ p: 2, display: "flex", flexDirection: "column", gap: 0.5 }}>
+                  <Box sx={{ fontWeight: 500 }}>
                     {formatDateWithYear(r.createdAt)} · {r.staffName} · {formatRupiah(r.total)}
-                  </div>
+                  </Box>
                   {r.lines.map((line, index) => (
-                    <div key={index} className="text-muted-foreground">
+                    <Box key={index} sx={{ color: "text.secondary" }}>
                       {line.itemName} batch {line.batchNumber ?? "-"}: {line.quantity} · {formatRupiah(line.amount)}
-                    </div>
+                    </Box>
                   ))}
                   {r.note && <div>{r.note}</div>}
-                </li>
+                </Box>
               ))}
-            </ul>
+            </Box>
           )}
         </SectionCard>
       </PageBody>

@@ -23,7 +23,7 @@ export const ADMIN_PAGES: AdminPage[] = [
   { path: "/admin/resep/[id]/etiket", from: "/admin/resep?lihat=SELESAI", via: 'a[href^="/admin/resep/"]', link: 'a[href$="/etiket"]' },
   { path: "/admin/stok" },
   { path: "/admin/stok/barang/[id]", from: "/admin/stok", link: 'a[href^="/admin/stok/barang/"]' },
-  { path: "/admin/stok/masuk/[id]", from: "/admin/stok?tab=masuk", link: 'a[href^="/admin/stok/masuk/"]' },
+  { path: "/admin/stok/masuk/[id]", from: "/admin/stok?tab=masuk", link: 'a[href^="/admin/stok/masuk/"]:not([href$="/baru"])' },
   { path: "/admin/stok/masuk/baru" },
   { path: "/admin/stok-dokter" },
   { path: "/admin/hutang" },

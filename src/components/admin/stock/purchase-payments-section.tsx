@@ -1,3 +1,4 @@
+import Box from "@mui/material/Box";
 import { formatRupiah } from "@/lib/format";
 import { dateLabel, PAYMENT_KIND_LABEL, PAYMENT_METHOD_LABEL, type PayableSummary } from "@/lib/stock";
 import type { SupplierPaymentRow } from "@/server/purchase-read";
@@ -38,53 +39,70 @@ export function PurchasePaymentsSection({
 
   return (
     <SectionCard title="Pembayaran" actions={actions}>
-      <dl className="grid gap-4 text-sm sm:grid-cols-5">
+      <Box
+        component="dl"
+        sx={{
+          m: 0,
+          display: "grid",
+          gap: 2,
+          gridTemplateColumns: { xs: "1fr", sm: "repeat(5, 1fr)" },
+          fontSize: "0.875rem",
+          "& dt": { color: "text.secondary" },
+          "& dd": { m: 0 },
+        }}
+      >
         <div>
-          <dt className="text-muted-foreground">Total faktur</dt>
+          <dt>Total faktur</dt>
           <dd>{formatRupiah(total)}</dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">Dibayar</dt>
+          <dt>Dibayar</dt>
           <dd>{formatRupiah(summary.paid)}</dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">Retur</dt>
+          <dt>Retur</dt>
           <dd>{formatRupiah(summary.returned)}</dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">Pengembalian dana</dt>
+          <dt>Pengembalian dana</dt>
           <dd>{formatRupiah(summary.refunded)}</dd>
         </div>
         <div>
-          <dt className="text-muted-foreground">{summary.balance < 0 ? "Kredit dari supplier" : "Sisa hutang"}</dt>
-          <dd className="text-lg font-semibold">{formatRupiah(Math.abs(summary.balance))}</dd>
+          <dt>{summary.balance < 0 ? "Kredit dari supplier" : "Sisa hutang"}</dt>
+          <Box component="dd" sx={{ fontSize: "1.125rem", fontWeight: 600 }}>
+            {formatRupiah(Math.abs(summary.balance))}
+          </Box>
         </div>
-      </dl>
+      </Box>
 
       {payments.length === 0 ? (
         <EmptyState>Belum ada pembayaran.</EmptyState>
       ) : (
-        <ul className="mt-4 divide-y text-sm">
+        <Box component="ul" sx={{ listStyle: "none", m: 0, mt: 2, p: 0, fontSize: "0.875rem", "& > li + li": { borderTop: 1, borderColor: "divider" } }}>
           {payments.map((payment) => {
             const label = `${dateLabel(payment.paidAt)} ${formatRupiah(payment.amount)}`;
             return (
-              <li key={payment.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                <div className={payment.revokedAt ? "text-muted-foreground line-through" : undefined}>
+              <Box
+                component="li"
+                key={payment.id}
+                sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 1, py: 1 }}
+              >
+                <Box sx={payment.revokedAt ? { color: "text.secondary", textDecoration: "line-through" } : undefined}>
                   {dateLabel(payment.paidAt)} · {PAYMENT_KIND_LABEL[payment.kind]} · {PAYMENT_METHOD_LABEL[payment.method]} ·{" "}
                   <strong>{formatRupiah(payment.amount)}</strong>
                   {payment.reference && <> · {payment.reference}</>} · {payment.staffName}
-                </div>
+                </Box>
                 {payment.revokedAt ? (
-                  <div className="text-xs text-destructive">
+                  <Box sx={{ fontSize: "0.75rem", color: "error.main" }}>
                     Dibatalkan {payment.revokedByName}: {payment.revokeReason}
-                  </div>
+                  </Box>
                 ) : (
                   !cancelled && <RevokePaymentDialog paymentId={payment.id} label={label} />
                 )}
-              </li>
+              </Box>
             );
           })}
-        </ul>
+        </Box>
       )}
     </SectionCard>
   );

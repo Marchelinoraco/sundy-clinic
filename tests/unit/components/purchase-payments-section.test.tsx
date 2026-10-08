@@ -1,8 +1,9 @@
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { PurchasePaymentsSection } from "@/components/admin/stock/purchase-payments-section";
 import type { PayableSummary } from "@/lib/stock";
 import type { SupplierPaymentRow } from "@/server/purchase-read";
+import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -35,7 +36,7 @@ const props = { invoiceId: "p1", invoiceDate: "2026-10-01", dueDate: "2026-10-31
 
 describe("PurchasePaymentsSection", () => {
   it("sisa hutang: tombol bayar dan ubah jatuh tempo; pembayaran aktif bisa dibatalkan", () => {
-    render(<PurchasePaymentsSection {...props} summary={summary({})} payments={[payment()]} cancelled={false} />);
+    renderAdmin(<PurchasePaymentsSection {...props} summary={summary({})} payments={[payment()]} cancelled={false} />);
     const region = screen.getByRole("region", { name: "Pembayaran" });
     expect(within(region).getByText("Sisa hutang").nextElementSibling).toHaveTextContent("Rp 60.000");
     expect(within(region).getByRole("button", { name: "Catat pembayaran" })).toBeInTheDocument();
@@ -46,7 +47,7 @@ describe("PurchasePaymentsSection", () => {
   });
 
   it("kredit dari supplier: tombol pengembalian dana; pembayaran dibatalkan ditandai beserta alasannya", () => {
-    render(
+    renderAdmin(
       <PurchasePaymentsSection
         {...props}
         summary={summary({ paid: 100000, returned: 30000, balance: -30000, status: "KREDIT" })}
@@ -62,7 +63,7 @@ describe("PurchasePaymentsSection", () => {
   });
 
   it("faktur dibatalkan: tanpa tombol aksi", () => {
-    render(<PurchasePaymentsSection {...props} summary={summary({ status: "DIBATALKAN" })} payments={[]} cancelled />);
+    renderAdmin(<PurchasePaymentsSection {...props} summary={summary({ status: "DIBATALKAN" })} payments={[]} cancelled />);
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.getByText("Belum ada pembayaran.")).toBeInTheDocument();
   });

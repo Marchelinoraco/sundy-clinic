@@ -68,7 +68,8 @@ function PickerField({ kind, label, id, name, value, defaultValue, onChange, min
         minDate={min ? (toDayjs(min) ?? undefined) : undefined}
         maxDate={max ? (toDayjs(max) ?? undefined) : undefined}
         disabled={disabled}
-        slotProps={{ textField: { id, helperText, error, fullWidth, sx } }}
+        // Ukuran dan warna sama dengan TextField admin (tema: kecil, sekunder); PickersTextField tidak ikut bawaan TextField.
+        slotProps={{ textField: { id, helperText, error, fullWidth, sx, size: "small", color: "secondary" } }}
       />
       {name && <input type="hidden" name={name} value={toText(picked)} />}
     </>

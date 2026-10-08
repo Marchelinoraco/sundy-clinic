@@ -1,5 +1,6 @@
 import { expect, test, type TestInfo } from "@playwright/test";
 import { E2E_APOTEKER, E2E_KEUANGAN, E2E_RESEPSIONIS } from "./credentials";
+import { isiTanggal, pilihOpsi } from "./helpers/mui";
 import { signIn } from "./helpers/quiz";
 
 // Satu cerita berurutan per proyek (desktop/ponsel, data masing-masing):
@@ -48,17 +49,17 @@ test("apoteker menambah barang, mencatat barang masuk dua batch, lalu meretur se
 
   await page.getByLabel("Nomor faktur").fill(`E2E-${t}-001`);
   const option = `${itemName} (E2E-${t}-OBT)`;
-  await page.getByLabel("Barang baris 1").selectOption({ label: option });
+  await pilihOpsi(page, "Barang baris 1", option);
   await page.getByLabel("Jumlah baris 1").fill("10");
   await page.getByLabel("Harga beli baris 1").fill("5000");
   await page.getByLabel("Batch baris 1").fill("B-01");
-  await page.getByLabel("Kedaluwarsa baris 1").fill(dayFromToday(365));
+  await isiTanggal(page, "Kedaluwarsa baris 1", dayFromToday(365));
   await page.getByRole("button", { name: "+ Tambah baris" }).click();
-  await page.getByLabel("Barang baris 2").selectOption({ label: option });
+  await pilihOpsi(page, "Barang baris 2", option);
   await page.getByLabel("Jumlah baris 2").fill("6");
   await page.getByLabel("Harga beli baris 2").fill("5000");
   await page.getByLabel("Batch baris 2").fill("B-02");
-  await page.getByLabel("Kedaluwarsa baris 2").fill(dayFromToday(400));
+  await isiTanggal(page, "Kedaluwarsa baris 2", dayFromToday(400));
   await expect(page.getByText("Rp 80.000")).toBeVisible();
   await page.getByRole("button", { name: "Simpan barang masuk" }).click();
 
@@ -91,7 +92,8 @@ test("admin keuangan membayar sebagian lalu melunasi, dan tidak bisa mengubah st
   await expect(page.getByRole("region", { name: "Hutang", exact: true })).toBeVisible();
 
   await page.goto("/admin/hutang");
-  const row = page.getByRole("row").filter({ hasText: `E2E-${t}-001` });
+  // Tautan bernama persis: faktur spek lain ("TG-E2E-…-001", "RSP-E2E-…-001") juga memuat teks ini.
+  const row = page.getByRole("row").filter({ has: page.getByRole("link", { name: `E2E-${t}-001`, exact: true }) });
   await expect(row).toContainText("Rp 70.000");
   await row.getByRole("link", { name: `E2E-${t}-001` }).click();
   await expect(page).toHaveURL(new RegExp(`${invoicePath}$`), { timeout: 30_000 });

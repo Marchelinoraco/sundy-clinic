@@ -1,9 +1,9 @@
 "use client";
 
+import Button from "@mui/material/Button";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { setStockItemActive } from "@/server/stock-catalog";
 
 /** Barang dinonaktifkan, tidak dihapus (spec stok 5.1). */
@@ -28,7 +28,7 @@ export function StockItemActiveButton({ itemId, active }: { itemId: string; acti
   }
 
   return (
-    <Button type="button" variant="outline" onClick={toggle} disabled={pending}>
+    <Button type="button" variant="outlined" onClick={toggle} disabled={pending}>
       {active ? "Nonaktifkan" : "Aktifkan kembali"}
     </Button>
   );

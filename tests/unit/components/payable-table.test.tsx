@@ -1,7 +1,9 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it } from "vitest";
 import { PayableTable } from "@/components/admin/stock/payable-table";
 import type { PayableRow } from "@/server/payable-read";
+import { renderAdmin } from "../helpers/render-admin";
+import { mockGridLayout } from "../helpers/mui";
 
 const row = (patch: Partial<PayableRow> = {}): PayableRow => ({
   id: "p1",
@@ -21,9 +23,11 @@ const row = (patch: Partial<PayableRow> = {}): PayableRow => ({
   ...patch,
 });
 
+beforeEach(() => mockGridLayout());
+
 describe("PayableTable", () => {
   it("tautan ke faktur, sisa hutang, dan tanda terlambat", () => {
-    render(<PayableTable rows={[row()]} />);
+    renderAdmin(<PayableTable rows={[row()]} />);
     expect(screen.getByRole("link", { name: "INV-1" })).toHaveAttribute("href", "/admin/stok/masuk/p1");
     expect(screen.getByText("Rp 60.000")).toBeInTheDocument();
     expect(screen.getByText("Terlambat")).toBeInTheDocument();
@@ -31,10 +35,10 @@ describe("PayableTable", () => {
   });
 
   it("kredit dari supplier ditulis sebagai kredit; daftar kosong", () => {
-    const { unmount } = render(<PayableTable rows={[row({ balance: -30000, status: "KREDIT", overdue: false })]} />);
+    const { unmount } = renderAdmin(<PayableTable rows={[row({ balance: -30000, status: "KREDIT", overdue: false })]} />);
     expect(screen.getByText("Kredit Rp 30.000")).toBeInTheDocument();
     unmount();
-    render(<PayableTable rows={[]} />);
+    renderAdmin(<PayableTable rows={[]} />);
     expect(screen.getByText("Tidak ada faktur di tampilan ini.")).toBeInTheDocument();
   });
 });

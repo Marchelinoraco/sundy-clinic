@@ -1,12 +1,19 @@
-import Link from "next/link";
+import Box from "@mui/material/Box";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
+import Typography from "@mui/material/Typography";
 import { notFound } from "next/navigation";
 import { AdminHeader } from "@/components/admin/admin-header";
+import { TextLink } from "@/components/admin/mui/links";
+import { StatusChip } from "@/components/admin/mui/status-chip";
 import { EmptyState, PageBody, PageHeader, SectionCard } from "@/components/admin/page-layout";
 import { AdjustStockDialog } from "@/components/admin/stock/adjust-stock-dialog";
 import { StockItemActiveButton } from "@/components/admin/stock/stock-item-active-button";
 import { StockItemDialog } from "@/components/admin/stock/stock-item-dialog";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDateWithYear, formatRupiah } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { ADJUST_REASON_LABEL, dateLabel, MOVEMENT_KIND_LABEL, STOCK_ITEM_KIND_LABEL } from "@/lib/stock";
@@ -54,65 +61,71 @@ export default async function StockItemPage({ params }: { params: Promise<{ id: 
             ) : undefined
           }
         />
-        {!item.isActive && <Badge variant="outline">Nonaktif</Badge>}
+        {!item.isActive && (
+          <Box>
+            <StatusChip label="Nonaktif" />
+          </Box>
+        )}
 
         <SectionCard title="Batch" flush>
           {batches.length === 0 ? (
             <EmptyState>Belum ada stok untuk barang ini.</EmptyState>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Cabang</TableHead>
-                  <TableHead>Batch</TableHead>
-                  <TableHead>Kedaluwarsa</TableHead>
-                  <TableHead className="text-right">Sisa</TableHead>
-                  <TableHead className="text-right">Harga beli</TableHead>
-                  <TableHead>Faktur</TableHead>
-                  {canManage && <TableHead>Aksi</TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {batches.map((batch) => (
-                  <TableRow key={batch.id}>
-                    <TableCell>{batch.branchName}</TableCell>
-                    <TableCell>{batch.batchNumber ?? "—"}</TableCell>
-                    <TableCell>
-                      {dateLabel(batch.expiryDate)}
-                      {batch.expired && (
-                        <Badge variant="destructive" className="ml-2">
-                          Kedaluwarsa
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {batch.quantityRemaining} {item.unit}
-                    </TableCell>
-                    <TableCell className="text-right">{formatRupiah(batch.unitCost)}</TableCell>
-                    <TableCell>
-                      <Link href={`/admin/stok/masuk/${batch.invoiceId}`} className="underline-offset-4 hover:underline">
-                        {batch.invoiceNumber}
-                      </Link>
-                      <div className="text-xs text-muted-foreground">{batch.supplierName}</div>
-                    </TableCell>
-                    {canManage && (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Cabang</TableCell>
+                    <TableCell>Batch</TableCell>
+                    <TableCell>Kedaluwarsa</TableCell>
+                    <TableCell align="right">Sisa</TableCell>
+                    <TableCell align="right">Harga beli</TableCell>
+                    <TableCell>Faktur</TableCell>
+                    {canManage && <TableCell>Aksi</TableCell>}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {batches.map((batch) => (
+                    <TableRow key={batch.id}>
+                      <TableCell>{batch.branchName}</TableCell>
+                      <TableCell>{batch.batchNumber ?? "—"}</TableCell>
                       <TableCell>
-                        {!batch.invoiceCancelled && (
-                          <AdjustStockDialog
-                            batch={{
-                              id: batch.id,
-                              label: `${item.name} batch ${batch.batchNumber ?? "-"}`,
-                              remaining: batch.quantityRemaining,
-                              unit: item.unit,
-                            }}
-                          />
+                        {dateLabel(batch.expiryDate)}
+                        {batch.expired && (
+                          <Box component="span" sx={{ ml: 1 }}>
+                            <StatusChip label="Kedaluwarsa" tone="error" />
+                          </Box>
                         )}
                       </TableCell>
-                    )}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                      <TableCell align="right">
+                        {batch.quantityRemaining} {item.unit}
+                      </TableCell>
+                      <TableCell align="right">{formatRupiah(batch.unitCost)}</TableCell>
+                      <TableCell>
+                        <TextLink href={`/admin/stok/masuk/${batch.invoiceId}`}>{batch.invoiceNumber}</TextLink>
+                        <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>
+                          {batch.supplierName}
+                        </Typography>
+                      </TableCell>
+                      {canManage && (
+                        <TableCell>
+                          {!batch.invoiceCancelled && (
+                            <AdjustStockDialog
+                              batch={{
+                                id: batch.id,
+                                label: `${item.name} batch ${batch.batchNumber ?? "-"}`,
+                                remaining: batch.quantityRemaining,
+                                unit: item.unit,
+                              }}
+                            />
+                          )}
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
           )}
         </SectionCard>
 
@@ -120,41 +133,49 @@ export default async function StockItemPage({ params }: { params: Promise<{ id: 
           {movements.length === 0 ? (
             <EmptyState>Belum ada perubahan stok.</EmptyState>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Waktu</TableHead>
-                  <TableHead>Jenis</TableHead>
-                  <TableHead className="text-right">Jumlah</TableHead>
-                  <TableHead>Batch</TableHead>
-                  <TableHead>Staf</TableHead>
-                  <TableHead>Keterangan</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {movements.map((movement) => (
-                  <TableRow key={movement.id}>
-                    <TableCell className="whitespace-nowrap">
-                      {formatDateWithYear(movement.createdAt)} {minutesToTimeLabel(witaMinutesOfDay(movement.createdAt))}
-                    </TableCell>
-                    <TableCell>{MOVEMENT_KIND_LABEL[movement.kind]}</TableCell>
-                    <TableCell className="text-right">
-                      {movement.quantity > 0 ? "+" : ""}
-                      {movement.quantity}
-                    </TableCell>
-                    <TableCell>
-                      {movement.batchNumber ?? "—"}
-                      <div className="text-xs text-muted-foreground">{movement.branchName}</div>
-                    </TableCell>
-                    <TableCell>{movement.staffName}</TableCell>
-                    <TableCell>
-                      {movement.reason ? ADJUST_REASON_LABEL[movement.reason] : ""}
-                      {movement.note && <div className="text-xs text-muted-foreground">{movement.note}</div>}
-                    </TableCell>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Waktu</TableCell>
+                    <TableCell>Jenis</TableCell>
+                    <TableCell align="right">Jumlah</TableCell>
+                    <TableCell>Batch</TableCell>
+                    <TableCell>Staf</TableCell>
+                    <TableCell>Keterangan</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHead>
+                <TableBody>
+                  {movements.map((movement) => (
+                    <TableRow key={movement.id}>
+                      <TableCell sx={{ whiteSpace: "nowrap" }}>
+                        {formatDateWithYear(movement.createdAt)} {minutesToTimeLabel(witaMinutesOfDay(movement.createdAt))}
+                      </TableCell>
+                      <TableCell>{MOVEMENT_KIND_LABEL[movement.kind]}</TableCell>
+                      <TableCell align="right">
+                        {movement.quantity > 0 ? "+" : ""}
+                        {movement.quantity}
+                      </TableCell>
+                      <TableCell>
+                        {movement.batchNumber ?? "—"}
+                        <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>
+                          {movement.branchName}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>{movement.staffName}</TableCell>
+                      <TableCell>
+                        {movement.reason ? ADJUST_REASON_LABEL[movement.reason] : ""}
+                        {movement.note && (
+                          <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>
+                            {movement.note}
+                          </Typography>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
           )}
         </SectionCard>
       </PageBody>

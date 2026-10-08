@@ -1,8 +1,9 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SupplierReturnDialog } from "@/components/admin/stock/supplier-return-dialog";
 import { createSupplierReturn } from "@/server/stock-movements";
+import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -17,7 +18,7 @@ beforeEach(() => vi.clearAllMocks());
 
 async function open() {
   const user = userEvent.setup();
-  render(<SupplierReturnDialog invoiceId="p1" lines={lines} />);
+  renderAdmin(<SupplierReturnDialog invoiceId="p1" lines={lines} />);
   await user.click(screen.getByRole("button", { name: "Retur ke supplier" }));
   return user;
 }

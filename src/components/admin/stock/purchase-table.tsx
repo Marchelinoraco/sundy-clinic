@@ -1,45 +1,60 @@
-import Link from "next/link";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+"use client";
+
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+import type { GridColDef } from "@mui/x-data-grid";
 import { formatRupiah } from "@/lib/format";
-import { dateLabel } from "@/lib/stock";
+import { dateLabel, dateOnly, PAYABLE_STATUS_LABEL } from "@/lib/stock";
 import type { PurchaseRow } from "@/server/purchase-read";
-import { EmptyState } from "../page-layout";
+import { AdminDataGrid } from "../mui/admin-data-grid";
+import { TextLink } from "../mui/links";
 import { PayableStatusBadge } from "./payable-status-badge";
+
+const COLUMNS: GridColDef<PurchaseRow>[] = [
+  {
+    field: "invoiceDate",
+    headerName: "Tanggal",
+    type: "dateTime",
+    width: 130,
+    valueGetter: (_value, row) => dateOnly(row.invoiceDate),
+    renderCell: ({ row }) => dateLabel(row.invoiceDate),
+  },
+  {
+    field: "invoiceNumber",
+    headerName: "Faktur",
+    flex: 1,
+    minWidth: 180,
+    renderCell: ({ row }) => (
+      <Box>
+        <TextLink href={`/admin/stok/masuk/${row.id}`} sx={{ fontWeight: 500 }}>
+          {row.invoiceNumber}
+        </TextLink>
+        <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>
+          {row.supplierName} · {row.lineCount} baris
+        </Typography>
+      </Box>
+    ),
+  },
+  { field: "branchName", headerName: "Cabang", flex: 1, minWidth: 120 },
+  {
+    field: "total",
+    headerName: "Total",
+    type: "number",
+    align: "right",
+    headerAlign: "right",
+    width: 130,
+    renderCell: ({ row }) => formatRupiah(row.total),
+  },
+  {
+    field: "status",
+    headerName: "Status",
+    minWidth: 150,
+    valueGetter: (_value, row) => PAYABLE_STATUS_LABEL[row.status],
+    renderCell: ({ row }) => <PayableStatusBadge status={row.status} overdue={row.overdue} />,
+  },
+];
 
 /** Tab "Barang masuk": faktur terbaru di atas. */
 export function PurchaseTable({ rows }: { rows: PurchaseRow[] }) {
-  if (rows.length === 0) return <EmptyState>Belum ada barang masuk.</EmptyState>;
-  return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Tanggal</TableHead>
-          <TableHead>Faktur</TableHead>
-          <TableHead>Cabang</TableHead>
-          <TableHead className="text-right">Total</TableHead>
-          <TableHead>Status</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {rows.map((row) => (
-          <TableRow key={row.id}>
-            <TableCell className="whitespace-nowrap">{dateLabel(row.invoiceDate)}</TableCell>
-            <TableCell>
-              <Link href={`/admin/stok/masuk/${row.id}`} className="font-medium underline-offset-4 hover:underline">
-                {row.invoiceNumber}
-              </Link>
-              <div className="text-xs text-muted-foreground">
-                {row.supplierName} · {row.lineCount} baris
-              </div>
-            </TableCell>
-            <TableCell>{row.branchName}</TableCell>
-            <TableCell className="text-right">{formatRupiah(row.total)}</TableCell>
-            <TableCell>
-              <PayableStatusBadge status={row.status} overdue={row.overdue} />
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  );
+  return <AdminDataGrid rows={rows} columns={COLUMNS} label="Daftar barang masuk" emptyText="Belum ada barang masuk." />;
 }

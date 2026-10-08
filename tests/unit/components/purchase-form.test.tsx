@@ -1,9 +1,11 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PurchaseForm } from "@/components/admin/stock/purchase-form";
 import { createPurchase } from "@/server/purchases";
 import { createSupplier } from "@/server/stock-catalog";
+import { dateFieldValue, pickOption, setDateField } from "../helpers/mui";
+import { renderAdmin } from "../helpers/render-admin";
 
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push, refresh: vi.fn() }) }));
@@ -18,7 +20,7 @@ const items = [
 const TODAY = "2026-10-07";
 
 function renderForm() {
-  return render(
+  return renderAdmin(
     <PurchaseForm items={items} suppliers={[{ id: "s1", name: "Kimia Farma" }]} branches={[{ id: "b1", name: "SunDY Mahakeret" }]} today={TODAY} />,
   );
 }
@@ -32,13 +34,13 @@ describe("PurchaseForm", () => {
     renderForm();
     await user.selectOptions(screen.getByLabelText("Supplier"), "s1");
     await user.type(screen.getByLabelText("Nomor faktur"), "INV-1");
-    await user.selectOptions(screen.getByLabelText("Barang baris 1"), "obat");
+    await pickOption(user, "Barang baris 1", "Amoxicillin (OBT-001)");
     await user.type(screen.getByLabelText("Jumlah baris 1"), "10");
     await user.type(screen.getByLabelText("Harga beli baris 1"), "5000");
     await user.type(screen.getByLabelText("Batch baris 1"), "B1");
-    fireEvent.change(screen.getByLabelText("Kedaluwarsa baris 1"), { target: { value: "2027-06-01" } });
+    setDateField("Kedaluwarsa baris 1", "2027-06-01");
     await user.click(screen.getByRole("button", { name: "+ Tambah baris" }));
-    await user.selectOptions(screen.getByLabelText("Barang baris 2"), "serum");
+    await pickOption(user, "Barang baris 2", "Serum C (PRD-001)");
     await user.type(screen.getByLabelText("Jumlah baris 2"), "2");
     await user.type(screen.getByLabelText("Harga beli baris 2"), "75000");
     expect(screen.getByText("Rp 200.000")).toBeInTheDocument();
@@ -66,7 +68,7 @@ describe("PurchaseForm", () => {
     renderForm();
     await user.selectOptions(screen.getByLabelText("Supplier"), "s1");
     await user.type(screen.getByLabelText("Nomor faktur"), "INV-2");
-    await user.selectOptions(screen.getByLabelText("Barang baris 1"), "obat");
+    await pickOption(user, "Barang baris 1", "Amoxicillin (OBT-001)");
     await user.type(screen.getByLabelText("Jumlah baris 1"), "1");
     await user.type(screen.getByLabelText("Harga beli baris 1"), "1000");
     await user.click(screen.getByRole("button", { name: "Simpan barang masuk" }));
@@ -76,11 +78,11 @@ describe("PurchaseForm", () => {
 
   it("jatuh tempo mengikuti tanggal faktur + 30 hari sampai diubah sendiri", () => {
     renderForm();
-    fireEvent.change(screen.getByLabelText("Tanggal faktur"), { target: { value: "2026-10-01" } });
-    expect(screen.getByLabelText("Jatuh tempo")).toHaveValue("2026-10-31");
-    fireEvent.change(screen.getByLabelText("Jatuh tempo"), { target: { value: "2026-11-15" } });
-    fireEvent.change(screen.getByLabelText("Tanggal faktur"), { target: { value: "2026-10-02" } });
-    expect(screen.getByLabelText("Jatuh tempo")).toHaveValue("2026-11-15");
+    setDateField("Tanggal faktur", "2026-10-01");
+    expect(dateFieldValue("Jatuh tempo")).toBe("2026-10-31");
+    setDateField("Jatuh tempo", "2026-11-15");
+    setDateField("Tanggal faktur", "2026-10-02");
+    expect(dateFieldValue("Jatuh tempo")).toBe("2026-11-15");
   });
 
   it("supplier baru dari dialog langsung terpilih", async () => {

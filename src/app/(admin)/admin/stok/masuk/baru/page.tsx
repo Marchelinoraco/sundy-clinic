@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { AdminHeader } from "@/components/admin/admin-header";
+import { TextLink } from "@/components/admin/mui/links";
 import { EmptyState, PageBody, PageHeader } from "@/components/admin/page-layout";
 import { PurchaseForm } from "@/components/admin/stock/purchase-form";
 import { witaDateString } from "@/lib/time";
@@ -28,9 +28,9 @@ export default async function NewPurchasePage() {
         ) : items.length === 0 ? (
           <EmptyState>
             Belum ada barang aktif.{" "}
-            <Link href="/admin/stok" className="underline underline-offset-4">
+            <TextLink href="/admin/stok" underline="always">
               Tambahkan barang dulu
-            </Link>
+            </TextLink>
             .
           </EmptyState>
         ) : (

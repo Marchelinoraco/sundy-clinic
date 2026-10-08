@@ -1,7 +1,9 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it } from "vitest";
 import { StockItemTable } from "@/components/admin/stock/stock-item-table";
 import type { StockItemRow } from "@/server/stock-read";
+import { renderAdmin } from "../helpers/render-admin";
+import { mockGridLayout } from "../helpers/mui";
 
 const row = (patch: Partial<StockItemRow> = {}): StockItemRow => ({
   id: "i1",
@@ -22,9 +24,11 @@ const row = (patch: Partial<StockItemRow> = {}): StockItemRow => ({
   ...patch,
 });
 
+beforeEach(() => mockGridLayout());
+
 describe("StockItemTable", () => {
   it("menampilkan stok tersedia, sisa kedaluwarsa, tanda, harga, dan tautan detail", () => {
-    render(<StockItemTable rows={[row()]} />);
+    renderAdmin(<StockItemTable rows={[row()]} />);
     expect(screen.getByRole("link", { name: "Amoxicillin 500 mg" })).toHaveAttribute("href", "/admin/stok/barang/i1");
     expect(screen.getByText("8 kapsul")).toBeInTheDocument();
     expect(screen.getByText("3 kedaluwarsa")).toBeInTheDocument();
@@ -34,11 +38,11 @@ describe("StockItemTable", () => {
   });
 
   it("harga kosong tampil sebagai tanda pisah; barang nonaktif diberi tanda; daftar kosong", () => {
-    const { unmount } = render(<StockItemTable rows={[row({ sellPrice: null, isActive: false, flags: [], onHand: 8 })]} />);
+    const { unmount } = renderAdmin(<StockItemTable rows={[row({ sellPrice: null, isActive: false, flags: [], onHand: 8 })]} />);
     expect(screen.getByText("—")).toBeInTheDocument();
     expect(screen.getByText("Nonaktif")).toBeInTheDocument();
     unmount();
-    render(<StockItemTable rows={[]} />);
+    renderAdmin(<StockItemTable rows={[]} />);
     expect(screen.getByText("Tidak ada barang yang cocok.")).toBeInTheDocument();
   });
 });
