@@ -11,6 +11,9 @@ const nextConfig: NextConfig = {
     // Paket payung radix-ui mengimpor semua komponen Radix. Dengan ini hanya komponen yang
     // dipakai yang dikompilasi (diukur di next dev: halaman publik ±1.460 → ±930 modul).
     optimizePackageImports: ["radix-ui"],
+    // Alat dev "Segment Explorer" membungkus segmen dengan komponen tambahan hanya di mode dev, sehingga
+    // useId (dipakai isian MUI tanpa id) berbeda antara server dan klien: galat hidrasi palsu di next dev.
+    devtoolSegmentExplorer: false,
   },
 };
 

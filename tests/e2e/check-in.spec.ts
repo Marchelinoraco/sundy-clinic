@@ -74,7 +74,8 @@ test("resepsionis check-in dengan NIK, customer mengisi food recall di tablet, d
     .filter({ hasText: `Rani Cekin ${testInfo.project.name}` });
   await expect(todayRow).toContainText("food recall ✓", { timeout: 30_000 });
   await todayRow.getByRole("button", { name: "Periksa" }).click();
-  await expect(doctor).toHaveURL(/\/admin\/kunjungan\/[^/]+$/, { timeout: 30_000 });
+  // 60 dtk: halaman kunjungan dikompilasi `next dev` saat pertama dibuka, sementara spek lain ikut berjalan.
+  await expect(doctor).toHaveURL(/\/admin\/kunjungan\/[^/]+$/, { timeout: 60_000 });
   await expect(doctor.getByRole("tab", { name: "Food recall" })).toHaveAttribute("aria-selected", "true");
   await expect(doctor.getByRole("tabpanel")).toContainText("Nasi kuning dan teh manis");
 
