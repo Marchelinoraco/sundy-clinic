@@ -161,4 +161,19 @@ describe("batasan arsitektur", () => {
     );
     expect(users).toEqual(["src/components/public/package-tabs.tsx"]);
   });
+
+  it("Material UI hanya dimuat panel admin; situs publik tidak", () => {
+    const publicFiles = [
+      ...collectSourceFiles("src/app/(public)"),
+      ...collectSourceFiles("src/components").filter((file) => !file.startsWith(join("src", "components", "admin"))),
+    ];
+    const offenders = publicFiles.filter((file) => /from\s+"@mui\//.test(readFileSync(file, "utf8")));
+    expect(offenders).toEqual([]);
+  });
+
+  it("layout grup admin memasang provider MUI dan skrip skema warna", () => {
+    const layout = readFileSync("src/app/(admin)/layout.tsx", "utf8");
+    expect(layout).toContain("AdminProviders");
+    expect(layout).toContain("InitColorSchemeScript");
+  });
 });

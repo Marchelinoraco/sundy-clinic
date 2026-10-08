@@ -1,3 +1,5 @@
+/* Urutan lapisan: gaya MUI (panel admin) di atas reset dasar Tailwind, di bawah utilitas. */
+@layer theme, base, mui, components, utilities;
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
@@ -444,6 +446,21 @@ h3 {
     display: none !important;
   }
   body {
+    background: #fff !important;
+  }
+}
+
+/* Cetak dari panel admin selalu terang (spec MUI 5): teks hitam di atas putih, apa pun skemanya.
+   Kelas ini dipasang di akar panel admin (AdminProviders). */
+@media print {
+  .cetak-terang,
+  .cetak-terang * {
+    color: #000 !important;
+    background: transparent !important;
+    border-color: #bbb !important;
+    box-shadow: none !important;
+  }
+  body:has(.cetak-terang) {
     background: #fff !important;
   }
 }
