@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ReminderWorklistView } from "@/components/admin/reminder-worklist";
@@ -6,6 +6,7 @@ import { combineWitaDateAndMinutes } from "@/lib/time";
 import { recordAppointmentMessage, recordReminderReply, revokeAppointmentMessage } from "@/server/appointment-message";
 import type { ReminderRow, ReminderWorklist } from "@/server/reminder";
 import { getStaffAvailabilityRange } from "@/server/schedule";
+import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/server/appointment", () => ({ rescheduleAppointment: vi.fn() }));
@@ -89,19 +90,19 @@ beforeEach(() => {
 
 describe("ReminderWorklistView", () => {
   it("tiga kotak dengan jumlahnya, dan 'Tidak ada' bila kosong", () => {
-    const { unmount } = render(<ReminderWorklistView worklist={WORKLIST} />);
+    const { unmount } = renderAdmin(<ReminderWorklistView worklist={WORKLIST} />);
     expect(screen.getByRole("heading", { name: "Pengingat · Sabtu, 3 Oktober 2026" })).toBeInTheDocument();
     expect(region(/Konfirmasi belum dikirim \(1\)/)).toBeInTheDocument();
     expect(region(/Ingatkan sekarang \(2\)/)).toBeInTheDocument();
     expect(region(/Sudah diingatkan — catat balasannya \(3\)/)).toBeInTheDocument();
     unmount();
 
-    render(<ReminderWorklistView worklist={{ today: TODAY, confirm: [], remind: [], reminded: [] }} />);
+    renderAdmin(<ReminderWorklistView worklist={{ today: TODAY, confirm: [], remind: [], reminded: [] }} />);
     expect(screen.getAllByText("Tidak ada.")).toHaveLength(3);
   });
 
   it("kotak 1: kirim konfirmasi mencatat jenis KONFIRMASI", async () => {
-    render(<ReminderWorklistView worklist={WORKLIST} />);
+    renderAdmin(<ReminderWorklistView worklist={WORKLIST} />);
     const link = within(item(/Konfirmasi belum dikirim/, "Grace Lumi")).getByRole("link", { name: "Kirim konfirmasi" });
     link.addEventListener("click", (event) => event.preventDefault());
     fireEvent.click(link);
@@ -115,10 +116,10 @@ describe("ReminderWorklistView", () => {
   });
 
   it("kotak 2: yang terlambat ditandai merah, yang dimajukan diberi keterangan, tombol WA mencatat PENGINGAT", async () => {
-    render(<ReminderWorklistView worklist={WORKLIST} />);
+    renderAdmin(<ReminderWorklistView worklist={WORKLIST} />);
     const items = within(region(/Ingatkan sekarang/)).getAllByRole("listitem");
     expect(items[0]).toHaveTextContent("Yohana Sari");
-    expect(within(items[0]).getByText("terlambat")).toHaveClass("text-destructive");
+    expect(within(items[0]).getByText("terlambat")).toHaveAttribute("data-tone", "error");
     expect(items[1]).toHaveTextContent("Hari sebelumnya tutup — diingatkan hari ini");
 
     const link = within(items[1]).getByRole("link", { name: "Ingatkan via WA" });
@@ -135,7 +136,7 @@ describe("ReminderWorklistView", () => {
 
   it("kotak 3: mencatat balasan, mengubahnya, dan membatalkan tanda", async () => {
     const user = userEvent.setup();
-    render(<ReminderWorklistView worklist={WORKLIST} />);
+    renderAdmin(<ReminderWorklistView worklist={WORKLIST} />);
 
     const anita = item(/Sudah diingatkan/, "Anita Kaunang");
     expect(anita).toHaveTextContent("diingatkan 09.40 oleh Rina");
@@ -149,13 +150,16 @@ describe("ReminderWorklistView", () => {
     await user.click(within(budi).getByRole("button", { name: "Tidak membalas" }));
     expect(recordReminderReply).toHaveBeenCalledWith({ messageId: "m5", reply: "TIDAK_MEMBALAS" });
 
-    await user.click(within(anita).getByRole("button", { name: "Batalkan tanda" }));
+    // Tombol aktif lagi setelah aksi sebelumnya selesai; tombol MUI nonaktif menolak klik (pointer-events: none).
+    const revoke = within(anita).getByRole("button", { name: "Batalkan tanda" });
+    await waitFor(() => expect(revoke).toBeEnabled());
+    await user.click(revoke);
     expect(revokeAppointmentMessage).toHaveBeenCalledWith("m4");
   });
 
   it("balasan Minta pindah menawarkan Pindah jadwal", async () => {
     const user = userEvent.setup();
-    render(<ReminderWorklistView worklist={WORKLIST} />);
+    renderAdmin(<ReminderWorklistView worklist={WORKLIST} />);
     const citra = item(/Sudah diingatkan/, "Citra Mamahit");
     expect(within(item(/Sudah diingatkan/, "Anita Kaunang")).queryByRole("button", { name: "Pindah jadwal" })).toBeNull();
 
@@ -170,7 +174,7 @@ describe("ReminderWorklistView", () => {
       onlineLabel: "Online · Kamis, 8 April 2032, 19.00–21.00",
       reminderSent: { messageId: "m7", sentAt, sentByName: "Rina", reply: "MINTA_PINDAH" },
     });
-    render(<ReminderWorklistView worklist={{ ...WORKLIST, reminded: [online] }} />);
+    renderAdmin(<ReminderWorklistView worklist={{ ...WORKLIST, reminded: [online] }} />);
     expect(screen.getByText(/Online · Kamis, 8 April 2032, 19.00–21.00/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Pindah jadwal" })).not.toBeInTheDocument();
   });

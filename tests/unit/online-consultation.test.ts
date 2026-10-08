@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   boundsOf,
+  CONTACT_END_CHOICES,
+  CONTACT_START_CHOICES,
   lastAttemptLabel,
   nextOpenWindow,
   onlineConfirmationText,
@@ -16,6 +18,10 @@ import {
   windowDrafts,
   windowLabel,
   windowLines,
+  ONLINE_FIRST_MINUTE,
+  ONLINE_LAST_MINUTE,
+  ONLINE_MIN_WINDOW_MINUTES,
+  ONLINE_STEP_MINUTES,
   type ContactRange,
 } from "@/lib/online-consultation";
 import { combineWitaDateAndMinutes } from "@/lib/time";
@@ -200,5 +206,15 @@ describe("windowDraftsError", () => {
     );
     expect(windowDraftsError([draft("2026-10-08", 600, 630)], "CUSTOMER", NOW)).toBe("Setiap waktu minimal 1 jam.");
     expect(windowDraftsError([draft("2026-10-08", 600, 720)], "CUSTOMER", NOW)).toBeNull();
+  });
+});
+
+describe("pilihan jam waktu luang", () => {
+  it("mulai dari jam pertama sampai (jam terakhir − rentang minimal); selesai dari (jam pertama + rentang minimal) sampai jam terakhir", () => {
+    expect(CONTACT_START_CHOICES[0]).toBe(ONLINE_FIRST_MINUTE);
+    expect(CONTACT_START_CHOICES.at(-1)).toBe(ONLINE_LAST_MINUTE - ONLINE_MIN_WINDOW_MINUTES);
+    expect(CONTACT_END_CHOICES[0]).toBe(ONLINE_FIRST_MINUTE + ONLINE_MIN_WINDOW_MINUTES);
+    expect(CONTACT_END_CHOICES.at(-1)).toBe(ONLINE_LAST_MINUTE);
+    expect(CONTACT_START_CHOICES.every((m, i, all) => i === 0 || m - all[i - 1] === ONLINE_STEP_MINUTES)).toBe(true);
   });
 });

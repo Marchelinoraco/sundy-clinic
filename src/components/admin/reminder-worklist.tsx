@@ -1,14 +1,16 @@
 "use client";
 
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import { useState, useTransition, type ReactNode } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import type { ActionResult } from "@/lib/action-result";
 import type { RescheduleTarget } from "@/lib/booking-actions";
 import { REMINDER_REPLIES, REMINDER_REPLY_LABEL } from "@/lib/booking-messages";
 import { formatIndonesianDate, formatShortIndonesianDate } from "@/lib/format";
 import { combineWitaDateAndMinutes, minutesToTimeLabel, witaDateString, witaMinutesOfDay } from "@/lib/time";
-import { cn } from "@/lib/utils";
 import { recordReminderReply, revokeAppointmentMessage } from "@/server/appointment-message";
 import type { ReminderRow, ReminderWorklist } from "@/server/reminder";
 import { MessageActions } from "./message-actions";
@@ -22,7 +24,7 @@ function schedule(date: Date): string {
   return `${formatShortIndonesianDate(date)} ${time(date)}`;
 }
 
-function Box({
+function WorkBox({
   id,
   title,
   count,
@@ -36,29 +38,53 @@ function Box({
   children: ReactNode;
 }) {
   return (
-    <section
+    <Box
+      component="section"
       aria-labelledby={id}
-      className={cn("space-y-2 rounded-lg border p-4", tone === "warn" ? "border-amber-300 bg-amber-50/60" : "bg-card")}
+      sx={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 1,
+        borderRadius: 2,
+        border: 1,
+        p: 2,
+        ...(tone === "warn"
+          ? { borderColor: "warning.main", bgcolor: "rgba(var(--mui-palette-warning-mainChannel) / 0.06)" }
+          : { borderColor: "divider", bgcolor: "background.paper" }),
+      }}
     >
-      <h3 id={id} className="font-medium">
+      <Typography component="h3" id={id} sx={{ fontWeight: 500 }}>
         {title} ({count})
-      </h3>
-      {count === 0 ? <p className="text-sm text-muted-foreground">Tidak ada.</p> : <ul className="divide-y">{children}</ul>}
-    </section>
+      </Typography>
+      {count === 0 ? (
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          Tidak ada.
+        </Typography>
+      ) : (
+        <Box component="ul" sx={{ listStyle: "none", m: 0, p: 0, "& > li + li": { borderTop: 1, borderColor: "divider" } }}>
+          {children}
+        </Box>
+      )}
+    </Box>
   );
 }
 
 function Who({ row, children }: { row: ReminderRow; children?: ReactNode }) {
   return (
-    <div className="text-sm">
-      <span className="font-medium">{row.patientName}</span>{" "}
-      <span className="text-muted-foreground">
+    <Box sx={{ fontSize: "0.875rem" }}>
+      <Box component="span" sx={{ fontWeight: 500 }}>
+        {row.patientName}
+      </Box>{" "}
+      <Box component="span" sx={{ color: "text.secondary" }}>
         · {row.code} · {row.onlineLabel ?? schedule(row.startAt)} · {row.staffName}
-      </span>
+      </Box>
       {children}
-    </div>
+    </Box>
   );
 }
+
+const ITEM = { display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 1, py: 1 } as const;
+const NOTE = { ml: 0.5, fontSize: "0.75rem", color: "text.secondary" } as const;
 
 /** Daftar kerja halaman Pengingat (spec C2 bagian 4, tata letak A). */
 export function ReminderWorklistView({ worklist }: { worklist: ReminderWorklist }) {
@@ -85,14 +111,14 @@ export function ReminderWorklistView({ worklist }: { worklist: ReminderWorklist 
   }
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-lg font-medium">
+    <Stack spacing={3}>
+      <Typography component="h2" sx={{ fontSize: "1.125rem", fontWeight: 500 }}>
         Pengingat · {formatIndonesianDate(combineWitaDateAndMinutes(worklist.today, 12 * 60))}
-      </h2>
+      </Typography>
 
-      <Box id="pengingat-konfirmasi" title="1 · Konfirmasi belum dikirim" count={worklist.confirm.length} tone="warn">
+      <WorkBox id="pengingat-konfirmasi" title="1 · Konfirmasi belum dikirim" count={worklist.confirm.length} tone="warn">
         {worklist.confirm.map((row) => (
-          <li key={row.appointmentId} className="flex flex-wrap items-center justify-between gap-2 py-2">
+          <Box component="li" key={row.appointmentId} sx={ITEM}>
             <Who row={row} />
             {row.confirmation && (
               <MessageActions
@@ -104,17 +130,23 @@ export function ReminderWorklistView({ worklist }: { worklist: ReminderWorklist 
                 layout="inline"
               />
             )}
-          </li>
+          </Box>
         ))}
-      </Box>
+      </WorkBox>
 
-      <Box id="pengingat-ingatkan" title="2 · Ingatkan sekarang" count={worklist.remind.length}>
+      <WorkBox id="pengingat-ingatkan" title="2 · Ingatkan sekarang" count={worklist.remind.length}>
         {worklist.remind.map((row) => (
-          <li key={row.appointmentId} className="flex flex-wrap items-center justify-between gap-2 py-2">
+          <Box component="li" key={row.appointmentId} sx={ITEM}>
             <Who row={row}>
-              {row.overdue && <span className="ml-1 text-xs font-semibold text-destructive">terlambat</span>}
+              {row.overdue && (
+                <Box component="span" data-tone="error" sx={{ ml: 0.5, fontSize: "0.75rem", fontWeight: 600, color: "error.main" }}>
+                  terlambat
+                </Box>
+              )}
               {!row.overdue && row.shifted && (
-                <span className="ml-1 text-xs text-muted-foreground">Hari sebelumnya tutup — diingatkan hari ini</span>
+                <Box component="span" sx={NOTE}>
+                  Hari sebelumnya tutup — diingatkan hari ini
+                </Box>
               )}
             </Who>
             {row.reminder && (
@@ -127,29 +159,29 @@ export function ReminderWorklistView({ worklist }: { worklist: ReminderWorklist 
                 layout="inline"
               />
             )}
-          </li>
+          </Box>
         ))}
-      </Box>
+      </WorkBox>
 
-      <Box id="pengingat-balasan" title="3 · Sudah diingatkan — catat balasannya" count={worklist.reminded.length}>
+      <WorkBox id="pengingat-balasan" title="3 · Sudah diingatkan — catat balasannya" count={worklist.reminded.length}>
         {worklist.reminded.map((row) => {
           const sent = row.reminderSent!;
           const showButtons = sent.reply === null || editing === sent.messageId;
           return (
-            <li key={row.appointmentId} className="flex flex-wrap items-center justify-between gap-2 py-2">
+            <Box component="li" key={row.appointmentId} sx={ITEM}>
               <Who row={row}>
-                <span className="ml-1 text-xs text-muted-foreground">
+                <Box component="span" sx={NOTE}>
                   · diingatkan {sentWhen(sent.sentAt)} oleh {sent.sentByName}
-                </span>
+                </Box>
               </Who>
-              <div className="flex flex-wrap items-center gap-1">
+              <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
                 {showButtons ? (
                   REMINDER_REPLIES.map((reply) => (
                     <Button
                       key={reply}
                       type="button"
-                      size="sm"
-                      variant="outline"
+                      size="small"
+                      variant="outlined"
                       disabled={pending}
                       onClick={() =>
                         run(
@@ -163,23 +195,23 @@ export function ReminderWorklistView({ worklist }: { worklist: ReminderWorklist 
                   ))
                 ) : (
                   <>
-                    <span className="text-sm font-medium text-emerald-700">
+                    <Box component="span" sx={{ fontSize: "0.875rem", fontWeight: 500, color: "success.main" }}>
                       ✓ {REMINDER_REPLY_LABEL[sent.reply!]}
-                    </span>
-                    <Button type="button" size="sm" variant="link" onClick={() => setEditing(sent.messageId)}>
+                    </Box>
+                    <Button type="button" size="small" variant="text" sx={{ textDecoration: "underline" }} onClick={() => setEditing(sent.messageId)}>
                       ubah
                     </Button>
                   </>
                 )}
                 {sent.reply === "MINTA_PINDAH" && row.channel === "KLINIK" && (
-                  <Button type="button" size="sm" onClick={() => setReschedule(row.reschedule)}>
+                  <Button type="button" size="small" variant="contained" onClick={() => setReschedule(row.reschedule)}>
                     Pindah jadwal
                   </Button>
                 )}
                 <Button
                   type="button"
-                  size="sm"
-                  variant="ghost"
+                  size="small"
+                  variant="text"
                   disabled={pending}
                   onClick={() =>
                     run(() => revokeAppointmentMessage(sent.messageId), `Tanda pengingat ${row.patientName} dibatalkan.`)
@@ -187,11 +219,11 @@ export function ReminderWorklistView({ worklist }: { worklist: ReminderWorklist 
                 >
                   Batalkan tanda
                 </Button>
-              </div>
-            </li>
+              </Stack>
+            </Box>
           );
         })}
-      </Box>
+      </WorkBox>
 
       {reschedule && (
         <RescheduleDialog
@@ -204,6 +236,6 @@ export function ReminderWorklistView({ worklist }: { worklist: ReminderWorklist 
           }}
         />
       )}
-    </div>
+    </Stack>
   );
 }

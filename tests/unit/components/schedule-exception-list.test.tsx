@@ -1,8 +1,9 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ScheduleExceptionList } from "@/components/admin/schedule-exception-list";
 import { deleteScheduleException } from "@/server/schedule";
+import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -16,7 +17,7 @@ beforeEach(() => {
 describe("ScheduleExceptionList", () => {
   it("Hapus meminta konfirmasi lalu menghapus", async () => {
     const user = userEvent.setup();
-    render(
+    renderAdmin(
       <ScheduleExceptionList
         exceptions={[{ id: "x1", dateLabel: "Rabu, 12 Februari 2031", kindLabel: "Jam tambahan", timeLabel: "19.00–21.00" }]}
       />,
@@ -30,7 +31,7 @@ describe("ScheduleExceptionList", () => {
   });
 
   it("kosong: keterangan", () => {
-    render(<ScheduleExceptionList exceptions={[]} />);
+    renderAdmin(<ScheduleExceptionList exceptions={[]} />);
     expect(screen.getByText("Belum ada pengecualian mulai hari ini.")).toBeInTheDocument();
   });
 });

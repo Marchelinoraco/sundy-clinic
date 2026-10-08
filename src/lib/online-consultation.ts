@@ -13,6 +13,17 @@ export const ONLINE_LAST_MINUTE = 21 * 60;
 export const ONLINE_STEP_MINUTES = 30;
 export const ONLINE_MIN_WINDOW_MINUTES = 60;
 export const ONLINE_MAX_DAYS_AHEAD = 14;
+
+function minutesBetween(from: number, to: number): number[] {
+  const list: number[] = [];
+  for (let minute = from; minute <= to; minute += ONLINE_STEP_MINUTES) list.push(minute);
+  return list;
+}
+
+/** Pilihan jam mulai/selesai waktu luang (situs publik dan panel admin memakai daftar yang sama). */
+export const CONTACT_START_CHOICES = minutesBetween(ONLINE_FIRST_MINUTE, ONLINE_LAST_MINUTE - ONLINE_MIN_WINDOW_MINUTES);
+export const CONTACT_END_CHOICES = minutesBetween(ONLINE_FIRST_MINUTE + ONLINE_MIN_WINDOW_MINUTES, ONLINE_LAST_MINUTE);
+
 export const ONLINE_CUSTOMER_LEAD_MINUTES = 120;
 
 /** Rentang seperti diisi di form: tanggal WITA dan menit sejak tengah malam WITA. */

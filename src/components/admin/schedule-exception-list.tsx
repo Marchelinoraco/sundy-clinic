@@ -1,20 +1,20 @@
 "use client";
 
+import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { deleteScheduleException } from "@/server/schedule";
 import { EmptyState } from "./page-layout";
 
@@ -47,45 +47,47 @@ export function ScheduleExceptionList({ exceptions }: { exceptions: ExceptionRow
 
   return (
     <>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Tanggal</TableHead>
-            <TableHead>Jenis</TableHead>
-            <TableHead>Jam</TableHead>
-            <TableHead />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {exceptions.map((row) => (
-            <TableRow key={row.id}>
-              <TableCell>{row.dateLabel}</TableCell>
-              <TableCell>{row.kindLabel}</TableCell>
-              <TableCell>{row.timeLabel ?? "Sehari penuh"}</TableCell>
-              <TableCell className="text-right">
-                <Button variant="ghost" size="sm" disabled={pending} onClick={() => setTarget(row)}>
-                  Hapus
-                </Button>
-              </TableCell>
+      <TableContainer>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>Tanggal</TableCell>
+              <TableCell>Jenis</TableCell>
+              <TableCell>Jam</TableCell>
+              <TableCell />
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-      <AlertDialog open={target !== null} onOpenChange={(open) => !open && setTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Hapus pengecualian {target?.dateLabel}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {target?.kindLabel}
-              {target?.timeLabel ? ` ${target.timeLabel}` : ""}. Booking yang sudah ada tidak berubah.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Kembali</AlertDialogCancel>
-            <AlertDialogAction onClick={() => target && remove(target)}>Hapus pengecualian</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+          </TableHead>
+          <TableBody>
+            {exceptions.map((row) => (
+              <TableRow key={row.id}>
+                <TableCell>{row.dateLabel}</TableCell>
+                <TableCell>{row.kindLabel}</TableCell>
+                <TableCell>{row.timeLabel ?? "Sehari penuh"}</TableCell>
+                <TableCell align="right">
+                  <Button variant="text" size="small" disabled={pending} onClick={() => setTarget(row)}>
+                    Hapus
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+      <Dialog open={target !== null} onClose={() => setTarget(null)} maxWidth="xs" slotProps={{ paper: { role: "alertdialog" } }}>
+        <DialogTitle>Hapus pengecualian {target?.dateLabel}?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            {target?.kindLabel}
+            {target?.timeLabel ? ` ${target.timeLabel}` : ""}. Booking yang sudah ada tidak berubah.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTarget(null)}>Kembali</Button>
+          <Button variant="contained" onClick={() => target && remove(target)}>
+            Hapus pengecualian
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

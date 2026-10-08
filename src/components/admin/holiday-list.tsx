@@ -1,12 +1,18 @@
 "use client";
 
+import Button from "@mui/material/Button";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
 import { useTransition } from "react";
 import { toast } from "sonner";
 import type { Holiday } from "@prisma/client";
-import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatIndonesianDate } from "@/lib/format";
 import { deleteHoliday } from "@/server/holiday";
+import { EmptyState } from "./page-layout";
 
 const KIND_LABEL: Record<Holiday["kind"], string> = {
   LIBUR_NASIONAL: "Libur Nasional",
@@ -39,33 +45,35 @@ export function HolidayList({
   }
 
   if (holidays.length === 0) {
-    return <p className="px-4 py-6 text-center text-sm text-muted-foreground">{emptyText}</p>;
+    return <EmptyState>{emptyText}</EmptyState>;
   }
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Tanggal</TableHead>
-          <TableHead>Nama</TableHead>
-          <TableHead>Jenis</TableHead>
-          <TableHead />
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {holidays.map((h) => (
-          <TableRow key={h.id}>
-            <TableCell>{formatIndonesianDate(h.date)}</TableCell>
-            <TableCell>{h.name}</TableCell>
-            <TableCell>{KIND_LABEL[h.kind]}</TableCell>
-            <TableCell className="text-right">
-              <Button variant="ghost" size="sm" disabled={pending} onClick={() => handleDelete(h.id)}>
-                Hapus
-              </Button>
-            </TableCell>
+    <TableContainer>
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell>Tanggal</TableCell>
+            <TableCell>Nama</TableCell>
+            <TableCell>Jenis</TableCell>
+            <TableCell />
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHead>
+        <TableBody>
+          {holidays.map((h) => (
+            <TableRow key={h.id}>
+              <TableCell>{formatIndonesianDate(h.date)}</TableCell>
+              <TableCell>{h.name}</TableCell>
+              <TableCell>{KIND_LABEL[h.kind]}</TableCell>
+              <TableCell align="right">
+                <Button variant="text" size="small" disabled={pending} onClick={() => handleDelete(h.id)}>
+                  Hapus
+                </Button>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }

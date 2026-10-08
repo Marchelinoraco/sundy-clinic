@@ -1,6 +1,7 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { E2E_ADMIN, E2E_RESEPSIONIS } from "./credentials";
 import { choose, fillFormRecall, inGroup, next, signIn, tick } from "./helpers/quiz";
+import { isiTanggal } from "./helpers/mui";
 
 // Dua cerita. (1) Customer memilih konsultasi online di /daftar → admin mencocokkan dan memverifikasi →
 // dokter memulai konsultasi dari dasbor dan memfinalisasi. (2) Booking online yang rentangnya lewat
@@ -156,7 +157,7 @@ test("booking online yang rentangnya lewat: Perlu waktu baru, lalu Ubah waktu lu
 
   await row.getByRole("button", { name: "Ubah waktu luang" }).click();
   const dialog = page.getByRole("dialog", { name: /^Ubah waktu luang/ });
-  await dialog.getByLabel("Tanggal waktu 1").fill(dayFromToday(3));
+  await isiTanggal(dialog, "Tanggal waktu 1", dayFromToday(3));
   await dialog.getByRole("button", { name: "Simpan" }).click();
   await expect(dialog).toBeHidden({ timeout: 30_000 });
   await expect(onlineSection.getByRole("row").filter({ hasText: name }).getByText("Perlu waktu baru")).toHaveCount(0, { timeout: 30_000 });

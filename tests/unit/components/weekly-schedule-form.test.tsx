@@ -1,8 +1,9 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { WeeklyScheduleForm } from "@/components/admin/weekly-schedule-form";
 import { saveWeeklySchedule } from "@/server/schedule";
+import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -16,7 +17,7 @@ beforeEach(() => {
 });
 
 function renderForm() {
-  render(<WeeklyScheduleForm staffId="t1" branchId="b1" branchName="SunDY Mahakeret" templates={TEMPLATES} />);
+  renderAdmin(<WeeklyScheduleForm staffId="t1" branchId="b1" branchName="SunDY Mahakeret" templates={TEMPLATES} />);
   return screen.getByRole("region", { name: "Jam kerja mingguan · SunDY Mahakeret" });
 }
 

@@ -243,6 +243,18 @@ describe("batasan arsitektur", () => {
     "src/components/admin/message-actions.tsx",
     "src/components/admin/whatsapp-send-button.tsx",
     "src/components/admin/quiz-link-dialog.tsx",
+    // Task 8
+    "src/app/(admin)/admin/jadwal/page.tsx",
+    "src/app/(admin)/admin/pengingat/page.tsx",
+    "src/components/admin/holiday-list.tsx",
+    "src/components/admin/schedule-exception-form.tsx",
+    "src/components/admin/schedule-exception-list.tsx",
+    "src/components/admin/weekly-schedule-form.tsx",
+    "src/components/admin/reminder-worklist.tsx",
+    "src/components/admin/online-work.tsx",
+    "src/components/admin/online-appointment-form.tsx",
+    "src/components/admin/contact-windows-dialog.tsx",
+    "src/components/admin/contact-windows-fields.tsx",
   ];
   const SHADCN_OR_FIXED_COLOR =
     /from "@\/components\/ui\/|from "lucide-react"|["'`][^"'`\n]*\b(?:text|bg|border|fill|stroke|ring)-(?:muted|foreground|primary|secondary|destructive|accent|card|background|input|amber|emerald|stone|red|green|gold|brown|cream|white|black)\b/;

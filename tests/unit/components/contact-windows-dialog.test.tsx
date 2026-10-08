@@ -1,9 +1,11 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ContactWindowsDialog } from "@/components/admin/contact-windows-dialog";
 import { addDaysToDateString, witaDateString } from "@/lib/time";
 import { updateContactWindows } from "@/server/online-consultation";
+import { setDateField } from "../helpers/mui";
+import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
@@ -25,10 +27,10 @@ describe("ContactWindowsDialog", () => {
     const user = userEvent.setup();
     const onOpenChange = vi.fn();
     vi.mocked(updateContactWindows).mockResolvedValue({ ok: true, data: undefined });
-    render(<ContactWindowsDialog target={target} today={today} open onOpenChange={onOpenChange} />);
+    renderAdmin(<ContactWindowsDialog target={target} today={today} open onOpenChange={onOpenChange} />);
 
     expect(screen.getByRole("dialog", { name: "Ubah waktu luang — SDY-ON01" })).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Tanggal waktu 1"), { target: { value: inThreeDays } });
+    setDateField("Tanggal waktu 1", inThreeDays);
     await user.click(screen.getByRole("button", { name: "Simpan" }));
 
     await waitFor(() =>
@@ -42,7 +44,7 @@ describe("ContactWindowsDialog", () => {
 
   it("menolak tanggal yang sudah lewat tanpa memanggil server", async () => {
     const user = userEvent.setup();
-    render(<ContactWindowsDialog target={target} today={today} open onOpenChange={vi.fn()} />);
+    renderAdmin(<ContactWindowsDialog target={target} today={today} open onOpenChange={vi.fn()} />);
     await user.click(screen.getByRole("button", { name: "Simpan" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Pilih tanggal antara hari ini dan 14 hari ke depan.");
     expect(updateContactWindows).not.toHaveBeenCalled();

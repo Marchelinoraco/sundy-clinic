@@ -1,22 +1,21 @@
 "use client";
 
+import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { ContactWindowsEditor } from "@/components/online/contact-windows-editor";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import type { ContactWindowsTarget } from "@/lib/booking-actions";
 import { ONLINE_MAX_DAYS_AHEAD, windowDraftsError, type WindowDraft } from "@/lib/online-consultation";
 import { addDaysToDateString } from "@/lib/time";
 import { updateContactWindows } from "@/server/online-consultation";
+import { ContactWindowsFields } from "./contact-windows-fields";
+import { DialogCloseButton } from "./mui/dialog-close-button";
 
 /**
  * Mengganti seluruh rentang waktu luang booking online (spec konsultasi online 5.3).
@@ -62,36 +61,31 @@ export function ContactWindowsDialog({
     });
   }
 
+  const close = () => onOpenChange(false);
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Ubah waktu luang — {target.code}</DialogTitle>
-          <DialogDescription>
-            {target.patientName}. Rentang di bawah menggantikan semua rentang yang lama. Pesan konfirmasi dan pengingat
-            lama tidak berlaku lagi; kirim yang baru dari daftar.
-          </DialogDescription>
-        </DialogHeader>
-        <ContactWindowsEditor
-          value={windows}
-          onChange={setWindows}
-          minDate={today}
-          maxDate={addDaysToDateString(today, ONLINE_MAX_DAYS_AHEAD)}
-        />
+    <Dialog open={open} onClose={close} maxWidth="md">
+      <DialogTitle sx={{ pr: 6 }}>Ubah waktu luang — {target.code}</DialogTitle>
+      <DialogCloseButton onClick={close} />
+      <DialogContent>
+        <DialogContentText sx={{ mb: 2 }}>
+          {target.patientName}. Rentang di bawah menggantikan semua rentang yang lama. Pesan konfirmasi dan pengingat lama tidak berlaku
+          lagi; kirim yang baru dari daftar.
+        </DialogContentText>
+        <ContactWindowsFields value={windows} onChange={setWindows} minDate={today} maxDate={addDaysToDateString(today, ONLINE_MAX_DAYS_AHEAD)} />
         {error && (
-          <p role="alert" className="text-sm text-destructive">
+          <Alert severity="error" sx={{ mt: 2 }}>
             {error}
-          </p>
+          </Alert>
         )}
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-            Batal
-          </Button>
-          <Button type="button" onClick={save} disabled={pending}>
-            {pending ? "Menyimpan…" : "Simpan"}
-          </Button>
-        </DialogFooter>
       </DialogContent>
+      <DialogActions>
+        <Button type="button" variant="outlined" onClick={close}>
+          Batal
+        </Button>
+        <Button type="button" variant="contained" onClick={save} disabled={pending}>
+          {pending ? "Menyimpan…" : "Simpan"}
+        </Button>
+      </DialogActions>
     </Dialog>
   );
 }
