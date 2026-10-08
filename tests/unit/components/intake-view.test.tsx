@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { IntakeView } from "@/components/admin/intake-view";
 import { activityTable, describeAnswers } from "@/lib/kuis/v1/describe";
@@ -6,6 +6,7 @@ import { habitTable } from "@/lib/kuis/v2/describe";
 import type { IntakeDetail } from "@/server/intake";
 import { slimmingReturningPatient } from "../../fixtures/quiz-answers";
 import { nutritionNewPatient } from "../../fixtures/quiz-answers-v2";
+import { renderAdmin } from "../helpers/render-admin";
 
 // IntakeView memuat formulir persetujuan, yang mengimpor server action ini.
 vi.mock("@/server/intake", () => ({ approveIntakeToPatient: vi.fn() }));
@@ -39,13 +40,13 @@ const intake: IntakeDetail = {
 
 describe("IntakeView", () => {
   it("menampilkan bagian jawaban dan status pencocokan", () => {
-    render(<IntakeView intake={intake} />);
+    renderAdmin(<IntakeView intake={intake} />);
     expect(screen.getByText("Belum dicocokkan")).toBeInTheDocument();
     expect(screen.getByText("Darah tinggi: Amlodipine 5 mg, 1× sehari")).toBeInTheDocument();
   });
 
   it("menampilkan tabel aktivitas 06.00–22.00 dengan jam kosong tetap ada", () => {
-    render(<IntakeView intake={intake} />);
+    renderAdmin(<IntakeView intake={intake} />);
     const table = screen.getByRole("table", { name: /Aktivitas Minggu, 27 September 2026/ });
     const rows = within(table).getAllByRole("row");
     expect(rows).toHaveLength(18); // judul + 17 jam
@@ -55,7 +56,7 @@ describe("IntakeView", () => {
   });
 
   it("menampilkan siapa yang memeriksa dan tautan ke data pasien", () => {
-    render(
+    renderAdmin(
       <IntakeView
         intake={{
           ...intake,
@@ -70,12 +71,12 @@ describe("IntakeView", () => {
   });
 
   it("meminta pencocokan dulu bila booking belum punya pasien", () => {
-    render(<IntakeView intake={{ ...intake, approval: { state: "needs-match" } }} />);
+    renderAdmin(<IntakeView intake={{ ...intake, approval: { state: "needs-match" } }} />);
     expect(screen.getByText(/Cocokkan booking ini dengan pasien di menu Booking/)).toBeInTheDocument();
   });
 
   it("menampilkan form recall sebagai tabel per jam, dengan catatan di bawahnya", () => {
-    render(
+    renderAdmin(
       <IntakeView
         intake={{
           ...intake,
@@ -93,7 +94,7 @@ describe("IntakeView", () => {
   });
 
   it("menandai kuis pendek dari pasien yang belum punya isian lengkap", () => {
-    render(<IntakeView intake={{ ...intake, needsFullIntake: true }} />);
+    renderAdmin(<IntakeView intake={{ ...intake, needsFullIntake: true }} />);
     expect(screen.getByText("Belum punya isian lengkap")).toBeInTheDocument();
   });
 });

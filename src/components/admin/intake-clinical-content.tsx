@@ -1,7 +1,19 @@
 "use client";
 
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
+import Typography from "@mui/material/Typography";
 import { useState } from "react";
 import type { IntakeClinical } from "@/server/intake-clinical";
+
+const HEADING = { fontSize: "1rem", fontWeight: 500, mb: 0.5 } as const;
+const LIST = { m: 0, pl: 2.5, fontSize: "0.875rem", display: "flex", flexDirection: "column", gap: 0.25 } as const;
+const HOUR_CELL = { width: 64, fontVariantNumeric: "tabular-nums", color: "text.secondary", verticalAlign: "top" } as const;
 
 /**
  * Jawaban kuis untuk staf: bagian jawaban, tabel kebiasaan (form recall), dan
@@ -26,84 +38,95 @@ export function IntakeClinicalContent({
     (clinical.habits?.rows.some((row) => row.entries.length === 0) ?? false) ||
     (clinical.activities?.some((row) => row.entries.length === 0) ?? false);
   const toggle = compact && hasEmptyHours && (
-    <button
+    <Button
       type="button"
-      className="text-xs text-muted-foreground underline underline-offset-4"
+      variant="text"
+      size="small"
+      sx={{ alignSelf: "flex-start", px: 0, minWidth: 0, fontSize: "0.75rem", color: "text.secondary", textDecoration: "underline" }}
       onClick={() => setShowAll((value) => !value)}
     >
       {showAll ? "Sembunyikan jam kosong" : "Tampilkan 06.00–22.00"}
-    </button>
+    </Button>
   );
   return (
     <>
       {clinical.sections.map((section) => (
-        <section key={section.title} className="space-y-1">
-          <Heading className="text-base font-medium">{section.title}</Heading>
-          <ul className="list-disc space-y-0.5 pl-5 text-sm">
+        <Box component="section" key={section.title}>
+          <Typography component={Heading} sx={HEADING}>
+            {section.title}
+          </Typography>
+          <Box component="ul" sx={LIST}>
             {section.lines.map((line) => (
               <li key={line}>{line}</li>
             ))}
-          </ul>
-        </section>
+          </Box>
+        </Box>
       ))}
 
       {clinical.habits && (
-        <section className="space-y-2">
-          <Heading className="text-base font-medium">Kebiasaan sehari (form recall)</Heading>
-          <table aria-label="Kebiasaan sehari" className="w-full text-sm">
-            <thead>
-              <tr className="border-b text-left text-muted-foreground">
-                <th className="w-16 py-1">Jam</th>
-                <th className="py-1">Jenis dan jumlah</th>
-              </tr>
-            </thead>
-            <tbody>
+        <Box component="section" sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          <Typography component={Heading} sx={HEADING}>
+            Kebiasaan sehari (form recall)
+          </Typography>
+          <Table size="small" aria-label="Kebiasaan sehari">
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ width: 64 }}>Jam</TableCell>
+                <TableCell>Jenis dan jumlah</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
               {habitRows.map((row) => (
-                <tr key={row.label} className="border-b align-top">
-                  <td className="py-1 tabular-nums text-muted-foreground">{row.label}</td>
-                  <td className="py-1">{row.entries.join(" · ")}</td>
-                </tr>
+                <TableRow key={row.label}>
+                  <TableCell sx={HOUR_CELL}>{row.label}</TableCell>
+                  <TableCell sx={{ verticalAlign: "top" }}>{row.entries.join(" · ")}</TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
           {toggle}
           {clinical.habits.notes.length > 0 && (
-            <ul className="list-disc space-y-0.5 pl-5 text-sm">
+            <Box component="ul" sx={LIST}>
               {clinical.habits.notes.map((note) => (
                 <li key={note}>{note}</li>
               ))}
-            </ul>
+            </Box>
           )}
-        </section>
+        </Box>
       )}
 
       {clinical.activities && (
-        <section className="space-y-2">
-          <Heading className="text-base font-medium">Aktivitas {clinical.activityDateLabel ?? "kemarin"}</Heading>
-          <table aria-label={`Aktivitas ${clinical.activityDateLabel ?? "kemarin"}`} className="w-full text-sm">
-            <thead>
-              <tr className="border-b text-left text-muted-foreground">
-                <th className="w-16 py-1">Jam</th>
-                <th className="py-1">Catatan</th>
-              </tr>
-            </thead>
-            <tbody>
+        <Box component="section" sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          <Typography component={Heading} sx={HEADING}>
+            Aktivitas {clinical.activityDateLabel ?? "kemarin"}
+          </Typography>
+          <Table size="small" aria-label={`Aktivitas ${clinical.activityDateLabel ?? "kemarin"}`}>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ width: 64 }}>Jam</TableCell>
+                <TableCell>Catatan</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
               {activityRows.map((row) => (
-                <tr key={row.hour} className="border-b align-top">
-                  <td className="py-1 tabular-nums text-muted-foreground">{row.label}</td>
-                  <td className="py-1">
+                <TableRow key={row.hour}>
+                  <TableCell sx={HOUR_CELL}>{row.label}</TableCell>
+                  <TableCell sx={{ verticalAlign: "top" }}>
                     {row.entries.map((entry, index) => (
-                      <span key={index} className="mr-2 inline-block">
-                        <span className="text-muted-foreground">{entry.kindLabel}:</span> {entry.text}
-                      </span>
+                      <Box component="span" key={index} sx={{ mr: 1, display: "inline-block" }}>
+                        <Box component="span" sx={{ color: "text.secondary" }}>
+                          {entry.kindLabel}:
+                        </Box>{" "}
+                        {entry.text}
+                      </Box>
                     ))}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
           {toggle}
-        </section>
+        </Box>
       )}
     </>
   );

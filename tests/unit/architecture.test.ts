@@ -208,6 +208,23 @@ describe("batasan arsitektur", () => {
     "src/components/admin/schedule-timeline.tsx",
     "src/components/admin/service-price-table.tsx",
     "src/components/admin/staff-table.tsx",
+    // Task 6
+    "src/app/(admin)/admin/pasien/page.tsx",
+    "src/app/(admin)/admin/pasien/[id]/page.tsx",
+    "src/app/(admin)/admin/isian/[id]/page.tsx",
+    "src/components/admin/patient-table.tsx",
+    "src/components/admin/patient-detail-view.tsx",
+    "src/components/admin/patient-note-forms.tsx",
+    "src/components/admin/new-patient-form.tsx",
+    "src/components/admin/nik-form.tsx",
+    "src/components/admin/nik-input.tsx",
+    "src/components/admin/intake-view.tsx",
+    "src/components/admin/intake-clinical-content.tsx",
+    "src/components/admin/intake-approval-form.tsx",
+    "src/components/admin/match-patient-dialog.tsx",
+    "src/components/admin/food-recall-table.tsx",
+    "src/components/admin/food-recall-link-panel.tsx",
+    "src/components/admin/food-recall-dialog.tsx",
   ];
   const SHADCN_OR_FIXED_COLOR =
     /from "@\/components\/ui\/|from "lucide-react"|["'`][^"'`\n]*\b(?:text|bg|border|fill|stroke|ring)-(?:muted|foreground|primary|secondary|destructive|accent|card|background|input|amber|emerald|stone|red|green|gold|brown|cream|white|black)\b/;

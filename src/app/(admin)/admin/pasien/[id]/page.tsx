@@ -1,9 +1,8 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AdminHeader } from "@/components/admin/admin-header";
+import { LinkButton } from "@/components/admin/mui/links";
 import { PageBody, PageHeader } from "@/components/admin/page-layout";
 import { PATIENT_PROGRAM_LABEL, PatientDetailView } from "@/components/admin/patient-detail-view";
-import { Button } from "@/components/ui/button";
 import { formatDateWithYear } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { getPatientDetail } from "@/server/patient";
@@ -40,9 +39,9 @@ export default async function PatientDetailPage({
           description={description}
           actions={
             !patient.mergedInto && (
-              <Button asChild>
-                <Link href={`/admin/booking/baru?pasien=${patient.id}`}>+ Booking</Link>
-              </Button>
+              <LinkButton href={`/admin/booking/baru?pasien=${patient.id}`} variant="contained">
+                + Booking
+              </LinkButton>
             )
           }
         />

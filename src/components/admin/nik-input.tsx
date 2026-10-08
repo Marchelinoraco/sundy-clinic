@@ -1,14 +1,16 @@
 "use client";
 
+import Box from "@mui/material/Box";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import Radio from "@mui/material/Radio";
+import RadioGroup from "@mui/material/RadioGroup";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
 import { useId } from "react";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { NIK_MISSING_REASONS, type NikMissingReasonValue } from "@/lib/nik";
+import { SelectField } from "./mui/select-field";
 
 export type NikDraft = { mode: "NIK"; value: string } | { mode: "MISSING"; reason: NikMissingReasonValue | "" };
-
-const selectClass =
-  "h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50";
 
 /** NIK 16 angka, atau "Belum ada NIK" dengan alasan (spec check-in 3.2). Dipakai dialog check-in dan data pasien. */
 export function NikInput({
@@ -23,53 +25,51 @@ export function NikInput({
 }) {
   const id = useId();
   return (
-    <fieldset className="space-y-2">
-      <legend className="text-sm font-medium">NIK</legend>
-      <div className="flex flex-wrap gap-4 text-sm">
-        <label className="flex items-center gap-2">
-          <input type="radio" name={`${id}-mode`} checked={draft.mode === "NIK"} onChange={() => onChange({ mode: "NIK", value: "" })} />
-          Isi NIK
-        </label>
-        <label className="flex items-center gap-2">
-          <input
-            type="radio"
-            name={`${id}-mode`}
-            checked={draft.mode === "MISSING"}
-            onChange={() => onChange({ mode: "MISSING", reason: "" })}
-          />
-          Belum ada NIK
-        </label>
-      </div>
+    <Box component="fieldset" sx={{ border: 0, m: 0, p: 0, minWidth: 0, display: "flex", flexDirection: "column", gap: 1 }}>
+      <Box component="legend" sx={{ p: 0, fontSize: "0.875rem", fontWeight: 500 }}>
+        NIK
+      </Box>
+      <RadioGroup
+        row
+        name={`${id}-mode`}
+        value={draft.mode}
+        onChange={(_, mode) => onChange(mode === "NIK" ? { mode: "NIK", value: "" } : { mode: "MISSING", reason: "" })}
+      >
+        <FormControlLabel value="NIK" control={<Radio size="small" />} label="Isi NIK" />
+        <FormControlLabel value="MISSING" control={<Radio size="small" />} label="Belum ada NIK" />
+      </RadioGroup>
       {draft.mode === "NIK" ? (
-        <div className="space-y-1">
-          <Label htmlFor={`${id}-nik`}>NIK (16 angka)</Label>
-          <Input
+        <div>
+          <TextField
             id={`${id}-nik`}
-            inputMode="numeric"
+            label="NIK (16 angka)"
             autoComplete="off"
             value={draft.value}
             onChange={(e) => onChange({ mode: "NIK", value: e.target.value })}
+            slotProps={{ htmlInput: { inputMode: "numeric" } }}
+            fullWidth
           />
-          {warning && <p className="text-xs text-amber-700">{warning}</p>}
+          {warning && (
+            <Typography variant="caption" component="p" sx={{ mt: 0.5, color: "warning.main" }}>
+              {warning}
+            </Typography>
+          )}
         </div>
       ) : (
-        <div className="space-y-1">
-          <Label htmlFor={`${id}-reason`}>Alasan</Label>
-          <select
-            id={`${id}-reason`}
-            className={selectClass}
-            value={draft.reason}
-            onChange={(e) => onChange({ mode: "MISSING", reason: e.target.value as NikMissingReasonValue | "" })}
-          >
-            <option value="">Pilih alasan</option>
-            {Object.entries(NIK_MISSING_REASONS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </div>
+        <SelectField
+          id={`${id}-reason`}
+          label="Alasan"
+          value={draft.reason}
+          onChange={(value) => onChange({ mode: "MISSING", reason: value as NikMissingReasonValue | "" })}
+        >
+          <option value="">Pilih alasan</option>
+          {Object.entries(NIK_MISSING_REASONS).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </SelectField>
       )}
-    </fieldset>
+    </Box>
   );
 }

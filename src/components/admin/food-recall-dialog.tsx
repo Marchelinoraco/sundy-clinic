@@ -1,13 +1,19 @@
 "use client";
 
+import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { FoodRecallLinkInfo } from "@/lib/food-recall";
 import { getFoodRecallLink, offerFoodRecall } from "@/server/food-recall-admin";
 import { FoodRecallLinkPanel } from "./food-recall-link-panel";
+import { DialogCloseButton } from "./mui/dialog-close-button";
 
 export type FoodRecallTarget = { appointmentId: string; code: string; patientName: string };
 
@@ -63,23 +69,28 @@ export function FoodRecallDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Food recall — {target.code}</DialogTitle>
-          <DialogDescription>{target.patientName}</DialogDescription>
-        </DialogHeader>
+    <Dialog open={open} onClose={() => onOpenChange(false)} maxWidth="xs">
+      <DialogTitle sx={{ pr: 6 }}>Food recall — {target.code}</DialogTitle>
+      <DialogCloseButton onClick={() => onOpenChange(false)} />
+      <DialogContent>
+        <DialogContentText sx={{ mb: 2 }}>{target.patientName}</DialogContentText>
         {info === undefined ? (
-          <p className="text-sm text-muted-foreground">Memuat…</p>
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            Memuat…
+          </Typography>
         ) : info === null ? (
-          <p className="text-sm text-muted-foreground">Food recall gagal dimuat. Coba lagi.</p>
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            Food recall gagal dimuat. Coba lagi.
+          </Typography>
         ) : info.state === "NOT_OFFERED" ? (
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">Food recall belum ditawarkan saat check-in.</p>
-            <Button type="button" className="w-full" disabled={pending} onClick={offer}>
+          <Stack spacing={1}>
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+              Food recall belum ditawarkan saat check-in.
+            </Typography>
+            <Button type="button" variant="contained" fullWidth disabled={pending} onClick={offer}>
               Tawarkan food recall
             </Button>
-          </div>
+          </Stack>
         ) : (
           <FoodRecallLinkPanel info={info} />
         )}

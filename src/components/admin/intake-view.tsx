@@ -1,10 +1,14 @@
-import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
+import Box from "@mui/material/Box";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import { formatIndonesianDate } from "@/lib/format";
 import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
 import type { IntakeDetail } from "@/server/intake";
 import { IntakeApprovalForm } from "./intake-approval-form";
 import { IntakeClinicalContent } from "./intake-clinical-content";
+import { TextLink } from "./mui/links";
+import { StatusChip } from "./mui/status-chip";
 
 const STATUS_LABEL: Record<IntakeDetail["status"], string> = {
   MENUNGGU_DIISI: "Menunggu diisi pasien",
@@ -17,43 +21,59 @@ export function IntakeView({ intake }: { intake: IntakeDetail }) {
   const time = minutesToTimeLabel(witaMinutesOfDay(appointment.startAt));
 
   return (
-    <div className="max-w-3xl space-y-6">
-      <section className="space-y-1 rounded-lg border p-4 text-sm">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="font-mono">{appointment.code}</span>
-          <Badge variant="outline">{STATUS_LABEL[intake.status]}</Badge>
-          <Badge variant="secondary">{intake.kind === "LENGKAP" ? "Kuis lengkap" : "Kuis pendek"}</Badge>
-          {intake.needsFullIntake && <Badge variant="outline">Belum punya isian lengkap</Badge>}
-        </div>
-        <p>
+    <Box sx={{ maxWidth: 768, display: "flex", flexDirection: "column", gap: 3 }}>
+      <Paper component="section" variant="outlined" sx={{ p: 2, display: "flex", flexDirection: "column", gap: 0.5, fontSize: "0.875rem" }}>
+        <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
+          <Box component="span" sx={{ fontFamily: "ui-monospace, monospace" }}>
+            {appointment.code}
+          </Box>
+          <StatusChip label={STATUS_LABEL[intake.status]} />
+          <StatusChip label={intake.kind === "LENGKAP" ? "Kuis lengkap" : "Kuis pendek"} tone="info" />
+          {intake.needsFullIntake && <StatusChip label="Belum punya isian lengkap" />}
+        </Stack>
+        <Box component="p" sx={{ m: 0 }}>
           {appointment.serviceName} · {appointment.staffName} · {formatIndonesianDate(appointment.startAt)}, {time} WITA
-        </p>
-        <p>
+        </Box>
+        <Box component="p" sx={{ m: 0 }}>
           Pasien:{" "}
           {intake.patient ? (
-            <Link href={`/admin/pasien/${intake.patient.id}`} className="underline underline-offset-4">
+            <TextLink href={`/admin/pasien/${intake.patient.id}`} underline="always">
               {intake.patient.name} ({intake.patient.medicalRecordNumber})
-            </Link>
+            </TextLink>
           ) : (
-            <Badge variant="outline">Belum dicocokkan</Badge>
+            <StatusChip label="Belum dicocokkan" />
           )}
-        </p>
+        </Box>
         {intake.review && (
-          <p className="text-muted-foreground">
+          <Box component="p" sx={{ m: 0, color: "text.secondary" }}>
             Diperiksa oleh {intake.review.reviewerName}, {formatIndonesianDate(intake.review.reviewedAt)}
-          </p>
+          </Box>
         )}
-      </section>
+      </Paper>
 
-      <section className="space-y-1 text-sm">
-        <h2 className="text-base font-medium">Data diri dari isian</h2>
-        <p>{identity.name ?? "—"} · {identity.whatsapp ?? "—"} · lahir {identity.birthDateLabel ?? "—"}</p>
-        {identity.genderLabel && <p>{identity.genderLabel} · {identity.occupation ?? "—"}</p>}
-        {identity.address && <p>{identity.address}</p>}
-      </section>
+      <Box component="section" sx={{ fontSize: "0.875rem" }}>
+        <Typography component="h2" sx={{ fontSize: "1rem", fontWeight: 500, mb: 0.5 }}>
+          Data diri dari isian
+        </Typography>
+        <Box component="p" sx={{ m: 0 }}>
+          {identity.name ?? "—"} · {identity.whatsapp ?? "—"} · lahir {identity.birthDateLabel ?? "—"}
+        </Box>
+        {identity.genderLabel && (
+          <Box component="p" sx={{ m: 0 }}>
+            {identity.genderLabel} · {identity.occupation ?? "—"}
+          </Box>
+        )}
+        {identity.address && (
+          <Box component="p" sx={{ m: 0 }}>
+            {identity.address}
+          </Box>
+        )}
+      </Box>
 
       {!clinical ? (
-        <p className="text-sm text-muted-foreground">Pasien belum mengisi kuis.</p>
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          Pasien belum mengisi kuis.
+        </Typography>
       ) : (
         <>
           <IntakeClinicalContent clinical={clinical} />
@@ -63,12 +83,12 @@ export function IntakeView({ intake }: { intake: IntakeDetail }) {
             <IntakeApprovalForm key={intake.approval.patientVersion} intakeId={intake.id} approval={intake.approval} />
           )}
           {intake.approval?.state === "needs-match" && (
-            <p className="rounded-lg border p-4 text-sm text-muted-foreground">
+            <Paper variant="outlined" sx={{ p: 2, fontSize: "0.875rem", color: "text.secondary" }}>
               Cocokkan booking ini dengan pasien di menu Booking sebelum menyetujui isian ke data pasien.
-            </p>
+            </Paper>
           )}
         </>
       )}
-    </div>
+    </Box>
   );
 }

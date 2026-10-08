@@ -1,16 +1,17 @@
 "use client";
 
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import type { ActionResult } from "@/lib/action-result";
 import {
   createPatientFromIntake,
@@ -18,6 +19,7 @@ import {
   matchPatient,
   type MatchCandidates,
 } from "@/server/intake";
+import { DialogCloseButton } from "./mui/dialog-close-button";
 
 /**
  * Dialog pencocokan pasien untuk booking situs. Dibuka oleh daftar booking,
@@ -36,17 +38,10 @@ export function MatchPatientDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Cocokkan pasien — {code}</DialogTitle>
-          <DialogDescription>
-            Pilih pasien lama yang benar-benar orang yang sama, atau buat pasien baru dari isian. Satu nomor
-            WhatsApp sering dipakai sekeluarga — periksa nama dan tanggal lahir.
-          </DialogDescription>
-        </DialogHeader>
-        <MatchPatientBody appointmentId={appointmentId} code={code} onDone={() => onOpenChange(false)} />
-      </DialogContent>
+    <Dialog open={open} onClose={() => onOpenChange(false)}>
+      <DialogTitle sx={{ pr: 6 }}>Cocokkan pasien — {code}</DialogTitle>
+      <DialogCloseButton onClick={() => onOpenChange(false)} />
+      <MatchPatientBody appointmentId={appointmentId} code={code} onDone={() => onOpenChange(false)} />
     </Dialog>
   );
 }
@@ -109,62 +104,77 @@ function MatchPatientBody({
 
   return (
     <>
-      {!data ? (
-        <p className="text-sm text-muted-foreground">Memuat…</p>
-      ) : (
-        <div className="space-y-4">
-          <div className="rounded-md border p-3 text-sm">
-            <p className="font-medium">{data.intake.name}</p>
-            <p>
-              {data.intake.whatsapp} · lahir {data.intake.birthDateLabel ?? "—"}
-            </p>
-            <p className="text-muted-foreground">
-              {data.intake.claimsReturning ? "Mengaku pernah berobat di sini" : "Mengaku pasien baru"}
-            </p>
-          </div>
+      <DialogContent>
+        <DialogContentText sx={{ mb: 2 }}>
+          Pilih pasien lama yang benar-benar orang yang sama, atau buat pasien baru dari isian. Satu nomor WhatsApp sering dipakai
+          sekeluarga — periksa nama dan tanggal lahir.
+        </DialogContentText>
+        {!data ? (
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            Memuat…
+          </Typography>
+        ) : (
+          <Stack spacing={2}>
+            <Paper variant="outlined" sx={{ p: 1.5, fontSize: "0.875rem" }}>
+              <Box component="p" sx={{ m: 0, fontWeight: 500 }}>
+                {data.intake.name}
+              </Box>
+              <Box component="p" sx={{ m: 0 }}>
+                {data.intake.whatsapp} · lahir {data.intake.birthDateLabel ?? "—"}
+              </Box>
+              <Box component="p" sx={{ m: 0, color: "text.secondary" }}>
+                {data.intake.claimsReturning ? "Mengaku pernah berobat di sini" : "Mengaku pasien baru"}
+              </Box>
+            </Paper>
 
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Pasien yang mirip</p>
-            {data.candidates.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Tidak ada pasien dengan nomor WhatsApp, atau nama & tanggal lahir, yang sama.
-              </p>
-            ) : (
-              data.candidates.map((candidate) => (
-                <div key={candidate.id} className="flex items-center justify-between gap-2 rounded-md border p-2 text-sm">
-                  <div>
-                    <p className="font-medium">{candidate.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {candidate.medicalRecordNumber} · {candidate.whatsapp} · lahir {candidate.birthDateLabel ?? "—"} ·
-                      kunjungan terakhir {candidate.lastVisitLabel ?? "—"}
-                    </p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={pending}
-                    onClick={() =>
-                      run(() => matchPatient(appointmentId, candidate.id), `${code} dicocokkan dengan ${candidate.name}.`)
-                    }
+            <Stack spacing={1}>
+              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                Pasien yang mirip
+              </Typography>
+              {data.candidates.length === 0 ? (
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                  Tidak ada pasien dengan nomor WhatsApp, atau nama & tanggal lahir, yang sama.
+                </Typography>
+              ) : (
+                data.candidates.map((candidate) => (
+                  <Paper
+                    key={candidate.id}
+                    variant="outlined"
+                    sx={{ p: 1, fontSize: "0.875rem", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}
                   >
-                    Pilih pasien ini
-                  </Button>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-
-      <DialogFooter>
+                    <div>
+                      <Box component="p" sx={{ m: 0, fontWeight: 500 }}>
+                        {candidate.name}
+                      </Box>
+                      <Typography variant="caption" component="p" sx={{ color: "text.secondary" }}>
+                        {candidate.medicalRecordNumber} · {candidate.whatsapp} · lahir {candidate.birthDateLabel ?? "—"} · kunjungan terakhir{" "}
+                        {candidate.lastVisitLabel ?? "—"}
+                      </Typography>
+                    </div>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      disabled={pending}
+                      onClick={() => run(() => matchPatient(appointmentId, candidate.id), `${code} dicocokkan dengan ${candidate.name}.`)}
+                    >
+                      Pilih pasien ini
+                    </Button>
+                  </Paper>
+                ))
+              )}
+            </Stack>
+          </Stack>
+        )}
+      </DialogContent>
+      <DialogActions>
         <Button
-          variant="outline"
+          variant="outlined"
           disabled={pending || !data}
           onClick={() => run(() => createPatientFromIntake(appointmentId), `Pasien baru dibuat untuk ${code}.`)}
         >
           Buat pasien baru
         </Button>
-      </DialogFooter>
+      </DialogActions>
     </>
   );
 }

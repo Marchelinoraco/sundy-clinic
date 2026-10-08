@@ -1,12 +1,20 @@
-import Link from "next/link";
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
+import Typography from "@mui/material/Typography";
 import { AppointmentStatusBadge } from "@/components/admin/appointment-status-badge";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatIndonesianDate } from "@/lib/format";
 import { resolveTab } from "@/lib/page-tabs";
 import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
 import type { PatientDetail } from "@/server/patient";
 import { FoodRecallTable } from "./food-recall-table";
+import { TextLink } from "./mui/links";
+import { StatusChip } from "./mui/status-chip";
 import { NikForm } from "./nik-form";
 import { EmptyState, SectionCard } from "./page-layout";
 import { PageTabs } from "./page-tabs";
@@ -30,12 +38,19 @@ const when = (date: Date) => `${formatIndonesianDate(date)}, ${minutesToTimeLabe
 
 function Field({ label, value, wide = false }: { label: string; value: string | null; wide?: boolean }) {
   return (
-    <div className={wide ? "sm:col-span-2" : undefined}>
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd>{value ?? "—"}</dd>
-    </div>
+    <Box sx={wide ? { gridColumn: { sm: "span 2" } } : undefined}>
+      <Typography component="dt" variant="caption" sx={{ color: "text.secondary" }}>
+        {label}
+      </Typography>
+      <Box component="dd" sx={{ m: 0 }}>
+        {value ?? "—"}
+      </Box>
+    </Box>
   );
 }
+
+const MONO = { fontFamily: "ui-monospace, monospace", fontSize: "0.75rem" } as const;
+const SUBHEAD = { fontSize: "0.75rem", fontWeight: 400, color: "text.secondary" } as const;
 
 /** Data Pasien (spec D 5.3): dua kartu berdampingan, lalu riwayat dalam tab `?tab=`. */
 export function PatientDetailView({
@@ -57,62 +72,78 @@ export function PatientDetailView({
     : null;
 
   return (
-    <div className="space-y-6">
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
       {patient.mergedInto && (
-        <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        <Alert severity="warning">
           Pasien ini rangkap dari{" "}
-          <Link href={`/admin/pasien/${patient.mergedInto.id}`} className="font-medium underline underline-offset-4">
+          <TextLink href={`/admin/pasien/${patient.mergedInto.id}`} underline="always">
             {patient.mergedInto.name} ({patient.mergedInto.medicalRecordNumber})
-          </Link>
+          </TextLink>
           . Booking dan isiannya sudah dipindah ke sana.
-        </p>
+        </Alert>
       )}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <Box sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "repeat(2, minmax(0, 1fr))" } }}>
         <SectionCard title="Data diri">
-          <dl className="grid gap-3 text-sm sm:grid-cols-2">
+          <Box component="dl" sx={{ m: 0, display: "grid", gap: 1.5, fontSize: "0.875rem", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" } }}>
             <Field label="WhatsApp" value={patient.whatsapp} />
             <Field label="Tanggal lahir" value={birth} />
             <Field label="Jenis kelamin" value={patient.genderLabel} />
             <Field label="Pekerjaan" value={patient.occupation} />
             <Field label="Alamat" value={patient.address} wide />
-          </dl>
-          <div className="mt-3 grid gap-3 border-t pt-3 text-sm sm:grid-cols-2">
+          </Box>
+          <Box sx={{ mt: 1.5, pt: 1.5, borderTop: 1, borderColor: "divider", display: "grid", gap: 1.5, fontSize: "0.875rem", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" } }}>
             <NikForm patientId={patient.id} nik={patient.nik} missingReason={patient.nikMissingReason} />
             <PaperRecordNumberForm patientId={patient.id} value={patient.paperRecordNumber} />
-          </div>
+          </Box>
         </SectionCard>
 
         {patient.record && (
           <SectionCard title="Catatan medis" description="Diisi dokter lewat tombol “Setujui ke data pasien” di halaman isian.">
-            <div className="grid gap-4 text-sm sm:grid-cols-2">
+            <Box sx={{ display: "grid", gap: 2, fontSize: "0.875rem", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" } }}>
               <div>
-                <h3 className="text-xs text-muted-foreground">Alergi</h3>
+                <Typography component="h3" sx={SUBHEAD}>
+                  Alergi
+                </Typography>
                 {patient.record.allergies ? (
-                  <p data-allergy="true" className="mt-1 inline-block whitespace-pre-line rounded-md bg-red-50 px-2 py-1 font-medium text-red-800">
+                  <Box
+                    component="p"
+                    data-allergy="true"
+                    sx={{ mt: 0.5, mb: 0, display: "inline-block", whiteSpace: "pre-line", borderRadius: 1.5, px: 1, py: 0.5, fontWeight: 500, color: "error.main", bgcolor: "rgba(var(--mui-palette-error-mainChannel) / 0.1)" }}
+                  >
                     {patient.record.allergies}
-                  </p>
+                  </Box>
                 ) : (
-                  <p>Belum ada</p>
+                  <Box component="p" sx={{ m: 0 }}>
+                    Belum ada
+                  </Box>
                 )}
               </div>
               <div>
-                <h3 className="text-xs text-muted-foreground">Riwayat penyakit & obat</h3>
-                <p className="whitespace-pre-line">{patient.record.medicalHistory ?? "Belum ada"}</p>
+                <Typography component="h3" sx={SUBHEAD}>
+                  Riwayat penyakit & obat
+                </Typography>
+                <Box component="p" sx={{ m: 0, whiteSpace: "pre-line" }}>
+                  {patient.record.medicalHistory ?? "Belum ada"}
+                </Box>
               </div>
-            </div>
-            <div className="mt-3 border-t pt-3 text-sm">
+            </Box>
+            <Box sx={{ mt: 1.5, pt: 1.5, borderTop: 1, borderColor: "divider", fontSize: "0.875rem" }}>
               {canWriteRecords ? (
                 <ImportantNotesForm patientId={patient.id} value={patient.record.importantNotes} />
               ) : (
                 <div>
-                  <h3 className="text-xs text-muted-foreground">Catatan penting</h3>
-                  <p className="whitespace-pre-line">{patient.record.importantNotes ?? "Belum ada"}</p>
+                  <Typography component="h3" sx={SUBHEAD}>
+                    Catatan penting
+                  </Typography>
+                  <Box component="p" sx={{ m: 0, whiteSpace: "pre-line" }}>
+                    {patient.record.importantNotes ?? "Belum ada"}
+                  </Box>
                 </div>
               )}
-            </div>
+            </Box>
           </SectionCard>
         )}
-      </div>
+      </Box>
 
       <PageTabs
         label="Riwayat pasien"
@@ -129,52 +160,51 @@ export function PatientDetailView({
           {patient.encounters.length === 0 ? (
             <EmptyState>Belum ada kunjungan yang diperiksa.</EmptyState>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Tanggal</TableHead>
-                  <TableHead>Cabang</TableHead>
-                  <TableHead>Penulis</TableHead>
-                  <TableHead>Penilaian</TableHead>
-                  <TableHead>Food recall</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {patient.encounters.map((encounter) => (
-                  <TableRow key={encounter.id}>
-                    <TableCell>{when(encounter.startAt)}</TableCell>
-                    <TableCell>{encounter.branchName}</TableCell>
-                    <TableCell>{encounter.authorName}</TableCell>
-                    <TableCell className="max-w-xs whitespace-normal">{encounter.assessmentPreview ?? "—"}</TableCell>
-                    <TableCell className="max-w-xs whitespace-normal">
-                      {encounter.foodRecall && encounter.foodRecall.entries.length > 0 ? (
-                        <details>
-                          <summary className="cursor-pointer text-sm">Food recall {encounter.foodRecall.recallDateLabel}</summary>
-                          <FoodRecallTable
-                            entries={encounter.foodRecall.entries}
-                            label={`Food recall ${encounter.foodRecall.recallDateLabel}`}
-                          />
-                        </details>
-                      ) : (
-                        "—"
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={encounter.status === "FINAL" ? "default" : "outline"}>
-                        {encounter.status === "FINAL" ? "Final" : "Draf"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Link href={`/admin/kunjungan/${encounter.id}`} className="text-sm underline underline-offset-4">
-                        Buka
-                      </Link>
-                    </TableCell>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Tanggal</TableCell>
+                    <TableCell>Cabang</TableCell>
+                    <TableCell>Penulis</TableCell>
+                    <TableCell>Penilaian</TableCell>
+                    <TableCell>Food recall</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Aksi</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHead>
+                <TableBody>
+                  {patient.encounters.map((encounter) => (
+                    <TableRow key={encounter.id}>
+                      <TableCell>{when(encounter.startAt)}</TableCell>
+                      <TableCell>{encounter.branchName}</TableCell>
+                      <TableCell>{encounter.authorName}</TableCell>
+                      <TableCell sx={{ maxWidth: 320 }}>{encounter.assessmentPreview ?? "—"}</TableCell>
+                      <TableCell sx={{ maxWidth: 320 }}>
+                        {encounter.foodRecall && encounter.foodRecall.entries.length > 0 ? (
+                          <details>
+                            <Box component="summary" sx={{ cursor: "pointer", fontSize: "0.875rem" }}>
+                              Food recall {encounter.foodRecall.recallDateLabel}
+                            </Box>
+                            <FoodRecallTable entries={encounter.foodRecall.entries} label={`Food recall ${encounter.foodRecall.recallDateLabel}`} />
+                          </details>
+                        ) : (
+                          "—"
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <StatusChip label={encounter.status === "FINAL" ? "Final" : "Draf"} tone={encounter.status === "FINAL" ? "success" : "neutral"} />
+                      </TableCell>
+                      <TableCell>
+                        <TextLink href={`/admin/kunjungan/${encounter.id}`} underline="always">
+                          Buka
+                        </TextLink>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
           )}
         </SectionCard>
       )}
@@ -184,33 +214,37 @@ export function PatientDetailView({
           {patient.appointments.length === 0 ? (
             <EmptyState>Belum ada booking.</EmptyState>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Jadwal</TableHead>
-                  <TableHead>Kode</TableHead>
-                  <TableHead>Layanan</TableHead>
-                  <TableHead>Tenaga</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {patient.appointments.map((a) => (
-                  <TableRow key={a.id}>
-                    <TableCell>{when(a.startAt)}</TableCell>
-                    <TableCell className="font-mono text-xs">{a.code}</TableCell>
-                    <TableCell>{a.serviceName}</TableCell>
-                    <TableCell>
-                      <div>{a.staffName}</div>
-                      <div className="text-xs text-muted-foreground">{a.branchName}</div>
-                    </TableCell>
-                    <TableCell>
-                      <AppointmentStatusBadge status={a.status} />
-                    </TableCell>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Jadwal</TableCell>
+                    <TableCell>Kode</TableCell>
+                    <TableCell>Layanan</TableCell>
+                    <TableCell>Tenaga</TableCell>
+                    <TableCell>Status</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHead>
+                <TableBody>
+                  {patient.appointments.map((a) => (
+                    <TableRow key={a.id}>
+                      <TableCell>{when(a.startAt)}</TableCell>
+                      <TableCell sx={MONO}>{a.code}</TableCell>
+                      <TableCell>{a.serviceName}</TableCell>
+                      <TableCell>
+                        <div>{a.staffName}</div>
+                        <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>
+                          {a.branchName}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <AppointmentStatusBadge status={a.status} />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
           )}
         </SectionCard>
       )}
@@ -220,43 +254,45 @@ export function PatientDetailView({
           {patient.intakes.length === 0 ? (
             <EmptyState>Belum ada isian.</EmptyState>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Dikirim</TableHead>
-                  <TableHead>Booking</TableHead>
-                  <TableHead>Kuis</TableHead>
-                  <TableHead>Status</TableHead>
-                  {canReadRecords && <TableHead>Aksi</TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {patient.intakes.map((intake) => (
-                  <TableRow key={intake.id}>
-                    <TableCell>{intake.submittedAt ? formatIndonesianDate(intake.submittedAt) : "—"}</TableCell>
-                    <TableCell className="font-mono text-xs">{intake.code}</TableCell>
-                    <TableCell>
-                      {intake.kind === "LENGKAP" ? "Lengkap" : "Pendek"}
-                      {intake.purposeLabel ? ` · ${intake.purposeLabel}` : ""}
-                    </TableCell>
-                    <TableCell>
-                      {INTAKE_STATUS_LABEL[intake.status]}
-                      {intake.reviewerName ? ` · ${intake.reviewerName}` : ""}
-                    </TableCell>
-                    {canReadRecords && (
-                      <TableCell>
-                        <Link href={`/admin/isian/${intake.id}`} className="text-sm underline underline-offset-4">
-                          Lihat isian
-                        </Link>
-                      </TableCell>
-                    )}
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Dikirim</TableCell>
+                    <TableCell>Booking</TableCell>
+                    <TableCell>Kuis</TableCell>
+                    <TableCell>Status</TableCell>
+                    {canReadRecords && <TableCell>Aksi</TableCell>}
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHead>
+                <TableBody>
+                  {patient.intakes.map((intake) => (
+                    <TableRow key={intake.id}>
+                      <TableCell>{intake.submittedAt ? formatIndonesianDate(intake.submittedAt) : "—"}</TableCell>
+                      <TableCell sx={MONO}>{intake.code}</TableCell>
+                      <TableCell>
+                        {intake.kind === "LENGKAP" ? "Lengkap" : "Pendek"}
+                        {intake.purposeLabel ? ` · ${intake.purposeLabel}` : ""}
+                      </TableCell>
+                      <TableCell>
+                        {INTAKE_STATUS_LABEL[intake.status]}
+                        {intake.reviewerName ? ` · ${intake.reviewerName}` : ""}
+                      </TableCell>
+                      {canReadRecords && (
+                        <TableCell>
+                          <TextLink href={`/admin/isian/${intake.id}`} underline="always">
+                            Lihat isian
+                          </TextLink>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
           )}
         </SectionCard>
       )}
-    </div>
+    </Box>
   );
 }
