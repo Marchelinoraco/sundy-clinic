@@ -28,6 +28,8 @@ function renderForm() {
 beforeEach(() => vi.clearAllMocks());
 
 describe("PurchaseForm", () => {
+  // Interaksi panjang (dua pilihan barang, banyak ketikan) pada formulir MUI: ±2 dtk sendirian, bisa melewati 5 dtk
+  // saat berkas uji lain berjalan paralel di mesin yang sibuk.
   it("menghitung total, mengirim faktur, lalu membuka detailnya", async () => {
     const user = userEvent.setup();
     vi.mocked(createPurchase).mockResolvedValue({ ok: true, data: { id: "p1" } });
@@ -61,7 +63,7 @@ describe("PurchaseForm", () => {
       }),
     );
     await waitFor(() => expect(push).toHaveBeenCalledWith("/admin/stok/masuk/p1"));
-  });
+  }, 15_000);
 
   it("obat tanpa kedaluwarsa ditolak di browser tanpa memanggil server", async () => {
     const user = userEvent.setup();
