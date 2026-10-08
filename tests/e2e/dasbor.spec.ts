@@ -28,7 +28,7 @@ test("resepsionis: kotak pekerjaan dan garis waktu, tanpa Angka dan daftar dokte
   await expect(block).toBeVisible();
   await block.click();
   await expect(page).toHaveURL(/\/admin\/booking\?tanggal=\d{4}-\d{2}-\d{2}&sorot=/, { timeout: 30_000 });
-  await expect(page.locator('tr[data-highlighted="true"]')).toHaveCount(1, { timeout: 30_000 });
+  await expect(page.locator('[role="row"][data-highlighted="true"]')).toHaveCount(1, { timeout: 30_000 });
 });
 
 test("slot kosong di garis waktu membuka Booking Baru yang sudah terisi", async ({ page }, testInfo) => {

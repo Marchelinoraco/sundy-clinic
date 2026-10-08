@@ -1,12 +1,17 @@
+import ChevronLeft from "@mui/icons-material/ChevronLeft";
+import ChevronRight from "@mui/icons-material/ChevronRight";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
 import Form from "next/form";
-import Link from "next/link";
 import { AdminHeader } from "@/components/admin/admin-header";
 import { AppointmentTable, type BookingRow } from "@/components/admin/appointment-table";
 import { BookingDialogsProvider } from "@/components/admin/booking-dialogs";
 import { BookingFilters } from "@/components/admin/booking-filters";
+import { LinkButton } from "@/components/admin/mui/links";
 import { PageBody, PageHeader } from "@/components/admin/page-layout";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { isAppointmentStatus } from "@/lib/appointment-status";
 import { showsContactWindows } from "@/lib/booking-actions";
 import { confirmationMessageFor, requestNewTimeMessageFor } from "@/lib/booking-messages";
@@ -194,142 +199,144 @@ export default async function BookingListPage({
     return `/admin/booking?${next.toString()}`;
   };
 
+  const heading = { fontSize: "1.125rem", fontWeight: 500 } as const;
+  const muted = { color: "text.secondary" } as const;
+
   return (
     <>
       <AdminHeader title="Booking" />
       {/* Dialog setelah Verifikasi dan Pindah jadwal tetap terbuka walau barisnya keluar dari daftar. */}
       <BookingDialogsProvider today={today}>
-      <PageBody>
-        <PageHeader
-          title="Booking"
-          description={query ? `Hasil pencarian “${query}”` : unreviewedOnly ? "Isian belum diperiksa · semua tanggal" : dateLabel}
-          actions={
-            <Button asChild>
-              <Link href="/admin/booking/baru">+ Booking Baru</Link>
-            </Button>
-          }
-        />
-        {pendingRows.length > 0 && (
-          <section
-            aria-labelledby="booking-menunggu"
-            className="space-y-3 rounded-lg border border-amber-300 bg-amber-50/60 p-4"
-          >
-            <div>
-              <h2 id="booking-menunggu" className="text-lg font-medium">
-                Menunggu konfirmasi ({pendingRows.length})
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Semua tanggal, yang paling mendesak di atas. Verifikasi setelah bukti transfer diterima. Booking
-                situs kedaluwarsa sendiri; booking WhatsApp dan telepon tidak, batas transfernya hanya pengingat.
-                Hari Minggu dan hari libur tidak dihitung.
-              </p>
-            </div>
-            <AppointmentTable rows={pendingRows} canReadRecords={canReadRecords} highlightId={pendingHighlight} />
-          </section>
-        )}
-
-        {onlineRows.length > 0 && !query && (
-          <section aria-labelledby="booking-online" className="space-y-3 rounded-lg border border-sky-300 bg-sky-50/60 p-4">
-            <div>
-              <h2 id="booking-online" className="text-lg font-medium">
-                Konsultasi online ({onlineRows.length})
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Sudah diverifikasi dan menunggu dihubungi dokter. Yang waktunya sudah lewat ada di atas.
-              </p>
-            </div>
-            <AppointmentTable rows={onlineRows} canReadRecords={canReadRecords} highlightId={params.sorot ?? null} />
-          </section>
-        )}
-
-        <div className="flex flex-wrap items-center gap-3">
-          <Form action="/admin/booking" role="search" className="flex w-full max-w-md gap-2">
-            <Input
-              key={query}
-              name="cari"
-              defaultValue={query}
-              placeholder="Cari kode, nama, atau WA"
-              aria-label="Cari kode, nama, atau WA"
-              autoComplete="off"
-            />
-            <Button type="submit" variant="outline">
-              Cari
-            </Button>
-          </Form>
-        </div>
-
-        {query ? (
-          <section aria-labelledby="hasil-cari" className="space-y-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <h2 id="hasil-cari" className="text-lg font-medium">
-                Hasil pencarian “{query}” ({foundRows.length})
-              </h2>
-              <Button asChild variant="ghost" size="sm">
-                <Link href="/admin/booking">Kembali ke daftar per tanggal</Link>
-              </Button>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Jadwal 30 hari ke belakang sampai seterusnya, terbaru di atas, paling banyak 50 booking.
-            </p>
-            {foundRows.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Tidak ada booking yang cocok.</p>
-            ) : (
-              <AppointmentTable rows={foundRows} canReadRecords={canReadRecords} />
-            )}
-          </section>
-        ) : (
-          <>
-            {unreviewedOnly ? (
-              <h2 className="text-lg font-medium">Isian belum diperiksa · semua tanggal</h2>
-            ) : (
-              <div className="flex items-center gap-2">
-                <Button asChild variant="outline" size="sm">
-                  <Link href={dayLink(addDaysToDateString(date, -1))} aria-label="Hari sebelumnya">
-                    ‹
-                  </Link>
-                </Button>
-                <h2 className="text-lg font-medium">{dateLabel}</h2>
-                <Button asChild variant="outline" size="sm">
-                  <Link href={dayLink(addDaysToDateString(date, 1))} aria-label="Hari berikutnya">
-                    ›
-                  </Link>
-                </Button>
-                {date !== today && (
-                  <Button asChild variant="ghost" size="sm">
-                    <Link href={dayLink(today)}>Hari ini</Link>
-                  </Button>
-                )}
+        <PageBody>
+          <PageHeader
+            title="Booking"
+            description={query ? `Hasil pencarian “${query}”` : unreviewedOnly ? "Isian belum diperiksa · semua tanggal" : dateLabel}
+            actions={
+              <LinkButton href="/admin/booking/baru" variant="contained">
+                + Booking Baru
+              </LinkButton>
+            }
+          />
+          {pendingRows.length > 0 && (
+            <Box
+              component="section"
+              aria-labelledby="booking-menunggu"
+              sx={{ display: "flex", flexDirection: "column", gap: 1.5, borderRadius: 2, border: 1, borderColor: "warning.main", bgcolor: "rgba(var(--mui-palette-warning-mainChannel) / 0.06)", p: 2 }}
+            >
+              <div>
+                <Typography component="h2" id="booking-menunggu" sx={heading}>
+                  Menunggu konfirmasi ({pendingRows.length})
+                </Typography>
+                <Typography variant="body2" sx={muted}>
+                  Semua tanggal, yang paling mendesak di atas. Verifikasi setelah bukti transfer diterima. Booking situs kedaluwarsa sendiri;
+                  booking WhatsApp dan telepon tidak, batas transfernya hanya pengingat. Hari Minggu dan hari libur tidak dihitung.
+                </Typography>
               </div>
-            )}
+              <AppointmentTable rows={pendingRows} canReadRecords={canReadRecords} highlightId={pendingHighlight} />
+            </Box>
+          )}
 
-            <BookingFilters
-              date={date}
-              status={status}
-              staffId={params.staf || null}
-              branchId={params.cabang || null}
-              intake={unreviewedOnly ? "belum-diperiksa" : null}
-              staff={staffList.map((s) => ({ id: s.id, name: s.name }))}
-              branches={branches
-                .filter((b) => b.status === "AKTIF")
-                .map((b) => ({ id: b.id, name: b.name }))}
-            />
+          {onlineRows.length > 0 && !query && (
+            <Box
+              component="section"
+              aria-labelledby="booking-online"
+              sx={{ display: "flex", flexDirection: "column", gap: 1.5, borderRadius: 2, border: 1, borderColor: "info.main", bgcolor: "rgba(var(--mui-palette-info-mainChannel) / 0.06)", p: 2 }}
+            >
+              <div>
+                <Typography component="h2" id="booking-online" sx={heading}>
+                  Konsultasi online ({onlineRows.length})
+                </Typography>
+                <Typography variant="body2" sx={muted}>
+                  Sudah diverifikasi dan menunggu dihubungi dokter. Yang waktunya sudah lewat ada di atas.
+                </Typography>
+              </div>
+              <AppointmentTable rows={onlineRows} canReadRecords={canReadRecords} highlightId={params.sorot ?? null} />
+            </Box>
+          )}
 
-            {rows.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                {unreviewedOnly
-                  ? "Tidak ada isian yang menunggu diperiksa."
-                  : `Tidak ada booking${status ? " dengan status ini" : ""} pada tanggal ini.`}
-              </p>
-            ) : (
-              <AppointmentTable
-                rows={rows}
-                canReadRecords={canReadRecords}
-                highlightId={params.sorot ?? null}
+          <Form action="/admin/booking" role="search">
+            <Stack direction="row" spacing={1} sx={{ width: "100%", maxWidth: 448 }}>
+              <TextField
+                key={query}
+                name="cari"
+                defaultValue={query}
+                placeholder="Cari kode, nama, atau WA"
+                autoComplete="off"
+                slotProps={{ htmlInput: { "aria-label": "Cari kode, nama, atau WA" } }}
+                fullWidth
               />
-            )}
-          </>
-        )}
-      </PageBody>
+              <Button type="submit" variant="outlined">
+                Cari
+              </Button>
+            </Stack>
+          </Form>
+
+          {query ? (
+            <Box component="section" aria-labelledby="hasil-cari" sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+              <Stack direction="row" spacing={1.5} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
+                <Typography component="h2" id="hasil-cari" sx={heading}>
+                  Hasil pencarian “{query}” ({foundRows.length})
+                </Typography>
+                <LinkButton href="/admin/booking" variant="text" size="small">
+                  Kembali ke daftar per tanggal
+                </LinkButton>
+              </Stack>
+              <Typography variant="body2" sx={muted}>
+                Jadwal 30 hari ke belakang sampai seterusnya, terbaru di atas, paling banyak 50 booking.
+              </Typography>
+              {foundRows.length === 0 ? (
+                <Typography variant="body2" sx={muted}>
+                  Tidak ada booking yang cocok.
+                </Typography>
+              ) : (
+                <AppointmentTable rows={foundRows} canReadRecords={canReadRecords} />
+              )}
+            </Box>
+          ) : (
+            <>
+              {unreviewedOnly ? (
+                <Typography component="h2" sx={heading}>
+                  Isian belum diperiksa · semua tanggal
+                </Typography>
+              ) : (
+                <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                  <LinkButton href={dayLink(addDaysToDateString(date, -1))} variant="outlined" size="small" aria-label="Hari sebelumnya" sx={{ minWidth: 36, px: 0 }}>
+                    <ChevronLeft fontSize="small" />
+                  </LinkButton>
+                  <Typography component="h2" sx={heading}>
+                    {dateLabel}
+                  </Typography>
+                  <LinkButton href={dayLink(addDaysToDateString(date, 1))} variant="outlined" size="small" aria-label="Hari berikutnya" sx={{ minWidth: 36, px: 0 }}>
+                    <ChevronRight fontSize="small" />
+                  </LinkButton>
+                  {date !== today && (
+                    <LinkButton href={dayLink(today)} variant="text" size="small">
+                      Hari ini
+                    </LinkButton>
+                  )}
+                </Stack>
+              )}
+
+              <BookingFilters
+                date={date}
+                status={status}
+                staffId={params.staf || null}
+                branchId={params.cabang || null}
+                intake={unreviewedOnly ? "belum-diperiksa" : null}
+                staff={staffList.map((s) => ({ id: s.id, name: s.name }))}
+                branches={branches.filter((b) => b.status === "AKTIF").map((b) => ({ id: b.id, name: b.name }))}
+              />
+
+              {rows.length === 0 ? (
+                <Typography variant="body2" sx={muted}>
+                  {unreviewedOnly ? "Tidak ada isian yang menunggu diperiksa." : `Tidak ada booking${status ? " dengan status ini" : ""} pada tanggal ini.`}
+                </Typography>
+              ) : (
+                <AppointmentTable rows={rows} canReadRecords={canReadRecords} highlightId={params.sorot ?? null} />
+              )}
+            </>
+          )}
+        </PageBody>
       </BookingDialogsProvider>
     </>
   );

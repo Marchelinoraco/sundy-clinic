@@ -1,19 +1,16 @@
-import { Badge } from "@/components/ui/badge";
 import { STATUS_LABEL, type AppointmentStatusValue } from "@/lib/appointment-status";
+import { StatusChip, type StatusTone } from "./mui/status-chip";
 
-const STATUS_VARIANT: Record<
-  AppointmentStatusValue,
-  "default" | "secondary" | "destructive" | "outline"
-> = {
-  MENUNGGU_KONFIRMASI: "outline",
-  TERKONFIRMASI: "default",
-  HADIR: "secondary",
-  SELESAI: "secondary",
-  DIBATALKAN: "destructive",
-  TIDAK_HADIR: "destructive",
-  KEDALUWARSA: "secondary",
+const STATUS_TONE: Record<AppointmentStatusValue, StatusTone> = {
+  MENUNGGU_KONFIRMASI: "neutral",
+  TERKONFIRMASI: "primary",
+  HADIR: "info",
+  SELESAI: "success",
+  DIBATALKAN: "error",
+  TIDAK_HADIR: "error",
+  KEDALUWARSA: "neutral",
 };
 
 export function AppointmentStatusBadge({ status }: { status: AppointmentStatusValue }) {
-  return <Badge variant={STATUS_VARIANT[status]}>{STATUS_LABEL[status]}</Badge>;
+  return <StatusChip label={STATUS_LABEL[status]} tone={STATUS_TONE[status]} />;
 }

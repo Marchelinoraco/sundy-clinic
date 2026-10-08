@@ -1,9 +1,10 @@
 "use client";
 
+import Button from "@mui/material/Button";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import type { MessageKind, WhatsAppMessage } from "@/lib/booking-messages";
-import { cn } from "@/lib/utils";
 import { WhatsAppSendButton } from "./whatsapp-send-button";
 
 /** Tombol kirim WA (mencatat) dan Salin teks (tidak mencatat), untuk dialog dan baris Pengingat. */
@@ -37,31 +38,33 @@ export function MessageActions({
   }
 
   return (
-    <div className={stack ? "space-y-2" : "flex flex-wrap items-center gap-1"}>
+    <Stack
+      direction={stack ? "column" : "row"}
+      spacing={stack ? 1 : 0.5}
+      useFlexGap
+      sx={stack ? undefined : { flexWrap: "wrap", alignItems: "center" }}
+    >
       {message.link ? (
         <WhatsAppSendButton
           href={message.link}
           appointmentId={appointmentId}
           kind={kind}
           scheduledFor={scheduledFor}
-          size={stack ? "default" : "sm"}
-          className={cn(stack && "w-full", "bg-emerald-700 text-white hover:bg-emerald-800")}
+          size={stack ? "medium" : "small"}
+          color="success"
+          fullWidth={stack}
           onRecorded={onSent}
         >
           {sendLabel}
         </WhatsAppSendButton>
       ) : (
-        <p className="text-sm text-muted-foreground">Nomor WhatsApp pasien tidak dikenali.</p>
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          Nomor WhatsApp pasien tidak dikenali.
+        </Typography>
       )}
-      <Button
-        type="button"
-        variant="outline"
-        size={stack ? "default" : "sm"}
-        className={cn(stack && "w-full")}
-        onClick={() => void copy()}
-      >
+      <Button type="button" variant="outlined" size={stack ? "medium" : "small"} fullWidth={stack} onClick={() => void copy()}>
         {stack ? "Salin teks" : "Salin"}
       </Button>
-    </div>
+    </Stack>
   );
 }

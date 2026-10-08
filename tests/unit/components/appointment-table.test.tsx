@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -10,6 +10,8 @@ import { verifyAppointment } from "@/server/appointment";
 import { getBookingMessage, recordAppointmentMessage } from "@/server/appointment-message";
 import { getMatchCandidates } from "@/server/intake";
 import { getStaffAvailabilityRange } from "@/server/schedule";
+import { mockGridLayout } from "../helpers/mui";
+import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/server/appointment", () => ({
@@ -165,7 +167,7 @@ describe("AppointmentTable booking online", () => {
 });
 
 function renderTable(rows: BookingRow[], options: { canReadRecords?: boolean; highlightId?: string } = {}) {
-  return render(
+  return renderAdmin(
     <BookingDialogsProvider today={TODAY}>
       <AppointmentTable rows={rows} canReadRecords={options.canReadRecords ?? false} highlightId={options.highlightId} />
     </BookingDialogsProvider>,
@@ -175,6 +177,8 @@ function renderTable(rows: BookingRow[], options: { canReadRecords?: boolean; hi
 async function openMenu(user: ReturnType<typeof userEvent.setup>, code: string) {
   await user.click(screen.getByRole("button", { name: `Aksi lain ${code}` }));
 }
+
+beforeEach(() => mockGridLayout());
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -188,6 +192,14 @@ beforeEach(() => {
   });
   vi.mocked(getStaffAvailabilityRange).mockResolvedValue([]);
   vi.mocked(recordAppointmentMessage).mockResolvedValue({ ok: true, data: { id: "m1" } });
+});
+
+describe("AppointmentTable daftar kosong", () => {
+  it("tanpa booking menampilkan teks kosong, bukan tabel", () => {
+    renderTable([]);
+    expect(screen.getByText("Tidak ada booking.")).toBeInTheDocument();
+    expect(screen.queryByRole("grid")).not.toBeInTheDocument();
+  });
 });
 
 describe("AppointmentTable pencocokan pasien", () => {
@@ -335,7 +347,7 @@ describe("AppointmentTable setelah Verifikasi (spec C2 3.1)", () => {
       return rows.length > 0 ? <AppointmentTable rows={rows} canReadRecords={false} /> : <p>Kosong</p>;
     }
     const user = userEvent.setup();
-    render(
+    renderAdmin(
       <BookingDialogsProvider today={TODAY}>
         <PendingSection />
       </BookingDialogsProvider>,
@@ -392,12 +404,12 @@ describe("AppointmentTable keterangan dan batas", () => {
 
   it("menampilkan batas kedaluwarsa bila ada", () => {
     renderTable([{ ...base, deadlineLabel: "Kedaluwarsa Sen, 5 Okt 15.00" }]);
-    expect(screen.getByText("Kedaluwarsa Sen, 5 Okt 15.00")).toHaveClass("text-amber-700");
+    expect(screen.getByText("Kedaluwarsa Sen, 5 Okt 15.00")).toHaveAttribute("data-tone", "warning");
   });
 
   it("batas transfer yang sudah lewat ditulis merah", () => {
     renderTable([{ ...waRow, deadlineLabel: "Lewat batas transfer", deadlineOverdue: true }]);
-    expect(screen.getByText("Lewat batas transfer")).toHaveClass("text-destructive");
+    expect(screen.getByText("Lewat batas transfer")).toHaveAttribute("data-tone", "error");
   });
 });
 

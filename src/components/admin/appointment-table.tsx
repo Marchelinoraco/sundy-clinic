@@ -1,32 +1,23 @@
 "use client";
 
-import { EllipsisIcon } from "lucide-react";
-import Link from "next/link";
-import { useEffect, useRef, useState, useTransition } from "react";
+import MoreHoriz from "@mui/icons-material/MoreHoriz";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
+import IconButton from "@mui/material/IconButton";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
+import TextField from "@mui/material/TextField";
+import type { GridColDef } from "@mui/x-data-grid";
+import NextLink from "next/link";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { ActionResult } from "@/lib/action-result";
-import type { AppointmentStatusValue } from "@/lib/appointment-status";
+import { STATUS_LABEL, type AppointmentStatusValue } from "@/lib/appointment-status";
 import {
   BOOKING_ACTION_LABEL,
   bookingRowActions,
@@ -38,7 +29,6 @@ import {
 import type { MessageKind } from "@/lib/booking-messages";
 import type { OnlinePhase } from "@/lib/online-consultation";
 import type { BookingSourceValue } from "@/lib/payment";
-import { cn } from "@/lib/utils";
 import {
   cancelAppointment,
   markNoShow,
@@ -47,6 +37,9 @@ import {
 import { AppointmentStatusBadge } from "./appointment-status-badge";
 import { useBookingDialogs } from "./booking-dialogs";
 import { MatchPatientDialog } from "./match-patient-dialog";
+import { AdminDataGrid } from "./mui/admin-data-grid";
+import { TextLink } from "./mui/links";
+import { StatusChip } from "./mui/status-chip";
 import { recordSentMessage, WhatsAppSendButton } from "./whatsapp-send-button";
 
 /** Keterangan baris booking online; rentang dan percobaan tanpa data klinis. */
@@ -126,23 +119,21 @@ export function AppointmentTable({
   rows,
   canReadRecords,
   highlightId = null,
+  emptyText = "Tidak ada booking.",
 }: {
   rows: BookingRow[];
   canReadRecords: boolean;
   /** Baris yang disorot dan digulir ke tengah, dari "Lihat di daftar" (spec C1 5.4). */
   highlightId?: string | null;
+  emptyText?: string;
 }) {
   const [pending, startTransition] = useTransition();
   const [cancelTarget, setCancelTarget] = useState<BookingRow | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [matchTarget, setMatchTarget] = useState<BookingRow | null>(null);
+  // Satu menu "Aksi lain" untuk semua baris; barisnya diingat bersama jangkar tombolnya.
+  const [menu, setMenu] = useState<{ anchor: HTMLElement; row: BookingRow } | null>(null);
   const dialogs = useBookingDialogs();
-  const highlightRef = useRef<HTMLTableRowElement>(null);
-
-  // Sekali per sorotan. Dipanggil bersyarat karena jsdom tidak punya scrollIntoView.
-  useEffect(() => {
-    highlightRef.current?.scrollIntoView?.({ block: "center" });
-  }, [highlightId]);
 
   function run(action: () => Promise<ActionResult<unknown>>, successMessage: string, onSuccess?: () => void) {
     startTransition(async () => {
@@ -231,20 +222,13 @@ export function AppointmentTable({
     }
   }
 
-  function linkElement(target: { href: string; external: boolean }, label: string) {
-    return target.external ? (
-      <a href={target.href} target="_blank" rel="noopener noreferrer">
-        {label}
-      </a>
-    ) : (
-      <Link href={target.href}>{label}</Link>
-    );
-  }
+  const mono = { fontFamily: "ui-monospace, monospace", fontSize: "0.75rem", color: "text.secondary" } as const;
+  const small = { fontSize: "0.75rem", color: "text.secondary" } as const;
 
   function primaryAction(action: BookingAction, row: BookingRow) {
     const target = actionTarget(action, row);
     const label = BOOKING_ACTION_LABEL[action];
-    const variant = action === "VERIFY" || action === "MATCH" || action === "REQUEST_NEW_TIME" ? "default" : "outline";
+    const variant = action === "VERIFY" || action === "MATCH" || action === "REQUEST_NEW_TIME" ? "contained" : "outlined";
     if ("send" in target) {
       return (
         <WhatsAppSendButton
@@ -253,7 +237,7 @@ export function AppointmentTable({
           appointmentId={row.id}
           kind={target.kind}
           scheduledFor={target.scheduledFor}
-          size="sm"
+          size="small"
           variant={variant}
         >
           {label}
@@ -261,14 +245,18 @@ export function AppointmentTable({
       );
     }
     if ("href" in target) {
-      return (
-        <Button key={action} size="sm" variant={variant} asChild>
-          {linkElement(target, label)}
+      return target.external ? (
+        <Button key={action} size="small" variant={variant} component="a" href={target.href} target="_blank" rel="noopener noreferrer">
+          {label}
+        </Button>
+      ) : (
+        <Button key={action} size="small" variant={variant} component={NextLink} href={target.href}>
+          {label}
         </Button>
       );
     }
     return (
-      <Button key={action} size="sm" variant={variant} disabled={pending} onClick={target.onSelect}>
+      <Button key={action} size="small" variant={variant} disabled={pending} onClick={target.onSelect}>
         {label}
       </Button>
     );
@@ -277,168 +265,183 @@ export function AppointmentTable({
   function menuAction(action: BookingAction, row: BookingRow) {
     const target = actionTarget(action, row);
     const label = BOOKING_ACTION_LABEL[action];
+    const close = () => setMenu(null);
     if ("send" in target) {
       return (
-        <DropdownMenuItem key={action} asChild>
-          <a
-            href={target.send}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => void recordSentMessage(row.id, target.kind, target.scheduledFor)}
-          >
-            {label}
-          </a>
-        </DropdownMenuItem>
+        <MenuItem
+          key={action}
+          component="a"
+          href={target.send}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => {
+            close();
+            void recordSentMessage(row.id, target.kind, target.scheduledFor);
+          }}
+        >
+          {label}
+        </MenuItem>
       );
     }
     if ("href" in target) {
-      return (
-        <DropdownMenuItem key={action} asChild>
-          {linkElement(target, label)}
-        </DropdownMenuItem>
+      return target.external ? (
+        <MenuItem key={action} component="a" href={target.href} target="_blank" rel="noopener noreferrer" onClick={close}>
+          {label}
+        </MenuItem>
+      ) : (
+        <MenuItem key={action} component={NextLink} href={target.href} onClick={close}>
+          {label}
+        </MenuItem>
       );
     }
     return (
-      <DropdownMenuItem
+      <MenuItem
         key={action}
-        variant={action === "CANCEL" ? "destructive" : "default"}
         disabled={pending}
-        onSelect={target.onSelect}
+        sx={action === "CANCEL" ? { color: "error.main" } : undefined}
+        onClick={() => {
+          close();
+          target.onSelect();
+        }}
       >
         {label}
-      </DropdownMenuItem>
+      </MenuItem>
     );
   }
 
+  const columns: GridColDef<BookingRow>[] = [
+    {
+      field: "timeLabel",
+      headerName: "Jam",
+      minWidth: 120,
+      renderCell: ({ row }) => (
+        <Box sx={{ py: 0.5 }}>
+          {showsContactWindows(row) && row.online ? (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 0.25 }}>
+              <Box>
+                <StatusChip label="Online" />
+              </Box>
+              {row.online.windowLines.map((line) => (
+                <Box key={line} sx={{ fontSize: "0.875rem", fontWeight: 500 }}>
+                  {line}
+                </Box>
+              ))}
+              {row.online.phase === "NEEDS_NEW" && (
+                <Box>
+                  <StatusChip label="Perlu waktu baru" tone="error" />
+                </Box>
+              )}
+              {row.online.lastAttempt && <Box sx={small}>{row.online.lastAttempt}</Box>}
+            </Box>
+          ) : (
+            <Box sx={{ fontWeight: 500, display: "flex", alignItems: "center", gap: 0.5 }}>
+              {row.online && <StatusChip label="Online" />}
+              {row.timeLabel}
+            </Box>
+          )}
+          <Box sx={mono}>{row.code}</Box>
+          {row.deadlineLabel && (
+            <Box
+              data-tone={row.deadlineOverdue ? "error" : "warning"}
+              sx={{ mt: 0.5, fontSize: "0.75rem", fontWeight: 500, color: row.deadlineOverdue ? "error.main" : "warning.main" }}
+            >
+              {row.deadlineLabel}
+            </Box>
+          )}
+        </Box>
+      ),
+    },
+    {
+      field: "patientName",
+      headerName: "Pasien",
+      flex: 1.2,
+      minWidth: 180,
+      renderCell: ({ row }) => (
+        <Box sx={{ py: 0.5 }}>
+          <Box sx={{ fontWeight: 500 }}>{row.patientId ? <TextLink href={`/admin/pasien/${row.patientId}`}>{row.patientName}</TextLink> : row.patientName}</Box>
+          {row.needsMatch && (
+            <Box sx={{ mt: 0.5 }}>
+              <StatusChip label="Belum dicocokkan" />
+            </Box>
+          )}
+          {row.needsFullIntake && (
+            <Box sx={{ mt: 0.5 }}>
+              <StatusChip label="Belum punya isian lengkap" />
+            </Box>
+          )}
+          <Box sx={small}>
+            {row.patientRecordNumber} · {row.sourceLabel}
+          </Box>
+          {row.notes && <Box sx={{ mt: 0.5, fontSize: "0.75rem" }}>{row.notes}</Box>}
+        </Box>
+      ),
+    },
+    { field: "serviceName", headerName: "Layanan", flex: 0.8, minWidth: 120 },
+    {
+      field: "staffName",
+      headerName: "Tenaga",
+      flex: 0.9,
+      minWidth: 140,
+      renderCell: ({ row }) => (
+        <Box sx={{ py: 0.5 }}>
+          <div>{row.staffName}</div>
+          <Box sx={small}>{row.branchName}</Box>
+        </Box>
+      ),
+    },
+    {
+      field: "status",
+      headerName: "Status",
+      flex: 0.9,
+      minWidth: 140,
+      valueGetter: (_value, row) => STATUS_LABEL[row.status],
+      renderCell: ({ row }) => (
+        <Box sx={{ py: 0.5 }}>
+          <AppointmentStatusBadge status={row.status} />
+          {row.intakeStatus && <Box sx={{ ...small, mt: 0.5 }}>Isian: {INTAKE_STATUS_LABEL[row.intakeStatus]}</Box>}
+          {row.foodRecall && <Box sx={{ ...small, mt: 0.5 }}>Food recall: {row.foodRecall === "DIISI" ? "sudah diisi" : "belum diisi"}</Box>}
+          {row.messageNotes.map((note) => (
+            <Box key={note} sx={{ ...small, mt: 0.5 }}>
+              {note}
+            </Box>
+          ))}
+        </Box>
+      ),
+    },
+    {
+      field: "actions",
+      headerName: "Aksi",
+      flex: 1,
+      minWidth: 200,
+      sortable: false,
+      filterable: false,
+      disableColumnMenu: true,
+      renderCell: ({ row }) => {
+        const actions = bookingRowActions({ ...row, requestNewTime: row.online?.requestNewTime ?? null }, canReadRecords);
+        return (
+          <Box sx={{ width: "100%", py: 0.5, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 0.5 }}>
+            {actions.primary.map((action) => primaryAction(action, row))}
+            {actions.menu.length > 0 && (
+              <IconButton size="small" aria-label={`Aksi lain ${row.code}`} aria-haspopup="menu" onClick={(event) => setMenu({ anchor: event.currentTarget, row })}>
+                <MoreHoriz fontSize="small" />
+              </IconButton>
+            )}
+          </Box>
+        );
+      },
+    },
+  ];
+
+  const menuRow = menu?.row;
+  const menuActions = menuRow ? bookingRowActions({ ...menuRow, requestNewTime: menuRow.online?.requestNewTime ?? null }, canReadRecords).menu : [];
+
   return (
     <>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Jam</TableHead>
-            <TableHead>Pasien</TableHead>
-            <TableHead>Layanan</TableHead>
-            <TableHead>Tenaga</TableHead>
-            <TableHead>Status</TableHead>
-            <TableHead>Aksi</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((row) => {
-            const actions = bookingRowActions({ ...row, requestNewTime: row.online?.requestNewTime ?? null }, canReadRecords);
-            const highlighted = row.id === highlightId;
-            return (
-              <TableRow
-                key={row.id}
-                ref={highlighted ? highlightRef : undefined}
-                data-highlighted={highlighted ? "true" : undefined}
-                className={cn(highlighted && "bg-amber-100/70 hover:bg-amber-100")}
-              >
-                <TableCell className="align-top whitespace-nowrap">
-                  {showsContactWindows(row) && row.online ? (
-                    <div className="space-y-0.5 whitespace-normal">
-                      <Badge variant="outline">Online</Badge>
-                      {row.online.windowLines.map((line) => (
-                        <div key={line} className="text-sm font-medium">
-                          {line}
-                        </div>
-                      ))}
-                      {row.online.phase === "NEEDS_NEW" && (
-                        <Badge variant="destructive">Perlu waktu baru</Badge>
-                      )}
-                      {row.online.lastAttempt && (
-                        <div className="text-xs text-muted-foreground">{row.online.lastAttempt}</div>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="font-medium">
-                      {row.online && <Badge variant="outline" className="mr-1">Online</Badge>}
-                      {row.timeLabel}
-                    </div>
-                  )}
-                  <div className="font-mono text-xs text-muted-foreground">{row.code}</div>
-                  {row.deadlineLabel && (
-                    <div
-                      className={cn(
-                        "mt-1 text-xs font-medium",
-                        row.deadlineOverdue ? "text-destructive" : "text-amber-700",
-                      )}
-                    >
-                      {row.deadlineLabel}
-                    </div>
-                  )}
-                </TableCell>
-                <TableCell className="align-top">
-                  <div className="font-medium">
-                    {row.patientId ? (
-                      <Link href={`/admin/pasien/${row.patientId}`} className="underline-offset-4 hover:underline">
-                        {row.patientName}
-                      </Link>
-                    ) : (
-                      row.patientName
-                    )}
-                  </div>
-                  {row.needsMatch && (
-                    <Badge variant="outline" className="mt-1">
-                      Belum dicocokkan
-                    </Badge>
-                  )}
-                  {row.needsFullIntake && (
-                    <Badge variant="outline" className="mt-1">
-                      Belum punya isian lengkap
-                    </Badge>
-                  )}
-                  <div className="text-xs text-muted-foreground">
-                    {row.patientRecordNumber} · {row.sourceLabel}
-                  </div>
-                  {row.notes && <div className="mt-1 text-xs">{row.notes}</div>}
-                </TableCell>
-                <TableCell className="align-top">{row.serviceName}</TableCell>
-                <TableCell className="align-top">
-                  <div>{row.staffName}</div>
-                  <div className="text-xs text-muted-foreground">{row.branchName}</div>
-                </TableCell>
-                <TableCell className="align-top">
-                  <AppointmentStatusBadge status={row.status} />
-                  {row.intakeStatus && (
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      Isian: {INTAKE_STATUS_LABEL[row.intakeStatus]}
-                    </div>
-                  )}
-                  {row.foodRecall && (
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      Food recall: {row.foodRecall === "DIISI" ? "sudah diisi" : "belum diisi"}
-                    </div>
-                  )}
-                  {row.messageNotes.map((note) => (
-                    <div key={note} className="mt-1 text-xs text-muted-foreground">
-                      {note}
-                    </div>
-                  ))}
-                </TableCell>
-                <TableCell className="align-top">
-                  <div className="flex flex-wrap items-center gap-1">
-                    {actions.primary.map((action) => primaryAction(action, row))}
-                    {actions.menu.length > 0 && (
-                      // Tanpa modal: dialog yang dibuka dari menu tidak boleh mewarisi kunci pointer menu.
-                      <DropdownMenu modal={false}>
-                        <DropdownMenuTrigger asChild>
-                          <Button size="sm" variant="ghost" aria-label={`Aksi lain ${row.code}`}>
-                            <EllipsisIcon />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          {actions.menu.map((action) => menuAction(action, row))}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+      <AdminDataGrid rows={rows} columns={columns} label="Daftar booking" emptyText={emptyText} highlightId={highlightId ?? undefined} />
+
+      <Menu anchorEl={menu?.anchor ?? null} open={menu !== null} onClose={() => setMenu(null)} anchorOrigin={{ vertical: "bottom", horizontal: "right" }} transformOrigin={{ vertical: "top", horizontal: "right" }}>
+        {menuRow && menuActions.map((action) => menuAction(action, menuRow))}
+      </Menu>
 
       {matchTarget && (
         <MatchPatientDialog
@@ -452,40 +455,42 @@ export function AppointmentTable({
         />
       )}
 
-      <AlertDialog
+      <Dialog
         open={cancelTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) {
-            setCancelTarget(null);
-            setCancelReason("");
-          }
+        onClose={() => {
+          setCancelTarget(null);
+          setCancelReason("");
         }}
+        slotProps={{ paper: { role: "alertdialog" } }}
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Batalkan booking {cancelTarget?.code}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {cancelTarget?.patientName}, {cancelTarget?.timeLabel}. Slotnya akan dibuka kembali.
-              Booking tetap tersimpan dengan status Dibatalkan.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="space-y-1">
-            <Label htmlFor="cancel-reason">Alasan (opsional)</Label>
-            <Input
-              id="cancel-reason"
-              value={cancelReason}
-              onChange={(e) => setCancelReason(e.target.value)}
-              placeholder="Misal: pasien minta jadwal ulang minggu depan"
-            />
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Kembali</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={confirmCancel}>
-              Batalkan Booking
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        <DialogTitle>Batalkan booking {cancelTarget?.code}?</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            {cancelTarget?.patientName}, {cancelTarget?.timeLabel}. Slotnya akan dibuka kembali. Booking tetap tersimpan dengan status Dibatalkan.
+          </DialogContentText>
+          <TextField
+            id="cancel-reason"
+            label="Alasan (opsional)"
+            value={cancelReason}
+            onChange={(e) => setCancelReason(e.target.value)}
+            placeholder="Misal: pasien minta jadwal ulang minggu depan"
+            fullWidth
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setCancelTarget(null);
+              setCancelReason("");
+            }}
+          >
+            Kembali
+          </Button>
+          <Button variant="contained" color="error" onClick={confirmCancel}>
+            Batalkan Booking
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

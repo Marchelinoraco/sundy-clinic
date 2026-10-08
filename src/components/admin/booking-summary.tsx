@@ -1,7 +1,7 @@
+import Box from "@mui/material/Box";
 import { formatRupiah, formatShortIndonesianDate } from "@/lib/format";
 import { bookingFeeFor } from "@/lib/payment";
 import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
-import { cn } from "@/lib/utils";
 
 /** Sumber booking yang dicatat admin; booking situs dibuat customer sendiri. */
 export type AdminBookingSource = "WHATSAPP" | "TELEPON" | "WALK_IN";
@@ -46,15 +46,20 @@ export function bookingSummaryItems(input: {
 
 export function BookingSummary({ items }: { items: SummaryItem[] }) {
   return (
-    <dl className="divide-y text-sm">
-      {items.map((item) => (
-        <div key={item.label} className="flex justify-between gap-3 py-1.5">
-          <dt className="text-muted-foreground">{item.label}</dt>
-          <dd className={cn("text-right", item.value ? "font-medium" : "text-muted-foreground")}>
+    <Box component="dl" sx={{ m: 0, fontSize: "0.875rem" }}>
+      {items.map((item, index) => (
+        <Box
+          key={item.label}
+          sx={{ display: "flex", justifyContent: "space-between", gap: 1.5, py: 0.75, borderTop: index === 0 ? 0 : 1, borderColor: "divider" }}
+        >
+          <Box component="dt" sx={{ color: "text.secondary" }}>
+            {item.label}
+          </Box>
+          <Box component="dd" sx={{ m: 0, textAlign: "right", ...(item.value ? { fontWeight: 500 } : { color: "text.secondary" }) }}>
             {item.value ?? "belum dipilih"}
-          </dd>
-        </div>
+          </Box>
+        </Box>
       ))}
-    </dl>
+    </Box>
   );
 }

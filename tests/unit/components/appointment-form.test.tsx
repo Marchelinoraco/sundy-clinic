@@ -143,8 +143,8 @@ describe("AppointmentForm", () => {
     expect(screen.queryByRole("button", { name: "Buat Booking" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Telepon" })).toBeDisabled();
     // Select Radix terbuka lewat pointerdown, yang tetap sampai walau fieldset-nya disabled:
-    // ia harus dikunci lewat prop disabled-nya sendiri, yang memasang data-disabled.
-    expect(screen.getByRole("combobox", { name: "Tenaga" })).toHaveAttribute("data-disabled");
+    // ia harus dikunci lewat prop disabled-nya sendiri (kini <select> asli yang dinonaktifkan).
+    expect(screen.getByRole("combobox", { name: "Tenaga" })).toBeDisabled();
 
     await user.click(screen.getByRole("button", { name: "+ Booking baru" }));
 

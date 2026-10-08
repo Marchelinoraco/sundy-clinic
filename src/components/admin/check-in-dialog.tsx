@@ -1,12 +1,21 @@
 "use client";
 
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
+import Dialog from "@mui/material/Dialog";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useState, useTransition, type FormEvent } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import type { FoodRecallLinkInfo } from "@/lib/food-recall";
 import { NIK_FORMAT_ERROR, NIK_MISSING_REASONS, nikMismatchWarning, normalizeNik } from "@/lib/nik";
 import {
@@ -19,6 +28,9 @@ import {
   type NikOwner,
 } from "@/server/check-in";
 import { FoodRecallLinkPanel } from "./food-recall-link-panel";
+import { DateField } from "./mui/date-field";
+import { DialogCloseButton } from "./mui/dialog-close-button";
+import { SelectField } from "./mui/select-field";
 import { NikInput, type NikDraft } from "./nik-input";
 
 export type CheckInTarget = { appointmentId: string; code: string; patientName: string };
@@ -39,10 +51,6 @@ type Step =
   | { kind: "conflict"; owner: NikOwner; nik: string }
   | { kind: "done"; foodRecall: Exclude<FoodRecallLinkInfo, { state: "NOT_OFFERED" }> };
 
-const selectClass =
-  "h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50";
-const textareaClass =
-  "min-h-16 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50";
 
 function draftFor(form: CheckInForm): Draft {
   return {
@@ -210,169 +218,174 @@ export function CheckInDialog({
         })
       : null;
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90svh] max-w-lg overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Check-in — {target.code}</DialogTitle>
-          <DialogDescription>{form?.summary ?? target.patientName}</DialogDescription>
-        </DialogHeader>
+  const secondary = { color: "text.secondary" } as const;
 
-        {form === undefined && <p className="text-sm text-muted-foreground">Memuat…</p>}
-        {form === null && <p className="text-sm text-destructive">{loadError}</p>}
+  return (
+    <Dialog open={open} onClose={() => onOpenChange(false)} scroll="paper">
+      <DialogTitle sx={{ pr: 6 }}>Check-in — {target.code}</DialogTitle>
+      <DialogCloseButton onClick={() => onOpenChange(false)} />
+      <DialogContent>
+        <DialogContentText sx={{ mb: 2 }}>{form?.summary ?? target.patientName}</DialogContentText>
+
+        {form === undefined && (
+          <Typography variant="body2" sx={secondary}>
+            Memuat…
+          </Typography>
+        )}
+        {form === null && (
+          <Typography variant="body2" sx={{ color: "error.main" }}>
+            {loadError}
+          </Typography>
+        )}
 
         {form && draft && patient && missing && step.kind === "conflict" && (
-          <section aria-labelledby={`${id}-conflict`} className="space-y-3 text-sm">
-            <h3 id={`${id}-conflict`} className="font-medium">
+          <Box component="section" aria-labelledby={`${id}-conflict`} sx={{ display: "flex", flexDirection: "column", gap: 1.5, fontSize: "0.875rem" }}>
+            <Typography component="h3" id={`${id}-conflict`} sx={{ fontWeight: 500, fontSize: "0.875rem" }}>
               NIK ini sudah milik pasien lain
-            </h3>
-            <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 rounded-md border p-3">
-              <dt className="text-muted-foreground">Nama</dt>
+            </Typography>
+            <Paper
+              variant="outlined"
+              component="dl"
+              sx={{ m: 0, p: 1.5, display: "grid", gridTemplateColumns: "auto 1fr", columnGap: 1.5, rowGap: 0.5, "& dt": secondary, "& dd": { m: 0 } }}
+            >
+              <dt>Nama</dt>
               <dd>{step.owner.name}</dd>
-              <dt className="text-muted-foreground">No. RM</dt>
+              <dt>No. RM</dt>
               <dd>{step.owner.medicalRecordNumber}</dd>
-              <dt className="text-muted-foreground">Tanggal lahir</dt>
+              <dt>Tanggal lahir</dt>
               <dd>{step.owner.birthDateLabel ?? "—"}</dd>
-              <dt className="text-muted-foreground">WhatsApp</dt>
+              <dt>WhatsApp</dt>
               <dd>{step.owner.whatsapp}</dd>
-              <dt className="text-muted-foreground">Kunjungan terakhir</dt>
+              <dt>Kunjungan terakhir</dt>
               <dd>{step.owner.lastVisitLabel ?? "belum pernah"}</dd>
-            </dl>
+            </Paper>
             {step.owner.merge.allowed ? (
-              <p className="text-muted-foreground">
+              <Box component="p" sx={{ m: 0, ...secondary }}>
                 Bila orangnya sama, semua booking dan isian {patient.name} ({patient.medicalRecordNumber}) dipindah ke pasien ini.
-              </p>
+              </Box>
             ) : (
-              <p className="text-destructive">{step.owner.merge.reason}</p>
+              <Box component="p" sx={{ m: 0, color: "error.main" }}>
+                {step.owner.merge.reason}
+              </Box>
             )}
-            <div className="flex flex-wrap gap-2">
+            <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
               {step.owner.merge.allowed && (
-                <Button type="button" disabled={pending} onClick={() => merge(step.nik)}>
+                <Button type="button" variant="contained" disabled={pending} onClick={() => merge(step.nik)}>
                   Ini orang yang sama — pindahkan
                 </Button>
               )}
-              <Button type="button" variant="outline" disabled={pending} onClick={() => setStep({ kind: "form" })}>
+              <Button type="button" variant="outlined" disabled={pending} onClick={() => setStep({ kind: "form" })}>
                 Bukan — periksa lagi NIK-nya
               </Button>
-            </div>
-          </section>
+            </Stack>
+          </Box>
         )}
 
         {form && step.kind === "done" && (
-          <section aria-labelledby={`${id}-done`} className="space-y-3">
-            <p className="text-sm">✓ {form.patient.name} sudah check-in.</p>
-            <h3 id={`${id}-done`} className="text-sm font-medium">
+          <Box component="section" aria-labelledby={`${id}-done`} sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+            <Typography variant="body2">✓ {form.patient.name} sudah check-in.</Typography>
+            <Typography component="h3" id={`${id}-done`} sx={{ fontSize: "0.875rem", fontWeight: 500 }}>
               Food recall
-            </h3>
+            </Typography>
             <FoodRecallLinkPanel info={step.foodRecall} />
-            <Button type="button" variant="outline" className="w-full" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outlined" fullWidth onClick={() => onOpenChange(false)}>
               Selesai
             </Button>
-          </section>
+          </Box>
         )}
 
         {form && draft && patient && missing && step.kind === "form" && (
-          <form onSubmit={submit} className="space-y-4 text-sm">
-            <p>
-              <span className="font-medium">{patient.name}</span>{" "}
-              <span className="text-muted-foreground">{patient.medicalRecordNumber}</span>
-            </p>
+          <Box component="form" onSubmit={submit} sx={{ display: "flex", flexDirection: "column", gap: 2, fontSize: "0.875rem" }}>
+            <Box component="p" sx={{ m: 0 }}>
+              <Box component="span" sx={{ fontWeight: 500 }}>
+                {patient.name}
+              </Box>{" "}
+              <Box component="span" sx={secondary}>
+                {patient.medicalRecordNumber}
+              </Box>
+            </Box>
 
             {draft.nikEditing ? (
-              <div className="space-y-1">
+              <Stack spacing={0.5}>
                 {patient.nikMissingReason && (
-                  <p className="text-xs text-amber-700">
+                  <Typography variant="caption" component="p" sx={{ color: "warning.main" }}>
                     Sebelumnya: belum ada NIK ({NIK_MISSING_REASONS[patient.nikMissingReason]}). Tanyakan lagi.
-                  </p>
+                  </Typography>
                 )}
                 <NikInput draft={draft.nik} onChange={(nik) => update({ nik })} warning={warning} />
-              </div>
+              </Stack>
             ) : (
-              <div className="flex items-center gap-3">
+              <Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
                 <span>NIK {patient.nik}</span>
-                <Button type="button" variant="link" size="sm" className="h-auto px-0" onClick={() => update({ nikEditing: true })}>
+                <Button type="button" variant="text" size="small" sx={{ px: 0, minWidth: 0, textDecoration: "underline" }} onClick={() => update({ nikEditing: true })}>
                   Ubah
                 </Button>
-              </div>
+              </Stack>
             )}
 
             {(missing.birthDate || missing.gender || missing.occupation || missing.address) && (
-              <fieldset className="space-y-3">
-                <legend className="font-medium">Data diri yang masih kosong</legend>
+              <Box component="fieldset" sx={{ border: 0, m: 0, p: 0, minWidth: 0, display: "flex", flexDirection: "column", gap: 1.5 }}>
+                <Box component="legend" sx={{ p: 0, mb: 1, fontWeight: 500 }}>
+                  Data diri yang masih kosong
+                </Box>
                 {missing.birthDate && (
-                  <div className="space-y-1">
-                    <Label htmlFor={`${id}-birth`}>Tanggal lahir</Label>
-                    <Input
-                      id={`${id}-birth`}
-                      type="date"
-                      value={draft.identity.birthDate}
-                      onChange={(e) => setIdentity({ birthDate: e.target.value })}
-                    />
-                  </div>
+                  <DateField id={`${id}-birth`} label="Tanggal lahir" value={draft.identity.birthDate} onChange={(birthDate) => setIdentity({ birthDate })} fullWidth />
                 )}
                 {missing.gender && (
-                  <div className="space-y-1">
-                    <Label htmlFor={`${id}-gender`}>Jenis kelamin</Label>
-                    <select
-                      id={`${id}-gender`}
-                      className={selectClass}
-                      value={draft.identity.gender}
-                      onChange={(e) => setIdentity({ gender: e.target.value as IdentityDraft["gender"] })}
-                    >
-                      <option value="">Pilih</option>
-                      <option value="P">Perempuan</option>
-                      <option value="L">Laki-laki</option>
-                    </select>
-                  </div>
+                  <SelectField
+                    id={`${id}-gender`}
+                    label="Jenis kelamin"
+                    value={draft.identity.gender}
+                    onChange={(value) => setIdentity({ gender: value as IdentityDraft["gender"] })}
+                  >
+                    <option value="">Pilih</option>
+                    <option value="P">Perempuan</option>
+                    <option value="L">Laki-laki</option>
+                  </SelectField>
                 )}
                 {missing.occupation && (
-                  <div className="space-y-1">
-                    <Label htmlFor={`${id}-job`}>Pekerjaan</Label>
-                    <Input
-                      id={`${id}-job`}
-                      maxLength={100}
-                      value={draft.identity.occupation}
-                      onChange={(e) => setIdentity({ occupation: e.target.value })}
-                    />
-                  </div>
+                  <TextField
+                    id={`${id}-job`}
+                    label="Pekerjaan"
+                    value={draft.identity.occupation}
+                    onChange={(e) => setIdentity({ occupation: e.target.value })}
+                    slotProps={{ htmlInput: { maxLength: 100 } }}
+                    fullWidth
+                  />
                 )}
                 {missing.address && (
-                  <div className="space-y-1">
-                    <Label htmlFor={`${id}-address`}>Alamat</Label>
-                    <textarea
-                      id={`${id}-address`}
-                      rows={2}
-                      maxLength={200}
-                      value={draft.identity.address}
-                      onChange={(e) => setIdentity({ address: e.target.value })}
-                      className={textareaClass}
-                    />
-                  </div>
+                  <TextField
+                    id={`${id}-address`}
+                    label="Alamat"
+                    multiline
+                    minRows={2}
+                    value={draft.identity.address}
+                    onChange={(e) => setIdentity({ address: e.target.value })}
+                    slotProps={{ htmlInput: { maxLength: 200 } }}
+                    fullWidth
+                  />
                 )}
-              </fieldset>
+              </Box>
             )}
 
-            <div className="space-y-1">
-              <Label htmlFor={`${id}-wa`}>Nomor WhatsApp</Label>
-              <Input id={`${id}-wa`} inputMode="tel" value={draft.whatsapp} onChange={(e) => update({ whatsapp: e.target.value })} />
-              <p className="text-xs text-muted-foreground">Pastikan masih aktif untuk pengingat kontrol.</p>
-            </div>
+            <TextField
+              id={`${id}-wa`}
+              label="Nomor WhatsApp"
+              value={draft.whatsapp}
+              onChange={(e) => update({ whatsapp: e.target.value })}
+              helperText="Pastikan masih aktif untuk pengingat kontrol."
+              slotProps={{ htmlInput: { inputMode: "tel" } }}
+              fullWidth
+            />
 
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={draft.offer} onChange={(e) => update({ offer: e.target.checked })} />
-              Tawarkan food recall
-            </label>
+            <FormControlLabel control={<Checkbox checked={draft.offer} onChange={(e) => update({ offer: e.target.checked })} />} label="Tawarkan food recall" />
 
-            {error && (
-              <p role="alert" className="text-destructive">
-                {error}
-              </p>
-            )}
+            {error && <Alert severity="error">{error}</Alert>}
 
-            <Button type="submit" className="w-full" disabled={pending}>
+            <Button type="submit" variant="contained" fullWidth disabled={pending}>
               Check-in
             </Button>
-          </form>
+          </Box>
         )}
       </DialogContent>
     </Dialog>

@@ -11,16 +11,36 @@ const LOCALE_TEXT = idID.components.MuiDataGrid.defaultProps.localeText;
 
 const HighlightContext = createContext<string | undefined>(undefined);
 
+/** Lama halaman dibiarkan "mengendap" sebelum pemusatan ulang berhenti. */
+const SETTLE_MS = 3000;
+/** Tanda pengguna mengambil alih: pemusatan ulang berhenti agar layar tidak ditarik kembali. */
+const USER_SCROLL_EVENTS = ["wheel", "touchstart", "keydown", "mousedown"] as const;
+
 /**
  * Baris DataGrid dengan `data-highlighted` untuk baris yang baru dibuat/dibuka (mis. booking dari tautan).
- * Baris yang disorot menggulir dirinya ke tengah layar setelah terpasang: DataGrid merender baris belakangan,
- * jadi efek di tingkat tabel belum menemukan barisnya.
+ * Baris yang disorot menggulir dirinya ke tengah layar setelah terpasang (DataGrid merender baris belakangan,
+ * jadi efek di tingkat tabel belum menemukan barisnya). Setelah itu DataGrid mengukur tinggi baris dan tabel
+ * lain di halaman ikut tumbuh, sehingga baris terdorong: selama halaman masih berubah tinggi, baris dipusatkan
+ * ulang — sampai pengguna menggulir sendiri atau SETTLE_MS berlalu.
  */
 function AdminGridRow(props: GridRowProps) {
   const highlightId = useContext(HighlightContext);
   const highlighted = highlightId !== undefined && props.rowId === highlightId;
   useEffect(() => {
-    if (highlighted) document.querySelector('[role="row"][data-highlighted="true"]')?.scrollIntoView?.({ block: "center" });
+    if (!highlighted) return;
+    const center = () => document.querySelector('[role="row"][data-highlighted="true"]')?.scrollIntoView?.({ block: "center" });
+    center();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => center());
+    observer.observe(document.body);
+    const stop = () => {
+      observer.disconnect();
+      window.clearTimeout(timer);
+      USER_SCROLL_EVENTS.forEach((type) => window.removeEventListener(type, stop));
+    };
+    const timer = window.setTimeout(stop, SETTLE_MS);
+    USER_SCROLL_EVENTS.forEach((type) => window.addEventListener(type, stop, { passive: true }));
+    return stop;
   }, [highlighted]);
   return <GridRow {...props} data-highlighted={highlighted ? "true" : undefined} />;
 }
@@ -74,7 +94,10 @@ export function AdminDataGrid<R extends GridValidRowModel>({
           slots={{ row: AdminGridRow }}
           sx={{
             border: 0,
-            "& .MuiDataGrid-cell": { py: 1, display: "flex", alignItems: "center" },
+            // Isi sel boleh turun baris (tinggi baris otomatis), dan anak sel tidak melebihi lebar kolomnya:
+            // tanpa ini tombol aksi dan teks panjang terpotong.
+            "& .MuiDataGrid-cell": { py: 1, display: "flex", alignItems: "center", whiteSpace: "normal", lineHeight: 1.43 },
+            "& .MuiDataGrid-cell > *": { minWidth: 0, maxWidth: "100%" },
             "& .MuiDataGrid-row[data-highlighted='true']": { bgcolor: "rgba(var(--mui-palette-warning-mainChannel) / 0.16)" },
           }}
         />

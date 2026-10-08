@@ -1,3 +1,4 @@
+import Typography from "@mui/material/Typography";
 import { AdminHeader } from "@/components/admin/admin-header";
 import { AppointmentForm, type BookingServiceGroup } from "@/components/admin/appointment-form";
 import { OnlineAppointmentForm } from "@/components/admin/online-appointment-form";
@@ -71,7 +72,9 @@ export default async function NewAppointmentPage({ searchParams }: { searchParam
         )}
         {online && onlineService ? (
           doctors.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Belum ada dokter yang dapat dijadwalkan.</p>
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+              Belum ada dokter yang dapat dijadwalkan.
+            </Typography>
           ) : (
             <OnlineAppointmentForm
               doctors={doctors}
@@ -82,7 +85,9 @@ export default async function NewAppointmentPage({ searchParams }: { searchParam
             />
           )
         ) : activeBranches.length === 0 || staffList.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Belum ada cabang aktif atau tenaga yang dapat dijadwalkan.</p>
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            Belum ada cabang aktif atau tenaga yang dapat dijadwalkan.
+          </Typography>
         ) : (
           <AppointmentForm
             branches={activeBranches.map((b) => ({ id: b.id, name: b.name }))}

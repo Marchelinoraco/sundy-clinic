@@ -225,6 +225,24 @@ describe("batasan arsitektur", () => {
     "src/components/admin/food-recall-table.tsx",
     "src/components/admin/food-recall-link-panel.tsx",
     "src/components/admin/food-recall-dialog.tsx",
+    // Task 7
+    "src/app/(admin)/admin/booking/page.tsx",
+    "src/app/(admin)/admin/booking/baru/page.tsx",
+    "src/components/admin/appointment-form.tsx",
+    "src/components/admin/appointment-table.tsx",
+    "src/components/admin/appointment-status-badge.tsx",
+    "src/components/admin/booking-created-panel.tsx",
+    "src/components/admin/booking-dialogs.tsx",
+    "src/components/admin/booking-filters.tsx",
+    "src/components/admin/booking-summary.tsx",
+    "src/components/admin/date-strip.tsx",
+    "src/components/admin/slot-picker.tsx",
+    "src/components/admin/reschedule-dialog.tsx",
+    "src/components/admin/check-in-dialog.tsx",
+    "src/components/admin/send-message-dialog.tsx",
+    "src/components/admin/message-actions.tsx",
+    "src/components/admin/whatsapp-send-button.tsx",
+    "src/components/admin/quiz-link-dialog.tsx",
   ];
   const SHADCN_OR_FIXED_COLOR =
     /from "@\/components\/ui\/|from "lucide-react"|["'`][^"'`\n]*\b(?:text|bg|border|fill|stroke|ring)-(?:muted|foreground|primary|secondary|destructive|accent|card|background|input|amber|emerald|stone|red|green|gold|brown|cream|white|black)\b/;

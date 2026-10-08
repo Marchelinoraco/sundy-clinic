@@ -1,8 +1,9 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
 import { WhatsAppSendButton } from "@/components/admin/whatsapp-send-button";
 import { recordAppointmentMessage } from "@/server/appointment-message";
+import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/server/appointment-message", () => ({ recordAppointmentMessage: vi.fn() }));
@@ -10,7 +11,7 @@ vi.mock("@/server/appointment-message", () => ({ recordAppointmentMessage: vi.fn
 const SHOWN = new Date("2026-10-05T03:00:00Z");
 
 function renderButton(onRecorded = vi.fn()) {
-  render(
+  renderAdmin(
     <WhatsAppSendButton href="https://wa.me/6281234567001?text=Halo" appointmentId="a1" kind="PENGINGAT" scheduledFor={SHOWN} onRecorded={onRecorded}>
       Ingatkan via WA
     </WhatsAppSendButton>,

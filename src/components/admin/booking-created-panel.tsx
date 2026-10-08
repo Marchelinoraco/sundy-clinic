@@ -1,8 +1,12 @@
 "use client";
 
-import Link from "next/link";
+import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
+import NextLink from "next/link";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { MISSING_BANK_ACCOUNT_LINE, type TransferInstruction } from "@/lib/transfer-instruction";
 import { WhatsAppSendButton } from "./whatsapp-send-button";
 
@@ -45,47 +49,48 @@ export function BookingCreatedPanel({
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-emerald-300 bg-emerald-50/60 p-4">
-      <h2 className="font-medium">✓ Booking {booking.code} dibuat</h2>
+    <Paper
+      variant="outlined"
+      sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5, borderColor: "success.main", bgcolor: "rgba(var(--mui-palette-success-mainChannel) / 0.06)" }}
+    >
+      <Typography component="h2" sx={{ fontWeight: 500 }}>
+        ✓ Booking {booking.code} dibuat
+      </Typography>
 
       {booking.instructionFailed && (
-        <p className="text-sm text-destructive">
+        <Typography variant="body2" sx={{ color: "error.main" }}>
           Instruksi transfer gagal dimuat. Buka booking ini di daftar untuk mengirimnya.
-        </p>
+        </Typography>
       )}
 
       {instruction && (
-        <div className="space-y-2">
+        <Stack spacing={1}>
           {instruction.missingBankAccount && (
-            <p className="rounded-md border border-amber-300 bg-amber-50 p-2 text-sm text-amber-800">
+            <Alert severity="warning" icon={false}>
               Rekening belum diisi di Pengaturan. Teks menulis &quot;{MISSING_BANK_ACCOUNT_LINE}&quot;.
-            </p>
+            </Alert>
           )}
           {instruction.link ? (
-            <WhatsAppSendButton
-              href={instruction.link}
-              appointmentId={booking.id}
-              kind="INSTRUKSI_TRANSFER"
-              scheduledFor={booking.startAt}
-              className="w-full bg-emerald-700 text-white hover:bg-emerald-800"
-            >
+            <WhatsAppSendButton href={instruction.link} appointmentId={booking.id} kind="INSTRUKSI_TRANSFER" scheduledFor={booking.startAt} color="success" fullWidth>
               Kirim instruksi transfer via WA
             </WhatsAppSendButton>
           ) : (
-            <p className="text-sm text-muted-foreground">Nomor WhatsApp pasien tidak dikenali.</p>
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+              Nomor WhatsApp pasien tidak dikenali.
+            </Typography>
           )}
-          <Button type="button" variant="outline" className="w-full" onClick={() => copy(instruction.text)}>
+          <Button type="button" variant="outlined" fullWidth onClick={() => copy(instruction.text)}>
             Salin teks
           </Button>
-        </div>
+        </Stack>
       )}
 
-      <Button asChild variant="outline" className="w-full">
-        <Link href={listHref ?? `/admin/booking?tanggal=${booking.date}&sorot=${booking.id}`}>Lihat di daftar ({dateLabel})</Link>
+      <Button component={NextLink} href={listHref ?? `/admin/booking?tanggal=${booking.date}&sorot=${booking.id}`} variant="outlined" fullWidth>
+        Lihat di daftar ({dateLabel})
       </Button>
-      <Button type="button" variant="ghost" className="w-full" onClick={onNew}>
+      <Button type="button" variant="text" fullWidth onClick={onNew}>
         + Booking baru
       </Button>
-    </div>
+    </Paper>
   );
 }

@@ -1,19 +1,13 @@
 "use client";
 
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import type { BookingFormInitial } from "@/lib/booking-prefill";
 import { formatShortIndonesianDate } from "@/lib/format";
 import type { SlotOption } from "@/lib/slot";
@@ -30,6 +24,7 @@ import {
   type AdminBookingSource,
 } from "./booking-summary";
 import { DateStrip } from "./date-strip";
+import { SelectField } from "./mui/select-field";
 import { PatientBookingInfo, PatientPicker } from "./patient-picker";
 import { SlotPicker } from "./slot-picker";
 
@@ -194,43 +189,64 @@ export function AppointmentForm({
     });
   }
 
+  const sectionTitle = { fontSize: "0.875rem", fontWeight: 500 } as const;
+  const hint = (text: string) => (
+    <Typography variant="body2" sx={{ color: "text.secondary" }}>
+      {text}
+    </Typography>
+  );
+
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
-      <fieldset disabled={locked} className="min-w-0 space-y-8 disabled:opacity-60">
+    <Box sx={{ display: "grid", gap: 3, alignItems: { lg: "start" }, gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "minmax(0, 1fr) 20rem" } }}>
+      <Box
+        component="fieldset"
+        disabled={locked}
+        sx={{ border: 0, m: 0, p: 0, minWidth: 0, display: "flex", flexDirection: "column", gap: 4, "&:disabled": { opacity: 0.6 } }}
+      >
         {notice && !locked && (
-          <p role="status" className="rounded-md border border-gold-300 bg-gold-300/10 p-3 text-sm text-brown-800">
+          <Box
+            component="p"
+            role="status"
+            sx={{ m: 0, borderRadius: 1.5, border: 1, borderColor: "primary.main", bgcolor: "rgba(var(--mui-palette-primary-mainChannel) / 0.1)", p: 1.5, fontSize: "0.875rem" }}
+          >
             {notice}
-          </p>
+          </Box>
         )}
-        <section className="space-y-2">
-          <h2 className="text-sm font-medium">1 · Pasien</h2>
+        <Stack component="section" spacing={1}>
+          <Typography component="h2" sx={sectionTitle}>
+            1 · Pasien
+          </Typography>
           {patient ? (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm">
+            <Paper variant="outlined" sx={{ p: 1.5, fontSize: "0.875rem", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
               <span>
-                <span className="font-medium">{patient.name}</span>{" "}
-                <span className="text-muted-foreground">
+                <Box component="span" sx={{ fontWeight: 500 }}>
+                  {patient.name}
+                </Box>{" "}
+                <Box component="span" sx={{ color: "text.secondary" }}>
                   ({patient.medicalRecordNumber} · {patient.whatsapp})
-                </span>
+                </Box>
                 <PatientBookingInfo patient={patient} />
               </span>
-              <Button type="button" variant="ghost" size="sm" onClick={() => setPatient(null)}>
+              <Button type="button" variant="text" size="small" onClick={() => setPatient(null)}>
                 Ganti pasien
               </Button>
-            </div>
+            </Paper>
           ) : (
             <PatientPicker onSelect={setPatient} />
           )}
-        </section>
+        </Stack>
 
-        <section className="space-y-3">
-          <h2 className="text-sm font-medium">2 · Layanan & tenaga</h2>
-          <div className="flex flex-wrap gap-2" role="group" aria-label="Jenis booking">
+        <Stack component="section" spacing={1.5}>
+          <Typography component="h2" sx={sectionTitle}>
+            2 · Layanan & tenaga
+          </Typography>
+          <Box role="group" aria-label="Jenis booking" sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
             {(["KONSULTASI", "TREATMENT"] as const).map((k) => (
               <Button
                 key={k}
                 type="button"
-                size="sm"
-                variant={kind === k ? "default" : "outline"}
+                size="small"
+                variant={kind === k ? "contained" : "outlined"}
                 aria-pressed={kind === k}
                 onClick={() => {
                   setKind(k);
@@ -240,114 +256,103 @@ export function AppointmentForm({
                 {k === "KONSULTASI" ? "Konsultasi Dokter (30 menit)" : "Treatment"}
               </Button>
             ))}
-          </div>
+          </Box>
 
           {kind === "TREATMENT" && (
-            <div className="space-y-1">
-              <Label htmlFor="booking-service">Layanan</Label>
-              <Select
-                value={serviceId}
-                disabled={locked}
-                onValueChange={(v) => {
-                  setServiceId(v);
-                  resetSlot();
-                }}
-              >
-                <SelectTrigger id="booking-service" className="w-full sm:w-96">
-                  <SelectValue placeholder="Pilih layanan" />
-                </SelectTrigger>
-                <SelectContent>
-                  {treatmentGroups.map((group) => (
-                    <SelectGroup key={group.name}>
-                      <SelectLabel>{group.name}</SelectLabel>
-                      {group.services.map((s) => (
-                        <SelectItem key={s.id} value={s.id}>
-                          {s.name} · {s.durationMin} menit{s.requiresDoctor ? " · dokter" : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
+            <SelectField
+              id="booking-service"
+              label="Layanan"
+              value={serviceId}
+              disabled={locked}
+              onChange={(value) => {
+                setServiceId(value);
+                resetSlot();
+              }}
+              fullWidth={false}
+              sx={{ width: { xs: "100%", sm: 384 } }}
+            >
+              <option value="" disabled>
+                Pilih layanan
+              </option>
+              {treatmentGroups.map((group) => (
+                <optgroup key={group.name} label={group.name}>
+                  {group.services.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} · {s.durationMin} menit{s.requiresDoctor ? " · dokter" : ""}
+                    </option>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
+                </optgroup>
+              ))}
+            </SelectField>
           )}
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" } }}>
             {branches.length > 1 && (
-              <div className="space-y-1">
-                <Label htmlFor="booking-branch">Cabang</Label>
-                <Select
-                  value={branchId}
-                  disabled={locked}
-                  onValueChange={(v) => {
-                    setBranchId(v);
-                    resetSlot();
-                  }}
-                >
-                  <SelectTrigger id="booking-branch" className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {branches.map((b) => (
-                      <SelectItem key={b.id} value={b.id}>
-                        {b.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            <div className="space-y-1">
-              <Label htmlFor="booking-staff">Tenaga</Label>
-              <Select
-                value={effectiveStaffId}
+              <SelectField
+                id="booking-branch"
+                label="Cabang"
+                value={branchId}
                 disabled={locked}
-                onValueChange={(v) => {
-                  setStaffId(v);
+                onChange={(value) => {
+                  setBranchId(value);
                   resetSlot();
                 }}
               >
-                <SelectTrigger id="booking-staff" className="w-full">
-                  <SelectValue placeholder="Pilih tenaga" />
-                </SelectTrigger>
-                <SelectContent>
-                  {eligibleStaff.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {needsDoctor && (
-                <p className="text-xs text-muted-foreground">Hanya dokter yang ditampilkan.</p>
-              )}
-            </div>
-          </div>
+                {branches.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
+              </SelectField>
+            )}
 
-          <div className="space-y-1">
-            <p id="booking-source-label" className="text-sm font-medium">
+            <SelectField
+              id="booking-staff"
+              label="Tenaga"
+              value={effectiveStaffId}
+              disabled={locked}
+              onChange={(value) => {
+                setStaffId(value);
+                resetSlot();
+              }}
+              helperText={needsDoctor ? "Hanya dokter yang ditampilkan." : undefined}
+            >
+              <option value="" disabled>
+                Pilih tenaga
+              </option>
+              {eligibleStaff.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </SelectField>
+          </Box>
+
+          <Stack spacing={0.5}>
+            <Typography id="booking-source-label" variant="body2" sx={{ fontWeight: 500 }}>
               Sumber booking
-            </p>
-            <div className="flex flex-wrap gap-2" role="group" aria-labelledby="booking-source-label">
+            </Typography>
+            <Box role="group" aria-labelledby="booking-source-label" sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
               {ADMIN_SOURCES.map((value) => (
                 <Button
                   key={value}
                   type="button"
-                  size="sm"
-                  variant={source === value ? "default" : "outline"}
+                  size="small"
+                  variant={source === value ? "contained" : "outlined"}
                   aria-pressed={source === value}
                   onClick={() => setSource(value)}
                 >
                   {ADMIN_SOURCE_LABEL[value]}
                 </Button>
               ))}
-            </div>
-          </div>
-        </section>
+            </Box>
+          </Stack>
+        </Stack>
 
-        <section className="space-y-3">
-          <h2 className="text-sm font-medium">3 · Tanggal</h2>
+        <Stack component="section" spacing={1.5}>
+          <Typography component="h2" sx={sectionTitle}>
+            3 · Tanggal
+          </Typography>
           {canPickDate ? (
             <DateStrip
               staffId={effectiveStaffId}
@@ -362,12 +367,14 @@ export function AppointmentForm({
               refreshKey={refreshKey}
             />
           ) : (
-            <p className="text-sm text-muted-foreground">Pilih layanan dan tenaga dulu.</p>
+            hint("Pilih layanan dan tenaga dulu.")
           )}
-        </section>
+        </Stack>
 
-        <section className="space-y-3">
-          <h2 className="text-sm font-medium">4 · Jam</h2>
+        <Stack component="section" spacing={1.5}>
+          <Typography component="h2" sx={sectionTitle}>
+            4 · Jam
+          </Typography>
           {canPickDate && date ? (
             <SlotPicker
               staffId={effectiveStaffId}
@@ -379,24 +386,27 @@ export function AppointmentForm({
               refreshKey={refreshKey}
             />
           ) : (
-            <p className="text-sm text-muted-foreground">Pilih tanggal dulu.</p>
+            hint("Pilih tanggal dulu.")
           )}
-        </section>
+        </Stack>
 
-        <section className="space-y-1">
-          <Label htmlFor="booking-notes">Catatan (opsional)</Label>
-          <Input
+        <Box component="section">
+          <TextField
             id="booking-notes"
+            label="Catatan (opsional)"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Misal: keluhan utama, permintaan khusus"
+            fullWidth
           />
-        </section>
-      </fieldset>
+        </Box>
+      </Box>
 
-      <aside aria-label="Ringkasan booking" className="space-y-4 lg:sticky lg:top-4">
-        <div className="space-y-3 rounded-lg border bg-card p-4">
-          <h2 className="font-medium">Ringkasan</h2>
+      <Box component="aside" aria-label="Ringkasan booking" sx={{ display: "flex", flexDirection: "column", gap: 2, position: { lg: "sticky" }, top: { lg: 16 } }}>
+        <Paper variant="outlined" sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5 }}>
+          <Typography component="h2" sx={{ fontWeight: 500 }}>
+            Ringkasan
+          </Typography>
           <BookingSummary
             items={bookingSummaryItems({
               patientName: patient?.name ?? null,
@@ -409,11 +419,11 @@ export function AppointmentForm({
             })}
           />
           {!created && (
-            <Button type="button" className="w-full" disabled={pending} onClick={handleSubmit}>
+            <Button type="button" variant="contained" fullWidth disabled={pending} onClick={handleSubmit}>
               {pending ? "Menyimpan…" : "Buat Booking"}
             </Button>
           )}
-        </div>
+        </Paper>
         {created && (
           <BookingCreatedPanel
             booking={created}
@@ -421,7 +431,7 @@ export function AppointmentForm({
             onNew={startNew}
           />
         )}
-      </aside>
-    </div>
+      </Box>
+    </Box>
   );
 }

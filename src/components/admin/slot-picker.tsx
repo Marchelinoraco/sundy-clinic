@@ -1,7 +1,9 @@
 "use client";
 
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Typography from "@mui/material/Typography";
 import { useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
 import type { SlotOption } from "@/lib/slot";
 import { getStaffAvailabilityForAdmin } from "@/server/schedule";
 
@@ -52,37 +54,44 @@ export function SlotPicker({
   }, [requestKey, staffId, branchId, date, durationMinutes, excludeAppointmentId]);
 
   if (loaded.key !== requestKey) {
-    return <p className="text-sm text-muted-foreground">Memuat slot…</p>;
+    return (
+      <Typography variant="body2" sx={{ color: "text.secondary" }}>
+        Memuat slot…
+      </Typography>
+    );
   }
   if (loaded.failed) {
-    return <p className="text-sm text-destructive">Gagal memuat slot. Coba pilih tanggal lagi.</p>;
+    return (
+      <Typography variant="body2" sx={{ color: "error.main" }}>
+        Gagal memuat slot. Coba pilih tanggal lagi.
+      </Typography>
+    );
   }
   if (loaded.slots.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
-        Tidak ada slot kosong pada tanggal ini — hari libur, di luar jadwal tenaga ini, atau sudah
-        penuh.
-      </p>
+      <Typography variant="body2" sx={{ color: "text.secondary" }}>
+        Tidak ada slot kosong pada tanggal ini — hari libur, di luar jadwal tenaga ini, atau sudah penuh.
+      </Typography>
     );
   }
 
   return (
-    <div className="flex flex-wrap gap-2" role="group" aria-label="Pilih jam">
+    <Box role="group" aria-label="Pilih jam" sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
       {loaded.slots.map((slot) => {
         const isSelected = selected?.startAt.getTime() === slot.startAt.getTime();
         return (
           <Button
             key={slot.startAt.toISOString()}
             type="button"
-            variant={isSelected ? "default" : "outline"}
+            variant={isSelected ? "contained" : "outlined"}
             aria-pressed={isSelected}
-            className="min-w-20"
+            sx={{ minWidth: 80 }}
             onClick={() => onSelect(slot)}
           >
             {slot.label}
           </Button>
         );
       })}
-    </div>
+    </Box>
   );
 }

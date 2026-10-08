@@ -1,14 +1,15 @@
 "use client";
 
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import ButtonBase from "@mui/material/ButtonBase";
+import Typography from "@mui/material/Typography";
 import { useEffect, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { formatIndonesianDate, formatShortIndonesianDate } from "@/lib/format";
 import { combineWitaDateAndMinutes } from "@/lib/time";
-import { cn } from "@/lib/utils";
 import type { DayAvailability } from "@/server/availability";
 import { getStaffAvailabilityRange } from "@/server/schedule";
+import { DateField } from "./mui/date-field";
 
 export const STRIP_DAYS = 14;
 
@@ -78,19 +79,23 @@ export function DateStrip({
   const inStrip = loaded.days.some((day) => day.date === selected);
 
   return (
-    <div className="space-y-3">
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
       {!ready ? (
-        <p className="text-sm text-muted-foreground">Memuat tanggal…</p>
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          Memuat tanggal…
+        </Typography>
       ) : loaded.failed ? (
-        <p className="text-sm text-destructive">Gagal memuat tanggal. Gunakan Pilih tanggal lain.</p>
+        <Typography variant="body2" sx={{ color: "error.main" }}>
+          Gagal memuat tanggal. Gunakan Pilih tanggal lain.
+        </Typography>
       ) : (
         <>
-          <div className="flex flex-wrap gap-2" role="group" aria-label="Pilih tanggal">
+          <Box role="group" aria-label="Pilih tanggal" sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
             {loaded.days.map((day) => {
               const open = day.state === "OPEN";
               const isSelected = day.date === selected;
               return (
-                <button
+                <ButtonBase
                   key={day.date}
                   type="button"
                   data-date={day.date}
@@ -98,46 +103,51 @@ export function DateStrip({
                   aria-pressed={isSelected}
                   aria-label={`${formatIndonesianDate(noon(day.date))} — ${open ? `${day.openCount} jam kosong` : stateLabel(day)}`}
                   onClick={() => onSelect(day.date)}
-                  className={cn(
-                    "flex w-[4.75rem] flex-col items-center rounded-lg border px-1 py-2 text-xs transition-colors",
-                    isSelected
-                      ? "border-primary bg-primary text-primary-foreground"
+                  sx={{
+                    width: 76,
+                    flexDirection: "column",
+                    borderRadius: 2,
+                    border: 1,
+                    px: 0.5,
+                    py: 1,
+                    fontSize: "0.75rem",
+                    ...(isSelected
+                      ? { borderColor: "primary.main", bgcolor: "primary.main", color: "primary.contrastText" }
                       : open
-                        ? "bg-background hover:bg-accent"
-                        : "cursor-not-allowed bg-muted text-muted-foreground",
-                  )}
+                        ? { borderColor: "divider", bgcolor: "background.paper", "&:hover": { bgcolor: "action.hover" } }
+                        : { borderColor: "divider", bgcolor: "action.hover", color: "text.secondary" }),
+                  }}
                 >
                   <span>{formatShortIndonesianDate(noon(day.date))}</span>
-                  <span className="mt-1 font-medium">{stateLabel(day)}</span>
-                </button>
+                  <Box component="span" sx={{ mt: 0.5, fontWeight: 500 }}>
+                    {stateLabel(day)}
+                  </Box>
+                </ButtonBase>
               );
             })}
-          </div>
+          </Box>
           {loaded.days.every((day) => day.state === "CLOSED") && (
-            <p className="text-sm text-muted-foreground">
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
               Tidak ada jadwal dalam {STRIP_DAYS} hari ke depan — gunakan Pilih tanggal lain.
-            </p>
+            </Typography>
           )}
         </>
       )}
 
       {showOtherDate ? (
-        <div className="space-y-1">
-          <Label htmlFor="booking-date-other">Tanggal lain</Label>
-          <Input
-            id="booking-date-other"
-            type="date"
-            min={today}
-            value={inStrip ? "" : selected}
-            onChange={(e) => onSelect(e.target.value)}
-            className="w-44"
-          />
-        </div>
+        <DateField
+          id="booking-date-other"
+          label="Tanggal lain"
+          min={today}
+          value={inStrip ? "" : selected}
+          onChange={(value) => value && onSelect(value)}
+          sx={{ width: 200 }}
+        />
       ) : (
-        <Button type="button" variant="link" className="h-auto p-0" onClick={() => setShowOtherDate(true)}>
+        <Button type="button" variant="text" sx={{ alignSelf: "flex-start", px: 0, minWidth: 0, textDecoration: "underline" }} onClick={() => setShowOtherDate(true)}>
           Pilih tanggal lain
         </Button>
       )}
-    </div>
+    </Box>
   );
 }

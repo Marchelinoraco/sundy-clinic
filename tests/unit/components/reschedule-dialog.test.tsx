@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
@@ -9,6 +9,7 @@ import { rescheduleAppointment } from "@/server/appointment";
 import { getBookingMessage } from "@/server/appointment-message";
 import type { DayAvailability } from "@/server/availability";
 import { getStaffAvailabilityForAdmin, getStaffAvailabilityRange } from "@/server/schedule";
+import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/server/appointment", () => ({ rescheduleAppointment: vi.fn() }));
@@ -36,7 +37,7 @@ const TUESDAY = "Selasa, 6 Oktober 2026 — 2 jam kosong";
 
 function renderDialog() {
   const onOpenChange = vi.fn();
-  render(<RescheduleDialog target={TARGET} today={TODAY} open onOpenChange={onOpenChange} />);
+  renderAdmin(<RescheduleDialog target={TARGET} today={TODAY} open onOpenChange={onOpenChange} />);
   return onOpenChange;
 }
 

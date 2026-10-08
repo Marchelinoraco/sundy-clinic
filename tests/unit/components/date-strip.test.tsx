@@ -1,10 +1,12 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DateStrip } from "@/components/admin/date-strip";
 import { addDaysToDateString } from "@/lib/time";
 import type { DayAvailability } from "@/server/availability";
 import { getStaffAvailabilityRange } from "@/server/schedule";
+import { setDateField } from "../helpers/mui";
+import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("@/server/schedule", () => ({ getStaffAvailabilityRange: vi.fn() }));
 
@@ -30,7 +32,7 @@ function renderStrip(patch: Partial<Parameters<typeof DateStrip>[0]> = {}) {
     refreshKey: 0,
     ...patch,
   };
-  const view = render(<DateStrip {...props} />);
+  const view = renderAdmin(<DateStrip {...props} />);
   return { onSelect, props, ...view };
 }
 
@@ -81,9 +83,19 @@ describe("DateStrip", () => {
     const { onSelect } = renderStrip();
 
     await user.click(screen.getByRole("button", { name: "Pilih tanggal lain" }));
-    const input = screen.getByLabelText("Tanggal lain");
-    expect(input).toHaveAttribute("min", TODAY);
-    fireEvent.change(input, { target: { value: "2026-11-02" } });
+    // Batas bawah kini dijaga kalender pemilih: hari sebelum TODAY tidak bisa dipilih. Tanggal sistem
+    // dibekukan ke TODAY supaya kalender selalu membuka bulan yang sama.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(`${TODAY}T10:00:00+08:00`));
+    try {
+      await user.click(screen.getByRole("button", { name: /Pilih tanggal/ }));
+      expect(await screen.findByRole("gridcell", { name: "4" })).toBeDisabled();
+      expect(screen.getByRole("gridcell", { name: "6" })).not.toBeDisabled();
+      await user.keyboard("{Escape}");
+    } finally {
+      vi.useRealTimers();
+    }
+    setDateField("Tanggal lain", "2026-11-02");
     expect(onSelect).toHaveBeenCalledWith("2026-11-02");
   });
 

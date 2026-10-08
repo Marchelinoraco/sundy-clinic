@@ -2,6 +2,7 @@ import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { E2E_ADMIN } from "./credentials";
 import { choose, fillFormRecall, inGroup, next, signIn, tick, upcomingWeekday } from "./helpers/quiz";
 import { E2E_BASE_URL } from "./test-env";
+import { isiTanggal } from "./helpers/mui";
 
 // Satu cerita per proyek: admin mencatat booking WA untuk pasien baru, customer mengisi kuis
 // lewat link dari instruksi transfer. Jadwalnya Rabu (desktop) atau Kamis (ponsel) sepekan
@@ -35,9 +36,9 @@ test("customer mengisi kuis lewat link dari instruksi transfer", async ({ page, 
   await page.getByRole("button", { name: "Buat Pasien" }).click();
   await expect(page.getByRole("button", { name: "Ganti pasien" })).toBeVisible({ timeout: 30_000 });
 
-  await expect(page.locator("#booking-staff")).toContainText("Diane");
+  await expect(page.locator("#booking-staff option:checked")).toContainText("Diane");
   await page.getByRole("button", { name: "Pilih tanggal lain" }).click();
-  await page.getByLabel("Tanggal lain").fill(date);
+  await isiTanggal(page, "Tanggal lain", date);
   const slots = page.getByRole("group", { name: "Pilih jam" }).getByRole("button");
   await expect(slots.first()).toBeVisible({ timeout: 30_000 });
   await slots.first().click();
@@ -52,7 +53,7 @@ test("customer mengisi kuis lewat link dari instruksi transfer", async ({ page, 
 
   // Dialog "Link kuis" di daftar booking menampilkan QR dan link yang sama.
   await page.getByRole("link", { name: /Lihat di daftar/ }).click();
-  const row = page.locator('tr[data-highlighted="true"]');
+  const row = page.locator('[role="row"][data-highlighted="true"]');
   await expect(row).toHaveCount(1, { timeout: 30_000 });
   // Belum ada baris isian, tetapi linknya berlaku (spec C3 4.3).
   await expect(row).toContainText("Isian: belum diisi");
@@ -119,7 +120,7 @@ test("customer mengisi kuis lewat link dari instruksi transfer", async ({ page, 
 
   // Admin: isian masuk dan menunggu diperiksa dokter.
   await page.reload();
-  await expect(page.locator('tr[data-highlighted="true"]')).toContainText("Isian: belum diperiksa", {
+  await expect(page.locator('[role="row"][data-highlighted="true"]')).toContainText("Isian: belum diperiksa", {
     timeout: 30_000,
   });
 });

@@ -1,16 +1,15 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
+import Typography from "@mui/material/Typography";
 import type { BookingMessage } from "@/lib/booking-messages";
 import { MessageActions } from "./message-actions";
+import { DialogCloseButton } from "./mui/dialog-close-button";
 
 /** Dialog setelah Verifikasi (spec C2 3.1): kirim konfirmasi sekarang, atau nanti dari halaman Pengingat. */
 export function SendMessageDialog({
@@ -32,13 +31,13 @@ export function SendMessageDialog({
   sendLabel: string;
   laterNote?: string;
 }) {
+  const close = () => onOpenChange(false);
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          {description && <DialogDescription>{description}</DialogDescription>}
-        </DialogHeader>
+    <Dialog open={open} onClose={close} maxWidth="xs">
+      <DialogTitle sx={{ pr: 6 }}>{title}</DialogTitle>
+      <DialogCloseButton onClick={close} />
+      <DialogContent>
+        {description && <DialogContentText sx={{ mb: 2 }}>{description}</DialogContentText>}
         {message && (
           <MessageActions
             appointmentId={appointmentId}
@@ -46,16 +45,20 @@ export function SendMessageDialog({
             message={message}
             scheduledFor={message.scheduledFor}
             sendLabel={sendLabel}
-            onSent={() => onOpenChange(false)}
+            onSent={close}
           />
         )}
-        <DialogFooter className="flex-col items-stretch gap-1 sm:flex-col">
-          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-            {message ? "Nanti saja" : "Tutup"}
-          </Button>
-          {message && laterNote && <p className="text-center text-xs text-muted-foreground">{laterNote}</p>}
-        </DialogFooter>
       </DialogContent>
+      <DialogActions sx={{ flexDirection: "column", alignItems: "stretch", gap: 0.5 }}>
+        <Button type="button" variant="text" onClick={close}>
+          {message ? "Nanti saja" : "Tutup"}
+        </Button>
+        {message && laterNote && (
+          <Typography variant="caption" sx={{ textAlign: "center", color: "text.secondary" }}>
+            {laterNote}
+          </Typography>
+        )}
+      </DialogActions>
     </Dialog>
   );
 }

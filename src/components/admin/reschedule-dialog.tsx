@@ -1,16 +1,15 @@
 "use client";
 
+import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import type { RescheduleTarget } from "@/lib/booking-actions";
 import type { BookingMessage } from "@/lib/booking-messages";
 import { formatShortIndonesianDate } from "@/lib/format";
@@ -20,6 +19,7 @@ import { rescheduleAppointment } from "@/server/appointment";
 import { getBookingMessage } from "@/server/appointment-message";
 import { DateStrip } from "./date-strip";
 import { MessageActions } from "./message-actions";
+import { DialogCloseButton } from "./mui/dialog-close-button";
 import { SlotPicker } from "./slot-picker";
 
 function scheduleLabel(date: Date): string {
@@ -87,17 +87,17 @@ export function RescheduleDialog({
     });
   }
 
+  const close = () => onOpenChange(false);
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
-        {done ? (
-          <>
-            <DialogHeader>
-              <DialogTitle>Jadwal dipindah</DialogTitle>
-              <DialogDescription>
-                {target.patientName} · {target.code} · jadwal baru {scheduleLabel(done.startAt)}
-              </DialogDescription>
-            </DialogHeader>
+    <Dialog open={open} onClose={close} maxWidth="md" scroll="paper">
+      <DialogCloseButton onClick={close} />
+      {done ? (
+        <>
+          <DialogTitle sx={{ pr: 6 }}>Jadwal dipindah</DialogTitle>
+          <DialogContent>
+            <DialogContentText sx={{ mb: 2 }}>
+              {target.patientName} · {target.code} · jadwal baru {scheduleLabel(done.startAt)}
+            </DialogContentText>
             {done.message && (
               <MessageActions
                 appointmentId={target.appointmentId}
@@ -105,65 +105,68 @@ export function RescheduleDialog({
                 message={done.message}
                 scheduledFor={done.message.scheduledFor}
                 sendLabel={SEND_LABEL[done.message.kind]}
-                onSent={() => onOpenChange(false)}
+                onSent={close}
               />
             )}
-            <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-                Tutup
-              </Button>
-            </DialogFooter>
-          </>
-        ) : (
-          <>
-            <DialogHeader>
-              <DialogTitle>Pindah jadwal — {target.code}</DialogTitle>
-              <DialogDescription>
-                {target.patientName} · sekarang {scheduleLabel(target.startAt)} · {target.staffName} ·{" "}
-                {target.branchName}
-              </DialogDescription>
-            </DialogHeader>
-            <p className="text-sm text-muted-foreground">
-              Hanya tanggal dan jam yang berubah. Untuk ganti tenaga atau cabang, batalkan lalu buat booking baru.
-            </p>
-            <DateStrip
-              staffId={target.staffId}
-              branchId={target.branchId}
-              durationMinutes={target.durationMinutes}
-              today={today}
-              selected={date}
-              onSelect={(d) => {
-                setDate(d);
-                setSlot(null);
-              }}
-              refreshKey={refreshKey}
-              excludeAppointmentId={target.appointmentId}
-            />
-            {date ? (
-              <SlotPicker
+          </DialogContent>
+          <DialogActions>
+            <Button type="button" variant="text" onClick={close}>
+              Tutup
+            </Button>
+          </DialogActions>
+        </>
+      ) : (
+        <>
+          <DialogTitle sx={{ pr: 6 }}>Pindah jadwal — {target.code}</DialogTitle>
+          <DialogContent>
+            <DialogContentText sx={{ mb: 1 }}>
+              {target.patientName} · sekarang {scheduleLabel(target.startAt)} · {target.staffName} · {target.branchName}
+            </DialogContentText>
+            <Stack spacing={2}>
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                Hanya tanggal dan jam yang berubah. Untuk ganti tenaga atau cabang, batalkan lalu buat booking baru.
+              </Typography>
+              <DateStrip
                 staffId={target.staffId}
                 branchId={target.branchId}
-                date={date}
                 durationMinutes={target.durationMinutes}
-                selected={slot}
-                onSelect={setSlot}
+                today={today}
+                selected={date}
+                onSelect={(d) => {
+                  setDate(d);
+                  setSlot(null);
+                }}
                 refreshKey={refreshKey}
                 excludeAppointmentId={target.appointmentId}
               />
-            ) : (
-              <p className="text-sm text-muted-foreground">Pilih tanggal dulu.</p>
-            )}
-            <DialogFooter>
-              <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-                Batal
-              </Button>
-              <Button type="button" disabled={pending} onClick={save}>
-                {pending ? "Menyimpan…" : "Simpan jadwal baru"}
-              </Button>
-            </DialogFooter>
-          </>
-        )}
-      </DialogContent>
+              {date ? (
+                <SlotPicker
+                  staffId={target.staffId}
+                  branchId={target.branchId}
+                  date={date}
+                  durationMinutes={target.durationMinutes}
+                  selected={slot}
+                  onSelect={setSlot}
+                  refreshKey={refreshKey}
+                  excludeAppointmentId={target.appointmentId}
+                />
+              ) : (
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                  Pilih tanggal dulu.
+                </Typography>
+              )}
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button type="button" variant="text" onClick={close}>
+              Batal
+            </Button>
+            <Button type="button" variant="contained" disabled={pending} onClick={save}>
+              {pending ? "Menyimpan…" : "Simpan jadwal baru"}
+            </Button>
+          </DialogActions>
+        </>
+      )}
     </Dialog>
   );
 }

@@ -1,8 +1,8 @@
 "use client";
 
-import type { ComponentProps, ReactNode } from "react";
+import Button, { type ButtonProps } from "@mui/material/Button";
+import type { ReactNode } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import type { MessageKind } from "@/lib/booking-messages";
 import { recordAppointmentMessage } from "@/server/appointment-message";
 
@@ -42,16 +42,22 @@ export function WhatsAppSendButton({
   scheduledFor: Date;
   children: ReactNode;
   onRecorded?: () => void;
-} & Pick<ComponentProps<typeof Button>, "size" | "variant" | "className">) {
+} & Pick<ButtonProps, "size" | "variant" | "color" | "fullWidth">) {
   async function handleClick() {
     if (await recordSentMessage(appointmentId, kind, scheduledFor)) onRecorded?.();
   }
 
   return (
-    <Button asChild {...buttonProps}>
-      <a href={href} target="_blank" rel="noopener noreferrer" onClick={() => void handleClick()}>
-        {children}
-      </a>
+    <Button
+      component="a"
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      variant="contained"
+      {...buttonProps}
+      onClick={() => void handleClick()}
+    >
+      {children}
     </Button>
   );
 }

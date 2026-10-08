@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { E2E_ADMIN } from "./credentials";
 import { signIn, upcomingWeekday } from "./helpers/quiz";
+import { isiTanggal } from "./helpers/mui";
 
 // Satu cerita per proyek: pasien fixture (prepare-db.mts) punya booking terkonfirmasi di hari
 // buka berikutnya, jadi hari pengingatnya hari ini. Pindah jadwal memakai Senin (desktop) atau
@@ -68,7 +69,7 @@ test("admin mengingatkan pasien, mencatat balasan, lalu memindah jadwalnya", asy
   const dialog = page.getByRole("dialog");
   await expect(dialog).toContainText("Pindah jadwal");
   await dialog.getByRole("button", { name: "Pilih tanggal lain" }).click();
-  await dialog.getByLabel("Tanggal lain").fill(rescheduleDate(testInfo));
+  await isiTanggal(dialog, "Tanggal lain", rescheduleDate(testInfo));
   const slots = dialog.getByRole("group", { name: "Pilih jam" }).getByRole("button");
   await expect(slots.nth(1)).toBeVisible({ timeout: 30_000 });
   const newTime = (await slots.nth(1).textContent())!;

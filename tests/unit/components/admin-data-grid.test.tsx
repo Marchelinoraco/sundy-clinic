@@ -62,6 +62,39 @@ describe("AdminDataGrid", () => {
     expect(scroll).toHaveBeenCalled();
   });
 
+  it("highlightId: dipusatkan ulang selama tinggi halaman masih berubah, berhenti setelah pengguna menggulir", () => {
+    // DataGrid mengukur tinggi baris setelah terpasang dan tabel lain di halaman ikut tumbuh, sehingga baris
+    // yang sudah digulir bisa terdorong keluar layar (E2E admin-booking).
+    const observers: { callback: ResizeObserverCallback; targets: Element[] }[] = [];
+    const original = window.ResizeObserver;
+    window.ResizeObserver = class {
+      targets: Element[] = [];
+      constructor(readonly callback: ResizeObserverCallback) {
+        observers.push(this);
+      }
+      observe(target: Element) {
+        this.targets.push(target);
+      }
+      unobserve() {}
+      disconnect() {
+        this.targets = [];
+      }
+    } as unknown as typeof ResizeObserver;
+    const bodyObserver = () => observers.find((observer) => observer.targets.includes(document.body));
+    try {
+      const scroll = vi.spyOn(Element.prototype, "scrollIntoView");
+      renderAdmin(<AdminDataGrid rows={many(60)} columns={columns} label="Daftar uji" emptyText="-" highlightId="r40" />);
+      const before = scroll.mock.calls.length;
+      bodyObserver()!.callback([], {} as ResizeObserver);
+      expect(scroll.mock.calls.length).toBe(before + 1);
+
+      window.dispatchEvent(new Event("wheel"));
+      expect(bodyObserver()).toBeUndefined();
+    } finally {
+      window.ResizeObserver = original;
+    }
+  });
+
   it("highlightId yang tidak ada: tidak ada baris bertanda, halaman pertama", () => {
     renderAdmin(<AdminDataGrid rows={many(30)} columns={columns} label="Daftar uji" emptyText="-" highlightId="tidak-ada" />);
     expect(document.querySelectorAll('[data-highlighted="true"]')).toHaveLength(0);

@@ -1,21 +1,19 @@
 "use client";
 
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import QRCode from "qrcode";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getQuizLink, rotateQuizLink, type QuizLinkInfo } from "@/server/quiz-link-admin";
+import { DialogCloseButton } from "./mui/dialog-close-button";
 import { WhatsAppSendButton } from "./whatsapp-send-button";
 
 export type QuizLinkTarget = { appointmentId: string; code: string; patientName: string };
@@ -104,74 +102,68 @@ export function QuizLinkDialog({
     });
   }
 
+  const close = () => onOpenChange(false);
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Link kuis — {target.code}</DialogTitle>
-          <DialogDescription>{target.patientName}</DialogDescription>
-        </DialogHeader>
-
-        {info === undefined ? (
-          <p className="text-sm text-muted-foreground">Memuat link…</p>
-        ) : info === null ? (
-          <p className="text-sm text-muted-foreground">
-            Link kuis tidak tersedia: kuisnya sudah diisi, atau booking tidak aktif lagi.
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {qr && (
-              // eslint-disable-next-line @next/next/no-img-element -- data URI SVG buatan browser, bukan gambar dari server
-              <img src={qr} alt="QR link kuis" className="mx-auto size-56 rounded-md border bg-white p-2" />
-            )}
-            <Button asChild variant="outline" className="w-full">
-              <a href={info.url} target="_blank" rel="noopener noreferrer">
+    <>
+      <Dialog open={open} onClose={close} maxWidth="xs">
+        <DialogTitle sx={{ pr: 6 }}>Link kuis — {target.code}</DialogTitle>
+        <DialogCloseButton onClick={close} />
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>{target.patientName}</DialogContentText>
+          {info === undefined ? (
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+              Memuat link…
+            </Typography>
+          ) : info === null ? (
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+              Link kuis tidak tersedia: kuisnya sudah diisi, atau booking tidak aktif lagi.
+            </Typography>
+          ) : (
+            <Stack spacing={1}>
+              {qr && (
+                // QR selalu di atas putih agar terbaca kamera, juga di mode gelap.
+                <Box
+                  component="img"
+                  src={qr}
+                  alt="QR link kuis"
+                  sx={{ mx: "auto", width: 224, height: 224, borderRadius: 1.5, border: 1, borderColor: "divider", bgcolor: "common.white", p: 1 }}
+                />
+              )}
+              <Button component="a" href={info.url} target="_blank" rel="noopener noreferrer" variant="outlined" fullWidth>
                 Buka di perangkat ini
-              </a>
-            </Button>
-            {info.message.link ? (
-              <WhatsAppSendButton
-                href={info.message.link}
-                appointmentId={target.appointmentId}
-                kind="LINK_KUIS"
-                scheduledFor={info.scheduledFor}
-                className="w-full bg-emerald-700 text-white hover:bg-emerald-800"
-              >
-                Kirim link via WA
-              </WhatsAppSendButton>
-            ) : (
-              <p className="text-sm text-muted-foreground">Nomor WhatsApp pasien tidak dikenali.</p>
-            )}
-            <Button type="button" variant="outline" className="w-full" onClick={() => void copy(info.url)}>
-              Salin link
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              className="w-full text-destructive"
-              disabled={pending}
-              onClick={() => setConfirmRotate(true)}
-            >
-              Ganti link
-            </Button>
-          </div>
-        )}
+              </Button>
+              {info.message.link ? (
+                <WhatsAppSendButton href={info.message.link} appointmentId={target.appointmentId} kind="LINK_KUIS" scheduledFor={info.scheduledFor} color="success" fullWidth>
+                  Kirim link via WA
+                </WhatsAppSendButton>
+              ) : (
+                <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                  Nomor WhatsApp pasien tidak dikenali.
+                </Typography>
+              )}
+              <Button type="button" variant="outlined" fullWidth onClick={() => void copy(info.url)}>
+                Salin link
+              </Button>
+              <Button type="button" variant="text" color="error" fullWidth disabled={pending} onClick={() => setConfirmRotate(true)}>
+                Ganti link
+              </Button>
+            </Stack>
+          )}
+        </DialogContent>
+      </Dialog>
 
-        <AlertDialog open={confirmRotate} onOpenChange={setConfirmRotate}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Ganti link kuis?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Link lama langsung tidak berlaku. Kirim link baru ke pasien setelah ini.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Kembali</AlertDialogCancel>
-              <AlertDialogAction onClick={rotate}>Ganti</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </DialogContent>
-    </Dialog>
+      <Dialog open={confirmRotate} onClose={() => setConfirmRotate(false)} maxWidth="xs" slotProps={{ paper: { role: "alertdialog" } }}>
+        <DialogTitle>Ganti link kuis?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>Link lama langsung tidak berlaku. Kirim link baru ke pasien setelah ini.</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmRotate(false)}>Kembali</Button>
+          <Button variant="contained" onClick={rotate}>
+            Ganti
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }
