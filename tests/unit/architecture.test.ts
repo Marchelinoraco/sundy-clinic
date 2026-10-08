@@ -176,4 +176,44 @@ describe("batasan arsitektur", () => {
     expect(layout).toContain("AdminProviders");
     expect(layout).toContain("InitColorSchemeScript");
   });
+
+  // Rencana MUI (Task 5–12): berkas admin yang sudah pindah ke MUI tidak boleh kembali memakai shadcn,
+  // lucide, atau kelas warna Tailwind (warna tetap tidak ikut mode gelap). Setiap tugas modul menambah
+  // berkasnya ke sini sebelum konversi. Task 13 menggantinya dengan aturan untuk seluruh panel admin.
+  const MUI_MIGRATED = [
+    // Task 2–4
+    "src/app/(admin)/admin/layout.tsx",
+    "src/app/(admin)/masuk/page.tsx",
+    "src/components/admin/admin-header.tsx",
+    "src/components/admin/app-sidebar.tsx",
+    "src/components/admin/live-notifier.tsx",
+    "src/components/admin/nav-user.tsx",
+    "src/components/admin/page-layout.tsx",
+    "src/components/admin/page-tabs.tsx",
+    "src/components/admin/patient-picker.tsx",
+    "src/components/admin/report/report-filter.tsx",
+    "src/components/admin/rupiah-input.tsx",
+    "src/components/admin/sign-in-form.tsx",
+    "src/components/admin/stat-tile.tsx",
+    // Task 5
+    "src/app/(admin)/admin/page.tsx",
+    "src/app/(admin)/admin/layanan/page.tsx",
+    "src/app/(admin)/admin/pengaturan/page.tsx",
+    "src/app/(admin)/admin/staf/page.tsx",
+    "src/components/admin/booking-source-chart.tsx",
+    "src/components/admin/clinic-setting-form.tsx",
+    "src/components/admin/dashboard-numbers.tsx",
+    "src/components/admin/dashboard-work.tsx",
+    "src/components/admin/online-service-card.tsx",
+    "src/components/admin/schedule-timeline.tsx",
+    "src/components/admin/service-price-table.tsx",
+    "src/components/admin/staff-table.tsx",
+  ];
+  const SHADCN_OR_FIXED_COLOR =
+    /from "@\/components\/ui\/|from "lucide-react"|["'`][^"'`\n]*\b(?:text|bg|border|fill|stroke|ring)-(?:muted|foreground|primary|secondary|destructive|accent|card|background|input|amber|emerald|stone|red|green|gold|brown|cream|white|black)\b/;
+
+  it("berkas admin yang sudah pindah ke MUI tidak memakai shadcn, lucide, atau kelas warna Tailwind", () => {
+    const offenders = MUI_MIGRATED.filter((file) => !existsSync(file) || SHADCN_OR_FIXED_COLOR.test(readFileSync(file, "utf8")));
+    expect(offenders).toEqual([]);
+  });
 });

@@ -1,8 +1,9 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ServicePriceTable, type PriceCategory } from "@/components/admin/service-price-table";
 import { updateServicePrice } from "@/server/service-admin";
+import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/server/service-admin", () => ({ updateServicePrice: vi.fn() }));
@@ -27,7 +28,7 @@ beforeEach(() => {
 describe("ServicePriceTable (spec D 5.4)", () => {
   it("harga dalam rupiah; Simpan dan Batal hanya di baris yang diubah", async () => {
     const user = userEvent.setup();
-    render(<ServicePriceTable categories={CATEGORIES} />);
+    renderAdmin(<ServicePriceTable categories={CATEGORIES} />);
     const card = screen.getByRole("region", { name: "Facial Treatment" });
     expect(card).toHaveTextContent("2 layanan");
     const promo = within(card).getByRole("textbox", { name: "Harga berlaku Relaxing Facial" });
@@ -46,7 +47,7 @@ describe("ServicePriceTable (spec D 5.4)", () => {
 
   it("Batal mengembalikan nilai tersimpan", async () => {
     const user = userEvent.setup();
-    render(<ServicePriceTable categories={CATEGORIES} />);
+    renderAdmin(<ServicePriceTable categories={CATEGORIES} />);
     const promo = screen.getByRole("textbox", { name: "Harga berlaku Facial Acne" });
     await user.type(promo, "1");
     await user.click(within(screen.getByRole("row", { name: /Facial Acne/ })).getByRole("button", { name: "Batal" }));
@@ -56,7 +57,7 @@ describe("ServicePriceTable (spec D 5.4)", () => {
 
   it("harga coret yang dikosongkan dikirim sebagai null (Review Focus 4)", async () => {
     const user = userEvent.setup();
-    render(<ServicePriceTable categories={CATEGORIES} />);
+    renderAdmin(<ServicePriceTable categories={CATEGORIES} />);
     await user.clear(screen.getByRole("textbox", { name: "Harga coret Relaxing Facial" }));
     await user.click(within(screen.getByRole("row", { name: /Relaxing Facial/ })).getByRole("button", { name: "Simpan" }));
     await waitFor(() => expect(updateServicePrice).toHaveBeenCalledWith({ id: "s1", normalPrice: null, promoPrice: 149000 }));
@@ -66,7 +67,7 @@ describe("ServicePriceTable (spec D 5.4)", () => {
     const { toast } = await import("sonner");
     vi.mocked(updateServicePrice).mockResolvedValue({ ok: false, error: "Harga coret harus lebih tinggi dari harga berlaku." });
     const user = userEvent.setup();
-    render(<ServicePriceTable categories={CATEGORIES} />);
+    renderAdmin(<ServicePriceTable categories={CATEGORIES} />);
     await user.type(screen.getByRole("textbox", { name: "Harga berlaku Lip Laser" }), "0");
     await user.click(within(screen.getByRole("row", { name: /Lip Laser/ })).getByRole("button", { name: "Simpan" }));
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Harga coret harus lebih tinggi dari harga berlaku."));
@@ -75,7 +76,7 @@ describe("ServicePriceTable (spec D 5.4)", () => {
 
   it("cari dan chip kategori menyaring tanpa membuang perubahan", async () => {
     const user = userEvent.setup();
-    render(<ServicePriceTable categories={CATEGORIES} />);
+    renderAdmin(<ServicePriceTable categories={CATEGORIES} />);
     await user.type(screen.getByRole("textbox", { name: "Harga berlaku Facial Acne" }), "1");
     await user.click(screen.getByRole("button", { name: "Laser Treatment" }));
     expect(screen.getByRole("button", { name: "Laser Treatment" })).toHaveAttribute("aria-pressed", "true");

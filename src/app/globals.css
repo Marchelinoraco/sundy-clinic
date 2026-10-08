@@ -79,6 +79,13 @@ h3 {
   color: var(--color-brown-900);
 }
 
+/* Panel admin: aturan judul situs publik di atas tidak berlapis sehingga mengalahkan gaya MUI (berlapis).
+   revert-layer mengembalikan judul admin ke huruf dan warna tema MUI, termasuk mode gelap. */
+.MuiScopedCssBaseline-root :is(h1, h2, h3) {
+  font-family: revert-layer;
+  color: revert-layer;
+}
+
 @theme inline {
   /* --font-sans dan --font-display sudah ditetapkan di blok @theme di atas
      lewat next/font — tidak diredefinisikan di sini agar tidak melingkar. */

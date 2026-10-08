@@ -1,17 +1,26 @@
 "use client";
 
+import Button from "@mui/material/Button";
+import Stack from "@mui/material/Stack";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
+import TextField from "@mui/material/TextField";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
 import { updateServicePrice } from "@/server/service-admin";
-import { SectionCard } from "./page-layout";
+import { EmptyState, SectionCard } from "./page-layout";
 import { RupiahInput } from "./rupiah-input";
 
 type PriceService = { id: string; name: string; normalPrice: number | null; promoPrice: number };
 export type PriceCategory = { id: string; name: string; services: PriceService[] };
+
+const ALL = "semua";
 
 function PriceRow({ service, hidden }: { service: PriceService; hidden: boolean }) {
   const [saved, setSaved] = useState({ normalPrice: service.normalPrice, promoPrice: service.promoPrice as number | null });
@@ -47,23 +56,23 @@ function PriceRow({ service, hidden }: { service: PriceService; hidden: boolean 
 
   return (
     <TableRow hidden={hidden}>
-      <TableCell className="font-medium">{service.name}</TableCell>
+      <TableCell sx={{ fontWeight: 500 }}>{service.name}</TableCell>
       <TableCell>
-        <RupiahInput aria-label={`Harga coret ${service.name}`} placeholder="kosong" className="w-36" value={normalPrice} onChange={setNormalPrice} />
+        <RupiahInput aria-label={`Harga coret ${service.name}`} placeholder="kosong" sx={{ width: 160 }} value={normalPrice} onChange={setNormalPrice} />
       </TableCell>
       <TableCell>
-        <RupiahInput aria-label={`Harga berlaku ${service.name}`} className="w-36" value={promoPrice} onChange={setPromoPrice} />
+        <RupiahInput aria-label={`Harga berlaku ${service.name}`} sx={{ width: 160 }} value={promoPrice} onChange={setPromoPrice} />
       </TableCell>
-      <TableCell className="whitespace-nowrap text-right">
+      <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
         {dirty && (
-          <div className="flex justify-end gap-1">
-            <Button size="sm" onClick={save} disabled={pending}>
+          <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end" }}>
+            <Button size="small" variant="contained" onClick={save} disabled={pending}>
               {pending ? "Menyimpan…" : "Simpan"}
             </Button>
-            <Button size="sm" variant="ghost" onClick={cancel} disabled={pending}>
+            <Button size="small" variant="text" onClick={cancel} disabled={pending}>
               Batal
             </Button>
-          </div>
+          </Stack>
         )}
       </TableCell>
     </TableRow>
@@ -83,64 +92,59 @@ export function ServicePriceTable({ categories }: { categories: PriceCategory[] 
     (categoryId === null || category.id === categoryId) && category.services.some(matches);
   const anyVisible = categories.some(visibleCategory);
 
-  const chip = (active: boolean) =>
-    cn(
-      "rounded-full border px-3 py-1 text-sm",
-      active ? "border-gold-400 bg-cream-200 font-semibold text-brown-900" : "bg-card text-muted-foreground hover:text-brown-900",
-    );
-
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <Input
+    <Stack spacing={2}>
+      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
+        <TextField
           type="search"
-          aria-label="Cari layanan"
           placeholder="Cari layanan…"
-          className="w-full sm:w-64"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          slotProps={{ htmlInput: { "aria-label": "Cari layanan" } }}
+          sx={{ width: { xs: "100%", sm: 256 } }}
         />
-        <div role="group" aria-label="Kategori" className="flex flex-wrap gap-1.5">
-          <button type="button" aria-pressed={categoryId === null} className={chip(categoryId === null)} onClick={() => setCategoryId(null)}>
-            Semua
-          </button>
+        <ToggleButtonGroup
+          aria-label="Kategori"
+          size="small"
+          exclusive
+          value={categoryId ?? ALL}
+          onChange={(_, next: string | null) => next !== null && setCategoryId(next === ALL ? null : next)}
+          sx={{ flexWrap: "wrap" }}
+        >
+          <ToggleButton value={ALL}>Semua</ToggleButton>
           {categories.map((category) => (
-            <button
-              key={category.id}
-              type="button"
-              aria-pressed={categoryId === category.id}
-              className={chip(categoryId === category.id)}
-              onClick={() => setCategoryId(category.id)}
-            >
+            <ToggleButton key={category.id} value={category.id}>
               {category.name}
-            </button>
+            </ToggleButton>
           ))}
-        </div>
-      </div>
+        </ToggleButtonGroup>
+      </Stack>
 
-      {!anyVisible && <p className="py-6 text-center text-sm text-muted-foreground">Tidak ada layanan yang cocok.</p>}
+      {!anyVisible && <EmptyState>Tidak ada layanan yang cocok.</EmptyState>}
 
       {categories.map((category) => (
         <div key={category.id} hidden={!visibleCategory(category)}>
           <SectionCard title={category.name} description={`${category.services.length} layanan`} flush>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Layanan</TableHead>
-                  <TableHead>Harga coret</TableHead>
-                  <TableHead>Harga berlaku</TableHead>
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {category.services.map((service) => (
-                  <PriceRow key={service.id} service={service} hidden={!matches(service)} />
-                ))}
-              </TableBody>
-            </Table>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Layanan</TableCell>
+                    <TableCell>Harga coret</TableCell>
+                    <TableCell>Harga berlaku</TableCell>
+                    <TableCell />
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {category.services.map((service) => (
+                    <PriceRow key={service.id} service={service} hidden={!matches(service)} />
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
           </SectionCard>
         </div>
       ))}
-    </div>
+    </Stack>
   );
 }

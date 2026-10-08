@@ -31,7 +31,7 @@ export function LinkButton({ href, children, download = false, ...props }: LinkB
   );
 }
 
-type TextLinkProps = Pick<MuiLinkProps, "color" | "sx" | "underline"> & {
+type TextLinkProps = Pick<MuiLinkProps, "color" | "sx" | "underline" | "title"> & {
   href: string;
   children: ReactNode;
   "aria-label"?: string;

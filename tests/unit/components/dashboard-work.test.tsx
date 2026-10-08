@@ -1,6 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { DashboardWork } from "@/components/admin/dashboard-work";
+import { renderAdmin } from "../helpers/render-admin";
 
 const WORK = {
   pending: 3,
@@ -11,7 +12,7 @@ const WORK = {
 
 describe("DashboardWork (spec D 4.2)", () => {
   it("empat kotak bertautan dengan keterangannya", () => {
-    render(<DashboardWork work={WORK} today="2031-02-12" />);
+    renderAdmin(<DashboardWork work={WORK} today="2031-02-12" />);
     const pending = screen.getByRole("link", { name: /Menunggu konfirmasi/ });
     expect(pending).toHaveAttribute("href", "/admin/booking");
     expect(pending).toHaveTextContent("1 lewat batas transfer");
@@ -33,7 +34,7 @@ describe("DashboardWork (spec D 4.2)", () => {
   });
 
   it("tanpa pekerjaan: tanpa garis emas dan tanpa keterangan kosong", () => {
-    render(
+    renderAdmin(
       <DashboardWork
         work={{ pending: 0, pendingOverdue: 0, messages: { confirm: 0, remind: 0 }, today: { total: 0, unfilledIntakes: 0, attended: 0, noShow: 0 } }}
         today="2031-02-12"
