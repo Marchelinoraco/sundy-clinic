@@ -1,21 +1,19 @@
 "use client";
 
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
 import { useRouter } from "next/navigation";
-import { useId, useImperativeHandle, useState, useTransition, type Ref } from "react";
+import { useImperativeHandle, useState, useTransition, type ReactNode, type Ref } from "react";
 import { toast } from "sonner";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { appendToSubjective } from "@/lib/food-recall";
 import {
   ENCOUNTER_TEXT_MAX,
@@ -40,14 +38,9 @@ import {
   type VitalKey,
 } from "@/lib/encounter";
 import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
-import { cn } from "@/lib/utils";
 import { discardEncounterDraft, finalizeEncounter, saveEncounterDraft } from "@/server/encounter";
+import { SelectField } from "./mui/select-field";
 import { useDraftAutosave, type AutosaveStatus } from "./use-draft-autosave";
-
-const textareaClass =
-  "min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50";
-const selectClass =
-  "h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-xs focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50";
 
 function statusText(status: AutosaveStatus): string {
   switch (status.kind) {
@@ -64,7 +57,7 @@ function statusText(status: AutosaveStatus): string {
   }
 }
 
-function TextField({
+function NoteField({
   label,
   value,
   onChange,
@@ -79,38 +72,32 @@ function TextField({
   maxLength?: number;
   hint?: string;
 }) {
-  const id = useId();
   return (
-    <div className="space-y-1">
-      <Label htmlFor={id}>{label}</Label>
-      <textarea id={id} rows={rows} maxLength={maxLength} value={value} onChange={(e) => onChange(e.target.value)} className={textareaClass} />
-      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
-    </div>
+    <TextField
+      label={label}
+      multiline
+      minRows={rows}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      helperText={hint}
+      fullWidth
+      slotProps={{ htmlInput: { maxLength } }}
+    />
   );
 }
 
 function VitalField(props: { vital: VitalKey; value: string; error: string | null; onChange: (value: string) => void }) {
-  const id = useId();
   const spec = VITALS[props.vital];
   return (
-    <div className="space-y-1">
-      <Label htmlFor={id}>
-        {spec.label} ({spec.unit})
-      </Label>
-      <Input
-        id={id}
-        inputMode={spec.decimals === 0 ? "numeric" : "decimal"}
-        value={props.value}
-        aria-invalid={props.error ? true : undefined}
-        aria-describedby={props.error ? `${id}-error` : undefined}
-        onChange={(e) => props.onChange(e.target.value)}
-      />
-      {props.error && (
-        <p id={`${id}-error`} className="text-xs text-destructive">
-          {props.error}
-        </p>
-      )}
-    </div>
+    <TextField
+      label={`${spec.label} (${spec.unit})`}
+      value={props.value}
+      error={props.error !== null}
+      helperText={props.error}
+      onChange={(e) => props.onChange(e.target.value)}
+      fullWidth
+      slotProps={{ htmlInput: { inputMode: spec.decimals === 0 ? "numeric" : "decimal" } }}
+    />
   );
 }
 
@@ -121,77 +108,71 @@ function TreatmentFields(props: {
   onChange: (patch: Partial<TreatmentInput>) => void;
   onRemove: () => void;
 }) {
-  const id = useId();
   const { index, value, options } = props;
   return (
-    <fieldset className="space-y-3 rounded-md border p-3">
-      <legend className="px-1 text-sm font-medium">Treatment {index + 1}</legend>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="space-y-1">
-          <Label htmlFor={`${id}-service`}>Treatment</Label>
-          <select
-            id={`${id}-service`}
-            className={selectClass}
-            value={value.serviceId}
-            onChange={(e) => props.onChange({ serviceId: e.target.value })}
-          >
+    <Paper component="fieldset" variant="outlined" sx={{ m: 0, p: 1.5, minWidth: 0 }}>
+      <Box component="legend" sx={{ px: 0.5, fontSize: "0.875rem", fontWeight: 500 }}>
+        Treatment {index + 1}
+      </Box>
+      <Stack spacing={1.5}>
+        <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" } }}>
+          <SelectField label="Treatment" value={value.serviceId} onChange={(serviceId) => props.onChange({ serviceId })}>
             {options.services.map((service) => (
               <option key={service.id} value={service.id}>
                 {service.name}
               </option>
             ))}
-          </select>
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor={`${id}-performer`}>Pelaksana</Label>
-          <select
-            id={`${id}-performer`}
-            className={selectClass}
-            value={value.performerId}
-            onChange={(e) => props.onChange({ performerId: e.target.value })}
-          >
+          </SelectField>
+          <SelectField label="Pelaksana" value={value.performerId} onChange={(performerId) => props.onChange({ performerId })}>
             {options.performers.map((staff) => (
               <option key={staff.id} value={staff.id}>
                 {staff.name}
               </option>
             ))}
-          </select>
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor={`${id}-area`}>Area</Label>
-          <Input
-            id={`${id}-area`}
-            maxLength={TREATMENT_TEXT_MAX.area}
+          </SelectField>
+          <TextField
+            label="Area"
             value={value.area}
             onChange={(e) => props.onChange({ area: e.target.value })}
+            fullWidth
+            slotProps={{ htmlInput: { maxLength: TREATMENT_TEXT_MAX.area } }}
           />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor={`${id}-dose`}>Dosis</Label>
-          <Input
-            id={`${id}-dose`}
-            maxLength={TREATMENT_TEXT_MAX.dose}
+          <TextField
+            label="Dosis"
             placeholder="mis. 12 unit"
             value={value.dose}
             onChange={(e) => props.onChange({ dose: e.target.value })}
+            fullWidth
+            slotProps={{ htmlInput: { maxLength: TREATMENT_TEXT_MAX.dose } }}
           />
-        </div>
-      </div>
-      <div className="space-y-1">
-        <Label htmlFor={`${id}-notes`}>Catatan pasca-tindakan</Label>
-        <textarea
-          id={`${id}-notes`}
-          rows={2}
-          maxLength={TREATMENT_TEXT_MAX.notes}
+        </Box>
+        <TextField
+          label="Catatan pasca-tindakan"
+          multiline
+          minRows={2}
           value={value.notes}
           onChange={(e) => props.onChange({ notes: e.target.value })}
-          className={textareaClass}
+          fullWidth
+          slotProps={{ htmlInput: { maxLength: TREATMENT_TEXT_MAX.notes } }}
         />
-      </div>
-      <Button type="button" variant="outline" size="sm" onClick={props.onRemove}>
-        Hapus treatment {index + 1}
-      </Button>
-    </fieldset>
+        <Box>
+          <Button type="button" variant="outlined" size="small" onClick={props.onRemove}>
+            Hapus treatment {index + 1}
+          </Button>
+        </Box>
+      </Stack>
+    </Paper>
+  );
+}
+
+function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+  return (
+    <Stack component="section" aria-labelledby={id} spacing={1.5}>
+      <Typography id={id} component="h2" sx={{ fontSize: "1rem", fontWeight: 500 }}>
+        {title}
+      </Typography>
+      {children}
+    </Stack>
   );
 }
 
@@ -335,19 +316,15 @@ export function EncounterForm(props: EncounterFormProps) {
   }
 
   return (
-    <div className="space-y-6">
-      <section aria-labelledby="bagian-s" className="space-y-3">
-        <h2 id="bagian-s" className="text-base font-medium">
-          S — Subjective
-        </h2>
-        <TextField label={TEXT_FIELDS.subjective} value={draft.subjective} onChange={(v) => setText("subjective", v)} rows={4} />
-      </section>
+    <Stack spacing={3}>
+      <Section id="bagian-s" title="S — Subjective">
+        <NoteField label={TEXT_FIELDS.subjective} value={draft.subjective} onChange={(v) => setText("subjective", v)} rows={4} />
+      </Section>
 
-      <section aria-labelledby="bagian-o" className="space-y-3">
-        <h2 id="bagian-o" className="text-base font-medium">
-          O — Objective
-        </h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <Section id="bagian-o" title="O — Objective">
+        {/* Dua kolom paling banyak: label MUI ada di dalam isian dan tidak bisa turun baris, jadi kolom sempit
+            memotong satuannya ("Lingkar pinggang/perut (cm)"). */}
+        <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" } }}>
           {VITAL_KEYS.map((key) => (
             <VitalField
               key={key}
@@ -357,28 +334,26 @@ export function EncounterForm(props: EncounterFormProps) {
               onChange={(v) => setVital(key, v)}
             />
           ))}
-        </div>
-        {pressureError && <p className="text-sm text-destructive">{pressureError}</p>}
-        <p className="text-sm">
+        </Box>
+        {pressureError && (
+          <Typography variant="body2" sx={{ color: "error.main" }}>
+            {pressureError}
+          </Typography>
+        )}
+        <Typography variant="body2">
           IMT {index === null ? "—" : formatDecimal(index)}
           {weightNote ? ` · ${weightNote}` : ""}
-        </p>
-        <TextField label={TEXT_FIELDS.physicalExam} value={draft.physicalExam} onChange={(v) => setText("physicalExam", v)} />
-      </section>
+        </Typography>
+        <NoteField label={TEXT_FIELDS.physicalExam} value={draft.physicalExam} onChange={(v) => setText("physicalExam", v)} />
+      </Section>
 
-      <section aria-labelledby="bagian-a" className="space-y-3">
-        <h2 id="bagian-a" className="text-base font-medium">
-          A — Assessment
-        </h2>
-        <TextField label={TEXT_FIELDS.assessment} value={draft.assessment} onChange={(v) => setText("assessment", v)} />
-      </section>
+      <Section id="bagian-a" title="A — Assessment">
+        <NoteField label={TEXT_FIELDS.assessment} value={draft.assessment} onChange={(v) => setText("assessment", v)} />
+      </Section>
 
-      <section aria-labelledby="bagian-p" className="space-y-3">
-        <h2 id="bagian-p" className="text-base font-medium">
-          P — Plan
-        </h2>
-        <TextField label={TEXT_FIELDS.plan} value={draft.plan} onChange={(v) => setText("plan", v)} />
-        <TextField
+      <Section id="bagian-p" title="P — Plan">
+        <NoteField label={TEXT_FIELDS.plan} value={draft.plan} onChange={(v) => setText("plan", v)} />
+        <NoteField
           label={TEXT_FIELDS.pharmacyNote}
           value={draft.pharmacyNote}
           onChange={(v) => setText("pharmacyNote", v)}
@@ -386,14 +361,13 @@ export function EncounterForm(props: EncounterFormProps) {
           maxLength={PHARMACY_NOTE_MAX}
           hint="Diisi bila pasien perlu obat. Apoteker hanya membaca kolom ini, bukan catatan klinis lain."
         />
-      </section>
+      </Section>
 
-      <section aria-labelledby="bagian-treatment" className="space-y-3">
-        <h2 id="bagian-treatment" className="text-base font-medium">
-          Treatment yang dilakukan
-        </h2>
+      <Section id="bagian-treatment" title="Treatment yang dilakukan">
         {draft.treatments.length === 0 && (
-          <p className="text-sm text-muted-foreground">Belum ada treatment di kunjungan ini.</p>
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            Belum ada treatment di kunjungan ini.
+          </Typography>
         )}
         {draft.treatments.map((row, i) => (
           <TreatmentFields
@@ -405,61 +379,80 @@ export function EncounterForm(props: EncounterFormProps) {
             onRemove={() => removeTreatment(i)}
           />
         ))}
-        <Button type="button" variant="outline" onClick={addTreatment}>
-          Tambah treatment
-        </Button>
-      </section>
+        <Box>
+          <Button type="button" variant="outlined" onClick={addTreatment}>
+            Tambah treatment
+          </Button>
+        </Box>
+      </Section>
 
-      <div
+      <Stack
         data-slot="encounter-actions"
-        className="sticky bottom-0 z-10 flex flex-wrap items-center gap-3 border-t bg-background/95 py-3 backdrop-blur"
+        direction="row"
+        spacing={1.5}
+        useFlexGap
+        sx={{
+          position: "sticky",
+          bottom: 0,
+          zIndex: 10,
+          flexWrap: "wrap",
+          alignItems: "center",
+          borderTop: 1,
+          borderColor: "divider",
+          bgcolor: "rgba(var(--mui-palette-background-defaultChannel) / 0.95)",
+          backdropFilter: "blur(8px)",
+          py: 1.5,
+          // Ruang untuk tombol bunyi notifikasi yang mengambang di pojok kanan bawah.
+          pr: 6,
+        }}
       >
-        <p
+        <Typography
           role="status"
           aria-live="polite"
-          className={cn("mr-auto text-sm", rejected ? "font-medium text-destructive" : "text-muted-foreground")}
+          data-tone={rejected ? "error" : undefined}
+          variant="body2"
+          sx={{ mr: "auto", color: rejected ? "error.main" : "text.secondary", fontWeight: rejected ? 500 : undefined }}
         >
           {statusText(autosave.status)}
-        </p>
-        <Button variant="outline" onClick={() => setConfirm("discard")} disabled={busy}>
-          Buang draf
-        </Button>
-        <Button onClick={requestFinalize} disabled={busy}>
-          Finalisasi
-        </Button>
-      </div>
+        </Typography>
+        {/* Kedua tombol turun baris bersama (rata kanan) bila pesan status panjang. */}
+        <Stack direction="row" spacing={1.5} sx={{ ml: "auto" }}>
+          <Button variant="outlined" onClick={() => setConfirm("discard")} disabled={busy}>
+            Buang draf
+          </Button>
+          <Button variant="contained" onClick={requestFinalize} disabled={busy}>
+            Finalisasi
+          </Button>
+        </Stack>
+      </Stack>
 
-      <AlertDialog open={confirm === "finalize"} onOpenChange={(open) => !open && setConfirm(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Finalisasi catatan ini?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Catatan yang sudah final tidak bisa diubah, hanya bisa ditambah adendum. Booking ditandai Selesai.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Kembali</AlertDialogCancel>
-            <AlertDialogAction onClick={finalize}>Finalisasi</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <Dialog open={confirm === "finalize"} onClose={() => setConfirm(null)} maxWidth="xs" slotProps={{ paper: { role: "alertdialog" } }}>
+        <DialogTitle>Finalisasi catatan ini?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Catatan yang sudah final tidak bisa diubah, hanya bisa ditambah adendum. Booking ditandai Selesai.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirm(null)}>Kembali</Button>
+          <Button variant="contained" onClick={finalize}>
+            Finalisasi
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-      <AlertDialog open={confirm === "discard"} onOpenChange={(open) => !open && setConfirm(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Buang draf kunjungan ini?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Isi draf dan treatment-nya dihapus. Pasien kembali tampil sebagai belum diperiksa.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Kembali</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={discard}>
-              Buang draf
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+      <Dialog open={confirm === "discard"} onClose={() => setConfirm(null)} maxWidth="xs" slotProps={{ paper: { role: "alertdialog" } }}>
+        <DialogTitle>Buang draf kunjungan ini?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>Isi draf dan treatment-nya dihapus. Pasien kembali tampil sebagai belum diperiksa.</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirm(null)}>Kembali</Button>
+          <Button variant="contained" color="error" onClick={discard}>
+            Buang draf
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Stack>
   );
 }

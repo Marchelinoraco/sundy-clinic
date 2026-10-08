@@ -1,9 +1,9 @@
 "use client";
 
+import Button from "@mui/material/Button";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { openEncounter } from "@/server/encounter";
 
 /** Tombol Periksa (spec 4.3): membuat atau membuka kunjungan, lalu pindah ke halamannya. */
@@ -27,7 +27,7 @@ export function OpenEncounterButton({ appointmentId }: { appointmentId: string }
   }
 
   return (
-    <Button size="sm" onClick={open} disabled={pending}>
+    <Button size="small" variant="contained" onClick={open} disabled={pending}>
       Periksa
     </Button>
   );

@@ -1,96 +1,135 @@
 "use client";
 
-import Link from "next/link";
+import Box from "@mui/material/Box";
+import ButtonBase from "@mui/material/ButtonBase";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import { useState } from "react";
 import { formatIndonesianDate, formatShortIndonesianDate } from "@/lib/format";
 import type { EncounterHistoryItem } from "@/server/encounter-read";
 import { FoodRecallTable } from "./food-recall-table";
+import { TextLink } from "./mui/links";
 
 function Part({ label, text }: { label: string; text: string | null }) {
   return (
-    <div>
-      <p className="text-xs font-medium text-muted-foreground">{label}</p>
-      <p className="whitespace-pre-line">{text || "—"}</p>
-    </div>
+    <Box>
+      <Typography variant="caption" component="p" sx={{ fontWeight: 500, color: "text.secondary" }}>
+        {label}
+      </Typography>
+      <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
+        {text || "—"}
+      </Typography>
+    </Box>
   );
 }
 
 function VisitDetail({ visit }: { visit: EncounterHistoryItem }) {
   return (
-    <article aria-label={`Kunjungan ${formatIndonesianDate(visit.startAt)}`} className="space-y-2 rounded-md border bg-background p-3 text-sm">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <span className="font-medium">{formatIndonesianDate(visit.startAt)}</span>
-        <span className="text-xs text-muted-foreground">
-          {visit.branchName} · {visit.authorName}
-        </span>
-      </div>
-      <Part label="S" text={visit.subjective} />
-      {visit.vitalLines.length > 0 && <Part label="O" text={visit.vitalLines.join(" · ")} />}
-      {visit.physicalExam && <Part label="Pemeriksaan fisik" text={visit.physicalExam} />}
-      <Part label="A" text={visit.assessment} />
-      <Part label="P" text={visit.plan} />
-      {visit.treatments.length > 0 && (
-        <Part
-          label="Treatment"
-          text={visit.treatments
-            .map((row) => [row.serviceName, row.area, row.dose, row.performerName].filter(Boolean).join(" · "))
-            .join("\n")}
-        />
-      )}
-      {visit.foodRecall && visit.foodRecall.entries.length > 0 && (
-        <details>
-          <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
-            Food recall {visit.foodRecall.recallDateLabel}
-          </summary>
-          <FoodRecallTable entries={visit.foodRecall.entries} label={`Food recall ${visit.foodRecall.recallDateLabel}`} />
-        </details>
-      )}
-      {visit.addenda.map((addendum) => (
-        <p key={addendum.id} className="rounded bg-muted p-2 text-xs">
-          <span className="text-muted-foreground">
-            Adendum {formatShortIndonesianDate(addendum.createdAt)} · {addendum.authorName}:
-          </span>{" "}
-          {addendum.text}
-        </p>
-      ))}
-    </article>
+    <Paper component="article" variant="outlined" aria-label={`Kunjungan ${formatIndonesianDate(visit.startAt)}`} sx={{ p: 1.5 }}>
+      <Stack spacing={1}>
+        <Stack direction="row" useFlexGap sx={{ flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: 1 }}>
+          <Typography variant="body2" component="span" sx={{ fontWeight: 500 }}>
+            {formatIndonesianDate(visit.startAt)}
+          </Typography>
+          <Typography variant="caption" sx={{ color: "text.secondary" }}>
+            {visit.branchName} · {visit.authorName}
+          </Typography>
+        </Stack>
+        <Part label="S" text={visit.subjective} />
+        {visit.vitalLines.length > 0 && <Part label="O" text={visit.vitalLines.join(" · ")} />}
+        {visit.physicalExam && <Part label="Pemeriksaan fisik" text={visit.physicalExam} />}
+        <Part label="A" text={visit.assessment} />
+        <Part label="P" text={visit.plan} />
+        {visit.treatments.length > 0 && (
+          <Part
+            label="Treatment"
+            text={visit.treatments
+              .map((row) => [row.serviceName, row.area, row.dose, row.performerName].filter(Boolean).join(" · "))
+              .join("\n")}
+          />
+        )}
+        {visit.foodRecall && visit.foodRecall.entries.length > 0 && (
+          <Box
+            component="details"
+            sx={{ "& > summary": { cursor: "pointer", fontSize: "0.75rem", fontWeight: 500, color: "text.secondary" } }}
+          >
+            <summary>Food recall {visit.foodRecall.recallDateLabel}</summary>
+            <FoodRecallTable entries={visit.foodRecall.entries} label={`Food recall ${visit.foodRecall.recallDateLabel}`} />
+          </Box>
+        )}
+        {visit.addenda.map((addendum) => (
+          <Typography
+            key={addendum.id}
+            variant="caption"
+            component="p"
+            sx={{ p: 1, borderRadius: 1, bgcolor: "action.hover" }}
+          >
+            <Box component="span" sx={{ color: "text.secondary" }}>
+              Adendum {formatShortIndonesianDate(addendum.createdAt)} · {addendum.authorName}:
+            </Box>{" "}
+            {addendum.text}
+          </Typography>
+        ))}
+      </Stack>
+    </Paper>
   );
 }
 
 /** Tab Sebelumnya (spec UI B bagian 4): kunjungan terbaru terbuka, sisanya satu per satu. */
 export function PreviousVisitsTab({ history, hasMore, patientId }: { history: EncounterHistoryItem[]; hasMore: boolean; patientId: string }) {
   const [openId, setOpenId] = useState<string | null>(history[0]?.id ?? null);
-  if (history.length === 0) return <p className="text-sm text-muted-foreground">Belum ada kunjungan sebelumnya.</p>;
+  if (history.length === 0) {
+    return (
+      <Typography variant="body2" sx={{ color: "text.secondary" }}>
+        Belum ada kunjungan sebelumnya.
+      </Typography>
+    );
+  }
 
   return (
-    <div className="space-y-2">
-      <ol className="space-y-2">
+    <Stack spacing={1}>
+      <Stack component="ol" spacing={1} sx={{ listStyle: "none", m: 0, p: 0 }}>
         {history.map((visit) => (
           <li key={visit.id}>
             {visit.id === openId ? (
               <VisitDetail visit={visit} />
             ) : (
-              <button
-                type="button"
+              <ButtonBase
                 onClick={() => setOpenId(visit.id)}
-                className="flex w-full gap-3 rounded-md border px-3 py-2 text-left text-sm hover:bg-muted"
+                sx={{
+                  display: "flex",
+                  width: "100%",
+                  justifyContent: "flex-start",
+                  gap: 1.5,
+                  px: 1.5,
+                  py: 1,
+                  border: 1,
+                  borderColor: "divider",
+                  borderRadius: 1,
+                  textAlign: "left",
+                  fontSize: "0.875rem",
+                  "&:hover": { bgcolor: "action.hover" },
+                }}
               >
-                <span className="w-24 shrink-0 text-muted-foreground">{formatShortIndonesianDate(visit.startAt)}</span>
+                <Box component="span" sx={{ width: 96, flexShrink: 0, color: "text.secondary" }}>
+                  {formatShortIndonesianDate(visit.startAt)}
+                </Box>
                 <span>{visit.assessmentPreview ?? "—"}</span>
-              </button>
+              </ButtonBase>
             )}
           </li>
         ))}
-      </ol>
+      </Stack>
       {hasMore && (
-        <p className="text-xs text-muted-foreground">
+        <Typography variant="caption" component="p" sx={{ color: "text.secondary" }}>
           Kunjungan lebih lama ada di{" "}
-          <Link href={`/admin/pasien/${patientId}`} className="underline underline-offset-4">
+          <TextLink href={`/admin/pasien/${patientId}`} underline="always">
             Data pasien
-          </Link>
+          </TextLink>
           .
-        </p>
+        </Typography>
       )}
-    </div>
+    </Stack>
   );
 }

@@ -1,5 +1,9 @@
 "use client";
 
+import Box from "@mui/material/Box";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import { useRef, useState } from "react";
 import { formatIndonesianDate } from "@/lib/format";
 import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
@@ -33,10 +37,19 @@ export function EncounterWorkspace({ encounter, canWrite }: { encounter: Encount
     : undefined;
 
   return (
-    <div className="gap-6 lg:grid lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] lg:items-start">
-      <aside
+    <Box sx={{ display: { lg: "grid" }, gridTemplateColumns: { lg: "minmax(0, 2fr) minmax(0, 3fr)" }, gap: 3, alignItems: { lg: "start" } }}>
+      {/* Bilah atas admin menempel setinggi 56 px, jadi kolom konteks menempel di bawahnya. */}
+      <Box
+        component="aside"
         aria-label="Konteks kunjungan"
-        className="mb-6 lg:sticky lg:top-4 lg:mb-0 lg:max-h-[calc(100svh-6rem)] lg:overflow-y-auto lg:pr-1"
+        sx={{
+          mb: { xs: 3, lg: 0 },
+          position: { lg: "sticky" },
+          top: { lg: 72 },
+          maxHeight: { lg: "calc(100svh - 6rem)" },
+          overflowY: { lg: "auto" },
+          pr: { lg: 0.5 },
+        }}
       >
         <EncounterContextPanel
           encounter={encounter}
@@ -44,9 +57,9 @@ export function EncounterWorkspace({ encounter, canWrite }: { encounter: Encount
           canEditFoodRecall={editable}
           copyToSubjective={copyToSubjective}
         />
-      </aside>
+      </Box>
 
-      <div className="min-w-0 space-y-6">
+      <Stack spacing={3} sx={{ minWidth: 0 }}>
         {editable ? (
           <EncounterForm
             encounterId={encounter.id}
@@ -62,38 +75,55 @@ export function EncounterWorkspace({ encounter, canWrite }: { encounter: Encount
         )}
 
         {isFinal && (
-          <section aria-labelledby="adendum" className="space-y-3">
-            <h2 id="adendum" className="text-base font-medium">
+          <Stack component="section" aria-labelledby="adendum" spacing={1.5}>
+            <Typography id="adendum" component="h2" sx={{ fontSize: "1rem", fontWeight: 500 }}>
               Adendum
-            </h2>
+            </Typography>
             {encounter.addenda.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Belum ada adendum.</p>
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                Belum ada adendum.
+              </Typography>
             ) : (
-              <ol className="space-y-2">
+              <Stack component="ol" spacing={1} sx={{ listStyle: "none", m: 0, p: 0 }}>
                 {encounter.addenda.map((addendum) => (
-                  <li key={addendum.id} className="rounded-md border p-3 text-sm">
-                    <p className="whitespace-pre-line">{addendum.text}</p>
-                    <p className="text-xs text-muted-foreground">
+                  <Paper key={addendum.id} component="li" variant="outlined" sx={{ p: 1.5 }}>
+                    <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
+                      {addendum.text}
+                    </Typography>
+                    <Typography variant="caption" component="p" sx={{ color: "text.secondary" }}>
                       {addendum.authorName} · {formatIndonesianDate(addendum.createdAt)},{" "}
                       {minutesToTimeLabel(witaMinutesOfDay(addendum.createdAt))} WITA
-                    </p>
-                  </li>
+                    </Typography>
+                  </Paper>
                 ))}
-              </ol>
+              </Stack>
             )}
             {canWrite && <AddendumForm encounterId={encounter.id} />}
-          </section>
+          </Stack>
         )}
 
         {encounter.trail && <AuditTrail rows={encounter.trail} />}
 
         {isFinal && encounter.finalized && (
-          <div className="sticky bottom-0 z-10 border-t bg-background/95 py-3 text-sm text-muted-foreground backdrop-blur">
+          <Box
+            sx={{
+              position: "sticky",
+              bottom: 0,
+              zIndex: 10,
+              borderTop: 1,
+              borderColor: "divider",
+              bgcolor: "rgba(var(--mui-palette-background-defaultChannel) / 0.95)",
+              backdropFilter: "blur(8px)",
+              py: 1.5,
+              fontSize: "0.875rem",
+              color: "text.secondary",
+            }}
+          >
             Final · difinalisasi oleh {encounter.finalized.byName}, {formatIndonesianDate(encounter.finalized.at)}{" "}
             {minutesToTimeLabel(witaMinutesOfDay(encounter.finalized.at))} WITA
-          </div>
+          </Box>
         )}
-      </div>
-    </div>
+      </Stack>
+    </Box>
   );
 }

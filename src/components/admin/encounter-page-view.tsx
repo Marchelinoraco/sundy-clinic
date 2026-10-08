@@ -1,9 +1,12 @@
-import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import { formatIndonesianDate } from "@/lib/format";
 import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
 import type { EncounterDetail } from "@/server/encounter-read";
 import { EncounterWorkspace } from "./encounter-workspace";
+import { TextLink } from "./mui/links";
+import { StatusChip } from "./mui/status-chip";
 
 /** Halaman kunjungan (spec UI B bagian 3): kepala satu baris dan ruang kerja dua kolom. */
 export function EncounterPageView({ encounter, canWrite }: { encounter: EncounterDetail; canWrite: boolean }) {
@@ -23,18 +26,28 @@ export function EncounterPageView({ encounter, canWrite }: { encounter: Encounte
     .join(" · ");
 
   return (
-    <div className="max-w-7xl space-y-4">
-      <section className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border px-4 py-3 text-sm">
-        <h2 className="text-lg font-medium">{patient.name}</h2>
-        <Badge variant={isFinal ? "default" : "outline"}>{isFinal ? "Final" : "Draf"}</Badge>
-        {appointment.channel === "ONLINE" && <Badge variant="outline">Konsultasi online</Badge>}
-        <p className="text-muted-foreground">{summary}</p>
-        <span className="font-mono text-xs text-muted-foreground">{appointment.code}</span>
-        <Link href={`/admin/pasien/${patient.id}`} className="ml-auto underline underline-offset-4">
+    <Stack spacing={2} sx={{ maxWidth: 1280 }}>
+      <Paper
+        component="section"
+        variant="outlined"
+        sx={{ px: 2, py: 1.5, display: "flex", flexWrap: "wrap", alignItems: "center", columnGap: 1.5, rowGap: 0.5, fontSize: "0.875rem" }}
+      >
+        <Typography component="h2" sx={{ fontSize: "1.125rem", fontWeight: 500 }}>
+          {patient.name}
+        </Typography>
+        <StatusChip label={isFinal ? "Final" : "Draf"} tone={isFinal ? "success" : "neutral"} />
+        {appointment.channel === "ONLINE" && <StatusChip label="Konsultasi online" tone="neutral" />}
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          {summary}
+        </Typography>
+        <Typography component="span" sx={{ fontFamily: "ui-monospace, monospace", fontSize: "0.75rem", color: "text.secondary" }}>
+          {appointment.code}
+        </Typography>
+        <TextLink href={`/admin/pasien/${patient.id}`} underline="always" sx={{ ml: "auto" }}>
           Data pasien
-        </Link>
-      </section>
+        </TextLink>
+      </Paper>
       <EncounterWorkspace encounter={encounter} canWrite={canWrite} />
-    </div>
+    </Stack>
   );
 }

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { AdminHeader } from "@/components/admin/admin-header";
 import { EncounterPageView } from "@/components/admin/encounter-page-view";
+import { PageBody } from "@/components/admin/page-layout";
 import { can } from "@/lib/permissions";
 import { getEncounterForStaff } from "@/server/encounter-read";
 import { requireCapability } from "@/server/session";
@@ -15,9 +16,9 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
   return (
     <>
       <AdminHeader title="Kunjungan" heading />
-      <div className="p-6">
+      <PageBody wide>
         <EncounterPageView encounter={encounter} canWrite={can(staff.role, "record:write")} />
-      </div>
+      </PageBody>
     </>
   );
 }

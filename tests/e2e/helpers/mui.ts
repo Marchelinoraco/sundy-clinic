@@ -24,3 +24,11 @@ export async function pilihOpsi(scope: Scope, label: string, option: string): Pr
   await pageOf(scope).getByRole("option", { name: option, exact: true }).click();
   await expect(input).toHaveValue(option);
 }
+
+/**
+ * Menunggu React terpasang setelah goto/reload: tombol Mode tampilan di bilah atas baru dirender setelah
+ * hidrasi. Klik sebelum itu hilang begitu saja (HTML server sudah tampil, pengendalinya belum ada).
+ */
+export async function tungguHidrasi(page: Page): Promise<void> {
+  await page.getByRole("group", { name: "Mode tampilan" }).waitFor({ timeout: 60_000 });
+}

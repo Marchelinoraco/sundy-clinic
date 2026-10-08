@@ -11,7 +11,8 @@ export const ADMIN_PAGES: AdminPage[] = [
   { path: "/admin/pengingat" },
   { path: "/admin/pasien" },
   { path: "/admin/pasien/[id]", from: "/admin/pasien", link: 'a[href^="/admin/pasien/"]' },
-  { path: "/admin/kunjungan/[id]", from: "/admin/pasien", via: 'a[href^="/admin/pasien/"]', link: 'a[href^="/admin/kunjungan/"]' },
+  // Dari "Pasien hari ini" di dasbor: pasien yang diperiksa spek E2E tidak selalu ada di 10 pasien pertama menurut abjad.
+  { path: "/admin/kunjungan/[id]", from: "/admin", link: 'a[href^="/admin/kunjungan/"]' },
   { path: "/admin/isian/[id]", from: "/admin/pasien", via: 'a[href^="/admin/pasien/"]', link: 'a[href^="/admin/isian/"]' },
   { path: "/admin/jadwal" },
   { path: "/admin/tagihan" },

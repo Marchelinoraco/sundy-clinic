@@ -1,8 +1,9 @@
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { EncounterContextPanel } from "@/components/admin/encounter-context-panel";
 import { NO_VITALS, encounterDetail, historyItem } from "../../fixtures/encounter-detail";
+import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -38,12 +39,12 @@ const tab = (name: string) => screen.getByRole("tab", { name });
 
 describe("EncounterContextPanel", () => {
   it("peringatan selalu tampil di atas tab", () => {
-    render(<EncounterContextPanel encounter={encounterDetail()} currentVitals={NO_VITALS} />);
+    renderAdmin(<EncounterContextPanel encounter={encounterDetail()} currentVitals={NO_VITALS} />);
     expect(within(screen.getByRole("region", { name: "Peringatan" })).getByText("Udang")).toBeInTheDocument();
   });
 
   it("dengan isian: tab Isian kuis terbuka, dengan kepala isian dan kotak persetujuan", () => {
-    render(<EncounterContextPanel encounter={encounterDetail({ intake: readyIntake, approval })} currentVitals={NO_VITALS} />);
+    renderAdmin(<EncounterContextPanel encounter={encounterDetail({ intake: readyIntake, approval })} currentVitals={NO_VITALS} />);
     expect(tab("Isian kuis")).toHaveAttribute("aria-selected", "true");
     const panel = screen.getByRole("tabpanel");
     expect(within(panel).getByText(/Slimming · pasien baru · dikirim Sel, 29 Sep/)).toBeInTheDocument();
@@ -57,7 +58,7 @@ describe("EncounterContextPanel", () => {
       historyItem(),
       historyItem({ id: "h2", startAt: new Date("2026-09-16T03:00:00Z"), assessment: "Konsultasi awal", assessmentPreview: "Konsultasi awal", plan: "Mulai Program MAX" }),
     ];
-    render(<EncounterContextPanel encounter={encounterDetail({ history })} currentVitals={NO_VITALS} />);
+    renderAdmin(<EncounterContextPanel encounter={encounterDetail({ history })} currentVitals={NO_VITALS} />);
     expect(tab("Sebelumnya")).toHaveAttribute("aria-selected", "true");
     const panel = screen.getByRole("tabpanel");
     expect(within(panel).getByText("Program MAX, kontrol 1 minggu")).toBeInTheDocument();
@@ -70,18 +71,18 @@ describe("EncounterContextPanel", () => {
   });
 
   it("lebih dari 12 kunjungan: tautan ke Data pasien", () => {
-    render(<EncounterContextPanel encounter={encounterDetail({ history: [historyItem()], hasMoreHistory: true })} currentVitals={NO_VITALS} />);
+    renderAdmin(<EncounterContextPanel encounter={encounterDetail({ history: [historyItem()], hasMoreHistory: true })} currentVitals={NO_VITALS} />);
     expect(within(screen.getByRole("tabpanel")).getByRole("link", { name: "Data pasien" })).toHaveAttribute("href", "/admin/pasien/p1");
   });
 
   it("tanpa isian dan tanpa riwayat: tab Tren terbuka dengan pesan kosong", () => {
-    render(<EncounterContextPanel encounter={encounterDetail()} currentVitals={NO_VITALS} />);
+    renderAdmin(<EncounterContextPanel encounter={encounterDetail()} currentVitals={NO_VITALS} />);
     expect(tab("Tren")).toHaveAttribute("aria-selected", "true");
     expect(screen.getByText("Belum ada angka tanda vital.")).toBeInTheDocument();
   });
 
   it("tab Tren: baris Kunjungan ini memakai angka formulir, dengan selisih dan total", async () => {
-    render(
+    renderAdmin(
       <EncounterContextPanel
         encounter={encounterDetail({ history: [historyItem()] })}
         currentVitals={{ ...NO_VITALS, weightKg: 72.5, heightCm: 158 }}
@@ -99,7 +100,7 @@ describe("EncounterContextPanel", () => {
   });
 
   it("tab Tren: berat yang belum sah tampil sebagai tanda pisah, bukan NaN", async () => {
-    render(<EncounterContextPanel encounter={encounterDetail({ history: [historyItem()] })} currentVitals={{ ...NO_VITALS }} />);
+    renderAdmin(<EncounterContextPanel encounter={encounterDetail({ history: [historyItem()] })} currentVitals={{ ...NO_VITALS }} />);
     await userEvent.click(tab("Tren"));
     const rows = within(screen.getByRole("table", { name: "Tren tanda vital" })).getAllByRole("row");
     expect(rows[1]).toHaveTextContent("Kunjungan ini");
@@ -108,7 +109,7 @@ describe("EncounterContextPanel", () => {
   });
 
   it("suntingan di kotak persetujuan tetap ada setelah pindah tab dan kembali", async () => {
-    render(<EncounterContextPanel encounter={encounterDetail({ intake: readyIntake, approval })} currentVitals={NO_VITALS} />);
+    renderAdmin(<EncounterContextPanel encounter={encounterDetail({ intake: readyIntake, approval })} currentVitals={NO_VITALS} />);
     const allergies = screen.getByLabelText("Alergi");
     await userEvent.clear(allergies);
     await userEvent.type(allergies, "Udang saja");
@@ -119,13 +120,13 @@ describe("EncounterContextPanel", () => {
   });
 
   it("kepala tab Isian menyebut apakah isian sudah disetujui ke data pasien", () => {
-    const { unmount } = render(
+    const { unmount } = renderAdmin(
       <EncounterContextPanel encounter={encounterDetail({ intake: readyIntake, approval })} currentVitals={NO_VITALS} />,
     );
     expect(within(screen.getByRole("tabpanel")).getByText(/belum disetujui ke data pasien/)).toBeInTheDocument();
     unmount();
 
-    render(
+    renderAdmin(
       <EncounterContextPanel
         encounter={encounterDetail({ intake: { ...readyIntake, needsApproval: false }, approval })}
         currentVitals={NO_VITALS}
@@ -135,13 +136,13 @@ describe("EncounterContextPanel", () => {
   });
 
   it("peringatan keselamatan: hamil/menyusui, berkas kertas, dan catatan medis yang belum ada", () => {
-    const { unmount } = render(<EncounterContextPanel encounter={encounterDetail()} currentVitals={NO_VITALS} />);
+    const { unmount } = renderAdmin(<EncounterContextPanel encounter={encounterDetail()} currentVitals={NO_VITALS} />);
     const warnings = screen.getByRole("region", { name: "Peringatan" });
     expect(within(warnings).getByText("Hamil, merencanakan kehamilan, atau menyusui (dari isian kunjungan ini)")).toBeInTheDocument();
     expect(within(warnings).getByText("Ada berkas kertas: RM-0457")).toBeInTheDocument();
     unmount();
 
-    render(
+    renderAdmin(
       <EncounterContextPanel
         encounter={encounterDetail({ warnings: { allergies: null, medicalHistory: null, importantNotes: null, paperRecordNumber: null, pregnancy: false } })}
         currentVitals={NO_VITALS}
@@ -152,13 +153,13 @@ describe("EncounterContextPanel", () => {
   });
 
   it("tab Isian: belum diisi, versi kuis tidak dikenal, dan tanpa isian", async () => {
-    const { unmount } = render(
+    const { unmount } = renderAdmin(
       <EncounterContextPanel encounter={encounterDetail({ intake: { id: "i1", state: "pending" } })} currentVitals={NO_VITALS} />,
     );
     expect(within(screen.getByRole("tabpanel")).getByText("Isian belum diisi pasien.")).toBeInTheDocument();
     unmount();
 
-    const second = render(
+    const second = renderAdmin(
       <EncounterContextPanel
         encounter={encounterDetail({ intake: { id: "i1", state: "error", message: "Isian dengan kuis versi 9 belum bisa ditampilkan." } })}
         currentVitals={NO_VITALS}
@@ -169,7 +170,7 @@ describe("EncounterContextPanel", () => {
     expect(within(panel).getByRole("link", { name: "Buka halaman isian" })).toHaveAttribute("href", "/admin/isian/i1");
     second.unmount();
 
-    render(<EncounterContextPanel encounter={encounterDetail()} currentVitals={NO_VITALS} />);
+    renderAdmin(<EncounterContextPanel encounter={encounterDetail()} currentVitals={NO_VITALS} />);
     await userEvent.click(tab("Isian kuis"));
     expect(within(screen.getByRole("tabpanel")).getByText("Tidak ada isian kuis untuk kunjungan ini.")).toBeInTheDocument();
   });

@@ -1,8 +1,12 @@
 "use client";
 
+import Box from "@mui/material/Box";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import Tab from "@mui/material/Tab";
+import Tabs from "@mui/material/Tabs";
 import { useId, useState } from "react";
 import { initialContextTab, type ContextTab, type VitalKey } from "@/lib/encounter";
-import { cn } from "@/lib/utils";
 import type { EncounterDetail } from "@/server/encounter-read";
 import { EncounterFoodRecallTab, type SubjectiveCopy } from "./encounter-food-recall-tab";
 import { EncounterIntakeTab } from "./encounter-intake-tab";
@@ -46,39 +50,34 @@ export function EncounterContextPanel({
   const trendSource = encounter.history.map((visit) => ({ date: visit.startAt, vitals: visit.vitals }));
 
   return (
-    <div className="space-y-4">
+    <Stack spacing={2}>
       <EncounterWarningsBox warnings={encounter.warnings} />
-      <details open className="group space-y-3">
-        <summary className="cursor-pointer text-sm font-medium lg:hidden">Isian, kunjungan sebelumnya, dan tren</summary>
-        <div role="tablist" aria-label="Konteks kunjungan" className="flex flex-wrap gap-1">
+      <Box component="details" open sx={{ "& > summary": { cursor: "pointer", fontSize: "0.875rem", fontWeight: 500, mb: 1.5, display: { lg: "none" } } }}>
+        <summary>Isian, kunjungan sebelumnya, dan tren</summary>
+        <Tabs
+          value={tab}
+          onChange={(_, next: ContextTab) => setTab(next)}
+          aria-label="Konteks kunjungan"
+          variant="scrollable"
+          allowScrollButtonsMobile
+          textColor="inherit"
+          sx={{ mb: 1.5, minHeight: 40, "& .MuiTab-root": { minHeight: 40, minWidth: 0, py: 1, px: 1.25 } }}
+        >
           {TABS.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              role="tab"
-              id={`${id}-${item.key}`}
-              aria-selected={tab === item.key}
-              aria-controls={`${id}-${item.key}-panel`}
-              onClick={() => setTab(item.key)}
-              className={cn(
-                "rounded-full border px-3 py-1 text-sm",
-                tab === item.key ? "border-foreground bg-foreground text-background" : "hover:bg-muted",
-              )}
-            >
-              {item.label}
-            </button>
+            <Tab key={item.key} value={item.key} label={item.label} id={`${id}-${item.key}`} aria-controls={`${id}-${item.key}-panel`} />
           ))}
-        </div>
+        </Tabs>
         {/* Semua panel tetap terpasang dan yang tidak aktif disembunyikan: berpindah tab
             tidak boleh membuang suntingan di kotak persetujuan atau tabel yang sudah dibuka. */}
         {TABS.map((item) => (
-          <div
+          <Paper
             key={item.key}
+            variant="outlined"
             role="tabpanel"
             id={`${id}-${item.key}-panel`}
             aria-labelledby={`${id}-${item.key}`}
             hidden={tab !== item.key}
-            className="rounded-lg border bg-background p-4"
+            sx={{ p: 2 }}
           >
             {item.key === "intake" && <EncounterIntakeTab intake={encounter.intake} approval={encounter.approval} />}
             {item.key === "foodRecall" && (
@@ -94,9 +93,9 @@ export function EncounterContextPanel({
               <PreviousVisitsTab history={encounter.history} hasMore={encounter.hasMoreHistory} patientId={encounter.patient.id} />
             )}
             {item.key === "trend" && <VitalsTrendTab current={currentVitals} history={trendSource} />}
-          </div>
+          </Paper>
         ))}
-      </details>
-    </div>
+      </Box>
+    </Stack>
   );
 }

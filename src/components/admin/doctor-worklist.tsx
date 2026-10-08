@@ -1,9 +1,16 @@
-import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import Box from "@mui/material/Box";
+import Stack from "@mui/material/Stack";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
 import { formatShortIndonesianDate } from "@/lib/format";
 import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
 import type { DoctorWorklist, WorklistRow, WorklistState } from "@/server/encounter-read";
+import { TextLink } from "./mui/links";
+import { StatusChip } from "./mui/status-chip";
 import { OpenEncounterButton } from "./open-encounter-button";
 import { EmptyState, SectionCard } from "./page-layout";
 
@@ -12,67 +19,61 @@ const STATE_LABEL: Record<WorklistState, string> = { BELUM: "Belum diperiksa", D
 function Action({ row }: { row: WorklistRow }) {
   if (row.state === "BELUM" || !row.encounterId) return <OpenEncounterButton appointmentId={row.appointmentId} />;
   return (
-    <Link href={`/admin/kunjungan/${row.encounterId}`} className="text-sm underline underline-offset-4">
+    <TextLink href={`/admin/kunjungan/${row.encounterId}`} underline="always" sx={{ fontSize: "0.875rem" }}>
       {row.state === "DRAF" ? "Lanjutkan" : "Lihat"}
-    </Link>
+    </TextLink>
   );
 }
 
 function WorklistTable({ rows, withDate }: { rows: WorklistRow[]; withDate: boolean }) {
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>{withDate ? "Jadwal" : "Jam"}</TableHead>
-          <TableHead>Pasien</TableHead>
-          <TableHead>Layanan</TableHead>
-          <TableHead>Cabang</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Aksi</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {rows.map((row) => {
-          const time = minutesToTimeLabel(witaMinutesOfDay(row.startAt));
-          return (
-            <TableRow key={row.appointmentId}>
-              <TableCell className="whitespace-nowrap">{withDate ? `${formatShortIndonesianDate(row.startAt)}, ${time}` : time}</TableCell>
-              <TableCell>
-                <div className="font-medium">
-                  {row.patientName}
-                  {row.foodRecallFilled && (
-                    <Badge variant="outline" className="ml-2 text-xs font-normal">
-                      food recall ✓
-                    </Badge>
-                  )}
-                  {row.online && (
-                    <Badge variant="outline" className="ml-2 text-xs font-normal">
-                      Online
-                    </Badge>
-                  )}
-                </div>
-                <div className="font-mono text-xs text-muted-foreground">{row.patientRecordNumber}</div>
-              </TableCell>
-              <TableCell>{row.serviceName}</TableCell>
-              <TableCell>{row.branchName}</TableCell>
-              <TableCell>
-                <Badge variant={row.state === "FINAL" ? "default" : "outline"}>{STATE_LABEL[row.state]}</Badge>
-              </TableCell>
-              <TableCell>
-                <Action row={row} />
-              </TableCell>
-            </TableRow>
-          );
-        })}
-      </TableBody>
-    </Table>
+    <TableContainer>
+      <Table size="small">
+        <TableHead>
+          <TableRow>
+            <TableCell>{withDate ? "Jadwal" : "Jam"}</TableCell>
+            <TableCell>Pasien</TableCell>
+            <TableCell>Layanan</TableCell>
+            <TableCell>Cabang</TableCell>
+            <TableCell>Status</TableCell>
+            <TableCell>Aksi</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {rows.map((row) => {
+            const time = minutesToTimeLabel(witaMinutesOfDay(row.startAt));
+            return (
+              <TableRow key={row.appointmentId}>
+                <TableCell sx={{ whiteSpace: "nowrap" }}>{withDate ? `${formatShortIndonesianDate(row.startAt)}, ${time}` : time}</TableCell>
+                <TableCell>
+                  <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center", fontWeight: 500 }}>
+                    <span>{row.patientName}</span>
+                    {row.foodRecallFilled && <StatusChip label="food recall ✓" />}
+                    {row.online && <StatusChip label="Online" />}
+                  </Stack>
+                  <Box sx={{ fontFamily: "ui-monospace, monospace", fontSize: "0.75rem", color: "text.secondary" }}>{row.patientRecordNumber}</Box>
+                </TableCell>
+                <TableCell>{row.serviceName}</TableCell>
+                <TableCell>{row.branchName}</TableCell>
+                <TableCell>
+                  <StatusChip label={STATE_LABEL[row.state]} tone={row.state === "FINAL" ? "success" : "neutral"} />
+                </TableCell>
+                <TableCell>
+                  <Action row={row} />
+                </TableCell>
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }
 
 /** Dasbor dokter (spec catatan dokter 4.2, spec D 4.4): pasien hari ini dan catatan yang tertinggal. */
 export function DoctorWorklistView({ worklist }: { worklist: DoctorWorklist }) {
   return (
-    <div className="space-y-6">
+    <Stack spacing={3}>
       <SectionCard title="Pasien hari ini" flush>
         {worklist.today.length === 0 ? (
           <EmptyState>Belum ada pasien yang ditandai hadir hari ini.</EmptyState>
@@ -87,6 +88,6 @@ export function DoctorWorklistView({ worklist }: { worklist: DoctorWorklist }) {
           <WorklistTable rows={worklist.unfinished} withDate />
         )}
       </SectionCard>
-    </div>
+    </Stack>
   );
 }

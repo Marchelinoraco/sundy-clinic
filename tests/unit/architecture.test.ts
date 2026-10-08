@@ -255,6 +255,23 @@ describe("batasan arsitektur", () => {
     "src/components/admin/online-appointment-form.tsx",
     "src/components/admin/contact-windows-dialog.tsx",
     "src/components/admin/contact-windows-fields.tsx",
+    // Task 9
+    "src/app/(admin)/admin/kunjungan/[id]/page.tsx",
+    "src/components/admin/encounter-workspace.tsx",
+    "src/components/admin/encounter-page-view.tsx",
+    "src/components/admin/encounter-record.tsx",
+    "src/components/admin/encounter-form.tsx",
+    "src/components/admin/encounter-warnings.tsx",
+    "src/components/admin/encounter-context-panel.tsx",
+    "src/components/admin/encounter-intake-tab.tsx",
+    "src/components/admin/encounter-food-recall-tab.tsx",
+    "src/components/admin/previous-visits-tab.tsx",
+    "src/components/admin/vitals-trend-tab.tsx",
+    "src/components/admin/addendum-form.tsx",
+    "src/components/admin/audit-trail.tsx",
+    "src/components/admin/doctor-worklist.tsx",
+    "src/components/admin/open-encounter-button.tsx",
+    "src/components/admin/activity-list-fields.tsx",
   ];
   const SHADCN_OR_FIXED_COLOR =
     /from "@\/components\/ui\/|from "lucide-react"|["'`][^"'`\n]*\b(?:text|bg|border|fill|stroke|ring)-(?:muted|foreground|primary|secondary|destructive|accent|card|background|input|amber|emerald|stone|red|green|gold|brown|cream|white|black)\b/;
