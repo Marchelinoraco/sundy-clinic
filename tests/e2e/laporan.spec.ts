@@ -48,9 +48,20 @@ test("kategori, pengeluaran, dan pembatalan", async ({ page }, testInfo) => {
   await expect(voidDialog).toBeHidden({ timeout: 30_000 });
   await expect(wrong).toContainText("Dibatalkan oleh", { timeout: 30_000 });
   await expect(wrong).toContainText("Salah catat nominal");
+
+  // Pindah bulan lewat tautan: isian Bulan di penyaring ikut berganti ke bulan yang ditampilkan.
+  const monthInput = page.getByRole("group", { name: "Bulan", exact: true }).locator("input");
+  const [mm, yyyy] = (await monthInput.inputValue()).split("/").map(Number);
+  const previous = mm === 1 ? `12/${yyyy - 1}` : `${String(mm - 1).padStart(2, "0")}/${yyyy}`;
+  await page.getByRole("navigation", { name: "Pindah bulan" }).getByRole("link", { name: "← Bulan sebelumnya" }).click();
+  await expect(page).toHaveURL(/bulan=\d{4}-\d{2}/, { timeout: 30_000 });
+  await expect(monthInput).toHaveValue(previous, { timeout: 30_000 });
 });
 
-test("pengeluaran berulang: dibuat, muncul bulan ini, dan perubahan tidak mengubah catatan lama", async ({ page }) => {
+test("pengeluaran berulang: dibuat, muncul bulan ini, dan perubahan tidak mengubah catatan lama", async ({ page }, testInfo) => {
+  // Keterangan per proyek: desktop dan ponsel bisa berjalan dalam satu putaran dengan data bersama,
+  // dan keduanya membuat templat Gaji tanggal 25.
+  const note = `Gaji E2E ${tag(testInfo)}`;
   await signIn(page, E2E_KEUANGAN);
   await page.goto("/admin/pengeluaran?tab=berulang");
   await page.getByRole("button", { name: "+ Berulang" }).click();
@@ -58,24 +69,26 @@ test("pengeluaran berulang: dibuat, muncul bulan ini, dan perubahan tidak mengub
   await dialog.getByLabel("Kategori").selectOption({ label: "Gaji" });
   await dialog.getByLabel("Nominal").fill("1000000");
   await dialog.getByLabel("Tanggal tiap bulan").fill("25");
+  await dialog.getByLabel("Keterangan (opsional)").fill(note);
   await dialog.getByRole("button", { name: "Simpan" }).click();
   await expect(dialog).toBeHidden({ timeout: 30_000 });
-  await expect(page.getByText("Tiap tanggal 25", { exact: false })).toBeVisible({ timeout: 30_000 });
+  const template = page.getByRole("row").filter({ hasText: note });
+  await expect(template).toContainText("Tiap tanggal 25", { timeout: 30_000 });
 
   await page.goto("/admin/pengeluaran");
-  const generated = page.getByRole("row").filter({ hasText: "Gaji" }).filter({ hasText: "Berulang" });
+  const generated = page.getByRole("row").filter({ hasText: note }).filter({ hasText: "Berulang" });
   await expect(generated).toContainText("Rp 1.000.000", { timeout: 30_000 });
 
   await page.goto("/admin/pengeluaran?tab=berulang");
-  await page.getByRole("button", { name: "Ubah Gaji" }).click();
+  await template.getByRole("button", { name: "Ubah Gaji" }).click();
   const edit = page.getByRole("dialog", { name: "Ubah pengeluaran berulang" });
   await edit.getByLabel("Nominal").fill("1200000");
   await edit.getByRole("button", { name: "Simpan" }).click();
   await expect(edit).toBeHidden({ timeout: 30_000 });
-  await expect(page.getByRole("row").filter({ hasText: "Gaji" })).toContainText("Rp 1.200.000", { timeout: 30_000 });
+  await expect(template).toContainText("Rp 1.200.000", { timeout: 30_000 });
 
   await page.goto("/admin/pengeluaran");
-  await expect(page.getByRole("row").filter({ hasText: "Gaji" }).filter({ hasText: "Berulang" })).toContainText("Rp 1.000.000");
+  await expect(generated).toContainText("Rp 1.000.000");
 });
 
 test("laporan: ringkasan, rincian tanpa pengeluaran yang dibatalkan, periode, dan rentang tidak sah", async ({ page }, testInfo) => {

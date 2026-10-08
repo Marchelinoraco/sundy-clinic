@@ -98,6 +98,9 @@ export const adminTheme = createTheme({
     MuiSwitch: { defaultProps: { color: "secondary" } },
     MuiTextField: { defaultProps: { size: "small", color: "secondary" } },
     MuiChip: { defaultProps: { size: "small" } },
+    // Sel angka (rata kanan) tidak dipenggal, seperti tabel lama: "-Rp 3.200.000" tidak pecah menjadi dua baris
+    // di ponsel. Sel teks tetap boleh turun baris; tabel dibungkus TableContainer yang bisa digulir mendatar.
+    MuiTableCell: { styleOverrides: { alignRight: { whiteSpace: "nowrap" } } },
     MuiAppBar: { defaultProps: { elevation: 0, color: "inherit" } },
     MuiDialog: { defaultProps: { fullWidth: true, maxWidth: "sm" } },
     MuiCard: {

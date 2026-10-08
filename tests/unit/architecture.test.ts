@@ -328,6 +328,21 @@ describe("batasan arsitektur", () => {
     "src/components/admin/stock/supplier-dialog.tsx",
     "src/components/admin/stock/supplier-return-dialog.tsx",
     "src/components/admin/stock/supplier-table.tsx",
+    // Task 12
+    "src/app/(admin)/admin/pengeluaran/page.tsx",
+    "src/app/(admin)/admin/laporan/page.tsx",
+    "src/components/admin/expenses/category-manager.tsx",
+    "src/components/admin/expenses/expense-form-dialog.tsx",
+    "src/components/admin/expenses/expense-table.tsx",
+    "src/components/admin/expenses/recurring-dialog.tsx",
+    "src/components/admin/expenses/recurring-table.tsx",
+    "src/components/admin/expenses/stop-recurring-button.tsx",
+    "src/components/admin/expenses/void-expense-dialog.tsx",
+    "src/components/admin/report/cash-flow-card.tsx",
+    "src/components/admin/report/profit-tiles.tsx",
+    "src/components/admin/report/report-detail.tsx",
+    "src/components/admin/report/report-summary.tsx",
+    "src/components/admin/report/trend-chart.tsx",
   ];
   const SHADCN_OR_FIXED_COLOR =
     /from "@\/components\/ui\/|from "lucide-react"|["'`][^"'`\n]*\b(?:text|bg|border|fill|stroke|ring)-(?:muted|foreground|primary|secondary|destructive|accent|card|background|input|amber|emerald|stone|red|green|gold|brown|cream|white|black)\b/;

@@ -1,15 +1,17 @@
+import Button from "@mui/material/Button";
+import Stack from "@mui/material/Stack";
 import Form from "next/form";
-import Link from "next/link";
 import { AdminHeader } from "@/components/admin/admin-header";
 import { CategoryManager } from "@/components/admin/expenses/category-manager";
 import { ExpenseFormDialog } from "@/components/admin/expenses/expense-form-dialog";
 import { ExpenseTable } from "@/components/admin/expenses/expense-table";
 import { RecurringDialog } from "@/components/admin/expenses/recurring-dialog";
 import { RecurringTable } from "@/components/admin/expenses/recurring-table";
+import { MonthField } from "@/components/admin/mui/date-field";
+import { TextLink } from "@/components/admin/mui/links";
+import { SelectField } from "@/components/admin/mui/select-field";
 import { PageTabs } from "@/components/admin/page-tabs";
 import { PageBody, PageHeader, SectionCard } from "@/components/admin/page-layout";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { addMonths, currentMonthOf, isMonthString } from "@/lib/expense";
 import { witaDateString } from "@/lib/time";
 import { getBranches } from "@/server/catalog";
@@ -20,8 +22,6 @@ export const metadata = { title: "Pengeluaran" };
 
 type Search = { tab?: string; bulan?: string; kategori?: string; cabang?: string };
 type Tab = "catatan" | "berulang" | "kategori";
-
-const selectClass = "h-9 rounded-md border border-input bg-background px-3 text-sm";
 
 export default async function ExpensesPage({ searchParams }: { searchParams: Promise<Search> }) {
   await requireCapability("expense:manage");
@@ -57,38 +57,41 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Pro
         />
         {tab === "catatan" && (
           <>
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <Form action="/admin/pengeluaran" className="flex flex-wrap items-end gap-2">
-                <Input name="bulan" type="month" defaultValue={month} aria-label="Bulan" className="w-44" />
-                <select name="kategori" defaultValue={params.kategori ?? ""} aria-label="Kategori" className={selectClass}>
-                  <option value="">Semua kategori</option>
-                  {allCategories.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-                <select name="cabang" defaultValue={params.cabang ?? ""} aria-label="Cabang" className={selectClass}>
-                  <option value="">Semua cabang</option>
-                  {branches.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
-                <Button type="submit" variant="outline">
-                  Terapkan
-                </Button>
+            <Stack direction="row" useFlexGap sx={{ flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 1.5 }}>
+              {/* key: isian dipasang ulang mengikuti alamat setelah pindah bulan (nilai MonthField disimpan di state). */}
+              <Form key={`${month}|${params.kategori ?? ""}|${params.cabang ?? ""}`} action="/admin/pengeluaran">
+                <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
+                  <MonthField name="bulan" label="Bulan" defaultValue={month} sx={{ width: 176 }} />
+                  <SelectField name="kategori" defaultValue={params.kategori ?? ""} aria-label="Kategori" fullWidth={false} sx={{ minWidth: 170 }}>
+                    <option value="">Semua kategori</option>
+                    {allCategories.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </SelectField>
+                  <SelectField name="cabang" defaultValue={params.cabang ?? ""} aria-label="Cabang" fullWidth={false} sx={{ minWidth: 160 }}>
+                    <option value="">Semua cabang</option>
+                    {branches.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </SelectField>
+                  <Button type="submit" variant="outlined">
+                    Terapkan
+                  </Button>
+                </Stack>
               </Form>
-              <nav aria-label="Pindah bulan" className="flex gap-3 text-sm">
-                <Link className="underline underline-offset-4" href={`/admin/pengeluaran?bulan=${addMonths(month, -1)}`}>
+              <Stack component="nav" aria-label="Pindah bulan" direction="row" spacing={1.5} sx={{ fontSize: "0.875rem" }}>
+                <TextLink href={`/admin/pengeluaran?bulan=${addMonths(month, -1)}`} underline="always">
                   ← Bulan sebelumnya
-                </Link>
-                <Link className="underline underline-offset-4" href={`/admin/pengeluaran?bulan=${addMonths(month, 1)}`}>
+                </TextLink>
+                <TextLink href={`/admin/pengeluaran?bulan=${addMonths(month, 1)}`} underline="always">
                   Bulan berikutnya →
-                </Link>
-              </nav>
-            </div>
+                </TextLink>
+              </Stack>
+            </Stack>
             <SectionCard title={`Pengeluaran ${month}`} flush>
               <ExpenseTable rows={await listExpenses({ month, categoryId: params.kategori || undefined, branchId: params.cabang || undefined })} />
             </SectionCard>
