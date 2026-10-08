@@ -1,8 +1,11 @@
 "use client";
 
+import Autocomplete from "@mui/material/Autocomplete";
+import Box from "@mui/material/Box";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
 import { useEffect, useRef, useState } from "react";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { formatShortIndonesianDate } from "@/lib/format";
 import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
 import { searchPatients, type PatientSummary } from "@/server/patient";
@@ -11,18 +14,18 @@ import { NewPatientForm } from "./new-patient-form";
 /** Kunjungan terakhir dan booking aktif berikutnya: booking ganda ketahuan sebelum dibuat (spec C1 bagian 3). */
 export function PatientBookingInfo({ patient }: { patient: PatientSummary }) {
   return (
-    <span className="block text-xs text-muted-foreground">
+    <Typography variant="caption" component="span" sx={{ display: "block", color: "text.secondary" }}>
       Kunjungan terakhir {patient.lastVisitAt ? formatShortIndonesianDate(patient.lastVisitAt) : "belum pernah"}
       {patient.nextBookingAt && (
         <>
           {" · "}
-          <span className="font-medium text-amber-700">
+          <Box component="span" sx={{ fontWeight: 500, color: "warning.main" }}>
             booking berikutnya {formatShortIndonesianDate(patient.nextBookingAt)}{" "}
             {minutesToTimeLabel(witaMinutesOfDay(patient.nextBookingAt))}
-          </span>
+          </Box>
         </>
       )}
-    </span>
+    </Typography>
   );
 }
 
@@ -32,7 +35,6 @@ export function PatientPicker({ onSelect }: { onSelect: (patient: PatientSummary
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState<SearchState>({ query: "", patients: [] });
   const latestRequest = useRef(0);
-
   const trimmed = query.trim();
 
   useEffect(() => {
@@ -55,45 +57,38 @@ export function PatientPicker({ onSelect }: { onSelect: (patient: PatientSummary
   const results = settled ? search.patients : [];
 
   return (
-    <div className="space-y-3">
-      <div className="space-y-1">
-        <Label htmlFor="patient-search">Cari pasien (nama, WhatsApp, atau nomor RM)</Label>
-        <Input
-          id="patient-search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Ketik untuk mencari…"
-          autoComplete="off"
-        />
-      </div>
-
-      {trimmed !== "" && !settled && <p className="text-sm text-muted-foreground">Mencari…</p>}
-
-      {settled && results.length === 0 && (
-        <p className="text-sm text-muted-foreground">Tidak ada pasien yang cocok.</p>
-      )}
-
-      {results.length > 0 && (
-        <ul className="divide-y rounded-lg border">
-          {results.map((patient) => (
-            <li key={patient.id}>
-              <button
-                type="button"
-                className="w-full px-3 py-2 text-left text-sm hover:bg-accent"
-                onClick={() => onSelect(patient)}
-              >
-                <span className="font-medium">{patient.name}</span>
-                <span className="ml-2 text-muted-foreground">
-                  {patient.medicalRecordNumber} · {patient.whatsapp}
-                </span>
-                <PatientBookingInfo patient={patient} />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-
+    <Stack spacing={1.5}>
+      <Autocomplete<PatientSummary, false, false, false>
+        id="patient-search"
+        options={results}
+        value={null}
+        inputValue={query}
+        onInputChange={(_, next, reason) => reason !== "reset" && setQuery(next)}
+        onChange={(_, patient) => patient && onSelect(patient)}
+        // Penyaringan dilakukan server (nama, WhatsApp, RM); jangan disaring ulang di sini.
+        filterOptions={(options) => options}
+        getOptionLabel={(patient) => patient.name}
+        isOptionEqualToValue={(a, b) => a.id === b.id}
+        open={trimmed !== ""}
+        loading={trimmed !== "" && !settled}
+        loadingText="Mencari…"
+        noOptionsText="Tidak ada pasien yang cocok."
+        renderOption={({ key, ...props }, patient) => (
+          <li key={key} {...props}>
+            <span>
+              <Typography component="span" sx={{ fontWeight: 500 }}>
+                {patient.name}
+              </Typography>
+              <Typography component="span" sx={{ ml: 1, color: "text.secondary" }}>
+                {patient.medicalRecordNumber} · {patient.whatsapp}
+              </Typography>
+              <PatientBookingInfo patient={patient} />
+            </span>
+          </li>
+        )}
+        renderInput={(params) => <TextField {...params} label="Cari pasien (nama, WhatsApp, atau nomor RM)" placeholder="Ketik untuk mencari…" />}
+      />
       <NewPatientForm onCreated={onSelect} onPickExisting={onSelect} />
-    </div>
+    </Stack>
   );
 }

@@ -1,8 +1,9 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { PatientPicker } from "@/components/admin/patient-picker";
 import { searchPatients, type PatientSummary } from "@/server/patient";
+import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("@/server/patient", () => ({
   searchPatients: vi.fn(),
@@ -28,15 +29,34 @@ describe("PatientPicker", () => {
       patient({ id: "p2", name: "Maria Baru", medicalRecordNumber: "SDY-2026-0013" }),
     ]);
     const user = userEvent.setup();
-    render(<PatientPicker onSelect={vi.fn()} />);
+    renderAdmin(<PatientPicker onSelect={vi.fn()} />);
 
     await user.type(screen.getByLabelText(/Cari pasien/), "maria");
 
-    const known = await screen.findByRole("button", { name: /Maria Wenas/ });
+    const known = await screen.findByRole("option", { name: /Maria Wenas/ });
     expect(known).toHaveTextContent("Kunjungan terakhir Kam, 24 Sep");
     expect(known).toHaveTextContent("booking berikutnya Rab, 7 Okt 11.30");
-    const fresh = screen.getByRole("button", { name: /Maria Baru/ });
+    const fresh = screen.getByRole("option", { name: /Maria Baru/ });
     expect(fresh).toHaveTextContent("Kunjungan terakhir belum pernah");
     expect(fresh).not.toHaveTextContent("booking berikutnya");
+  });
+
+  it("memilih opsi memanggil onSelect dengan pasien itu", async () => {
+    const maria = patient({});
+    vi.mocked(searchPatients).mockResolvedValue([maria]);
+    const onSelect = vi.fn();
+    const user = userEvent.setup();
+    renderAdmin(<PatientPicker onSelect={onSelect} />);
+    await user.type(screen.getByRole("combobox", { name: /Cari pasien/ }), "maria");
+    await user.click(await screen.findByRole("option", { name: /Maria Wenas/ }));
+    expect(onSelect).toHaveBeenCalledWith(maria);
+  });
+
+  it("tanpa hasil atau galat jaringan → 'Tidak ada pasien yang cocok.'", async () => {
+    vi.mocked(searchPatients).mockRejectedValue(new Error("jaringan"));
+    const user = userEvent.setup();
+    renderAdmin(<PatientPicker onSelect={vi.fn()} />);
+    await user.type(screen.getByRole("combobox", { name: /Cari pasien/ }), "zzz");
+    expect(await screen.findByText("Tidak ada pasien yang cocok.")).toBeInTheDocument();
   });
 });
