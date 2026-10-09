@@ -241,7 +241,9 @@ export async function resetStaffPassword(staffId: string): Promise<ActionResult<
     ]);
 
     await recordAudit({ actor, action: "staff.account.reset", entity: "Staff", entityId: staff.id, summary: `${staff.name} · ${staff.user.email}` });
-    revalidateStaff();
+    // Mereset akun sendiri mencabut sesi ini; me-refresh rute sekarang akan melempar pemilik ke /masuk sebelum sempat menyalin kata sandi.
+    // Layar memuat ulang sendiri saat dialog ditutup.
+    if (staff.id !== actor.staffId) revalidateStaff();
     return { credentials: { email: staff.user.email, tempPassword } };
   });
 }
