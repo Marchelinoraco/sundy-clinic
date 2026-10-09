@@ -52,7 +52,9 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
             </LinkButton>
           }
         />
-        <ReportFilter preset={preset} period={period} branchId={branchId} branches={branches} />
+        {/* key: isian tanggal menyimpan nilainya sendiri dan Next tidak memasang ulang halaman saat hanya alamat yang berubah,
+            jadi tanpa ini kolom Dari/Sampai tertinggal di periode lama setelah memilih "Bulan lalu". */}
+        <ReportFilter key={`${preset}|${period.from}|${period.to}|${branchId ?? ""}`} preset={preset} period={period} branchId={branchId} branches={branches} />
         {notice && (
           <Alert severity="error">{notice}</Alert>
         )}

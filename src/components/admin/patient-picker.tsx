@@ -33,6 +33,7 @@ type SearchState = { query: string; patients: PatientSummary[] };
 
 export function PatientPicker({ onSelect }: { onSelect: (patient: PatientSummary) => void }) {
   const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
   const [search, setSearch] = useState<SearchState>({ query: "", patients: [] });
   const latestRequest = useRef(0);
   const trimmed = query.trim();
@@ -64,15 +65,20 @@ export function PatientPicker({ onSelect }: { onSelect: (patient: PatientSummary
         value={null}
         inputValue={query}
         onInputChange={(_, next, reason) => reason !== "reset" && setQuery(next)}
+        // Kata kunci tidak dihapus saat fokus pindah (mis. ke "+ Pasien Baru"), dan Escape menutup daftar.
+        clearOnBlur={false}
+        onOpen={() => setOpen(true)}
+        onClose={() => setOpen(false)}
         onChange={(_, patient) => patient && onSelect(patient)}
         // Penyaringan dilakukan server (nama, WhatsApp, RM); jangan disaring ulang di sini.
         filterOptions={(options) => options}
         getOptionLabel={(patient) => patient.name}
         isOptionEqualToValue={(a, b) => a.id === b.id}
-        open={trimmed !== ""}
+        // Daftar hanya terbuka bila ada yang ditampilkan. "Tidak ada pasien yang cocok." ditulis di bawah isian: kotak
+        // saran di portal menutupi tombol "+ Pasien Baru" dan menahan kliknya.
+        open={open && trimmed !== "" && (!settled || results.length > 0)}
         loading={trimmed !== "" && !settled}
         loadingText="Mencari…"
-        noOptionsText="Tidak ada pasien yang cocok."
         renderOption={({ key, ...props }, patient) => (
           <li key={key} {...props}>
             <span>
@@ -86,7 +92,14 @@ export function PatientPicker({ onSelect }: { onSelect: (patient: PatientSummary
             </span>
           </li>
         )}
-        renderInput={(params) => <TextField {...params} label="Cari pasien (nama, WhatsApp, atau nomor RM)" placeholder="Ketik untuk mencari…" />}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label="Cari pasien (nama, WhatsApp, atau nomor RM)"
+            placeholder="Ketik untuk mencari…"
+            helperText={settled && results.length === 0 ? "Tidak ada pasien yang cocok." : undefined}
+          />
+        )}
       />
       <NewPatientForm onCreated={onSelect} onPickExisting={onSelect} />
     </Stack>

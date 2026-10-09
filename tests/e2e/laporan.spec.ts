@@ -117,6 +117,20 @@ test("laporan: ringkasan, rincian tanpa pengeluaran yang dibatalkan, periode, da
   await expect(page.getByRole("region", { name: "Ringkasan laporan" })).toBeVisible();
 });
 
+test("laporan: tanggal di penyaring mengikuti periode siap pakai yang dipilih", async ({ page }) => {
+  await signIn(page, E2E_KEUANGAN);
+  await page.goto("/admin/laporan");
+  await tungguHidrasi(page);
+  const from = page.getByRole("group", { name: "Dari tanggal", exact: true }).locator("input");
+  const before = await from.inputValue();
+  await page.getByLabel("Periode").selectOption("BULAN_LALU");
+  await page.getByRole("button", { name: "Tampilkan" }).click();
+  await expect(page).toHaveURL(/periode=BULAN_LALU/, { timeout: 30_000 });
+  // Dari tanggal harus berpindah ke awal bulan lalu; nilai lama yang tertinggal membuat rentang berikutnya salah.
+  await expect(from).not.toHaveValue(before, { timeout: 30_000 });
+  await expect(from).toHaveValue(/^01\//);
+});
+
 test("unduh CSV laporan", async ({ page }) => {
   await signIn(page, E2E_KEUANGAN);
   await page.goto("/admin/laporan");
