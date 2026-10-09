@@ -258,6 +258,11 @@ const BOOKING_LIST_INCLUDE = {
   // Status food recall saja: isinya catatan klinis, dan daftar ini juga dibuka resepsionis.
   foodRecall: { select: { status: true } },
   encounter: { select: { status: true } },
+  // Hanya hitungan, jam, dan nama pengunggah: tanpa angka dan tanpa nama berkas (spec hasil BIA 5).
+  biaMeasurements: {
+    where: { voidedAt: null },
+    select: { files: { where: { voidedAt: null }, select: { uploadedAt: true, uploadedByName: true }, orderBy: { uploadedAt: "desc" as const } } },
+  },
   // Rentang waktu luang dan percobaan menghubungi booking online (spec 5.2); tanpa data klinis.
   contactWindows: { orderBy: { startAt: "asc" }, select: { startAt: true, endAt: true } },
   contactAttempts: { orderBy: { at: "asc" }, select: { at: true, staffName: true } },

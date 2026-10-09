@@ -2,6 +2,7 @@ import { screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { PatientDetailView } from "@/components/admin/patient-detail-view";
 import type { PatientDetail } from "@/server/patient";
+import { biaMeasurement } from "../../fixtures/bia";
 import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
@@ -159,5 +160,29 @@ describe("PatientDetailView (spec D 5.3)", () => {
     );
     expect(screen.getByRole("link", { name: "Siti Lama (SDY-2026-0009)" })).toHaveAttribute("href", "/admin/pasien/p9");
     expect(screen.getByText(/Pasien ini rangkap dari/)).toBeInTheDocument();
+  });
+
+  it("pembaca rekam medis: tab BIA berisi grafik dan tabel pengukuran dengan tautan berkas; pengukuran dibatalkan diberi tanda", () => {
+    const items = [
+      biaMeasurement({
+        id: "m2",
+        appointmentCode: "SDY-0002",
+        numbers: { bodyFatPercent: 28.5, muscleMassKg: 41, visceralFat: 9, bmr: 1450, metabolicAge: 38, bodyWaterPercent: 47.5, boneMassKg: 2.6 },
+        numbersAt: new Date(),
+        files: [{ id: "f1", originalName: "hasil.pdf", mimeType: "application/pdf", sizeBytes: 10, uploadedByName: "Rina", uploadedAt: new Date(), previewable: true, voided: null }],
+      }),
+      biaMeasurement({ id: "m1", appointmentCode: "SDY-0001", voided: { at: new Date(), by: "dr. Diane", reason: "Salah pasien" } }),
+    ];
+    renderAdmin(<PatientDetailView patient={patient} canReadRecords canWriteRecords tab="bia" bia={{ items, points: [{ at: new Date(), bodyFatPercent: 28.5, muscleMassKg: 41 }] }} />);
+    expect(within(screen.getByRole("navigation", { name: "Riwayat pasien" })).getByRole("link", { name: "BIA (1)" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("img", { name: "Grafik komposisi tubuh" })).toBeInTheDocument();
+    const table = screen.getByRole("table", { name: "Riwayat BIA" });
+    expect(within(table).getByRole("link", { name: "hasil.pdf" })).toHaveAttribute("href", "/admin/bia/berkas/f1");
+    expect(within(table).getByText("Dibatalkan: Salah pasien")).toBeInTheDocument();
+  });
+
+  it("tanpa data BIA (resepsionis): tidak ada tab BIA", () => {
+    renderAdmin(<PatientDetailView patient={patient} canReadRecords={false} canWriteRecords={false} />);
+    expect(screen.queryByRole("link", { name: /^BIA/ })).toBeNull();
   });
 });

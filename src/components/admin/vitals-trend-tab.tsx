@@ -78,7 +78,7 @@ export function VitalsTrendTab({ current, history }: { current: Record<VitalKey,
       </TableContainer>
       {totals.length > 0 && <Typography variant="body2">Total: {totals.join(" · ")}</Typography>}
       <Typography variant="caption" component="p" sx={{ color: "text.secondary" }}>
-        Dari kunjungan final. Grafik lengkap menyusul di bagian BIA.
+        Dari kunjungan final.
       </Typography>
     </Stack>
   );

@@ -5,6 +5,7 @@ import { PageBody, PageHeader } from "@/components/admin/page-layout";
 import { PATIENT_PROGRAM_LABEL, PatientDetailView } from "@/components/admin/patient-detail-view";
 import { formatDateWithYear } from "@/lib/format";
 import { can } from "@/lib/permissions";
+import { getBiaHistory } from "@/server/bia-read";
 import { getPatientDetail } from "@/server/patient";
 import { requireCapability } from "@/server/session";
 
@@ -20,6 +21,7 @@ export default async function PatientDetailPage({
   const { tab } = await searchParams;
   const patient = await getPatientDetail(id);
   if (!patient) notFound();
+  const bia = can(staff.role, "record:read") ? await getBiaHistory(patient.id) : null;
 
   const description = [
     patient.medicalRecordNumber,
@@ -50,6 +52,7 @@ export default async function PatientDetailPage({
           canReadRecords={can(staff.role, "record:read")}
           canWriteRecords={can(staff.role, "record:write")}
           tab={typeof tab === "string" ? tab : undefined}
+          bia={bia}
         />
       </PageBody>
     </>

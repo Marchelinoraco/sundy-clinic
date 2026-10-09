@@ -157,3 +157,14 @@ describe("hak akses pengeluaran dan laporan (spec laporan 6)", () => {
     }
   });
 });
+
+describe("hak akses hasil BIA (spec hasil BIA 5)", () => {
+  it("Super Admin, Dokter, dan Resepsionis boleh mengunggah; peran lain tidak", () => {
+    for (const role of ["SUPER_ADMIN", "DOKTER", "RESEPSIONIS"] as const) expect(can(role, "bia:upload")).toBe(true);
+    for (const role of ["APOTEKER", "ADMIN_KEUANGAN", "TERAPIS"] as const) expect(can(role, "bia:upload")).toBe(false);
+  });
+
+  it("Resepsionis tetap tidak membaca rekam medis", () => {
+    expect(can("RESEPSIONIS", "record:read")).toBe(false);
+  });
+});

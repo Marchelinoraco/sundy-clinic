@@ -24,6 +24,23 @@ sudo -u postgres dropdb --if-exists "$UJI"
 sudo -u postgres createdb "$UJI"
 sudo -u postgres pg_restore --no-owner --no-acl --exit-on-error --dbname "$UJI" "$KERJA/$DB.dump"
 
+# Hasil BIA (spec hasil BIA 9): satu berkas yang tercatat di backup harus ada di arsip file dengan sidik jari yang sama.
+FILES_DIR=${PATIENT_FILES_DIR:-/www/sundy-files}
+CONTOH=$(printf '%s\n' 'SELECT "storageName" || chr(124) || "sha256" FROM "BiaFile" ORDER BY "uploadedAt" LIMIT 1;' \
+  | sudo -u postgres psql -At -d "$UJI" 2>/dev/null || true)
+if [ -n "$CONTOH" ]; then
+  NAMA=${CONTOH%%|*}
+  SIDIK=${CONTOH##*|}
+  HASIL=$(tar -xzOf "$KERJA/file-pasien.tar.gz" "$(basename "$FILES_DIR")/bia/$NAMA" | sha256sum | cut -d' ' -f1)
+  if [ "$HASIL" != "$SIDIK" ]; then
+    echo "GAGAL: berkas BIA $NAMA di arsip tidak sama dengan catatan database." >&2
+    exit 1
+  fi
+  echo "Berkas BIA contoh utuh: $NAMA"
+else
+  echo "Belum ada berkas BIA di backup ini; pemeriksaan berkas BIA dilewati."
+fi
+
 # SQL dialirkan lewat stdin: skrip ini berjalan sebagai root, tetapi psql berjalan sebagai
 # postgres yang tidak boleh membaca folder rilis milik sundyapp.
 hitung() { sudo -u postgres psql -At -d "$1" < "$SQL" | LC_ALL=C sort; }

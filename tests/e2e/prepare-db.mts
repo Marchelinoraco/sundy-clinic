@@ -110,6 +110,33 @@ for (const [index, project] of ["desktop", "mobile"].entries()) {
   });
 }
 
+// Hasil BIA (hasil-bia.spec.ts): pasien hadir hari ini dengan catatan draf ber-id tetap, satu per proyek,
+// pukul 00.00/00.30 (jam 01.00–07.30 sudah dipakai seed lain; di luar jam buka agar tidak bentrok dengan slot uji lain).
+for (const [index, project] of ["desktop", "mobile"].entries()) {
+  const patient = await prisma.patient.create({
+    data: { medicalRecordNumber: `SDY-E2E-BIA-${index + 1}`, name: `Pasien BIA ${project}`, whatsapp: `6281200078${index}01`, gender: "P" },
+  });
+  const startAt = combineWitaDateAndMinutes(today, index * 30);
+  const appointment = await prisma.appointment.create({
+    data: {
+      code: `E2E-BIA-${index + 1}`,
+      type: "KONSULTASI",
+      startAt,
+      endAt: new Date(startAt.getTime() + 30 * 60_000),
+      status: "HADIR",
+      source: "WALK_IN",
+      checkedInAt: startAt,
+      branchId: visitBranch.id,
+      staffId: visitDoctor.id,
+      serviceId: visitService.id,
+      patientId: patient.id,
+    },
+  });
+  await prisma.encounter.create({
+    data: { id: `e2e-bia-${project}`, appointmentId: appointment.id, createdById: visitDoctor.id, createdByName: visitDoctor.name },
+  });
+}
+
 // Persetujuan isian dari halaman kunjungan (kunjungan.spec.ts): pasien hadir hari ini
 // dengan isian kuis v2 yang belum diperiksa, satu per proyek, pukul 07.00/07.30.
 for (const [index, project] of ["desktop", "mobile"].entries()) {

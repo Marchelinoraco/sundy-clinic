@@ -108,6 +108,11 @@ lewat berkas 600 di Mac yang dibuka di TextEdit dan kemudian dihapus. Kedua skri
 | Retensi | 7 hari lokal; 30 hari di bucket (dihitung dari nama folder bertanggal) |
 | Laporan | sinyal ke Healthchecks setiap selesai; gagal → `/fail` → email pemilik |
 
+**Berkas hasil BIA** (spec hasil BIA) ada di `/www/sundy-files/bia/<tahun>/<bulan>/` (pemilik `sundyapp`, folder 0700, berkas 0600) dan ikut
+`file-pasien.tar.gz`. Nama di disk acak; nama asli hanya di basis data (`BiaFile`). Aplikasi tidak pernah menghapus berkas: yang salah
+ditandai dibatalkan. Uji pemulihan bulanan memeriksa satu berkas BIA dari backup terhadap sidik jari SHA-256 di database.
+Pantau pertumbuhannya di pemeriksaan disk rutin (`sudo du -sh /www/sundy-files`).
+
 Konfigurasi rclone: `/root/.config/rclone/rclone.conf`; URL heartbeat: `/root/.config/sundy-backup.env`.
 
 **Uji pemulihan — bulanan** (atau setelah perubahan backup):
@@ -137,7 +142,7 @@ lewat stdin; `cek-situs.sh` membuang kredensial dari URL yang dicetaknya; backup
 |---|---|
 | Setiap rilis | `bash scripts/server/cek-situs.sh https://sundyclinic.com` → semua ✓ |
 | Bulanan | uji pemulihan (bagian 7); `ssh sundy 'df -h /; free -h'` |
-| Disk > 80% | `sudo apt-get clean`; kurangi rilis lama (`releases/` — tiap rilis ±1,6 GB karena `node_modules` disimpan untuk skrip admin); periksa `/var/log` dan `/root/backup` |
+| Disk > 80% | `sudo apt-get clean`; kurangi rilis lama (`releases/` — tiap rilis ±1,6 GB karena `node_modules` disimpan untuk skrip admin); periksa `/var/log` dan `/root/backup`; periksa juga `/www/sundy-files` (hasil BIA) |
 | Paket sistem | pembaruan keamanan otomatis (`unattended-upgrades`); restart bila `/var/run/reboot-required` ada |
 | Sertifikat | diperpanjang aaPanel otomatis; cek sisa hari di aaPanel → situs → SSL |
 | fail2ban | `sudo fail2ban-client status sshd` — IP yang diblokir wajar (bot) |

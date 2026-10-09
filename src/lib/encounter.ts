@@ -335,7 +335,7 @@ export function formatSignedDecimal(value: number): string {
   return `${value < 0 ? "−" : "+"}${formatDecimal(Math.abs(value))}`;
 }
 
-export type ContextTab = "intake" | "foodRecall" | "previous" | "trend";
+export type ContextTab = "intake" | "foodRecall" | "bia" | "previous" | "trend";
 
 /**
  * Tab yang terbuka pertama kali di kolom kiri (spec UI B keputusan U5). Food

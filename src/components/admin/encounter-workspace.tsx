@@ -7,6 +7,7 @@ import Typography from "@mui/material/Typography";
 import { useRef, useState } from "react";
 import { formatIndonesianDate } from "@/lib/format";
 import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
+import type { BiaVisitView } from "@/server/bia-read";
 import type { EncounterDetail } from "@/server/encounter-read";
 import { AddendumForm } from "./addendum-form";
 import { AuditTrail } from "./audit-trail";
@@ -23,7 +24,7 @@ import { EncounterRecord } from "./encounter-record";
  * Jangan diberi key berdasarkan versi: router.refresh() (mis. setelah
  * persetujuan isian) tidak boleh me-remount formulir yang sedang diketik.
  */
-export function EncounterWorkspace({ encounter, canWrite }: { encounter: EncounterDetail; canWrite: boolean }) {
+export function EncounterWorkspace({ encounter, bia, canWrite }: { encounter: EncounterDetail; bia: BiaVisitView; canWrite: boolean }) {
   const [currentVitals, setCurrentVitals] = useState(encounter.vitals);
   const isFinal = encounter.status === "FINAL";
   const editable = !isFinal && canWrite;
@@ -53,6 +54,7 @@ export function EncounterWorkspace({ encounter, canWrite }: { encounter: Encount
       >
         <EncounterContextPanel
           encounter={encounter}
+          bia={bia}
           currentVitals={editable ? currentVitals : encounter.vitals}
           canEditFoodRecall={editable}
           copyToSubjective={copyToSubjective}

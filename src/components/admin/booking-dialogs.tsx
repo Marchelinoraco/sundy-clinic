@@ -7,6 +7,7 @@ import type { BookingMessage } from "@/lib/booking-messages";
 import { getBookingMessage } from "@/server/appointment-message";
 import { CheckInDialog, type CheckInTarget } from "./check-in-dialog";
 import { ContactWindowsDialog } from "./contact-windows-dialog";
+import { BiaUploadDialog, type BiaUploadTarget } from "./bia/bia-upload-dialog";
 import { FoodRecallDialog, type FoodRecallTarget } from "./food-recall-dialog";
 import { QuizLinkDialog, type QuizLinkTarget } from "./quiz-link-dialog";
 import { RescheduleDialog } from "./reschedule-dialog";
@@ -25,6 +26,8 @@ type BookingDialogs = {
   openCheckIn: (target: CheckInTarget) => void;
   /** Dialog "Food recall" (spec check-in 4.4). */
   openFoodRecall: (target: FoodRecallTarget) => void;
+  /** Dialog "Unggah hasil BIA" (spec hasil BIA 6.1). */
+  openBiaUpload: (target: BiaUploadTarget) => void;
   /** Dialog Ubah waktu luang booking online. */
   openContactWindows: (target: ContactWindowsTarget) => void;
 };
@@ -45,6 +48,7 @@ export function BookingDialogsProvider({ today, children }: { today: string; chi
   const [quizLink, setQuizLink] = useState<QuizLinkTarget | null>(null);
   const [checkIn, setCheckIn] = useState<CheckInTarget | null>(null);
   const [foodRecall, setFoodRecall] = useState<FoodRecallTarget | null>(null);
+  const [biaUpload, setBiaUpload] = useState<BiaUploadTarget | null>(null);
   const [contactWindows, setContactWindows] = useState<ContactWindowsTarget | null>(null);
 
   const value = useMemo<BookingDialogs>(
@@ -64,6 +68,7 @@ export function BookingDialogsProvider({ today, children }: { today: string; chi
       openQuizLink: setQuizLink,
       openCheckIn: setCheckIn,
       openFoodRecall: setFoodRecall,
+      openBiaUpload: setBiaUpload,
       openContactWindows: setContactWindows,
     }),
     [],
@@ -124,6 +129,16 @@ export function BookingDialogsProvider({ today, children }: { today: string; chi
           open
           onOpenChange={(open) => {
             if (!open) setFoodRecall(null);
+          }}
+        />
+      )}
+      {biaUpload && (
+        <BiaUploadDialog
+          key={biaUpload.appointmentId}
+          target={biaUpload}
+          open
+          onOpenChange={(open) => {
+            if (!open) setBiaUpload(null);
           }}
         />
       )}

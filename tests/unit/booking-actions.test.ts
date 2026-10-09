@@ -96,6 +96,16 @@ describe("bookingRowActions (spec C1 5.2, C2 bagian 5)", () => {
       menu: ["VIEW_INTAKE"],
     });
   });
+
+  it("Unggah hasil BIA di menu booking hadir, setelah Food recall dan sebelum Lihat isian", () => {
+    expect(BOOKING_ACTION_LABEL.UPLOAD_BIA).toBe("Unggah hasil BIA");
+    expect(bookingRowActions({ ...site, status: "HADIR", foodRecallAvailable: true, biaUploadAvailable: true }, true)).toEqual({
+      primary: [],
+      menu: ["FOOD_RECALL", "UPLOAD_BIA", "VIEW_INTAKE"],
+    });
+    expect(bookingRowActions({ ...site, status: "HADIR", biaUploadAvailable: true }, false).menu).toEqual(["UPLOAD_BIA"]);
+    expect(bookingRowActions({ ...site, status: "HADIR", biaUploadAvailable: false }, false).menu).toEqual([]);
+  });
 });
 
 describe("bookingRowActions link kuis (spec C3 4.2)", () => {

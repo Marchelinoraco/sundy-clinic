@@ -205,6 +205,22 @@ describe("check-in: NIK, data diri, pasien rangkap", () => {
     expect(await countPatients()).toBe(await prisma.patient.count({ where: { mergedIntoId: null } }));
   });
 
+  it("pindah pasien rangkap: hasil BIA ikut pindah ke pemilik NIK, supaya riwayat dan grafiknya tidak tertinggal", async () => {
+    const owner = await patient({ mrn: "SDY-2026-6601", name: "Siti Lama", whatsapp: WA.owner, extra: { nik: OWNER_NIK } });
+    const duplicate = await patient({ mrn: "SDY-2026-6602", name: "Siti Rangkap", whatsapp: WA.duplicate });
+    const todayBooking = await booking(duplicate.id);
+    const bia = await prisma.biaMeasurement.create({
+      data: { appointmentId: todayBooking.id, patientId: duplicate.id, bodyFatPercent: 30, numbersAt: new Date(), createdById: "s1", createdByName: "Rina" },
+    });
+
+    await unwrap(mergeDuplicatePatient({ appointmentId: todayBooking.id, nik: OWNER_NIK }));
+
+    expect((await prisma.biaMeasurement.findUniqueOrThrow({ where: { id: bia.id } })).patientId).toBe(owner.id);
+    expect(
+      (await prisma.auditLog.findFirstOrThrow({ where: { action: "patient.merge-duplicate", entityId: owner.id } })).summary,
+    ).toBe("SDY-2026-6602 → SDY-2026-6601: 1 booking, 0 isian, 1 hasil BIA");
+  });
+
   it("pasien rangkap tidak bisa diberi booking baru", async () => {
     await patient({ mrn: "SDY-2026-6601", name: "Siti Lama", whatsapp: WA.owner, extra: { nik: OWNER_NIK } });
     const duplicate = await patient({ mrn: "SDY-2026-6602", name: "Siti Rangkap", whatsapp: WA.duplicate });
