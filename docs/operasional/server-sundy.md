@@ -88,6 +88,11 @@ ssh sundy 'sudo rm -f /www/sundy/maintenance.on'                # matikan
 
 ## 6. Skrip admin di server
 
+**Akun staf sehari-hari dikelola dari panel** (menu Staf, hanya Super Admin): tambah staf, buat akun, ubah peran, nonaktifkan, reset kata sandi,
+dan ganti email. Akun baru dan yang direset mendapat kata sandi sementara yang tampil sekali; staf wajib menggantinya saat masuk pertama.
+Skrip di bawah tetap dipakai untuk pemulihan, mis. satu-satunya Super Admin lupa kata sandinya dan tidak ada Super Admin lain yang bisa mereset.
+Disarankan selalu ada dua Super Admin aktif.
+
 ```bash
 ssh sundy 'sudo -u sundyapp -H bash -c "cd /www/sundy/current && npm run -s reset-password -- <email> \"\$PW\""'
 ssh sundy 'sudo -u sundyapp -H bash -c "cd /www/sundy/current && npm run -s change-email -- <email-lama> <email-baru>"'
