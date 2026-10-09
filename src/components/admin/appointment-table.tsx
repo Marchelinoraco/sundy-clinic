@@ -97,6 +97,10 @@ export type BookingRow = {
   foodRecall: "DITAWARKAN" | "DIISI" | null;
   /** Aksi "Food recall" tersedia: sudah check-in hari ini dan catatan dokter belum final. */
   foodRecallAvailable: boolean;
+  /** Aksi "Unggah hasil BIA" tersedia (spec hasil BIA 6.1). */
+  biaUploadAvailable: boolean;
+  /** Ringkasan unggahan BIA aktif tanpa isi klinis, mis. { fileCount: 2, lastLabel: "10.42 · Rina" }. */
+  bia: { fileCount: number; lastLabel: string } | null;
   /** Kanal booking (spec konsultasi online 3.1). */
   channel: "KLINIK" | "ONLINE";
   /** Booking online (spec konsultasi online 5.2); null untuk booking klinik. */
@@ -190,6 +194,10 @@ export function AppointmentTable({
       case "FOOD_RECALL":
         return {
           onSelect: () => dialogs.openFoodRecall({ appointmentId: row.id, code: row.code, patientName: row.patientName }),
+        };
+      case "UPLOAD_BIA":
+        return {
+          onSelect: () => dialogs.openBiaUpload({ appointmentId: row.id, code: row.code, patientName: row.patientName }),
         };
       case "NO_SHOW":
         return { onSelect: () => run(() => markNoShow(row.id), `${row.patientName} ditandai tidak hadir.`) };
@@ -400,6 +408,11 @@ export function AppointmentTable({
           <AppointmentStatusBadge status={row.status} />
           {row.intakeStatus && <Box sx={{ ...small, mt: 0.5 }}>Isian: {INTAKE_STATUS_LABEL[row.intakeStatus]}</Box>}
           {row.foodRecall && <Box sx={{ ...small, mt: 0.5 }}>Food recall: {row.foodRecall === "DIISI" ? "sudah diisi" : "belum diisi"}</Box>}
+          {row.bia && (
+            <Box sx={{ ...small, mt: 0.5 }}>
+              BIA terunggah: {row.bia.fileCount} berkas · {row.bia.lastLabel}
+            </Box>
+          )}
           {row.messageNotes.map((note) => (
             <Box key={note} sx={{ ...small, mt: 0.5 }}>
               {note}

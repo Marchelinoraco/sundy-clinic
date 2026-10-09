@@ -16,6 +16,7 @@ export type BookingAction =
   | "RESCHEDULE"
   | "QUIZ_LINK"
   | "FOOD_RECALL"
+  | "UPLOAD_BIA"
   | "CHANGE_WINDOWS"
   | "REQUEST_NEW_TIME"
   | "CANCEL";
@@ -34,6 +35,7 @@ export const BOOKING_ACTION_LABEL: Record<BookingAction, string> = {
   RESCHEDULE: "Pindah jadwal",
   QUIZ_LINK: "Link kuis",
   FOOD_RECALL: "Food recall",
+  UPLOAD_BIA: "Unggah hasil BIA",
   CHANGE_WINDOWS: "Ubah waktu luang",
   REQUEST_NEW_TIME: "Minta waktu baru via WA",
   CANCEL: "Batalkan",
@@ -51,6 +53,8 @@ export type BookingActionRow = {
   quizLink?: string | null;
   /** Customer sudah check-in hari ini dan catatan dokternya belum final (spec check-in 4.4). */
   foodRecallAvailable?: boolean;
+  /** Staf boleh mengunggah hasil BIA untuk booking klinik yang sudah check-in (spec hasil BIA 6.1). */
+  biaUploadAvailable?: boolean;
   /** Kanal booking; kosong dianggap klinik. */
   channel?: "KLINIK" | "ONLINE";
   /** Booking online yang semua rentangnya lewat: tautan WA "Minta waktu baru" (spec konsultasi online 5.3). */
@@ -134,7 +138,10 @@ function baseRowActions(
     return { primary, menu };
   }
 
-  return { primary: [], menu: row.foodRecallAvailable ? ["FOOD_RECALL", ...intake] : intake };
+  const menu: BookingAction[] = [];
+  if (row.foodRecallAvailable) menu.push("FOOD_RECALL");
+  if (row.biaUploadAvailable) menu.push("UPLOAD_BIA");
+  return { primary: [], menu: [...menu, ...intake] };
 }
 
 /**

@@ -145,3 +145,31 @@ export async function voidBiaFile(input: { fileId: string; reason: string }): Pr
     revalidate(file.measurement.patientId);
   });
 }
+
+export type BiaUploadSummary = {
+  canUpload: boolean;
+  files: { id: string; originalName: string; uploadedAt: Date; uploadedByName: string; canVoid: boolean }[];
+};
+
+/** Berkas aktif satu booking untuk dialog unggah. Tanpa angka dan tanpa tautan berkas: resepsionis tidak membaca rekam medis. */
+export async function listBiaUploads(appointmentId: string): Promise<ActionResult<BiaUploadSummary>> {
+  return runAction(async () => {
+    const actor = await requireCapability("bia:upload");
+    const id = String(appointmentId ?? "");
+    const appointment = await prisma.appointment.findUnique({ where: { id }, select: { status: true, channel: true } });
+    if (!appointment) throw new UserFacingError("Booking tidak ditemukan.");
+    const access = biaAccess(actor.role, appointment);
+    const files = await prisma.biaFile.findMany({
+      where: { voidedAt: null, measurement: { appointmentId: id, voidedAt: null } },
+      orderBy: { uploadedAt: "asc" },
+      select: { id: true, originalName: true, uploadedAt: true, uploadedByName: true, uploadedById: true },
+    });
+    return {
+      canUpload: access.upload,
+      files: files.map(({ uploadedById, ...file }) => ({
+        ...file,
+        canVoid: access.voidAny || (access.voidOwnFile && uploadedById === actor.staffId),
+      })),
+    };
+  });
+}

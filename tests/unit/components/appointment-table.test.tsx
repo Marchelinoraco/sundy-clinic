@@ -44,6 +44,10 @@ vi.mock("@/server/food-recall-admin", () => ({
   getFoodRecallLink: vi.fn().mockResolvedValue({ ok: true, data: { state: "NOT_OFFERED" } }),
   offerFoodRecall: vi.fn(),
 }));
+vi.mock("@/server/bia-actions", () => ({
+  listBiaUploads: vi.fn().mockResolvedValue({ ok: true, data: { canUpload: true, files: [] } }),
+  voidBiaFile: vi.fn(),
+}));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }));
 vi.mock("@/server/schedule", () => ({
   getStaffAvailabilityRange: vi.fn(),
@@ -77,6 +81,8 @@ const base: BookingRow = {
   needsFullIntake: false,
   foodRecall: null,
   foodRecallAvailable: false,
+  biaUploadAvailable: false,
+  bia: null,
   channel: "KLINIK",
   online: null,
   reschedule: {
@@ -490,5 +496,14 @@ describe("AppointmentTable check-in dan food recall", () => {
   it("food recall yang sudah diisi ditandai sudah diisi", () => {
     renderTable([{ ...base, status: "HADIR", foodRecall: "DIISI", foodRecallAvailable: true }]);
     expect(screen.getByText("Food recall: sudah diisi")).toBeInTheDocument();
+  });
+
+  it("booking hadir: penanda BIA terunggah dan menu Unggah hasil BIA membuka dialognya", async () => {
+    const user = userEvent.setup();
+    renderTable([{ ...base, status: "HADIR", biaUploadAvailable: true, bia: { fileCount: 2, lastLabel: "10.42 · Rina" } }]);
+    expect(screen.getByText("BIA terunggah: 2 berkas · 10.42 · Rina")).toBeInTheDocument();
+    await openMenu(user, "SDY-8F3K");
+    await user.click(screen.getByRole("menuitem", { name: "Unggah hasil BIA" }));
+    expect(await screen.findByRole("dialog", { name: "Hasil BIA — SDY-8F3K" })).toBeInTheDocument();
   });
 });

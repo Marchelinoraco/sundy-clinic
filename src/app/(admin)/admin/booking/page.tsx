@@ -50,7 +50,13 @@ function timeLabel(date: Date): string {
 }
 
 type ListedAppointment = Awaited<ReturnType<typeof listAppointments>>[number];
-type RowContext = { bank: BankAccount; siteUrl: string; now: Date };
+type RowContext = { bank: BankAccount; siteUrl: string; now: Date; canUploadBia: boolean };
+
+function biaSummary(files: { uploadedAt: Date; uploadedByName: string }[]): BookingRow["bia"] {
+  if (files.length === 0) return null;
+  const last = files.reduce((a, b) => (a.uploadedAt > b.uploadedAt ? a : b));
+  return { fileCount: files.length, lastLabel: `${timeLabel(last.uploadedAt)} · ${last.uploadedByName}` };
+}
 
 function toRow(a: ListedAppointment, context: RowContext): BookingRow {
   // Booking situs boleh belum punya pasien sampai admin mencocokkannya;
@@ -104,6 +110,8 @@ function toRow(a: ListedAppointment, context: RowContext): BookingRow {
     foodRecall: a.foodRecall?.status ?? null,
     foodRecallAvailable:
       a.status === "HADIR" && witaDateString(a.startAt) === witaDateString(context.now) && a.encounter?.status !== "FINAL",
+    biaUploadAvailable: context.canUploadBia && a.channel === "KLINIK" && a.status === "HADIR" && patient !== null,
+    bia: biaSummary(a.biaMeasurements.flatMap((m) => m.files)),
     online:
       a.channel === "ONLINE"
         ? {
@@ -174,7 +182,7 @@ export default async function BookingListPage({
     getClinicSetting(),
     listOnlineBookings(),
   ]);
-  const context: RowContext = { bank: setting, siteUrl: publicSiteUrl(), now };
+  const context: RowContext = { bank: setting, siteUrl: publicSiteUrl(), now, canUploadBia: can(staff.role, "bia:upload") };
 
   // Label tanggal dari tengah hari WITA, agar tidak bergeser ke hari lain.
   const dateLabel = formatIndonesianDate(combineWitaDateAndMinutes(date, 12 * 60));

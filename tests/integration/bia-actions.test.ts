@@ -2,7 +2,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { EMPTY_BIA_INPUT } from "@/lib/bia";
 import { prisma } from "@/lib/db";
-import { saveBiaNumbers, startBiaMeasurement, voidBiaFile, voidBiaMeasurement } from "@/server/bia-actions";
+import { listBiaUploads, saveBiaNumbers, startBiaMeasurement, voidBiaFile, voidBiaMeasurement } from "@/server/bia-actions";
 import { cleanupBillingWorld, createBillingWorld, finalVisit, type BillingWorld } from "./invoice-world";
 import { unwrap } from "./unwrap";
 
@@ -138,5 +138,24 @@ describe("aksi hasil BIA", () => {
     const file = await addFile(id);
     actor.role = "APOTEKER";
     await expect(voidBiaFile({ fileId: file.id, reason: "x" })).rejects.toThrow("forbidden: bia:upload");
+  });
+
+  it("daftar unggahan untuk dialog resepsionis: hanya berkas aktif, nama dan pengunggah, hak batal per berkas", async () => {
+    const id = await measurementFor(hadir);
+    const mine = await addFile(id, "s-resepsionis");
+    await addFile(id, "s-lain");
+    const voided = await addFile(id, "s-resepsionis");
+    await prisma.biaFile.update({ where: { id: voided.id }, data: { voidedAt: new Date(), voidedById: "s", voidedByName: "Uji", voidReason: "x" } });
+    actor.role = "RESEPSIONIS";
+    actor.staffId = "s-resepsionis";
+    const summary = await unwrap(listBiaUploads(hadir));
+    expect(summary.canUpload).toBe(true);
+    expect(summary.files.map((f) => [f.id === mine.id, f.canVoid])).toEqual([
+      [true, true],
+      [false, false],
+    ]);
+    expect(Object.keys(summary.files[0]).sort()).toEqual(["canVoid", "id", "originalName", "uploadedAt", "uploadedByName"]);
+    actor.role = "APOTEKER";
+    await expect(listBiaUploads(hadir)).rejects.toThrow("forbidden: bia:upload");
   });
 });
