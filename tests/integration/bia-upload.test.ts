@@ -2,13 +2,27 @@
 import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { UserFacingError } from "@/lib/action-result";
 import { BIA_MAX_BYTES } from "@/lib/bia";
 import { prisma } from "@/lib/db";
 import { uploadBiaFile } from "@/server/bia-upload";
+
 import type { CurrentStaff } from "@/server/session";
 import { cleanupBillingWorld, createBillingWorld, finalVisit, type BillingWorld } from "./invoice-world";
+
+// Pencatatan audit bisa gagal setelah transaksi berhasil (mis. sambungan putus sesaat).
+const { audit } = vi.hoisted(() => ({ audit: { fail: false } }));
+vi.mock("@/server/audit", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/server/audit")>();
+  return {
+    ...real,
+    recordAudit: vi.fn(async (...args: Parameters<typeof real.recordAudit>) => {
+      if (audit.fail) throw new Error("audit down");
+      return real.recordAudit(...args);
+    }),
+  };
+});
 
 const SLUG = "unggah-bia";
 const WA = "6281200009101";
@@ -53,6 +67,7 @@ describe("layanan unggah hasil BIA", () => {
     await prisma.appointment.update({ where: { id: selesai }, data: { status: "SELESAI" } });
   });
   beforeEach(async () => {
+    audit.fail = false;
     await prisma.biaFile.deleteMany({ where: { measurement: { patientId: world.patientId } } });
     await prisma.biaMeasurement.deleteMany({ where: { patientId: world.patientId } });
     await rm(path.join(root, "bia"), { recursive: true, force: true });
@@ -113,6 +128,14 @@ describe("layanan unggah hasil BIA", () => {
     await refuse(upload(dokter, hadir, html, "hasil.jpg"), /Jenis berkas tidak didukung/);
     expect(await filesOnDisk()).toHaveLength(0);
     expect(await prisma.biaMeasurement.count({ where: { appointmentId: hadir } })).toBe(0);
+  });
+
+  it("audit yang gagal setelah pencatatan tidak menghapus berkas: berkas tetap di disk, barisnya ada, dan unggahan berhasil", async () => {
+    audit.fail = true;
+    const { fileId } = await upload(dokter);
+    audit.fail = false;
+    expect(await prisma.biaFile.count({ where: { id: fileId } })).toBe(1);
+    expect(await filesOnDisk()).toHaveLength(1);
   });
 
   it("menolak booking tak dikenal, booking online, status belum check-in, dan peran tanpa hak", async () => {

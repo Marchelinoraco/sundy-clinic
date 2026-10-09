@@ -19,6 +19,8 @@ export type BiaMeasurementView = {
   id: string;
   version: number;
   createdAt: Date;
+  /** Tanggal kunjungan (jadwal booking). Dipakai untuk urutan dan grafik, bukan waktu pengukuran dibuat: pengukuran koreksi dibuat belakangan. */
+  visitAt: Date;
   createdByName: string;
   appointmentId: string;
   appointmentCode: string;
@@ -66,7 +68,7 @@ const MEASUREMENT_SELECT = {
   voidedAt: true,
   voidedByName: true,
   voidReason: true,
-  appointment: { select: { code: true } },
+  appointment: { select: { code: true, startAt: true } },
   files: { orderBy: { uploadedAt: "asc" as const } },
 } as const;
 
@@ -79,7 +81,7 @@ type Row = Pick<
   muscleMassKg: { toString(): string } | null;
   bodyWaterPercent: { toString(): string } | null;
   boneMassKg: { toString(): string } | null;
-  appointment: { code: string };
+  appointment: { code: string; startAt: Date };
   files: BiaFile[];
 };
 
@@ -101,6 +103,7 @@ function toView(row: Row): BiaMeasurementView {
     id: row.id,
     version: row.version,
     createdAt: row.createdAt,
+    visitAt: row.appointment.startAt,
     createdByName: row.createdByName,
     appointmentId: row.appointmentId,
     appointmentCode: row.appointment.code,
@@ -124,7 +127,7 @@ function toView(row: Row): BiaMeasurementView {
 function pointsOf(items: BiaMeasurementView[]): BiaPoint[] {
   return items
     .filter((m) => !m.voided && m.numbersAt !== null)
-    .map((m) => ({ at: m.createdAt, bodyFatPercent: m.numbers.bodyFatPercent, muscleMassKg: m.numbers.muscleMassKg }))
+    .map((m) => ({ at: m.visitAt, bodyFatPercent: m.numbers.bodyFatPercent, muscleMassKg: m.numbers.muscleMassKg }))
     .sort((a, b) => a.at.getTime() - b.at.getTime());
 }
 
@@ -159,7 +162,8 @@ export async function getBiaHistory(patientId: string): Promise<BiaHistory> {
     select: MEASUREMENT_SELECT,
     orderBy: { createdAt: "desc" },
   });
-  const items = rows.map(toView);
+  // Terbaru dulu menurut tanggal kunjungan; pengukuran koreksi tidak melompat ke atas hanya karena dibuat belakangan.
+  const items = rows.map(toView).sort((a, b) => b.visitAt.getTime() - a.visitAt.getTime());
   return { items, points: pointsOf(items) };
 }
 

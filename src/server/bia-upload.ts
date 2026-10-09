@@ -64,10 +64,11 @@ export async function uploadBiaFile(input: {
   const sha256 = createHash("sha256").update(bytes).digest("hex");
   const patientId = appointment.patientId;
 
+  let saved: { fileId: string; measurementId: string };
   try {
     for (let attempt = 0; ; attempt += 1) {
       try {
-        const saved = await prisma.$transaction(async (tx) => {
+        saved = await prisma.$transaction(async (tx) => {
           const measurementId = await ensureActiveMeasurement(tx, { appointmentId: appointment.id, patientId, actor });
           await tx.$queryRaw`SELECT "id" FROM "BiaMeasurement" WHERE "id" = ${measurementId} FOR UPDATE`;
           if (appointment.status === "SELESAI") {
@@ -92,14 +93,7 @@ export async function uploadBiaFile(input: {
           });
           return { fileId: file.id, measurementId };
         });
-        await recordAudit({
-          actor,
-          action: "bia.upload",
-          entity: "BiaMeasurement",
-          entityId: saved.measurementId,
-          summary: `${appointment.code} · ${originalName}`,
-        });
-        return saved;
+        break;
       } catch (error) {
         // Dua unggahan pertama serentak: yang kalah membuat pengukuran kedua dan kena indeks unik; ulang sekali, kini pengukurannya ada.
         if (isUniqueViolation(error) && attempt === 0) continue;
@@ -110,4 +104,15 @@ export async function uploadBiaFile(input: {
     await removeBiaFile(storageName).catch(() => undefined);
     throw error;
   }
+
+  // Berkas sudah tercatat: kegagalan menulis audit tidak boleh menghapus berkasnya atau menyebut unggahan gagal.
+  // Barisnya sendiri menyimpan siapa yang mengunggah dan kapan.
+  await recordAudit({
+    actor,
+    action: "bia.upload",
+    entity: "BiaMeasurement",
+    entityId: saved.measurementId,
+    summary: `${appointment.code} · ${originalName}`,
+  }).catch((error) => console.error("Gagal mencatat audit unggahan BIA", saved.fileId, error));
+  return saved;
 }

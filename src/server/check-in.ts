@@ -250,8 +250,10 @@ export async function mergeDuplicatePatient(input: { appointmentId: string; nik:
     const moved = await prisma.$transaction(async (tx) => {
       const appointments = await tx.appointment.updateMany({ where: { patientId: duplicate.id }, data: { patientId: owner.id } });
       const intakes = await tx.intake.updateMany({ where: { patientId: duplicate.id }, data: { patientId: owner.id } });
+      // Hasil BIA menyimpan id pasien sendiri; tanpa ini ia tertinggal di pasien rangkap dan hilang dari riwayat dan grafik.
+      const bia = await tx.biaMeasurement.updateMany({ where: { patientId: duplicate.id }, data: { patientId: owner.id } });
       await tx.patient.update({ where: { id: duplicate.id }, data: { mergedIntoId: owner.id } });
-      return { appointments: appointments.count, intakes: intakes.count };
+      return { appointments: appointments.count, intakes: intakes.count, bia: bia.count };
     });
 
     await recordAudit({
@@ -259,7 +261,7 @@ export async function mergeDuplicatePatient(input: { appointmentId: string; nik:
       action: "patient.merge-duplicate",
       entity: "Patient",
       entityId: owner.id,
-      summary: `${duplicate.medicalRecordNumber} → ${owner.medicalRecordNumber}: ${moved.appointments} booking, ${moved.intakes} isian`,
+      summary: `${duplicate.medicalRecordNumber} → ${owner.medicalRecordNumber}: ${moved.appointments} booking, ${moved.intakes} isian${moved.bia > 0 ? `, ${moved.bia} hasil BIA` : ""}`,
     });
     safeRevalidatePath("/admin/booking");
     safeRevalidatePath("/admin/pasien");

@@ -32,7 +32,7 @@ export function BiaHistoryTable({ items }: { items: BiaMeasurementView[] }) {
           {items.map((item) => (
             <TableRow key={item.id} sx={item.voided ? { opacity: 0.7 } : undefined}>
               <TableCell>
-                {formatIndonesianDate(item.createdAt)}
+                {formatIndonesianDate(item.visitAt)}
                 {item.voided && <div>Dibatalkan: {item.voided.reason}</div>}
               </TableCell>
               <TableCell sx={{ fontFamily: "ui-monospace, monospace", fontSize: "0.75rem" }}>{item.appointmentCode}</TableCell>

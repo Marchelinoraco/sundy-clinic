@@ -6,6 +6,7 @@ export function biaMeasurement(patch: Partial<BiaMeasurementView> = {}): BiaMeas
     id: "m1",
     version: 1,
     createdAt: new Date("2026-10-09T02:40:00Z"),
+    visitAt: new Date("2026-10-09T02:30:00Z"),
     createdByName: "Rina",
     appointmentId: "a1",
     appointmentCode: "SDY-8F3K",

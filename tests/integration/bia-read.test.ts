@@ -79,6 +79,24 @@ describe("pembacaan hasil BIA", () => {
     expect(history.items.length).toBeGreaterThanOrEqual(2);
   });
 
+  it("grafik dan riwayat memakai tanggal kunjungan, bukan waktu pengukuran dibuat: pengukuran koreksi tidak mengubah urutan", async () => {
+    const visits = await prisma.appointment.findMany({ where: { id: { in: [first, second] } }, select: { id: true, startAt: true } });
+    const startOf = (id: string) => visits.find((v) => v.id === id)!.startAt;
+    expect(startOf(first).getTime()).toBeLessThan(startOf(second).getTime());
+    // Kunjungan pertama diukur ulang (koreksi) belakangan, setelah kunjungan kedua.
+    await create(second, { bodyFatPercent: 30, muscleMassKg: 41, numbersAt: new Date(), numbersById: "s", numbersByName: "x", createdAt: new Date("2031-04-01T03:00:00Z") });
+    await create(first, { bodyFatPercent: 32, muscleMassKg: 40, numbersAt: new Date(), numbersById: "s", numbersByName: "x", createdAt: new Date("2031-04-20T03:00:00Z") });
+
+    const history = await getBiaHistory(world.patientId);
+    expect(history.points.map((p) => [p.bodyFatPercent, p.at.getTime()])).toEqual([
+      [32, startOf(first).getTime()],
+      [30, startOf(second).getTime()],
+    ]);
+    expect(history.items.map((m) => m.visitAt.getTime())).toEqual([startOf(second).getTime(), startOf(first).getTime()]);
+    const visit = await getBiaForVisit(second);
+    expect(visit.points.map((p) => p.bodyFatPercent)).toEqual([32, 30]);
+  });
+
   it("resepsionis tidak boleh membaca", async () => {
     actor.role = "RESEPSIONIS";
     await expect(getBiaForVisit(first)).rejects.toThrow("forbidden: record:read");
