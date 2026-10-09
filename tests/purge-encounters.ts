@@ -1,7 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 
-// FoodRecall lebih dulu: trigger kuncinya membaca status kunjungan.
-const TABLES = ['"FoodRecall"', '"EncounterAddendum"', '"EncounterTreatment"', '"Encounter"'] as const;
+// BiaFile lalu BiaMeasurement lebih dulu: keduanya merujuk booking. FoodRecall sebelum kunjungan: trigger kuncinya membaca status kunjungan.
+const TABLES = ['"BiaFile"', '"BiaMeasurement"', '"FoodRecall"', '"EncounterAddendum"', '"EncounterTreatment"', '"Encounter"'] as const;
 
 /**
  * Menghapus semua kunjungan di basis data UJI. Kunjungan final dikunci trigger

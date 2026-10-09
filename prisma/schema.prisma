@@ -345,6 +345,7 @@ model PatientNumberCounter {
 /// Tidak terikat cabang — pasien yang pindah cabang tetap satu rekam medis.
 model Patient {
   invoices            Invoice[]
+  biaMeasurements     BiaMeasurement[]
   id                  String               @id @default(cuid())
   medicalRecordNumber String               @unique
   name                String
@@ -456,12 +457,13 @@ model Appointment {
 
   /// Salinan biaya booking (rupiah) saat booking dibuat. Kosong untuk walk-in.
   /// Perubahan pengaturan tidak mengubah booking lama.
-  bookingFee  Int?
-  intake      Intake?
-  encounter   Encounter?
-  foodRecall  FoodRecall?
+  bookingFee      Int?
+  intake          Intake?
+  encounter       Encounter?
+  biaMeasurements BiaMeasurement[]
+  foodRecall      FoodRecall?
   /// Jam check-in di meja depan (spec rekam medis bagian 2).
-  checkedInAt DateTime?
+  checkedInAt     DateTime?
 
   /// KLINIK: kunjungan ke klinik yang mengunci satu slot. ONLINE: konsultasi lewat
   /// WhatsApp berdasarkan rentang waktu luang customer, tanpa slot (spec konsultasi online 3.1).
@@ -1226,4 +1228,69 @@ model RecurringExpense {
   createdAt     DateTime @default(now())
 
   expenses Expense[]
+}
+
+/// Satu pengukuran Timbang BIA untuk satu booking klinik (spec hasil BIA 3.1). Hanya satu yang aktif per booking
+/// (indeks unik sebagian di migrasi). Dibatalkan, tidak dihapus.
+model BiaMeasurement {
+  id            String      @id @default(cuid())
+  appointmentId String
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
+  patientId     String
+  patient       Patient     @relation(fields: [patientId], references: [id], onDelete: Restrict)
+
+  bodyFatPercent   Decimal? @db.Decimal(4, 1)
+  muscleMassKg     Decimal? @db.Decimal(5, 1)
+  visceralFat      Int?
+  bmr              Int?
+  metabolicAge     Int?
+  bodyWaterPercent Decimal? @db.Decimal(4, 1)
+  boneMassKg       Decimal? @db.Decimal(3, 1)
+  note             String?
+
+  /// Siapa dan kapan angka terakhir disimpan; `numbersAt` kosong = angka belum pernah diisi.
+  numbersById   String?
+  numbersByName String?
+  numbersAt     DateTime?
+  /// Naik tiap angka disimpan; simpan dengan versi lama ditolak.
+  version       Int       @default(1)
+
+  /// Id dan nama staf disalin tanpa relasi (seperti Encounter) agar catatan tetap terbaca bila staf dinonaktifkan.
+  createdById   String
+  createdByName String
+  voidedAt      DateTime?
+  voidedById    String?
+  voidedByName  String?
+  voidReason    String?
+
+  files BiaFile[]
+
+  createdAt DateTime @default(now())
+
+  @@index([patientId, createdAt])
+  @@index([appointmentId])
+}
+
+/// Satu berkas hasil BIA (foto/PDF) milik satu pengukuran. Isinya di disk (`PATIENT_FILES_DIR/bia/<storageName>`).
+model BiaFile {
+  id            String         @id @default(cuid())
+  measurementId String
+  measurement   BiaMeasurement @relation(fields: [measurementId], references: [id], onDelete: Restrict)
+
+  /// Jalur relatif di bawah `bia/`: `<tahun>/<bulan>/<uuid>.<ext>`. Acak; nama asli tidak dipakai di disk.
+  storageName  String @unique
+  originalName String
+  mimeType     String
+  sizeBytes    Int
+  sha256       String
+
+  uploadedById   String
+  uploadedByName String
+  uploadedAt     DateTime  @default(now())
+  voidedAt       DateTime?
+  voidedById     String?
+  voidedByName   String?
+  voidReason     String?
+
+  @@index([measurementId])
 }

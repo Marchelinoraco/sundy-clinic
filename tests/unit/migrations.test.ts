@@ -148,3 +148,19 @@ describe("migrasi indeks laporan", () => {
     }
   });
 });
+
+describe("migrasi hasil BIA", () => {
+  const sql = readFileSync("prisma/migrations/20261009120000_hasil_bia/migration.sql", "utf8");
+
+  it("hanya menambah: tanpa DROP", () => {
+    expect(sql).not.toMatch(/\bDROP\b/i);
+  });
+
+  it("menjaga rentang angka, pembatalan, ukuran berkas, satu pengukuran aktif, dan kunci setelah final", () => {
+    for (const name of ["bia_body_fat_range", "bia_muscle_range", "bia_visceral_range", "bia_bmr_range", "bia_metabolic_age_range", "bia_water_range", "bia_bone_range", "bia_void_fields", "bia_file_void_fields", "bia_file_size"]) {
+      expect(sql).toContain(name);
+    }
+    expect(sql).toMatch(/CREATE UNIQUE INDEX "BiaMeasurement_one_active_per_appointment"[\s\S]*WHERE "voidedAt" IS NULL/);
+    expect(sql).toMatch(/CREATE TRIGGER bia_numbers_locked/);
+  });
+});
