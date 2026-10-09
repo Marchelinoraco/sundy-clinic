@@ -18,3 +18,7 @@ export function parseStaffRole(value: string | undefined): StaffRole | null {
   const role = value.trim().toUpperCase();
   return (ROLES as string[]).includes(role) ? (role as StaffRole) : null;
 }
+
+export function isStaffRole(value: unknown): value is StaffRole {
+  return typeof value === "string" && (ROLES as string[]).includes(value);
+}

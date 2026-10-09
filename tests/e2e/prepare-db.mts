@@ -63,6 +63,14 @@ async function ensureAccount(
   await prisma.user.update({ where: { id: created.user.id }, data: { staffId: staff.id } });
 }
 
+// Akun yang dibuat kelola-staf.spec.ts di putaran sebelumnya (email e2e-staf-…): dihapus agar tidak menumpuk.
+const staleUsers = await prisma.user.findMany({ where: { email: { startsWith: "e2e-staf-" } }, select: { id: true, staffId: true } });
+const staleIds = staleUsers.map((u) => u.id);
+await prisma.session.deleteMany({ where: { userId: { in: staleIds } } });
+await prisma.account.deleteMany({ where: { userId: { in: staleIds } } });
+await prisma.user.deleteMany({ where: { id: { in: staleIds } } });
+await prisma.staff.deleteMany({ where: { id: { in: staleUsers.flatMap((u) => (u.staffId ? [u.staffId] : [])) } } });
+
 await ensureAccount(E2E_ADMIN, "staf-e2e", "SUPER_ADMIN");
 await ensureAccount(E2E_RESEPSIONIS, "resepsionis-e2e", "RESEPSIONIS");
 await ensureAccount(E2E_APOTEKER, "apoteker-e2e", "APOTEKER");

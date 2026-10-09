@@ -11,6 +11,14 @@ const ACTION_LABEL: Record<string, string> = {
   "bia.void": "membatalkan pengukuran BIA",
   "bia.file.void": "membatalkan berkas BIA",
   "bia.view": "membuka berkas BIA",
+  "staff.create": "menambah staf",
+  "staff.update": "mengubah data staf",
+  "staff.activate": "mengaktifkan staf",
+  "staff.deactivate": "menonaktifkan staf",
+  "staff.account.create": "membuat akun staf",
+  "staff.account.reset": "mereset kata sandi staf",
+  "staff.account.email": "mengganti email staf",
+  "staff.password.change": "mengganti kata sandi sendiri",
 };
 
 const ROLE_LABEL: Record<string, string> = {

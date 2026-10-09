@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { SignInForm } from "@/components/admin/sign-in-form";
 import { CLINIC_FULL_NAME } from "@/lib/clinic";
-import { getCurrentStaff } from "@/server/session";
+import { getCurrentStaff, getPendingPasswordChange } from "@/server/session";
 
 export const metadata: Metadata = {
   title: "Masuk",
@@ -14,6 +14,8 @@ export const metadata: Metadata = {
 };
 
 export default async function SignInPage() {
+  // Akun yang wajib ganti kata sandi tidak dianggap login; arahkan ke halaman penggantiannya, bukan memperlihatkan formulir masuk lagi.
+  if (await getPendingPasswordChange()) redirect("/ganti-kata-sandi");
   if (await getCurrentStaff()) redirect("/admin");
 
   return (
