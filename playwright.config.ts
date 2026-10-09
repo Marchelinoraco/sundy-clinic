@@ -44,6 +44,8 @@ export default defineConfig({
       // Semua permintaan uji datang dari satu alamat; tanpa ini pembatas laju
       // situs publik menolak uji kedua dan seterusnya.
       RATE_LIMIT_DISABLED: "1",
+      // Berkas hasil BIA dari uji ditulis di sini, bukan ke folder server.
+      PATIENT_FILES_DIR: `${process.cwd()}/.playwright/bia-files`,
     },
   },
 });
