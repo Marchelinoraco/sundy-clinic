@@ -158,4 +158,13 @@ describe("aksi hasil BIA", () => {
     actor.role = "APOTEKER";
     await expect(listBiaUploads(hadir)).rejects.toThrow("forbidden: bia:upload");
   });
+
+  it("masukan yang tidak berbentuk benar mendapat pesan jelas, bukan galat umum", async () => {
+    const id = await measurementFor(hadir);
+    const expected = { ok: false, error: "Isian angka BIA tidak lengkap. Muat ulang halaman." };
+    expect(await saveBiaNumbers({ measurementId: id, version: 1, numbers: null as never, note: "" })).toEqual(expected);
+    expect(await saveBiaNumbers({ measurementId: id, version: "x" as never, numbers: numbers(), note: "" })).toEqual(expected);
+    expect(await saveBiaNumbers({ measurementId: id, version: 1.5, numbers: numbers(), note: "" })).toEqual(expected);
+    expect(await voidBiaMeasurement({ measurementId: undefined as never, reason: "Alasan" })).toEqual({ ok: false, error: "Pengukuran tidak ditemukan." });
+  });
 });

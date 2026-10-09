@@ -69,6 +69,31 @@ test("resepsionis mengunggah hasil BIA dari daftar booking; dokter membuka, meng
   await doctor.getByRole("tab", { name: "Tren" }).click();
   await expect(doctor.getByRole("img", { name: "Grafik komposisi tubuh" })).toBeVisible();
 
+  // Setelah kunjungan final angka terkunci: hanya bisa dibatalkan, lalu diisi ulang sekali (spec hasil BIA 3.3).
+  await doctor.getByLabel("Penilaian / diagnosis").fill("Obesitas derajat 1");
+  await doctor.getByRole("button", { name: "Finalisasi" }).click();
+  await doctor.getByRole("alertdialog").getByRole("button", { name: "Finalisasi" }).click();
+  await expect(doctor.getByRole("button", { name: "Finalisasi" })).toHaveCount(0, { timeout: 30_000 });
+  await doctor.getByRole("tab", { name: "BIA" }).click();
+  const finalPanel = doctor.getByRole("tabpanel", { name: "BIA" });
+  await expect(finalPanel.getByText("28,5 %")).toBeVisible();
+  await expect(finalPanel.getByRole("button", { name: "Simpan angka BIA" })).toHaveCount(0);
+
+  await finalPanel.getByRole("button", { name: "Batalkan pengukuran" }).click();
+  const confirm = doctor.getByRole("alertdialog", { name: "Batalkan pengukuran BIA ini?" });
+  await confirm.getByLabel("Alasan pembatalan").fill("Salah timbang");
+  await confirm.getByRole("button", { name: "Batalkan pengukuran" }).click();
+  await finalPanel.getByRole("button", { name: "Isi angka tanpa berkas" }).click();
+  await finalPanel.getByLabel("Lemak tubuh (%)").fill("27,5");
+  await finalPanel.getByRole("button", { name: "Simpan angka BIA" }).click();
+  await expect(doctor.getByText("Angka BIA tersimpan.")).toBeVisible({ timeout: 30_000 });
+  // Sudah tersimpan sekali setelah final: terkunci lagi.
+  await doctor.reload();
+  await tungguHidrasi(doctor);
+  await doctor.getByRole("tab", { name: "BIA" }).click();
+  await expect(doctor.getByRole("tabpanel", { name: "BIA" }).getByText("27,5 %")).toBeVisible();
+  await expect(doctor.getByRole("tabpanel", { name: "BIA" }).getByRole("button", { name: "Simpan angka BIA" })).toHaveCount(0);
+
   // Tidak ada gulir mendatar halaman (terutama di ponsel).
   const overflow = await doctor.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);

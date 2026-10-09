@@ -57,6 +57,12 @@ describe("angka BIA", () => {
     expect(parseBiaInput({ ...EMPTY_BIA_INPUT, bmr: "1450" }, "x".repeat(501))).toEqual({ ok: false, message: "Catatan paling banyak 500 karakter." });
   });
 
+  it("isian yang bukan objek ditolak dengan pesan jelas, tanpa galat", () => {
+    for (const bad of [undefined, null, "x", 5]) {
+      expect(parseBiaInput(bad as never, "")).toEqual({ ok: false, message: "Isian angka BIA tidak lengkap. Muat ulang halaman." });
+    }
+  });
+
   it("menulis angka kembali ke isian dengan koma desimal, dan label memuat satuan", () => {
     expect(biaInputValue("bodyFatPercent", 28.5)).toBe("28,5");
     expect(biaInputValue("visceralFat", 9)).toBe("9");

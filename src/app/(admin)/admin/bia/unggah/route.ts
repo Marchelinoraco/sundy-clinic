@@ -8,10 +8,13 @@ export const dynamic = "force-dynamic";
 
 const json = (body: { ok: true; fileId: string } | { ok: false; error: string }, status: number) => Response.json(body, { status });
 
-/** Asal permintaan harus situs ini sendiri (cookie sesi saja tidak cukup bagi rute yang menulis). */
+/**
+ * Asal permintaan harus situs ini sendiri (cookie sesi saja tidak cukup bagi rute yang menulis). Hanya header `host`
+ * yang dipakai: nginx mengisinya dari `$host`, sedangkan `x-forwarded-host` bisa dikirim klien.
+ */
 function sameOrigin(request: Request): boolean {
   const origin = request.headers.get("origin");
-  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+  const host = request.headers.get("host");
   if (!origin || !host) return false;
   try {
     return new URL(origin).host === host;
@@ -26,6 +29,12 @@ export async function POST(request: Request): Promise<Response> {
   if (!staff) return json({ ok: false, error: "Masuk dulu." }, 401);
   if (!can(staff.role, "bia:upload")) return json({ ok: false, error: "Anda tidak berhak mengunggah hasil BIA." }, 403);
   if (!sameOrigin(request)) return json({ ok: false, error: "Permintaan tidak sah." }, 403);
+
+  // Tolak sebelum isinya dibaca ke memori: batas nginx 20 MB, sedangkan satu berkas paling besar 10 MB (+ sedikit ruang untuk bidang formulir).
+  const declaredLength = Number(request.headers.get("content-length"));
+  if (Number.isFinite(declaredLength) && declaredLength > BIA_MAX_BYTES + 512 * 1024) {
+    return json({ ok: false, error: "Berkas terlalu besar (maks. 10 MB)." }, 413);
+  }
 
   let form: FormData;
   try {

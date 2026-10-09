@@ -164,3 +164,18 @@ describe("migrasi hasil BIA", () => {
     expect(sql).toMatch(/CREATE TRIGGER bia_numbers_locked/);
   });
 });
+
+describe("migrasi pemicu BIA yang lebih ketat", () => {
+  const sql = readFileSync("prisma/migrations/20261009160000_bia_pemicu_ketat/migration.sql", "utf8");
+
+  it("hanya mengganti fungsi pemicu: tanpa DROP", () => {
+    expect(sql).not.toMatch(/\bDROP\b/i);
+    expect(sql).toMatch(/CREATE OR REPLACE FUNCTION bia_numbers_locked/);
+  });
+
+  it("mengunci numbersAt dan pengisinya setelah final, dan menolak pembatalan dibuka lagi", () => {
+    expect(sql).toMatch(/NEW\."numbersAt" IS DISTINCT FROM OLD\."numbersAt"/);
+    expect(sql).toMatch(/OLD\."voidedAt" IS NOT NULL AND NEW\."voidedAt" IS NULL/);
+  });
+});
+

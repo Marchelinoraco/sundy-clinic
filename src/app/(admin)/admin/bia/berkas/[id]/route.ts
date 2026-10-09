@@ -39,6 +39,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       "Content-Disposition": contentDisposition(file.originalName, forceDownload ? "attachment" : "inline"),
       "X-Content-Type-Options": "nosniff",
       "Cache-Control": "private, no-store",
+      // Gambar tidak perlu menjalankan apa pun. PDF sengaja tanpa CSP: penampil PDF bawaan peramban bisa rusak karenanya.
+      ...(file.mimeType.startsWith("image/") ? { "Content-Security-Policy": "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'" } : {}),
     },
   });
 }

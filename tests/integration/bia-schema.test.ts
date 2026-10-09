@@ -107,4 +107,15 @@ describe("skema hasil BIA", () => {
     const updated = await prisma.biaMeasurement.update({ where: { id: m.id }, data: { bodyFatPercent: 29, version: { increment: 1 } } });
     expect(Number(updated.bodyFatPercent)).toBe(29);
   });
+
+  it("setelah SELESAI numbersAt dan pengisinya juga terkunci, dan pembatalan tidak bisa dibuka lagi", async () => {
+    const filled = await measurement({ bodyFatPercent: 30, numbersAt: new Date(), numbersById: "s1", numbersByName: "Uji" }, selesai);
+    await expect(prisma.biaMeasurement.update({ where: { id: filled.id }, data: { numbersAt: null } })).rejects.toThrow(/bia_terkunci/);
+    await expect(prisma.biaMeasurement.update({ where: { id: filled.id }, data: { numbersByName: "Orang lain" } })).rejects.toThrow(/bia_terkunci/);
+
+    const voided = await measurement({ voidedAt: new Date(), voidedById: "s1", voidedByName: "Uji", voidReason: "Salah" });
+    await expect(
+      prisma.biaMeasurement.update({ where: { id: voided.id }, data: { voidedAt: null, voidedById: null, voidedByName: null, voidReason: null } }),
+    ).rejects.toThrow(/bia_terkunci/);
+  });
 });

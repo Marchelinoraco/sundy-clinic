@@ -20,6 +20,9 @@ function uploadDenial(role: CurrentStaff["role"], appointment: AppointmentForBia
 
 type Tx = Prisma.TransactionClient;
 
+/** Pengukuran yang dipilih ternyata baru dibatalkan oleh transaksi lain; ulang dari awal agar berkas masuk ke pengukuran yang aktif. */
+class MeasurementVoidedMidUpload extends Error {}
+
 /** Pengukuran aktif booking ini; dibuat bila belum ada. Dua pembuatan serentak: yang kalah kena indeks unik dan diulang oleh pemanggil. */
 export async function ensureActiveMeasurement(
   tx: Tx,
@@ -69,9 +72,16 @@ export async function uploadBiaFile(input: {
     for (let attempt = 0; ; attempt += 1) {
       try {
         saved = await prisma.$transaction(async (tx) => {
+          // Kunci bersama pada booking: finalisasi (yang mengubah status) menunggu sampai unggahan ini selesai atau sebaliknya,
+          // sehingga status yang diperiksa di sini tidak basi. Pemeriksaan di atas hanya penyaring awal tanpa kunci.
+          const [current] = await tx.$queryRaw<{ status: string }[]>`SELECT "status"::text AS "status" FROM "Appointment" WHERE "id" = ${appointment.id} FOR SHARE`;
+          const now = { status: current?.status ?? appointment.status, channel: appointment.channel };
+          if (!biaAccess(actor.role, now).upload) throw new UserFacingError(uploadDenial(actor.role, now));
+
           const measurementId = await ensureActiveMeasurement(tx, { appointmentId: appointment.id, patientId, actor });
-          await tx.$queryRaw`SELECT "id" FROM "BiaMeasurement" WHERE "id" = ${measurementId} FOR UPDATE`;
-          if (appointment.status === "SELESAI") {
+          const locked = await tx.$queryRaw<{ id: string }[]>`SELECT "id" FROM "BiaMeasurement" WHERE "id" = ${measurementId} AND "voidedAt" IS NULL FOR UPDATE`;
+          if (locked.length === 0) throw new MeasurementVoidedMidUpload();
+          if (now.status === "SELESAI") {
             // Setelah final, berkas hanya boleh masuk ke pengukuran koreksi yang angkanya belum tersimpan (spec 3.3).
             const current = await tx.biaMeasurement.findUniqueOrThrow({ where: { id: measurementId }, select: { numbersAt: true } });
             if (current.numbersAt) throw new UserFacingError("Kunjungan sudah final dan angka BIA sudah tersimpan. Batalkan pengukuran lalu tambah yang baru.");
@@ -96,7 +106,8 @@ export async function uploadBiaFile(input: {
         break;
       } catch (error) {
         // Dua unggahan pertama serentak: yang kalah membuat pengukuran kedua dan kena indeks unik; ulang sekali, kini pengukurannya ada.
-        if (isUniqueViolation(error) && attempt === 0) continue;
+        // Pengukuran yang baru dibatalkan di tengah unggahan: ulang sekali, kini terpilih pengukuran baru.
+        if ((isUniqueViolation(error) || error instanceof MeasurementVoidedMidUpload) && attempt === 0) continue;
         throw error;
       }
     }

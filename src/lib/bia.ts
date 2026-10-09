@@ -81,6 +81,8 @@ export function parseBiaNumber(spec: BiaFieldSpec, raw: string): Parsed<number |
 
 /** Seluruh isian: pesan pertama yang ditemukan dikembalikan apa adanya ke pengguna. */
 export function parseBiaInput(input: BiaInput, note: string): Parsed<{ numbers: BiaNumbers; note: string | null }> {
+  // Klien lama atau permintaan yang dibuat tangan bisa mengirim bentuk lain; jangan sampai jadi galat umum.
+  if (typeof input !== "object" || input === null) return fail("Isian angka BIA tidak lengkap. Muat ulang halaman.");
   const numbers: BiaNumbers = { ...EMPTY_BIA_NUMBERS };
   for (const spec of BIA_FIELDS) {
     const parsed = parseBiaNumber(spec, input[spec.key] ?? "");
