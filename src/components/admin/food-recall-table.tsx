@@ -1,5 +1,12 @@
 "use client";
 
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
 import { useState } from "react";
 import { foodRecallRows, type FoodRecallEntry } from "@/lib/food-recall";
 
@@ -8,39 +15,46 @@ export function FoodRecallTable({ entries, label }: { entries: readonly FoodReca
   const [showAll, setShowAll] = useState(false);
   const rows = foodRecallRows(entries).filter((row) => showAll || row.entries.length > 0);
   return (
-    <div className="space-y-2">
-      <table aria-label={label} className="w-full text-sm">
-        <thead>
-          <tr className="border-b text-left text-muted-foreground">
-            <th className="w-16 py-1">Jam</th>
-            <th className="py-1">Catatan</th>
-          </tr>
-        </thead>
-        <tbody>
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+      <Table size="small" aria-label={label}>
+        <TableHead>
+          <TableRow>
+            <TableCell sx={{ width: 64 }}>Jam</TableCell>
+            <TableCell>Catatan</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
           {rows.map((row) => (
-            <tr key={row.hour} className="border-b align-top">
-              <td className="py-1 tabular-nums text-muted-foreground">{row.label}</td>
-              <td className="py-1">
+            <TableRow key={row.hour}>
+              <TableCell sx={{ verticalAlign: "top", fontVariantNumeric: "tabular-nums", color: "text.secondary" }}>{row.label}</TableCell>
+              <TableCell sx={{ verticalAlign: "top" }}>
                 {row.entries.map((entry, index) => (
-                  <span key={index} className="mr-2 inline-block">
-                    <span className="text-muted-foreground">{entry.kindLabel}:</span> {entry.text}
+                  <Box component="span" key={index} sx={{ mr: 1, display: "inline-block" }}>
+                    <Box component="span" sx={{ color: "text.secondary" }}>
+                      {entry.kindLabel}:
+                    </Box>{" "}
+                    {entry.text}
                     {entry.byDoctor && (
-                      <span className="ml-1 rounded bg-sky-50 px-1 text-xs text-sky-800">dilengkapi dokter</span>
+                      <Box component="span" sx={{ ml: 0.5, borderRadius: 1, px: 0.5, fontSize: "0.75rem", color: "info.main", bgcolor: "rgba(var(--mui-palette-info-mainChannel) / 0.12)" }}>
+                        dilengkapi dokter
+                      </Box>
                     )}
-                  </span>
+                  </Box>
                 ))}
-              </td>
-            </tr>
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
-      <button
+        </TableBody>
+      </Table>
+      <Button
         type="button"
-        className="text-xs text-muted-foreground underline underline-offset-4"
+        variant="text"
+        size="small"
+        sx={{ alignSelf: "flex-start", px: 0, minWidth: 0, fontSize: "0.75rem", color: "text.secondary", textDecoration: "underline" }}
         onClick={() => setShowAll((value) => !value)}
       >
         {showAll ? "Sembunyikan jam kosong" : "Tampilkan 06.00–22.00"}
-      </button>
-    </div>
+      </Button>
+    </Box>
   );
 }

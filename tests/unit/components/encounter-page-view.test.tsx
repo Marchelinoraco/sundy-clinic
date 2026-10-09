@@ -1,9 +1,10 @@
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { EncounterPageView } from "@/components/admin/encounter-page-view";
 import { emptyDraftInput } from "@/lib/encounter";
 import { encounterDetail, historyItem } from "../../fixtures/encounter-detail";
+import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -31,7 +32,7 @@ const final = encounterDetail({
 
 describe("EncounterPageView", () => {
   it("kepala satu baris dan peringatan di kolom kiri", () => {
-    render(<EncounterPageView encounter={encounterDetail()} canWrite />);
+    renderAdmin(<EncounterPageView encounter={encounterDetail()} canWrite />);
     expect(screen.getByRole("heading", { name: "Siti Rahayu" })).toBeInTheDocument();
     expect(screen.getByText(/SDY-2026-0001 · 34 tahun · Perempuan · .*SunDY Mahakeret/)).toBeInTheDocument();
     const aside = screen.getByRole("complementary", { name: "Konteks kunjungan" });
@@ -42,14 +43,14 @@ describe("EncounterPageView", () => {
   });
 
   it("draf untuk penulis: formulir di kolom kanan dengan bar aksi, tanpa bagian adendum", () => {
-    render(<EncounterPageView encounter={encounterDetail()} canWrite />);
+    renderAdmin(<EncounterPageView encounter={encounterDetail()} canWrite />);
     expect(screen.getByLabelText("Keluhan dan anamnesis dokter")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Finalisasi" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Adendum" })).not.toBeInTheDocument();
   });
 
   it("final: baca-saja, adendum, dan bar 'Final · difinalisasi oleh'", () => {
-    render(<EncounterPageView encounter={final} canWrite />);
+    renderAdmin(<EncounterPageView encounter={final} canWrite />);
     expect(screen.queryByLabelText("Keluhan dan anamnesis dokter")).not.toBeInTheDocument();
     expect(screen.getByText("Tekanan darah: 120/80 mmHg")).toBeInTheDocument();
     expect(screen.getByRole("cell", { name: "Meso" })).toBeInTheDocument();
@@ -60,11 +61,11 @@ describe("EncounterPageView", () => {
   });
 
   it("jejak catatan hanya tampil bila diberikan (Super Admin)", () => {
-    const { unmount } = render(<EncounterPageView encounter={final} canWrite />);
+    const { unmount } = renderAdmin(<EncounterPageView encounter={final} canWrite />);
     expect(screen.queryByText("Jejak catatan ini")).not.toBeInTheDocument();
     unmount();
 
-    render(
+    renderAdmin(
       <EncounterPageView
         encounter={{ ...final, trail: [{ id: "t1", at: new Date("2026-10-01T08:00:00Z"), actorName: "dr. Diane", roleLabel: "Dokter", actionLabel: "memfinalisasi" }] }}
         canWrite
@@ -74,7 +75,7 @@ describe("EncounterPageView", () => {
   });
 
   it("mengetik berat langsung mengubah baris Kunjungan ini di tab Tren", async () => {
-    render(<EncounterPageView encounter={encounterDetail({ history: [historyItem()] })} canWrite />);
+    renderAdmin(<EncounterPageView encounter={encounterDetail({ history: [historyItem()] })} canWrite />);
     await userEvent.type(screen.getByLabelText("Berat badan (kg)"), "72,5");
     await userEvent.click(screen.getByRole("tab", { name: "Tren" }));
     const rows = within(screen.getByRole("table", { name: "Tren tanda vital" })).getAllByRole("row");
@@ -83,7 +84,7 @@ describe("EncounterPageView", () => {
   });
 
   it("memuat ulang halaman (mis. setelah persetujuan isian) tidak menghapus ketikan yang belum tersimpan", async () => {
-    const { rerender } = render(<EncounterPageView encounter={encounterDetail()} canWrite />);
+    const { rerender } = renderAdmin(<EncounterPageView encounter={encounterDetail()} canWrite />);
     await userEvent.type(screen.getByLabelText("Penilaian / diagnosis"), "Obesitas");
     rerender(
       <EncounterPageView
@@ -110,7 +111,7 @@ describe("EncounterPageView", () => {
         completedByName: null,
       },
     });
-    render(<EncounterPageView encounter={encounter} canWrite />);
+    renderAdmin(<EncounterPageView encounter={encounter} canWrite />);
     expect(screen.getByRole("tab", { name: "Food recall" })).toHaveAttribute("aria-selected", "true");
     await user.click(screen.getByRole("button", { name: "Salin ke S" }));
     expect(screen.getByLabelText("Keluhan dan anamnesis dokter")).toHaveValue(
@@ -132,14 +133,14 @@ describe("EncounterPageView", () => {
         completedByName: null,
       },
     });
-    render(<EncounterPageView encounter={encounterDetail({ history: [visit] })} canWrite />);
+    renderAdmin(<EncounterPageView encounter={encounterDetail({ history: [visit] })} canWrite />);
     await user.click(screen.getByRole("tab", { name: "Sebelumnya" }));
     expect(screen.getByText("Food recall Selasa, 22 September")).toBeInTheDocument();
   });
 
   it("konsultasi online diberi label di kepala halaman dan Online (WhatsApp) di tempat cabang", () => {
     const base = encounterDetail();
-    render(
+    renderAdmin(
       <EncounterPageView
         encounter={{ ...base, appointment: { ...base.appointment, channel: "ONLINE", branchName: "Online (WhatsApp)" } }}
         canWrite
@@ -150,7 +151,7 @@ describe("EncounterPageView", () => {
   });
 
   it("kunjungan klinik tidak berlabel konsultasi online", () => {
-    render(<EncounterPageView encounter={encounterDetail()} canWrite />);
+    renderAdmin(<EncounterPageView encounter={encounterDetail()} canWrite />);
     expect(screen.queryByText("Konsultasi online", { exact: true })).not.toBeInTheDocument();
   });
 });

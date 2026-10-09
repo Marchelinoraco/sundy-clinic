@@ -1,9 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { QuizLinkDialog } from "@/components/admin/quiz-link-dialog";
 import { recordAppointmentMessage } from "@/server/appointment-message";
 import { getQuizLink, rotateQuizLink } from "@/server/quiz-link-admin";
+import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/server/quiz-link-admin", () => ({ getQuizLink: vi.fn(), rotateQuizLink: vi.fn() }));
@@ -19,7 +20,7 @@ const TARGET = { appointmentId: "a1", code: "SDY-WALK", patientName: "Budi Walki
 
 function renderDialog() {
   const onOpenChange = vi.fn();
-  render(<QuizLinkDialog target={TARGET} open onOpenChange={onOpenChange} />);
+  renderAdmin(<QuizLinkDialog target={TARGET} open onOpenChange={onOpenChange} />);
   return onOpenChange;
 }
 

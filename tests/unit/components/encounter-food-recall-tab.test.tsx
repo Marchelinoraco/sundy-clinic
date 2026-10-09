@@ -1,10 +1,11 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { EncounterFoodRecallTab, type SubjectiveCopy } from "@/components/admin/encounter-food-recall-tab";
 import type { FoodRecallView } from "@/lib/food-recall";
 import { saveFoodRecallByStaff } from "@/server/food-recall-admin";
+import { renderAdmin } from "../helpers/render-admin";
 
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
@@ -34,7 +35,7 @@ function copyStub(has = false, append = true): SubjectiveCopy {
 }
 
 function renderTab(props: Partial<Parameters<typeof EncounterFoodRecallTab>[0]> = {}) {
-  return render(
+  return renderAdmin(
     <EncounterFoodRecallTab foodRecall={FILLED} appointmentCode="SDY-8F3K" patientName="Siti Rahayu" editable copy={copyStub()} {...props} />,
   );
 }

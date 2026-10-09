@@ -1,13 +1,16 @@
 "use client";
 
-import Link from "next/link";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import type { OnlineWorkRow } from "@/server/encounter-read";
 import { recordContactAttempt, startOnlineConsultation } from "@/server/online-consultation";
+import { TextLink } from "./mui/links";
+import { StatusChip } from "./mui/status-chip";
 import { EmptyState, SectionCard } from "./page-layout";
 
 const PHASES = [
@@ -52,43 +55,55 @@ function WorkItem({ row, showDoctor }: { row: OnlineWorkRow; showDoctor: boolean
   }
 
   return (
-    <li className="space-y-2 py-3">
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="font-medium">{row.patientName}</span>
-        <span className="font-mono text-xs text-muted-foreground">
+    <Box component="li" sx={{ display: "flex", flexDirection: "column", gap: 1, py: 1.5 }}>
+      <Stack direction="row" useFlexGap sx={{ flexWrap: "wrap", alignItems: "center", columnGap: 1.5, rowGap: 0.5 }}>
+        <Box component="span" sx={{ fontWeight: 500 }}>
+          {row.patientName}
+        </Box>
+        <Box component="span" sx={{ fontFamily: "ui-monospace, monospace", fontSize: "0.75rem", color: "text.secondary" }}>
           {row.patientRecordNumber} · {row.code}
-        </span>
-        {row.purposeLabel && <Badge variant="outline">{row.purposeLabel}</Badge>}
-        {showDoctor && <span className="text-xs text-muted-foreground">{row.doctorName}</span>}
-      </div>
-      <ul className="space-y-0.5 text-sm">
+        </Box>
+        {row.purposeLabel && <StatusChip label={row.purposeLabel} />}
+        {showDoctor && (
+          <Box component="span" sx={{ fontSize: "0.75rem", color: "text.secondary" }}>
+            {row.doctorName}
+          </Box>
+        )}
+      </Stack>
+      <Box component="ul" sx={{ listStyle: "none", m: 0, p: 0, fontSize: "0.875rem", display: "flex", flexDirection: "column", gap: 0.25 }}>
         {row.windows.map((window) => (
-          <li key={window.label} className={window.current ? "font-medium text-emerald-700" : undefined}>
+          <Box component="li" key={window.label} sx={window.current ? { fontWeight: 500, color: "success.main" } : undefined}>
             • {window.label}
-            {window.current && <span className="ml-2 text-xs">sedang berlangsung</span>}
-          </li>
+            {window.current && (
+              <Box component="span" sx={{ ml: 1, fontSize: "0.75rem" }}>
+                sedang berlangsung
+              </Box>
+            )}
+          </Box>
         ))}
-      </ul>
-      {row.lastAttempt && <p className="text-xs text-muted-foreground">{row.lastAttempt}</p>}
-      <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" onClick={start} disabled={pending}>
+      </Box>
+      {row.lastAttempt && (
+        <Typography variant="caption" component="p" sx={{ color: "text.secondary" }}>
+          {row.lastAttempt}
+        </Typography>
+      )}
+      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
+        <Button size="small" variant="contained" onClick={start} disabled={pending}>
           Mulai konsultasi
         </Button>
-        <Button size="sm" variant="outline" onClick={notReached} disabled={pending}>
+        <Button size="small" variant="outlined" onClick={notReached} disabled={pending}>
           Tidak terhubung
         </Button>
-        <Button size="sm" variant="outline" asChild>
-          <a href={row.whatsappLink} target="_blank" rel="noopener noreferrer">
-            WhatsApp {row.whatsapp}
-          </a>
+        <Button size="small" variant="outlined" component="a" href={row.whatsappLink} target="_blank" rel="noopener noreferrer">
+          WhatsApp {row.whatsapp}
         </Button>
         {row.intakeId && (
-          <Link href={`/admin/isian/${row.intakeId}`} className="text-sm underline underline-offset-4">
+          <TextLink href={`/admin/isian/${row.intakeId}`} underline="always" sx={{ fontSize: "0.875rem" }}>
             Lihat isian
-          </Link>
+          </TextLink>
         )}
-      </div>
-    </li>
+      </Stack>
+    </Box>
   );
 }
 
@@ -104,22 +119,24 @@ export function OnlineWorkView({ rows }: { rows: OnlineWorkRow[] }) {
       {rows.length === 0 ? (
         <EmptyState>Tidak ada konsultasi online yang menunggu.</EmptyState>
       ) : (
-        <div className="space-y-4">
+        <Stack spacing={2}>
           {PHASES.map(({ phase, title }) => {
             const group = rows.filter((row) => row.phase === phase);
             if (group.length === 0) return null;
             return (
-              <section key={phase} className="space-y-1">
-                <h3 className="text-sm font-semibold text-brown-900">{title}</h3>
-                <ul className="divide-y">
+              <Box component="section" key={phase}>
+                <Typography component="h3" sx={{ fontSize: "0.875rem", fontWeight: 600 }}>
+                  {title}
+                </Typography>
+                <Box component="ul" sx={{ listStyle: "none", m: 0, p: 0, "& > li + li": { borderTop: 1, borderColor: "divider" } }}>
                   {group.map((row) => (
                     <WorkItem key={row.appointmentId} row={row} showDoctor={showDoctor} />
                   ))}
-                </ul>
-              </section>
+                </Box>
+              </Box>
             );
           })}
-        </div>
+        </Stack>
       )}
     </SectionCard>
   );

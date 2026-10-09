@@ -1,10 +1,11 @@
 "use client";
 
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { formatBankAccount } from "@/lib/payment";
 import { MISSING_BANK_ACCOUNT_LINE } from "@/lib/transfer-instruction";
 import { updateClinicSetting, type ClinicSettingView } from "@/server/clinic-setting";
@@ -50,42 +51,37 @@ export function ClinicSettingForm({ setting }: { setting: ClinicSettingView }) {
         title="Pengaturan"
         description="Setiap perubahan tercatat di jejak audit."
         actions={
-          <Button onClick={handleSave} disabled={pending}>
+          <Button variant="contained" onClick={handleSave} disabled={pending}>
             {pending ? "Menyimpan…" : "Simpan pengaturan"}
           </Button>
         }
       />
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
+      <Box sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "minmax(0, 1fr) minmax(0, 1.4fr)" } }}>
         <SectionCard title="Biaya booking">
-          <div className="space-y-2">
-            <Label htmlFor="booking-fee">Biaya booking</Label>
-            <RupiahInput id="booking-fee" className="max-w-48" value={bookingFee} onChange={setBookingFee} />
-            <p className="text-xs text-muted-foreground">
-              Berlaku untuk booking baru dari situs, WhatsApp, dan telepon. Walk-in tidak dikenai biaya. Biaya booking terpisah dari
-              biaya layanan, tidak dikembalikan, dan tetap berlaku bila pasien pindah jadwal paling lambat 2 jam sebelumnya.
-            </p>
-          </div>
+          <RupiahInput id="booking-fee" label="Biaya booking" value={bookingFee} onChange={setBookingFee} sx={{ maxWidth: 192 }} />
+          <Typography variant="caption" component="p" sx={{ color: "text.secondary", mt: 1 }}>
+            Berlaku untuk booking baru dari situs, WhatsApp, dan telepon. Walk-in tidak dikenai biaya. Biaya booking terpisah dari
+            biaya layanan, tidak dikembalikan, dan tetap berlaku bila pasien pindah jadwal paling lambat 2 jam sebelumnya.
+          </Typography>
         </SectionCard>
         <SectionCard title="Rekening transfer">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div className="space-y-1">
-              <Label htmlFor="bank-name">Nama bank</Label>
-              <Input id="bank-name" value={bankName} onChange={(e) => setBankName(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="bank-number">Nomor rekening</Label>
-              <Input id="bank-number" inputMode="numeric" value={bankAccountNumber} onChange={(e) => setBankAccountNumber(e.target.value)} />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="bank-holder">Atas nama</Label>
-              <Input id="bank-holder" value={bankAccountHolder} onChange={(e) => setBankAccountHolder(e.target.value)} />
-            </div>
-          </div>
-          <p className="mt-3 rounded-md bg-cream-100 p-3 text-sm">
+          <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "repeat(3, 1fr)" } }}>
+            <TextField id="bank-name" label="Nama bank" value={bankName} onChange={(e) => setBankName(e.target.value)} fullWidth />
+            <TextField
+              id="bank-number"
+              label="Nomor rekening"
+              value={bankAccountNumber}
+              onChange={(e) => setBankAccountNumber(e.target.value)}
+              slotProps={{ htmlInput: { inputMode: "numeric" } }}
+              fullWidth
+            />
+            <TextField id="bank-holder" label="Atas nama" value={bankAccountHolder} onChange={(e) => setBankAccountHolder(e.target.value)} fullWidth />
+          </Box>
+          <Typography variant="body2" sx={{ mt: 1.5, p: 1.5, borderRadius: 1.5, bgcolor: "action.hover" }}>
             Tampil ke pasien: <strong>{preview}</strong>
-          </p>
+          </Typography>
         </SectionCard>
-      </div>
+      </Box>
     </>
   );
 }

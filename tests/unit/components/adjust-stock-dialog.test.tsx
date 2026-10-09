@@ -1,8 +1,9 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AdjustStockDialog } from "@/components/admin/stock/adjust-stock-dialog";
 import { adjustStock } from "@/server/stock-movements";
+import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("@/server/stock-movements", () => ({ adjustStock: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
@@ -14,7 +15,7 @@ beforeEach(() => vi.clearAllMocks());
 
 async function open() {
   const user = userEvent.setup();
-  render(<AdjustStockDialog batch={batch} />);
+  renderAdmin(<AdjustStockDialog batch={batch} />);
   await user.click(screen.getByRole("button", { name: "Penyesuaian Amoxicillin batch B-01" }));
   return user;
 }

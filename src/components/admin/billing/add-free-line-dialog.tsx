@@ -1,16 +1,20 @@
 "use client";
 
+import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogTitle from "@mui/material/DialogTitle";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { validateFreeLine } from "@/lib/invoice";
 import { addFreeLine } from "@/server/invoice-drafts";
+import { DialogCloseButton } from "../mui/dialog-close-button";
+import { SelectField } from "../mui/select-field";
 import { RupiahInput } from "../rupiah-input";
-
-const selectClass = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm";
 
 /** Tambah baris layanan atau treatment yang tidak ada di kunjungan (spec tagihan 4.2). */
 export function AddFreeLineDialog({ invoiceId, version }: { invoiceId: string; version: number }) {
@@ -49,55 +53,45 @@ export function AddFreeLineDialog({ invoiceId, version }: { invoiceId: string; v
     });
   }
 
+  function close() {
+    setOpen(false);
+    setError(null);
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) setError(null);
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button type="button" variant="outline">
-          + Baris layanan
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Tambah baris layanan</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label htmlFor="free-kind">Jenis</Label>
-            <select id="free-kind" className={selectClass} value={kind} onChange={(e) => setKind(e.target.value as "LAYANAN" | "TREATMENT")}>
+    <>
+      <Button type="button" variant="outlined" onClick={() => setOpen(true)}>
+        + Baris layanan
+      </Button>
+      <Dialog open={open} onClose={close} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ pr: 6 }}>Tambah baris layanan</DialogTitle>
+        <DialogCloseButton onClick={close} />
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <SelectField id="free-kind" label="Jenis" value={kind} onChange={(value) => setKind(value as "LAYANAN" | "TREATMENT")}>
               <option value="LAYANAN">Layanan</option>
               <option value="TREATMENT">Treatment</option>
-            </select>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="free-name">Nama</Label>
-            <Input id="free-name" value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="free-quantity">Jumlah</Label>
-            <Input id="free-quantity" type="number" min={1} value={quantity} onChange={(e) => setQuantity(e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="free-price">Harga</Label>
-            <RupiahInput id="free-price" value={unitPrice} onChange={setUnitPrice} />
-          </div>
-        </div>
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        )}
-        <DialogFooter>
-          <Button type="button" onClick={add} disabled={pending}>
+            </SelectField>
+            <TextField id="free-name" label="Nama" value={name} onChange={(e) => setName(e.target.value)} fullWidth />
+            <TextField
+              id="free-quantity"
+              label="Jumlah"
+              type="number"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              fullWidth
+              slotProps={{ htmlInput: { min: 1 } }}
+            />
+            <RupiahInput id="free-price" label="Harga" value={unitPrice} onChange={setUnitPrice} fullWidth />
+            {error && <Alert severity="error">{error}</Alert>}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button type="button" variant="contained" onClick={add} disabled={pending}>
             Tambah
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }

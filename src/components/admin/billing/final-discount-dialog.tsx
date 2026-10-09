@@ -1,16 +1,21 @@
 "use client";
 
+import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { DISCOUNT_KIND_LABEL, discountAmount, validateDiscount, type DiscountKindValue } from "@/lib/invoice";
 import { applyFinalDiscount } from "@/server/invoice-payments";
-
-const selectClass = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm";
+import { DialogCloseButton } from "../mui/dialog-close-button";
+import { SelectField } from "../mui/select-field";
 
 /** Tambah diskon di tagihan final (spec tagihan 5): hanya menambah, tidak di bawah yang sudah dibayar. */
 export function FinalDiscountDialog({
@@ -65,55 +70,48 @@ export function FinalDiscountDialog({
     });
   }
 
+  function close() {
+    setOpen(false);
+    setError(null);
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) setError(null);
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button type="button" variant="outline">
-          Tambah diskon
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Tambah diskon</DialogTitle>
-          <DialogDescription>Diskon menggantikan diskon sebelumnya dan harus lebih besar. Tercatat dengan nama Anda.</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label htmlFor="final-discount-kind">Jenis diskon</Label>
-            <select id="final-discount-kind" className={selectClass} value={kind} onChange={(e) => setKind(e.target.value as DiscountKindValue)}>
+    <>
+      <Button type="button" variant="outlined" onClick={() => setOpen(true)}>
+        Tambah diskon
+      </Button>
+      <Dialog open={open} onClose={close} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ pr: 6 }}>Tambah diskon</DialogTitle>
+        <DialogCloseButton onClick={close} />
+        <DialogContent>
+          <DialogContentText>Diskon menggantikan diskon sebelumnya dan harus lebih besar. Tercatat dengan nama Anda.</DialogContentText>
+          <Stack spacing={2} sx={{ pt: 2 }}>
+            <SelectField id="final-discount-kind" label="Jenis diskon" value={kind} onChange={(value) => setKind(value as DiscountKindValue)}>
               {(Object.keys(DISCOUNT_KIND_LABEL) as DiscountKindValue[]).map((option) => (
                 <option key={option} value={option}>
                   {DISCOUNT_KIND_LABEL[option]}
                 </option>
               ))}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="final-discount-value">Nilai diskon</Label>
-            <Input id="final-discount-value" type="number" min={1} value={value} onChange={(e) => setValue(e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="final-discount-reason">Alasan diskon</Label>
-            <Input id="final-discount-reason" value={reason} onChange={(e) => setReason(e.target.value)} />
-          </div>
-        </div>
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        )}
-        <DialogFooter>
-          <Button type="button" onClick={save} disabled={pending}>
+            </SelectField>
+            <TextField
+              id="final-discount-value"
+              label="Nilai diskon"
+              type="number"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              fullWidth
+              slotProps={{ htmlInput: { min: 1 } }}
+            />
+            <TextField id="final-discount-reason" label="Alasan diskon" value={reason} onChange={(e) => setReason(e.target.value)} fullWidth />
+            {error && <Alert severity="error">{error}</Alert>}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button type="button" variant="contained" onClick={save} disabled={pending}>
             Simpan
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }

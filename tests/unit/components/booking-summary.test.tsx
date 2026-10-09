@@ -1,6 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { BookingSummary, bookingSummaryItems } from "@/components/admin/booking-summary";
+import { renderAdmin } from "../helpers/render-admin";
 
 const empty = {
   patientName: null,
@@ -14,7 +15,7 @@ const empty = {
 
 describe("ringkasan Booking Baru", () => {
   it("baris yang belum diisi bertuliskan belum dipilih; sumber dan biaya selalu terisi", () => {
-    render(<BookingSummary items={bookingSummaryItems(empty)} />);
+    renderAdmin(<BookingSummary items={bookingSummaryItems(empty)} />);
     const values = Object.fromEntries(
       screen.getAllByRole("term").map((term) => [term.textContent, term.nextElementSibling?.textContent]),
     );

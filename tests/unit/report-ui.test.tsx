@@ -1,11 +1,12 @@
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { CashFlowCard } from "@/components/admin/report/cash-flow-card";
 import { ProfitTiles } from "@/components/admin/report/profit-tiles";
 import { ReportDetail } from "@/components/admin/report/report-detail";
 import { deltaText, ReportSummary } from "@/components/admin/report/report-summary";
-import { chartGeometry, TrendChart } from "@/components/admin/report/trend-chart";
+import { TrendChart } from "@/components/admin/report/trend-chart";
 import { compareReports, summarizeReport, type RawReport } from "@/lib/report";
+import { renderAdmin } from "./helpers/render-admin";
 
 const RAW: RawReport = {
   service: 1_000_000, treatment: 500_000, goods: 300_000, discount: 100_000, upfrontFee: 200_000, upfrontOnline: 250_000,
@@ -32,7 +33,7 @@ describe("teks perbandingan", () => {
 describe("ringkasan laporan", () => {
   it("menampilkan lima angka utama dengan perbandingan; Laba bersih saat positif", () => {
     const current = summarizeReport(RAW);
-    render(<ReportSummary view={current} comparison={compareReports(current.totals, summarizeReport(PREVIOUS).totals)} />);
+    renderAdmin(<ReportSummary view={current} comparison={compareReports(current.totals, summarizeReport(PREVIOUS).totals)} />);
     const section = screen.getByRole("region", { name: "Ringkasan laporan" });
     for (const label of ["Pendapatan", "Harga pokok", "Laba kotor", "Pengeluaran", "Laba bersih"]) {
       expect(within(section).getByText(label)).toBeInTheDocument();
@@ -44,7 +45,7 @@ describe("ringkasan laporan", () => {
 
   it("menulis Rugi bersih bila negatif", () => {
     const view = summarizeReport(LOSS);
-    render(<ReportSummary view={view} comparison={compareReports(view.totals, view.totals)} />);
+    renderAdmin(<ReportSummary view={view} comparison={compareReports(view.totals, view.totals)} />);
     expect(screen.getByText("Rugi bersih")).toBeInTheDocument();
     expect(screen.queryByText("Laba bersih")).toBeNull();
     expect(screen.getByText("Rugi bersih").parentElement).toHaveTextContent("1.000.000");
@@ -53,7 +54,7 @@ describe("ringkasan laporan", () => {
 
 describe("rincian laporan", () => {
   it("rincian pendapatan, pengeluaran per kategori (nonaktif bertanda), dan belum tertagih untuk dua periode", () => {
-    render(<ReportDetail current={summarizeReport(RAW)} previous={summarizeReport(PREVIOUS)} />);
+    renderAdmin(<ReportDetail current={summarizeReport(RAW)} previous={summarizeReport(PREVIOUS)} />);
     const table = screen.getByRole("table", { name: "Rincian laporan" });
     const row = (name: string) => within(table).getByText(name).closest("tr")!;
     expect(row("Layanan")).toHaveTextContent("Rp 1.000.000");
@@ -72,7 +73,7 @@ describe("rincian laporan", () => {
 
 describe("arus kas", () => {
   it("menampilkan masuk, keluar, dan kas bersih; hutang supplier terpisah dari laba", () => {
-    render(<CashFlowCard cash={summarizeReport(RAW).cash} />);
+    renderAdmin(<CashFlowCard cash={summarizeReport(RAW).cash} />);
     const section = screen.getByRole("region", { name: "Arus kas" });
     expect(within(section).getByText("Total masuk").closest("tr")).toHaveTextContent("Rp 1.950.000");
     expect(within(section).getByText("Pembayaran hutang supplier (neto)").closest("tr")).toHaveTextContent("Rp 250.000");
@@ -89,23 +90,8 @@ describe("grafik tren", () => {
     { month: "2026-10", revenue: 0, cost: 0, netProfit: 0 },
   ];
 
-  it("geometri: skala bersama, batang laba negatif di bawah garis dasar, tanpa NaN walau semuanya nol", () => {
-    const geometry = chartGeometry(points, { width: 600, height: 200 });
-    expect(geometry.bars).toHaveLength(9); // tiga batang per bulan
-    const revenue = geometry.bars.find((b) => b.month === "2026-08" && b.series === "revenue")!;
-    const loss = geometry.bars.find((b) => b.month === "2026-09" && b.series === "net")!;
-    expect(revenue.y + revenue.height).toBeCloseTo(geometry.baselineY);
-    expect(loss.y).toBeCloseTo(geometry.baselineY);
-    expect(loss.negative).toBe(true);
-    for (const bar of geometry.bars) {
-      for (const value of [bar.x, bar.y, bar.width, bar.height]) expect(Number.isFinite(value)).toBe(true);
-    }
-    const zero = chartGeometry([{ month: "2026-10", revenue: 0, cost: 0, netProfit: 0 }], { width: 600, height: 200 });
-    for (const bar of zero.bars) expect(Number.isFinite(bar.height)).toBe(true);
-  });
-
   it("gambar dengan nama dan tabel tersembunyi berisi angka tiap bulan", () => {
-    render(<TrendChart points={points} />);
+    renderAdmin(<TrendChart points={points} />);
     expect(screen.getByRole("img", { name: "Grafik tren 12 bulan" })).toBeInTheDocument();
     const table = screen.getByRole("table", { name: "Data tren bulanan" });
     expect(within(table).getByText("Ags 2026").closest("tr")).toHaveTextContent("Rp 1.000");
@@ -115,7 +101,7 @@ describe("grafik tren", () => {
 
 describe("kotak dasbor", () => {
   it("laba bulan ini dan rugi bulan ini", () => {
-    const { rerender } = render(<ProfitTiles profit={{ month: "2026-10", revenue: 2_000_000, netProfit: 750_000 }} />);
+    const { rerender } = renderAdmin(<ProfitTiles profit={{ month: "2026-10", revenue: 2_000_000, netProfit: 750_000 }} />);
     const profit = screen.getByRole("link", { name: /Laba bersih bulan ini/ });
     expect(profit).toHaveAttribute("href", "/admin/laporan");
     expect(profit).toHaveTextContent("750.000");

@@ -1,22 +1,20 @@
 "use client";
 
+import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { validateReason } from "@/lib/stock";
 import { revokeSupplierPayment } from "@/server/payables";
+import { DialogCloseButton } from "../mui/dialog-close-button";
 
 /** Batalkan pembayaran salah input (spec stok 6.2): tidak dihapus, ditandai dibatalkan dengan alasan. */
 export function RevokePaymentDialog({ paymentId, label }: { paymentId: string; label: string }) {
@@ -49,39 +47,32 @@ export function RevokePaymentDialog({ paymentId, label }: { paymentId: string; l
     });
   }
 
+  function close() {
+    setOpen(false);
+    setError(null);
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) setError(null);
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button type="button" size="sm" variant="ghost" aria-label={`Batalkan pembayaran ${label}`}>
-          Batalkan
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Batalkan pembayaran?</DialogTitle>
-          <DialogDescription>{label}. Pembayaran tetap tercatat dengan tanda dibatalkan, dan sisa hutang kembali.</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-1">
-          <Label htmlFor={`revoke-${paymentId}`}>Alasan</Label>
-          <Input id={`revoke-${paymentId}`} value={reason} onChange={(e) => setReason(e.target.value)} />
-        </div>
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        )}
-        <DialogFooter>
-          <Button type="button" variant="destructive" onClick={confirm} disabled={pending}>
+    <>
+      <Button type="button" size="small" variant="text" aria-label={`Batalkan pembayaran ${label}`} onClick={() => setOpen(true)}>
+        Batalkan
+      </Button>
+      <Dialog open={open} onClose={close} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ pr: 6 }}>Batalkan pembayaran?</DialogTitle>
+        <DialogCloseButton onClick={close} />
+        <DialogContent>
+          <DialogContentText>{label}. Pembayaran tetap tercatat dengan tanda dibatalkan, dan sisa hutang kembali.</DialogContentText>
+          <Stack spacing={2} sx={{ pt: 2 }}>
+            <TextField id={`revoke-${paymentId}`} label="Alasan" value={reason} onChange={(e) => setReason(e.target.value)} fullWidth />
+            {error && <Alert severity="error">{error}</Alert>}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button type="button" variant="contained" color="error" onClick={confirm} disabled={pending}>
             Batalkan pembayaran
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }

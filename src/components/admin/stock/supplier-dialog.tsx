@@ -1,22 +1,20 @@
 "use client";
 
+import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { validateSupplier, type SupplierInput } from "@/lib/stock";
 import { createSupplier, updateSupplier } from "@/server/stock-catalog";
+import { DialogCloseButton } from "../mui/dialog-close-button";
 
 const EMPTY: SupplierInput = { name: "", phone: "", address: "", notes: "" };
 
@@ -73,53 +71,35 @@ export function SupplierDialog({
     });
   }
 
+  function close() {
+    setOpen(false);
+    setError(null);
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) setError(null);
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button type="button" variant="outline">
-          {triggerLabel}
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{supplierId ? "Ubah supplier" : "Tambah supplier"}</DialogTitle>
-          <DialogDescription>Pemasok obat dan produk klinik.</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label htmlFor="supplier-name">Nama supplier</Label>
-            <Input id="supplier-name" value={value.name} onChange={(e) => set("name", e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="supplier-phone">Telepon</Label>
-            <Input id="supplier-phone" value={value.phone} onChange={(e) => set("phone", e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="supplier-address">Alamat</Label>
-            <Input id="supplier-address" value={value.address} onChange={(e) => set("address", e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="supplier-notes">Catatan</Label>
-            <Input id="supplier-notes" value={value.notes} onChange={(e) => set("notes", e.target.value)} />
-          </div>
-        </div>
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        )}
-        <DialogFooter>
-          <Button type="button" onClick={save} disabled={pending}>
+    <>
+      <Button type="button" variant="outlined" onClick={() => setOpen(true)}>
+        {triggerLabel}
+      </Button>
+      <Dialog open={open} onClose={close} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ pr: 6 }}>{supplierId ? "Ubah supplier" : "Tambah supplier"}</DialogTitle>
+        <DialogCloseButton onClick={close} />
+        <DialogContent>
+          <DialogContentText>Pemasok obat dan produk klinik.</DialogContentText>
+          <Stack spacing={2} sx={{ pt: 2 }}>
+            <TextField id="supplier-name" label="Nama supplier" value={value.name} onChange={(e) => set("name", e.target.value)} fullWidth />
+            <TextField id="supplier-phone" label="Telepon" value={value.phone} onChange={(e) => set("phone", e.target.value)} fullWidth />
+            <TextField id="supplier-address" label="Alamat" value={value.address} onChange={(e) => set("address", e.target.value)} fullWidth />
+            <TextField id="supplier-notes" label="Catatan" value={value.notes} onChange={(e) => set("notes", e.target.value)} fullWidth />
+            {error && <Alert severity="error">{error}</Alert>}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button type="button" variant="contained" onClick={save} disabled={pending}>
             {pending ? "Menyimpan…" : "Simpan"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }

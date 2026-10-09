@@ -1,11 +1,13 @@
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
 import { AdminHeader } from "@/components/admin/admin-header";
+import { LinkButton } from "@/components/admin/mui/links";
 import { PageBody, PageHeader, SectionCard } from "@/components/admin/page-layout";
 import { CashFlowCard } from "@/components/admin/report/cash-flow-card";
 import { ReportDetail } from "@/components/admin/report/report-detail";
 import { ReportFilter } from "@/components/admin/report/report-filter";
 import { ReportSummary } from "@/components/admin/report/report-summary";
 import { TrendChart } from "@/components/admin/report/trend-chart";
-import { Button } from "@/components/ui/button";
 import { isReportPreset, periodLabel, presetPeriod, validatePeriod, type ReportPeriod, type ReportPreset } from "@/lib/report";
 import { witaDateString } from "@/lib/time";
 import { getBranches } from "@/server/catalog";
@@ -45,28 +47,26 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
           title="Laporan untung-rugi"
           description={`${periodLabel(period)} · ${report.branchName} · dibandingkan dengan ${periodLabel(report.previousPeriod)}`}
           actions={
-            <Button asChild variant="outline">
-              <a href={`/admin/laporan/unduh?${query.toString()}`} download>
-                Unduh CSV
-              </a>
-            </Button>
+            <LinkButton href={`/admin/laporan/unduh?${query.toString()}`} download variant="outlined">
+              Unduh CSV
+            </LinkButton>
           }
         />
-        <ReportFilter preset={preset} period={period} branchId={branchId} branches={branches} />
+        {/* key: isian tanggal menyimpan nilainya sendiri dan Next tidak memasang ulang halaman saat hanya alamat yang berubah,
+            jadi tanpa ini kolom Dari/Sampai tertinggal di periode lama setelah memilih "Bulan lalu". */}
+        <ReportFilter key={`${preset}|${period.from}|${period.to}|${branchId ?? ""}`} preset={preset} period={period} branchId={branchId} branches={branches} />
         {notice && (
-          <p role="alert" className="text-sm text-destructive">
-            {notice}
-          </p>
+          <Alert severity="error">{notice}</Alert>
         )}
         <ReportSummary view={report.current} comparison={report.comparison} />
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <Box sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "minmax(0, 1fr)", xl: "minmax(0, 1fr) 22rem" } }}>
           <SectionCard title="Rincian" flush>
             <ReportDetail current={report.current} previous={report.previous} />
           </SectionCard>
           <SectionCard title="Arus kas" flush>
             <CashFlowCard cash={report.current.cash} />
           </SectionCard>
-        </div>
+        </Box>
         <SectionCard title="Tren 12 bulan">
           <TrendChart points={report.trend} />
         </SectionCard>

@@ -1,7 +1,12 @@
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import Box from "@mui/material/Box";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
 import { formatRupiah } from "@/lib/format";
 import { profitLabel, type ReportView } from "@/lib/report";
-import { cn } from "@/lib/utils";
 
 type Line = { label: string; current: number; previous: number; strong?: boolean; note?: string };
 
@@ -36,26 +41,32 @@ export function ReportDetail({ current, previous }: { current: ReportView; previ
     { label: "Belum tertagih (informasi)", current: c.outstanding, previous: p.outstanding, note: "tidak mengurangi laba" },
   ];
   return (
-    <Table aria-label="Rincian laporan">
-      <TableHeader>
-        <TableRow>
-          <TableHead>Rincian</TableHead>
-          <TableHead className="text-right">Periode ini</TableHead>
-          <TableHead className="text-right">Periode sebelumnya</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {lines.map((line) => (
-          <TableRow key={line.label} className={cn(line.strong && "font-semibold")}>
-            <TableCell>
-              {line.label}
-              {line.note && <span className="ml-2 text-xs font-normal text-muted-foreground">{line.note}</span>}
-            </TableCell>
-            <TableCell className="text-right">{formatRupiah(line.current)}</TableCell>
-            <TableCell className="text-right">{formatRupiah(line.previous)}</TableCell>
+    <TableContainer>
+      <Table size="small" aria-label="Rincian laporan">
+        <TableHead>
+          <TableRow>
+            <TableCell>Rincian</TableCell>
+            <TableCell align="right">Periode ini</TableCell>
+            <TableCell align="right">Periode sebelumnya</TableCell>
           </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+        </TableHead>
+        <TableBody>
+          {lines.map((line) => (
+            <TableRow key={line.label} sx={line.strong ? { "& > td": { fontWeight: 600 } } : undefined}>
+              <TableCell>
+                {line.label}
+                {line.note && (
+                  <Box component="span" sx={{ ml: 1, fontSize: "0.75rem", fontWeight: 400, color: "text.secondary" }}>
+                    {line.note}
+                  </Box>
+                )}
+              </TableCell>
+              <TableCell align="right">{formatRupiah(line.current)}</TableCell>
+              <TableCell align="right">{formatRupiah(line.previous)}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
   );
 }

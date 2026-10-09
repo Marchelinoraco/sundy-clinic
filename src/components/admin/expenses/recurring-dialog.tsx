@@ -1,18 +1,24 @@
 "use client";
 
+import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { EXPENSE_NOTE_MAX, validateRecurring, validateRecurringUpdate } from "@/lib/expense";
 import { createRecurringExpense, updateRecurringExpense } from "@/server/expense-recurring";
 import type { CategoryRow, RecurringRow } from "@/server/expense-read";
+import { MonthField } from "../mui/date-field";
+import { DialogCloseButton } from "../mui/dialog-close-button";
+import { SelectField } from "../mui/select-field";
 import { RupiahInput } from "../rupiah-input";
-
-const selectClass = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm";
 
 /** Tambah (tanpa `row`) atau ubah (dengan `row`) templat pengeluaran berulang. Mengubah tidak menyentuh catatan lama. */
 export function RecurringDialog({
@@ -67,93 +73,81 @@ export function RecurringDialog({
     });
   }
 
+  function close() {
+    setOpen(false);
+    setError(null);
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) setError(null);
-      }}
-    >
-      <DialogTrigger asChild>
-        {row ? (
-          <Button type="button" size="sm" variant="ghost" aria-label={`Ubah ${row.categoryName}`}>
-            Ubah
-          </Button>
-        ) : (
-          <Button type="button">+ Berulang</Button>
-        )}
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{editing ? "Ubah pengeluaran berulang" : "Pengeluaran berulang"}</DialogTitle>
-          <DialogDescription>
+    <>
+      {row ? (
+        <Button type="button" size="small" variant="text" aria-label={`Ubah ${row.categoryName}`} onClick={() => setOpen(true)}>
+          Ubah
+        </Button>
+      ) : (
+        <Button type="button" variant="contained" onClick={() => setOpen(true)}>
+          + Berulang
+        </Button>
+      )}
+      <Dialog open={open} onClose={close} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ pr: 6 }}>{editing ? "Ubah pengeluaran berulang" : "Pengeluaran berulang"}</DialogTitle>
+        <DialogCloseButton onClick={close} />
+        <DialogContent>
+          <DialogContentText>
             {editing
               ? "Perubahan hanya berlaku untuk bulan-bulan berikutnya; catatan yang sudah ada tidak berubah."
               : "Catatan dibuat otomatis tiap bulan, mulai dari bulan mulai (bulan yang sudah lewat langsung disusulkan)."}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3">
-          {!editing && (
-            <div className="space-y-1">
-              <Label htmlFor="recurring-category">Kategori</Label>
-              <select id="recurring-category" className={selectClass} value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+          </DialogContentText>
+          <Stack spacing={2} sx={{ pt: 2 }}>
+            {!editing && (
+              <SelectField id="recurring-category" label="Kategori" value={categoryId} onChange={setCategoryId}>
                 <option value="">Pilih kategori…</option>
                 {categories.map((category) => (
                   <option key={category.id} value={category.id}>
                     {category.name}
                   </option>
                 ))}
-              </select>
-            </div>
-          )}
-          <div className="space-y-1">
-            <Label htmlFor="recurring-amount">Nominal</Label>
-            <RupiahInput id="recurring-amount" value={amount} onChange={setAmount} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="recurring-day">Tanggal tiap bulan</Label>
-            <Input id="recurring-day" type="number" min={1} max={28} value={day} onChange={(e) => setDay(e.target.value)} />
-          </div>
-          {!editing && (
-            <div className="space-y-1">
-              <Label htmlFor="recurring-start">Bulan mulai</Label>
-              <Input id="recurring-start" type="month" value={startMonth} onChange={(e) => setStartMonth(e.target.value)} />
-            </div>
-          )}
-          <div className="space-y-1">
-            <Label htmlFor="recurring-end">Bulan berakhir (opsional)</Label>
-            <Input id="recurring-end" type="month" value={endMonth} onChange={(e) => setEndMonth(e.target.value)} />
-          </div>
-          {!editing && (
-            <div className="space-y-1">
-              <Label htmlFor="recurring-branch">Cabang</Label>
-              <select id="recurring-branch" className={selectClass} value={branchId} onChange={(e) => setBranchId(e.target.value)}>
+              </SelectField>
+            )}
+            <RupiahInput id="recurring-amount" label="Nominal" value={amount} onChange={setAmount} fullWidth />
+            <TextField
+              id="recurring-day"
+              label="Tanggal tiap bulan"
+              type="number"
+              value={day}
+              onChange={(e) => setDay(e.target.value)}
+              fullWidth
+              slotProps={{ htmlInput: { min: 1, max: 28 } }}
+            />
+            {!editing && <MonthField id="recurring-start" label="Bulan mulai" value={startMonth} onChange={setStartMonth} fullWidth />}
+            <MonthField id="recurring-end" label="Bulan berakhir (opsional)" value={endMonth} onChange={setEndMonth} fullWidth />
+            {!editing && (
+              <SelectField id="recurring-branch" label="Cabang" value={branchId} onChange={setBranchId}>
                 <option value="">Umum (semua cabang)</option>
                 {branches.map((branch) => (
                   <option key={branch.id} value={branch.id}>
                     {branch.name}
                   </option>
                 ))}
-              </select>
-            </div>
-          )}
-          <div className="space-y-1">
-            <Label htmlFor="recurring-note">Keterangan (opsional)</Label>
-            <Input id="recurring-note" maxLength={EXPENSE_NOTE_MAX} value={note} onChange={(e) => setNote(e.target.value)} />
-          </div>
-        </div>
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        )}
-        <DialogFooter>
-          <Button type="button" onClick={save} disabled={pending}>
+              </SelectField>
+            )}
+            <TextField
+              id="recurring-note"
+              label="Keterangan (opsional)"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              fullWidth
+              slotProps={{ htmlInput: { maxLength: EXPENSE_NOTE_MAX } }}
+            />
+            {error && <Alert severity="error">{error}</Alert>}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button type="button" variant="contained" onClick={save} disabled={pending}>
             {pending ? "Menyimpan…" : "Simpan"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }

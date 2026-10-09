@@ -1,10 +1,11 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
 import { DoctorWorklistView } from "@/components/admin/doctor-worklist";
 import { openEncounter } from "@/server/encounter";
 import type { WorklistRow } from "@/server/encounter-read";
+import { renderAdmin } from "../helpers/render-admin";
 
 const push = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
@@ -30,7 +31,7 @@ describe("DoctorWorklistView", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("pasien hari ini: Periksa, Lanjutkan, atau Lihat sesuai status kunjungan", () => {
-    render(
+    renderAdmin(
       <DoctorWorklistView
         worklist={{
           today: [
@@ -53,7 +54,7 @@ describe("DoctorWorklistView", () => {
   });
 
   it("catatan belum final menampilkan tanggalnya", () => {
-    render(
+    renderAdmin(
       <DoctorWorklistView
         worklist={{ today: [], unfinished: [row({ startAt: new Date("2026-09-28T07:00:00Z"), state: "DRAF", encounterId: "e9" })] }}
       />,
@@ -66,7 +67,7 @@ describe("DoctorWorklistView", () => {
 
   it("Periksa membuka kunjungan lalu pindah ke halamannya; galat ditampilkan", async () => {
     vi.mocked(openEncounter).mockResolvedValueOnce({ ok: true, data: { encounterId: "e1" } });
-    render(<DoctorWorklistView worklist={{ today: [row({})], unfinished: [] }} />);
+    renderAdmin(<DoctorWorklistView worklist={{ today: [row({})], unfinished: [] }} />);
     await userEvent.click(screen.getByRole("button", { name: "Periksa" }));
     expect(openEncounter).toHaveBeenCalledWith("a1");
     await waitFor(() => expect(push).toHaveBeenCalledWith("/admin/kunjungan/e1"));
@@ -79,12 +80,12 @@ describe("DoctorWorklistView", () => {
   });
 
   it("menandai customer yang sudah mengisi food recall", () => {
-    render(<DoctorWorklistView worklist={{ today: [row({ foodRecallFilled: true })], unfinished: [] }} />);
+    renderAdmin(<DoctorWorklistView worklist={{ today: [row({ foodRecallFilled: true })], unfinished: [] }} />);
     expect(screen.getByText("food recall ✓")).toBeInTheDocument();
   });
 
   it("booking online yang sudah dimulai diberi label Online", () => {
-    render(
+    renderAdmin(
       <DoctorWorklistView
         worklist={{
           today: [row({ online: true, branchName: "Online (WhatsApp)", state: "DRAF", encounterId: "e2" })],

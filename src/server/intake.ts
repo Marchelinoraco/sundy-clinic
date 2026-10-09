@@ -13,7 +13,6 @@ import { insertPatient } from "@/server/patient-store";
 import { hasCompletedFullIntake } from "@/server/quiz-link-store";
 import { requireCapability } from "@/server/session";
 
-export type { IntakeApproval } from "@/server/intake-clinical";
 
 export type MatchCandidate = {
   id: string;

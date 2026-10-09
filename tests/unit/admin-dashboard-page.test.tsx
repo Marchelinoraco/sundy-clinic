@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import AdminDashboardPage from "@/app/(admin)/admin/page";
 import { getDashboardNumbers, getTodaySchedule, getTodayWork } from "@/server/dashboard";
@@ -9,10 +9,10 @@ import { payablesOverview } from "@/server/payable-read";
 import { countStockAlerts } from "@/server/stock-read";
 import { listDoctorWorklist, listOnlineWork } from "@/server/encounter-read";
 import { requireStaff } from "@/server/session";
+import { renderAdmin } from "./helpers/render-admin";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
-vi.mock("@/components/ui/sidebar", () => ({ SidebarTrigger: () => <button type="button">Sidebar</button> }));
 vi.mock("@/server/encounter", () => ({ openEncounter: vi.fn() }));
 vi.mock("@/server/session", () => ({ requireStaff: vi.fn() }));
 vi.mock("@/server/encounter-read", () => ({ listDoctorWorklist: vi.fn(), listOnlineWork: vi.fn() }));
@@ -51,7 +51,7 @@ beforeEach(() => {
 });
 
 async function renderPage() {
-  render(await AdminDashboardPage({ searchParams: Promise.resolve({}) }));
+  renderAdmin(await AdminDashboardPage({ searchParams: Promise.resolve({}) }));
 }
 
 describe("halaman Dasbor (spec D 4)", () => {
@@ -59,8 +59,8 @@ describe("halaman Dasbor (spec D 4)", () => {
     await renderPage();
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/^Selamat (pagi|siang|sore|malam), Diane$/);
     expect(screen.queryByRole("region", { name: "Angka" })).not.toBeInTheDocument();
-    const grid = screen.getByRole("region", { name: "Pasien hari ini" }).closest("div.grid");
-    expect(grid?.className).not.toContain("xl:grid-cols-2");
+    const grid = screen.getByRole("region", { name: "Pasien hari ini" }).closest("[data-columns]");
+    expect(grid).toHaveAttribute("data-columns", "1");
   });
 
   it("satu bagian gagal dimuat: bagian lain tetap tampil (spec D 4.7)", async () => {

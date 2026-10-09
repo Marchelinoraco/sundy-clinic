@@ -1,10 +1,12 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { OnlineAppointmentForm } from "@/components/admin/online-appointment-form";
 import { addDaysToDateString, combineWitaDateAndMinutes, witaDateString } from "@/lib/time";
 import { getTransferInstruction } from "@/server/appointment";
 import { createOnlineAppointment } from "@/server/online-consultation";
+import { setDateField } from "../helpers/mui";
+import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/server/appointment", () => ({ getTransferInstruction: vi.fn() }));
@@ -23,7 +25,7 @@ const today = witaDateString(new Date());
 const inThreeDays = addDaysToDateString(today, 3);
 
 function renderForm() {
-  return render(
+  return renderAdmin(
     <OnlineAppointmentForm
       doctors={[{ id: "d1", name: "dr. Diane" }]}
       today={today}
@@ -56,7 +58,7 @@ describe("OnlineAppointmentForm", () => {
     });
     renderForm();
 
-    fireEvent.change(screen.getByLabelText("Tanggal waktu 1"), { target: { value: inThreeDays } });
+    setDateField("Tanggal waktu 1", inThreeDays);
     await user.click(screen.getByRole("button", { name: "Buat Booking" }));
 
     await waitFor(() =>

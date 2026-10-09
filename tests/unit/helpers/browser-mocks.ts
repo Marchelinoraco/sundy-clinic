@@ -1,8 +1,8 @@
 import { vi } from "vitest";
 
 /**
- * jsdom tidak punya matchMedia, IntersectionObserver, scrollIntoView, dan
- * Element.scrollTo. Bahan gerak situs publik memakai semuanya; tiruan ini
+ * jsdom tidak punya matchMedia, IntersectionObserver, ResizeObserver, scrollIntoView,
+ * dan Element.scrollTo. Bahan gerak situs publik memakai semuanya; tiruan ini
  * memasangnya untuk seluruh uji unit dan bisa dikendalikan dari uji.
  */
 
@@ -131,6 +131,18 @@ export function installBrowserMocks(): void {
   });
   if (!Element.prototype.scrollIntoView) Element.prototype.scrollIntoView = () => {};
   if (!Element.prototype.scrollTo) Element.prototype.scrollTo = () => {};
+  // DataGrid dan Popper MUI mengamati ukuran elemen; jsdom tidak punya ResizeObserver.
+  if (!("ResizeObserver" in window)) {
+    Object.defineProperty(window, "ResizeObserver", {
+      configurable: true,
+      writable: true,
+      value: class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      },
+    });
+  }
 }
 
 export function resetBrowserMocks(): void {

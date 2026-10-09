@@ -1,11 +1,13 @@
 "use client";
 
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { ContactWindowsEditor } from "@/components/online/contact-windows-editor";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { formatRupiah } from "@/lib/format";
 import {
   EMPTY_WINDOW_DRAFT,
@@ -23,6 +25,8 @@ import { createOnlineAppointment } from "@/server/online-consultation";
 import type { PatientSummary } from "@/server/patient";
 import { BookingCreatedPanel, type CreatedBooking } from "./booking-created-panel";
 import { BookingSummary, type SummaryItem } from "./booking-summary";
+import { ContactWindowsFields } from "./contact-windows-fields";
+import { SelectField } from "./mui/select-field";
 import { PatientBookingInfo, PatientPicker } from "./patient-picker";
 
 type OnlineSource = "WHATSAPP" | "TELEPON";
@@ -143,107 +147,110 @@ export function OnlineAppointmentForm({
     });
   }
 
+  const sectionTitle = { fontSize: "0.875rem", fontWeight: 500 } as const;
+
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
-      <fieldset disabled={locked} className="min-w-0 space-y-8 disabled:opacity-60">
-        <section className="space-y-2">
-          <h2 className="text-sm font-medium">1 · Pasien</h2>
+    <Box sx={{ display: "grid", gap: 3, alignItems: { lg: "start" }, gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "minmax(0, 1fr) 20rem" } }}>
+      <Box
+        component="fieldset"
+        disabled={locked}
+        sx={{ border: 0, m: 0, p: 0, minWidth: 0, display: "flex", flexDirection: "column", gap: 4, "&:disabled": { opacity: 0.6 } }}
+      >
+        <Stack component="section" spacing={1}>
+          <Typography component="h2" sx={sectionTitle}>
+            1 · Pasien
+          </Typography>
           {patient ? (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 text-sm">
+            <Paper variant="outlined" sx={{ p: 1.5, fontSize: "0.875rem", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
               <span>
-                <span className="font-medium">{patient.name}</span>{" "}
-                <span className="text-muted-foreground">
+                <Box component="span" sx={{ fontWeight: 500 }}>
+                  {patient.name}
+                </Box>{" "}
+                <Box component="span" sx={{ color: "text.secondary" }}>
                   ({patient.medicalRecordNumber} · {patient.whatsapp})
-                </span>
+                </Box>
                 <PatientBookingInfo patient={patient} />
               </span>
-              <Button type="button" variant="ghost" size="sm" onClick={() => setPatient(null)}>
+              <Button type="button" variant="text" size="small" onClick={() => setPatient(null)}>
                 Ganti pasien
               </Button>
-            </div>
+            </Paper>
           ) : (
             <PatientPicker onSelect={setPatient} />
           )}
-        </section>
+        </Stack>
 
-        <section className="space-y-3">
-          <h2 className="text-sm font-medium">2 · Dokter & sumber</h2>
-          <div className="space-y-1">
-            <Label htmlFor="online-doctor">Dokter</Label>
-            <select
-              id="online-doctor"
-              value={staffId}
-              onChange={(e) => setStaffId(e.target.value)}
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm sm:w-96"
-            >
-              <option value="">Pilih dokter</option>
-              {doctors.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <p id="online-source-label" className="text-sm font-medium">
+        <Stack component="section" spacing={1.5}>
+          <Typography component="h2" sx={sectionTitle}>
+            2 · Dokter & sumber
+          </Typography>
+          <SelectField id="online-doctor" label="Dokter" value={staffId} onChange={setStaffId} fullWidth={false} sx={{ width: { xs: "100%", sm: 384 } }}>
+            <option value="">Pilih dokter</option>
+            {doctors.map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.name}
+              </option>
+            ))}
+          </SelectField>
+          <Stack spacing={0.5}>
+            <Typography id="online-source-label" variant="body2" sx={{ fontWeight: 500 }}>
               Sumber booking
-            </p>
-            <div className="flex flex-wrap gap-2" role="group" aria-labelledby="online-source-label">
+            </Typography>
+            <Box role="group" aria-labelledby="online-source-label" sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
               {(Object.keys(SOURCE_LABEL) as OnlineSource[]).map((value) => (
                 <Button
                   key={value}
                   type="button"
-                  size="sm"
-                  variant={source === value ? "default" : "outline"}
+                  size="small"
+                  variant={source === value ? "contained" : "outlined"}
                   aria-pressed={source === value}
                   onClick={() => setSource(value)}
                 >
                   {SOURCE_LABEL[value]}
                 </Button>
               ))}
-            </div>
-          </div>
-        </section>
+            </Box>
+          </Stack>
+        </Stack>
 
-        <section className="space-y-3">
-          <h2 className="text-sm font-medium">3 · Waktu pasien bisa dihubungi</h2>
-          <p className="text-xs text-muted-foreground">
-            1–3 waktu, jam 08.00–21.00, paling jauh {ONLINE_MAX_DAYS_AHEAD} hari ke depan. Dokter menelepon kapan saja di
-            dalam rentang itu.
-          </p>
-          <ContactWindowsEditor value={windows} onChange={setWindows} minDate={today} maxDate={maxDate} />
-        </section>
+        <Stack component="section" spacing={1.5}>
+          <Typography component="h2" sx={sectionTitle}>
+            3 · Waktu pasien bisa dihubungi
+          </Typography>
+          <Typography variant="caption" component="p" sx={{ color: "text.secondary" }}>
+            1–3 waktu, jam 08.00–21.00, paling jauh {ONLINE_MAX_DAYS_AHEAD} hari ke depan. Dokter menelepon kapan saja di dalam rentang itu.
+          </Typography>
+          <ContactWindowsFields value={windows} onChange={setWindows} minDate={today} maxDate={maxDate} />
+        </Stack>
 
-        <section className="space-y-1">
-          <Label htmlFor="online-notes">Catatan (opsional)</Label>
-          <Input
+        <Box component="section">
+          <TextField
             id="online-notes"
+            label="Catatan (opsional)"
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Misal: keluhan utama, permintaan khusus"
+            fullWidth
           />
-        </section>
-      </fieldset>
+        </Box>
+      </Box>
 
-      <aside aria-label="Ringkasan booking" className="space-y-4 lg:sticky lg:top-4">
-        <div className="space-y-3 rounded-lg border bg-card p-4">
-          <h2 className="font-medium">Ringkasan</h2>
+      <Box component="aside" aria-label="Ringkasan booking" sx={{ display: "flex", flexDirection: "column", gap: 2, position: { lg: "sticky" }, top: { lg: 16 } }}>
+        <Paper variant="outlined" sx={{ p: 2, display: "flex", flexDirection: "column", gap: 1.5 }}>
+          <Typography component="h2" sx={{ fontWeight: 500 }}>
+            Ringkasan
+          </Typography>
           <BookingSummary items={items} />
           {!created && (
-            <Button type="button" className="w-full" disabled={pending} onClick={handleSubmit}>
+            <Button type="button" variant="contained" fullWidth disabled={pending} onClick={handleSubmit}>
               {pending ? "Menyimpan…" : "Buat Booking"}
             </Button>
           )}
-        </div>
+        </Paper>
         {created && (
-          <BookingCreatedPanel
-            booking={created}
-            dateLabel="Menunggu konfirmasi"
-            listHref={`/admin/booking?sorot=${created.id}`}
-            onNew={startNew}
-          />
+          <BookingCreatedPanel booking={created} dateLabel="Menunggu konfirmasi" listHref={`/admin/booking?sorot=${created.id}`} onNew={startNew} />
         )}
-      </aside>
-    </div>
+      </Box>
+    </Box>
   );
 }

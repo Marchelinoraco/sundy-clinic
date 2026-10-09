@@ -1,5 +1,6 @@
 import { expect, test, type TestInfo } from "@playwright/test";
 import { E2E_APOTEKER, E2E_KEUANGAN, E2E_RESEPSIONIS } from "./credentials";
+import { isiTanggal, pilihOpsi } from "./helpers/mui";
 import { signIn } from "./helpers/quiz";
 
 // Satu cerita berurutan per proyek (desktop/ponsel, data masing-masing):
@@ -41,11 +42,11 @@ test("apoteker menyiapkan barang dengan stok 10", async ({ page }, testInfo) => 
   await expect(supplierDialog).toBeHidden({ timeout: 30_000 });
   await expect(page.getByLabel("Supplier", { exact: true })).not.toHaveValue("");
   await page.getByLabel("Nomor faktur").fill(`TG-E2E-${t}-001`);
-  await page.getByLabel("Barang baris 1").selectOption({ label: `${itemName} (E2E-${t}-VIT)` });
+  await pilihOpsi(page, "Barang baris 1", `${itemName} (E2E-${t}-VIT)`);
   await page.getByLabel("Jumlah baris 1").fill("10");
   await page.getByLabel("Harga beli baris 1").fill("10000");
   await page.getByLabel("Batch baris 1").fill("B-01");
-  await page.getByLabel("Kedaluwarsa baris 1").fill(dayFromToday(365));
+  await isiTanggal(page, "Kedaluwarsa baris 1", dayFromToday(365));
   await page.getByRole("button", { name: "Simpan barang masuk" }).click();
   await expect(page).toHaveURL(/\/admin\/stok\/masuk\/(?!baru)[^/]+$/, { timeout: 30_000 });
 });
@@ -68,7 +69,7 @@ test("resepsionis menagih penjualan langsung, memfinalkan, dan menerima pembayar
 
   await page.getByRole("button", { name: "+ Tambah barang" }).click();
   const itemDialog = page.getByRole("dialog", { name: "Tambah barang" });
-  await itemDialog.getByLabel("Barang", { exact: true }).selectOption({ label: `${itemName} (E2E-${t}-VIT) — sisa 10 tablet` });
+  await pilihOpsi(itemDialog, "Barang", `${itemName} (E2E-${t}-VIT) — sisa 10 tablet`);
   await itemDialog.getByLabel("Jumlah").fill("2");
   await itemDialog.getByRole("button", { name: "Tambah" }).click();
   await expect(itemDialog).toBeHidden({ timeout: 30_000 });
@@ -92,6 +93,14 @@ test("resepsionis menagih penjualan langsung, memfinalkan, dan menerima pembayar
   await page.getByLabel("Nilai diskon").fill("10");
   await page.getByRole("button", { name: "Terapkan diskon" }).click();
   await expect(summary).toContainText("Rp 135.000", { timeout: 30_000 });
+
+  // Tombol bunyi notifikasi mengambang di pojok kanan bawah tidak menutupi tombol terakhir halaman.
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  const finalizeBox = await page.getByRole("button", { name: "Finalkan tagihan" }).boundingBox();
+  const bellBox = await page.getByRole("button", { name: /Bunyi notifikasi/ }).boundingBox();
+  expect(finalizeBox && bellBox, "tombol Finalkan dan tombol bunyi terlihat").toBeTruthy();
+  const apart = finalizeBox!.x + finalizeBox!.width <= bellBox!.x || finalizeBox!.y + finalizeBox!.height <= bellBox!.y;
+  expect(apart, `Finalkan ${JSON.stringify(finalizeBox)} tertutup tombol bunyi ${JSON.stringify(bellBox)}`).toBe(true);
 
   await page.getByRole("button", { name: "Finalkan tagihan" }).click();
   await page.getByRole("dialog", { name: "Finalkan tagihan?" }).getByRole("button", { name: "Finalkan" }).click();

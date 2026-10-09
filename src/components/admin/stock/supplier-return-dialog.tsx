@@ -1,23 +1,28 @@
 "use client";
 
+import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
+import Stack from "@mui/material/Stack";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { formatRupiah } from "@/lib/format";
 import { validateReturn } from "@/lib/stock";
 import { createSupplierReturn } from "@/server/stock-movements";
+import { DialogCloseButton } from "../mui/dialog-close-button";
 
 type ReturnLine = { batchId: string; label: string; remaining: number; unitCost: number; unit: string };
 
@@ -66,64 +71,68 @@ export function SupplierReturnDialog({ invoiceId, lines }: { invoiceId: string; 
     });
   }
 
+  function close() {
+    setOpen(false);
+    setError(null);
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) setError(null);
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button type="button" variant="outline">
-          Retur ke supplier
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Retur ke supplier</DialogTitle>
-          <DialogDescription>Isi jumlah yang dikembalikan. Stok berkurang dan hutang faktur ini berkurang sebesar nilainya.</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3">
-          {lines.map((line) => (
-            <div key={line.batchId} className="grid items-center gap-2 sm:grid-cols-[1fr_8rem]">
-              <Label htmlFor={`return-${line.batchId}`} className="font-normal">
-                {line.label}
-                <span className="block text-xs text-muted-foreground">
-                  sisa {line.remaining} {line.unit} · {formatRupiah(line.unitCost)} per {line.unit}
-                </span>
-              </Label>
-              <Input
-                id={`return-${line.batchId}`}
-                aria-label={`Jumlah retur ${line.label}`}
-                type="number"
-                min={0}
-                max={line.remaining}
-                inputMode="numeric"
-                value={quantities[line.batchId] ?? ""}
-                onChange={(e) => setQuantities((current) => ({ ...current, [line.batchId]: e.target.value }))}
-              />
-            </div>
-          ))}
-          <div className="space-y-1">
-            <Label htmlFor="return-note">Catatan retur</Label>
-            <Input id="return-note" value={note} onChange={(e) => setNote(e.target.value)} />
-          </div>
-          <p className="text-sm">
-            Nilai retur: <strong>{formatRupiah(total)}</strong>
-          </p>
-        </div>
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        )}
-        <DialogFooter>
-          <Button type="button" onClick={save} disabled={pending}>
+    <>
+      <Button type="button" variant="outlined" onClick={() => setOpen(true)}>
+        Retur ke supplier
+      </Button>
+      <Dialog open={open} onClose={close} fullWidth maxWidth="sm">
+        <DialogTitle sx={{ pr: 6 }}>Retur ke supplier</DialogTitle>
+        <DialogCloseButton onClick={close} />
+        <DialogContent>
+          <DialogContentText>Isi jumlah yang dikembalikan. Stok berkurang dan hutang faktur ini berkurang sebesar nilainya.</DialogContentText>
+          <Stack spacing={2} sx={{ pt: 2 }}>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Barang</TableCell>
+                    <TableCell align="right">Jumlah</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {lines.map((line) => (
+                    <TableRow key={line.batchId}>
+                      <TableCell>
+                        {line.label}
+                        <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>
+                          sisa {line.remaining} {line.unit} · {formatRupiah(line.unitCost)} per {line.unit}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right" sx={{ width: 128 }}>
+                        <TextField
+                          id={`return-${line.batchId}`}
+                          type="number"
+                          value={quantities[line.batchId] ?? ""}
+                          onChange={(e) => setQuantities((current) => ({ ...current, [line.batchId]: e.target.value }))}
+                          slotProps={{
+                            htmlInput: { "aria-label": `Jumlah retur ${line.label}`, min: 0, max: line.remaining, inputMode: "numeric" },
+                          }}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            <TextField id="return-note" label="Catatan retur" value={note} onChange={(e) => setNote(e.target.value)} fullWidth />
+            <Typography variant="body2">
+              Nilai retur: <strong>{formatRupiah(total)}</strong>
+            </Typography>
+            {error && <Alert severity="error">{error}</Alert>}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button type="button" variant="contained" onClick={save} disabled={pending}>
             {pending ? "Menyimpan…" : "Simpan retur"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }

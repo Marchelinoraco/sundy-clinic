@@ -161,4 +161,39 @@ describe("batasan arsitektur", () => {
     );
     expect(users).toEqual(["src/components/public/package-tabs.tsx"]);
   });
+
+  it("Material UI hanya dimuat panel admin; situs publik tidak", () => {
+    const publicFiles = [
+      ...collectSourceFiles("src/app/(public)"),
+      ...collectSourceFiles("src/components").filter((file) => !file.startsWith(join("src", "components", "admin"))),
+    ];
+    const offenders = publicFiles.filter((file) => /from\s+"@mui\//.test(readFileSync(file, "utf8")));
+    expect(offenders).toEqual([]);
+  });
+
+  it("layout grup admin memasang provider MUI dan skrip skema warna", () => {
+    const layout = readFileSync("src/app/(admin)/layout.tsx", "utf8");
+    expect(layout).toContain("AdminProviders");
+    expect(layout).toContain("InitColorSchemeScript");
+  });
+
+  // Panel admin memakai Material UI seluruhnya (spec MUI): shadcn, lucide, dan kelas warna Tailwind tidak ikut
+  // mode gelap.
+  // Kelas dikenali hanya di awal token (setelah kutip, spasi, atau awalan varian seperti "hover:"), supaya
+  // variabel CSS tema seperti "--mui-palette-text-primary" tidak terhitung sebagai kelas Tailwind.
+  const SHADCN_OR_FIXED_COLOR =
+    /from "@\/components\/ui\/|from "lucide-react"|["'`][^"'`\n]*(?<=["'`\s:])(?:text|bg|border|fill|stroke|ring)-(?:muted|foreground|primary|secondary|destructive|accent|card|background|input|amber|emerald|stone|red|green|gold|brown|cream|white|black)\b/;
+
+  it("panel admin seluruhnya memakai MUI: tanpa shadcn, lucide, atau kelas warna Tailwind", () => {
+    const adminFiles = [...collectSourceFiles("src/app/(admin)"), ...collectSourceFiles("src/components/admin")];
+    const offenders = adminFiles.filter((file) => SHADCN_OR_FIXED_COLOR.test(readFileSync(file, "utf8")));
+    expect(offenders).toEqual([]);
+  });
+
+  it("panel admin tidak memakai komponen situs publik (gayanya tidak ikut mode gelap)", () => {
+    // Komponen yang dipakai bersama punya kembaran MUI di admin (mis. ContactWindowsFields, ActivityListFields).
+    const shared = /from "@\/components\/(online|kuis|pendaftaran|layout|food-recall|ui)\//;
+    const adminFiles = [...collectSourceFiles("src/app/(admin)"), ...collectSourceFiles("src/components/admin")];
+    expect(adminFiles.filter((file) => shared.test(readFileSync(file, "utf8")))).toEqual([]);
+  });
 });

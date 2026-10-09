@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
@@ -6,7 +6,9 @@ import { AppointmentForm } from "@/components/admin/appointment-form";
 import { addDaysToDateString, combineWitaDateAndMinutes } from "@/lib/time";
 import { createAppointment, getTransferInstruction } from "@/server/appointment";
 import { searchPatients, type PatientSummary } from "@/server/patient";
-import { getStaffAvailabilityForAdmin, getStaffAvailabilityRange, type DayAvailability } from "@/server/schedule";
+import type { DayAvailability } from "@/server/availability";
+import { getStaffAvailabilityForAdmin, getStaffAvailabilityRange } from "@/server/schedule";
+import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/server/appointment-message", () => ({
@@ -37,7 +39,7 @@ const MARIA: PatientSummary = {
 };
 
 function renderForm() {
-  return render(
+  return renderAdmin(
     <AppointmentForm
       branches={[{ id: "b1", name: "SunDY Mahakeret" }]}
       staff={[{ id: "d1", name: "dr. Diane", role: "DOKTER" }]}
@@ -53,7 +55,7 @@ const summary = () => screen.getByRole("complementary", { name: "Ringkasan booki
 
 async function fillBooking(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(/Cari pasien/), "maria");
-  await user.click(await screen.findByRole("button", { name: /Maria Wenas/ }));
+  await user.click(await screen.findByRole("option", { name: /Maria Wenas/ }));
   await user.click(await screen.findByRole("button", { name: "Senin, 5 Oktober 2026 — 2 jam kosong" }));
   await user.click(await screen.findByRole("button", { name: "11.00" }));
 }
@@ -141,8 +143,8 @@ describe("AppointmentForm", () => {
     expect(screen.queryByRole("button", { name: "Buat Booking" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Telepon" })).toBeDisabled();
     // Select Radix terbuka lewat pointerdown, yang tetap sampai walau fieldset-nya disabled:
-    // ia harus dikunci lewat prop disabled-nya sendiri, yang memasang data-disabled.
-    expect(screen.getByRole("combobox", { name: "Tenaga" })).toHaveAttribute("data-disabled");
+    // ia harus dikunci lewat prop disabled-nya sendiri (kini <select> asli yang dinonaktifkan).
+    expect(screen.getByRole("combobox", { name: "Tenaga" })).toBeDisabled();
 
     await user.click(screen.getByRole("button", { name: "+ Booking baru" }));
 
@@ -193,7 +195,7 @@ describe("AppointmentForm", () => {
 
   it("isian awal: pasien, tenaga, tanggal, dan jam sudah terpilih (spec D 5.8)", async () => {
     const user = userEvent.setup();
-    render(
+    renderAdmin(
       <AppointmentForm
         branches={[{ id: "b1", name: "SunDY Mahakeret" }]}
         staff={[{ id: "d1", name: "dr. Diane", role: "DOKTER" }]}
@@ -212,7 +214,7 @@ describe("AppointmentForm", () => {
   });
 
   it("pesan isian awal tampil di atas formulir", () => {
-    render(
+    renderAdmin(
       <AppointmentForm
         branches={[{ id: "b1", name: "SunDY Mahakeret" }]}
         staff={[{ id: "d1", name: "dr. Diane", role: "DOKTER" }]}

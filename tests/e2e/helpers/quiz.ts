@@ -12,6 +12,9 @@ export const inGroup = (page: Page, group: string, option: string) =>
 
 export async function signIn(page: Page, account: { email: string; password: string }) {
   await page.goto("/masuk");
+  // Tunggu skrip halaman selesai dimuat: `next dev` mengompilasi saat pertama dibuka, dan klik
+  // sebelum React terpasang tidak menjalankan proses masuk.
+  await page.waitForLoadState("networkidle");
   await page.getByLabel("Email").fill(account.email);
   await page.getByLabel("Kata Sandi").fill(account.password);
   await page.getByRole("button", { name: "Masuk" }).click();

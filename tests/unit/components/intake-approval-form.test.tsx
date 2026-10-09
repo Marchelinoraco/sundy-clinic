@@ -1,9 +1,10 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { toast } from "sonner";
 import { IntakeApprovalForm } from "@/components/admin/intake-approval-form";
 import { approveIntakeToPatient } from "@/server/intake";
+import { renderAdmin } from "../helpers/render-admin";
 
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
@@ -23,7 +24,7 @@ describe("IntakeApprovalForm", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("menampilkan catatan saat ini, usulan, dan isi awal kolom sunting", () => {
-    render(<IntakeApprovalForm intakeId="i1" approval={approval} />);
+    renderAdmin(<IntakeApprovalForm intakeId="i1" approval={approval} />);
     expect(screen.getByText("Udang")).toBeInTheDocument();
     expect(screen.getAllByText("(kosong)")).toHaveLength(1);
     expect(screen.getByLabelText("Alergi")).toHaveValue("Udang\nAmoxicillin");
@@ -32,7 +33,7 @@ describe("IntakeApprovalForm", () => {
 
   it("mengirim teks yang disunting beserta versi pasien, lalu memuat ulang halaman", async () => {
     vi.mocked(approveIntakeToPatient).mockResolvedValue({ ok: true, data: undefined });
-    render(<IntakeApprovalForm intakeId="i1" approval={approval} />);
+    renderAdmin(<IntakeApprovalForm intakeId="i1" approval={approval} />);
     const history = screen.getByLabelText("Riwayat penyakit & obat");
     await userEvent.clear(history);
     await userEvent.type(history, "Darah tinggi: Amlodipine (kontrol)");
@@ -55,7 +56,7 @@ describe("IntakeApprovalForm", () => {
       ok: false,
       error: "Data pasien baru saja berubah. Muat ulang halaman lalu periksa lagi.",
     });
-    render(<IntakeApprovalForm intakeId="i1" approval={approval} />);
+    renderAdmin(<IntakeApprovalForm intakeId="i1" approval={approval} />);
     await userEvent.click(screen.getByRole("button", { name: "Setujui ke data pasien" }));
 
     await waitFor(() =>

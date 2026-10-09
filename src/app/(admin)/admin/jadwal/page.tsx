@@ -1,6 +1,8 @@
-import Link from "next/link";
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
 import { AdminHeader } from "@/components/admin/admin-header";
 import { HolidayList } from "@/components/admin/holiday-list";
+import { TextLink } from "@/components/admin/mui/links";
 import { PageBody, PageHeader, SectionCard } from "@/components/admin/page-layout";
 import { PageTabs } from "@/components/admin/page-tabs";
 import { ScheduleExceptionForm } from "@/components/admin/schedule-exception-form";
@@ -10,7 +12,6 @@ import { formatIndonesianDate } from "@/lib/format";
 import { resolveTab } from "@/lib/page-tabs";
 import type { ExceptionKind } from "@/lib/slot";
 import { minutesToTimeLabel, witaDateString } from "@/lib/time";
-import { cn } from "@/lib/utils";
 import { getBranches } from "@/server/catalog";
 import { listHolidays } from "@/server/holiday";
 import { listSchedulableStaff, listScheduleExceptions, listScheduleTemplates } from "@/server/schedule";
@@ -44,21 +45,27 @@ export default async function SchedulePage({
       description="Jam praktik tiap tenaga, cuti, dan hari libur klinik. Dipakai untuk slot booking situs dan admin."
       actions={
         staffList.length > 1 && selectedStaff ? (
-          <nav aria-label="Pilih tenaga" className="flex flex-wrap gap-1 rounded-lg border p-0.5">
+          <Box component="nav" aria-label="Pilih tenaga" sx={{ display: "flex", flexWrap: "wrap", gap: 0.5, border: 1, borderColor: "divider", borderRadius: 2, p: 0.25 }}>
             {staffList.map((s) => (
-              <Link
+              <TextLink
                 key={s.id}
                 href={`/admin/jadwal?staf=${s.id}${params.tab ? `&tab=${resolveTab(params.tab, TABS)}` : ""}`}
                 aria-current={s.id === selectedStaff.id ? "page" : undefined}
-                className={cn(
-                  "rounded-md px-3 py-1.5 text-sm",
-                  s.id === selectedStaff.id ? "bg-gold-500 font-semibold text-white" : "text-muted-foreground hover:text-brown-900",
-                )}
+                underline="none"
+                sx={{
+                  px: 1.5,
+                  py: 0.75,
+                  borderRadius: 1.5,
+                  fontSize: "0.875rem",
+                  ...(s.id === selectedStaff.id
+                    ? { bgcolor: "primary.main", color: "primary.contrastText", fontWeight: 600 }
+                    : { color: "text.secondary", fontWeight: 400, "&:hover": { color: "text.primary" } }),
+                }}
               >
                 {s.name}
-              </Link>
+              </TextLink>
             ))}
-          </nav>
+          </Box>
         ) : undefined
       }
     />
@@ -70,7 +77,9 @@ export default async function SchedulePage({
         <AdminHeader title="Jadwal" />
         <PageBody>
           {header}
-          <p className="text-sm text-muted-foreground">Belum ada staf atau cabang aktif untuk dijadwalkan.</p>
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            Belum ada staf atau cabang aktif untuk dijadwalkan.
+          </Typography>
         </PageBody>
       </>
     );
@@ -136,10 +145,12 @@ export default async function SchedulePage({
           <SectionCard title={`Hari libur ${year}`} description="Berlaku untuk semua tenaga dan cabang." flush>
             <HolidayList holidays={upcomingHolidays} emptyText="Tidak ada hari libur lagi tahun ini." />
             {pastHolidays.length > 0 && (
-              <details className="border-t">
-                <summary className="cursor-pointer px-4 py-3 text-sm text-muted-foreground">Sudah lewat ({pastHolidays.length})</summary>
+              <Box component="details" sx={{ borderTop: 1, borderColor: "divider" }}>
+                <Box component="summary" sx={{ cursor: "pointer", px: 2, py: 1.5, fontSize: "0.875rem", color: "text.secondary" }}>
+                  Sudah lewat ({pastHolidays.length})
+                </Box>
                 <HolidayList holidays={pastHolidays} />
-              </details>
+              </Box>
             )}
           </SectionCard>
         )}

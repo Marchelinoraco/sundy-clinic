@@ -1,94 +1,120 @@
-import Link from "next/link";
+import Box from "@mui/material/Box";
+import Breadcrumbs from "@mui/material/Breadcrumbs";
+import Card from "@mui/material/Card";
+import Divider from "@mui/material/Divider";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import type { ReactNode } from "react";
-import { cn } from "@/lib/utils";
+import { TextLink } from "./mui/links";
 
 export type Crumb = { label: string; href?: string };
 
-/**
- * Kepala halaman gaya A (spec D 3.1): judul besar Cormorant, keterangan satu
- * baris, jejak opsional, dan aksi di kanan yang turun ke bawah judul di layar sempit.
- * Satu-satunya <h1> di halaman.
- */
-export function PageHeader({
-  title,
-  description,
-  trail,
-  actions,
-}: {
-  title: string;
-  description?: ReactNode;
-  trail?: Crumb[];
-  actions?: ReactNode;
-}) {
+/** Kepala halaman (spec D 3.1): satu-satunya <h1>, keterangan, jejak opsional, aksi di kanan (turun di layar sempit). */
+export function PageHeader({ title, description, trail, actions }: { title: string; description?: ReactNode; trail?: Crumb[]; actions?: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-4">
-      <div className="min-w-0 space-y-1">
+    <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ justifyContent: "space-between", alignItems: { xs: "stretch", sm: "flex-end" } }}>
+      <Box sx={{ minWidth: 0 }}>
         {trail && trail.length > 0 && (
-          <nav aria-label="Jejak halaman" className="text-sm text-muted-foreground">
-            <ol className="flex flex-wrap items-center gap-1">
-              {trail.map((crumb, index) => {
-                const last = index === trail.length - 1;
-                return (
-                  <li key={`${crumb.label}-${index}`} className="flex items-center gap-1">
-                    {crumb.href && !last ? (
-                      <Link href={crumb.href} className="underline-offset-4 hover:underline">
-                        {crumb.label}
-                      </Link>
-                    ) : (
-                      <span aria-current={last ? "page" : undefined}>{crumb.label}</span>
-                    )}
-                    {!last && <span aria-hidden>›</span>}
-                  </li>
-                );
-              })}
-            </ol>
-          </nav>
+          <Breadcrumbs aria-label="Jejak halaman" separator="›" sx={{ fontSize: "0.875rem", mb: 0.5 }}>
+            {trail.map((crumb, index) => {
+              const last = index === trail.length - 1;
+              return crumb.href && !last ? (
+                <TextLink key={`${crumb.label}-${index}`} href={crumb.href} color="text.secondary">
+                  {crumb.label}
+                </TextLink>
+              ) : (
+                <Typography key={`${crumb.label}-${index}`} component="span" aria-current={last ? "page" : undefined} sx={{ fontSize: "inherit", color: last ? "text.primary" : "text.secondary" }}>
+                  {crumb.label}
+                </Typography>
+              );
+            })}
+          </Breadcrumbs>
         )}
-        <h1 className="font-display text-3xl font-semibold leading-tight text-brown-900">{title}</h1>
-        {description && <div className="text-sm text-muted-foreground">{description}</div>}
-      </div>
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
-    </div>
+        <Typography variant="h1">{title}</Typography>
+        {description && (
+          <Typography component="div" variant="body2" sx={{ color: "text.secondary", mt: 0.5 }}>
+            {description}
+          </Typography>
+        )}
+      </Box>
+      {actions && (
+        <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
+          {actions}
+        </Stack>
+      )}
+    </Stack>
   );
 }
 
-/** Jarak tepi dan lebar isi yang sama di semua halaman. Halaman kunjungan memakai `wide`. */
+/**
+ * Jarak tepi dan lebar isi yang sama di semua halaman. Halaman kunjungan memakai `wide`. Jarak bawah lebih
+ * besar supaya isi terakhir bisa digulir ke atas tombol bunyi notifikasi yang mengambang di pojok kanan bawah.
+ */
 export function PageBody({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
-  return <div className={cn("mx-auto w-full space-y-6 p-4 sm:p-6", wide ? "max-w-none" : "max-w-6xl")}>{children}</div>;
+  return (
+    <Box
+      sx={{
+        mx: "auto",
+        width: "100%",
+        maxWidth: wide ? "none" : 1152,
+        pt: { xs: 2, sm: 3 },
+        px: { xs: 2, sm: 3 },
+        pb: 10,
+        display: "flex",
+        flexDirection: "column",
+        gap: 3,
+      }}
+    >
+      {children}
+    </Box>
+  );
 }
 
-/** Kartu bagian: judul, aksi kecil di kanan, lalu isi. `flush` untuk tabel yang menempel ke tepi kartu. */
+/** Kartu bagian: judul (h2), aksi kecil di kanan, lalu isi. `flush` untuk tabel yang menempel ke tepi kartu. */
 export function SectionCard({
   title,
   description,
   actions,
   flush = false,
-  className,
   children,
 }: {
   title: string;
   description?: ReactNode;
   actions?: ReactNode;
   flush?: boolean;
-  className?: string;
   children: ReactNode;
 }) {
   return (
-    <section aria-label={title} className={cn("min-w-0 rounded-xl border bg-card", className)}>
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3">
-        <div className="min-w-0">
-          <h2 className="font-medium text-brown-900">{title}</h2>
-          {description && <div className="text-xs text-muted-foreground">{description}</div>}
-        </div>
-        {actions && <div className="flex flex-wrap items-center gap-2 text-sm">{actions}</div>}
-      </div>
-      <div className={cn("min-w-0", flush ? "overflow-x-auto" : "p-4")}>{children}</div>
-    </section>
+    <Card component="section" aria-label={title} sx={{ minWidth: 0 }}>
+      <Stack direction="row" spacing={1} useFlexGap sx={{ px: 2, py: 1.5, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="h2" component="h2">
+            {title}
+          </Typography>
+          {description && (
+            <Typography component="div" variant="caption" sx={{ color: "text.secondary" }}>
+              {description}
+            </Typography>
+          )}
+        </Box>
+        {actions && (
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center", fontSize: "0.875rem" }}>
+            {actions}
+          </Stack>
+        )}
+      </Stack>
+      <Divider />
+      <Box sx={flush ? { minWidth: 0, overflowX: "auto" } : { minWidth: 0, p: 2 }}>{children}</Box>
+    </Card>
   );
 }
 
 export function EmptyState({ children }: { children: ReactNode }) {
-  return <p className="px-4 py-6 text-center text-sm text-muted-foreground">{children}</p>;
+  return (
+    <Typography variant="body2" sx={{ px: 2, py: 3, textAlign: "center", color: "text.secondary" }}>
+      {children}
+    </Typography>
+  );
 }
 
 /** Bagian dasbor yang gagal dimuat (spec D 4.7). */

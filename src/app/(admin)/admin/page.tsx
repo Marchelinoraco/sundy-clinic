@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Box from "@mui/material/Box";
 import { AdminHeader } from "@/components/admin/admin-header";
 import { DashboardNumbersCard } from "@/components/admin/dashboard-numbers";
 import { DashboardWork } from "@/components/admin/dashboard-work";
@@ -6,15 +6,14 @@ import { DoctorWorklistView } from "@/components/admin/doctor-worklist";
 import { OnlineWorkView } from "@/components/admin/online-work";
 import { PayableTiles } from "@/components/admin/stock/payable-tiles";
 import { StockAlertTiles } from "@/components/admin/stock/stock-alert-tiles";
+import { LinkButton } from "@/components/admin/mui/links";
 import { FailedSection, PageBody, PageHeader } from "@/components/admin/page-layout";
 import { ScheduleTimeline } from "@/components/admin/schedule-timeline";
-import { Button } from "@/components/ui/button";
 import { clinicDayLabel, greetingFor, greetingName, parsePeriod } from "@/lib/dashboard";
 import { formatIndonesianDate } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { settle } from "@/lib/settle";
 import { witaDateString, witaMinutesOfDay } from "@/lib/time";
-import { cn } from "@/lib/utils";
 import { getDashboardNumbers, getTodaySchedule, getTodayWork } from "@/server/dashboard";
 import { listDoctorWorklist, listOnlineWork } from "@/server/encounter-read";
 import { BillingTiles } from "@/components/admin/billing/billing-tiles";
@@ -71,9 +70,9 @@ export default async function AdminDashboardPage({
           description={[formatIndonesianDate(now), dayLabel].filter(Boolean).join(" · ")}
           actions={
             canBook ? (
-              <Button asChild>
-                <Link href="/admin/booking/baru">+ Booking Baru</Link>
-              </Button>
+              <LinkButton href="/admin/booking/baru" variant="contained">
+                + Booking Baru
+              </LinkButton>
             ) : undefined
           }
         />
@@ -96,12 +95,15 @@ export default async function AdminDashboardPage({
         {profit && (profit.ok ? <ProfitTiles profit={profit.data} /> : <FailedSection title="Laporan" />)}
         {online && (online.ok ? <OnlineWorkView rows={online.data} /> : <FailedSection title="Konsultasi online" />)}
         {(worklist || numbers) && (
-          // grid-cols-1 = minmax(0, 1fr): tanpa itu tabel daftar dokter melebarkan halaman di ponsel.
+          // minmax(0, 1fr): tanpa itu tabel daftar dokter melebarkan halaman di ponsel.
           // Dua kolom hanya bila keduanya tampil; dokter tanpa Angka memakai lebar penuh.
-          <div className={cn("grid grid-cols-1 gap-6", worklist && numbers && "xl:grid-cols-2")}>
+          <Box
+            data-columns={worklist && numbers ? "2" : "1"}
+            sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "minmax(0, 1fr)", xl: worklist && numbers ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)" } }}
+          >
             {worklist && (worklist.ok ? <DoctorWorklistView worklist={worklist.data} /> : <FailedSection title="Pasien hari ini" />)}
             {numbers && (numbers.ok ? <DashboardNumbersCard numbers={numbers.data} /> : <FailedSection title="Angka" />)}
-          </div>
+          </Box>
         )}
       </PageBody>
     </>

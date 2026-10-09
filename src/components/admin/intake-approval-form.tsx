@@ -1,16 +1,19 @@
 "use client";
 
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Paper from "@mui/material/Paper";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
 import { useRouter } from "next/navigation";
 import { useId, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { approveIntakeToPatient, type IntakeApproval } from "@/server/intake";
+import { approveIntakeToPatient } from "@/server/intake";
+import type { IntakeApproval } from "@/server/intake-clinical";
 
 type ReadyApproval = Extract<IntakeApproval, { state: "ready" }>;
 
-const textareaClass =
-  "min-h-24 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50";
+const COMPARE = { borderRadius: 1.5, bgcolor: "action.hover", p: 1 } as const;
 
 function RecordField(props: {
   label: string;
@@ -21,29 +24,38 @@ function RecordField(props: {
 }) {
   const id = useId();
   return (
-    <div className="space-y-2">
-      <Label htmlFor={id} className="text-base font-medium">
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+      <Box component="label" htmlFor={id} sx={{ fontSize: "1rem", fontWeight: 500 }}>
         {props.label}
-      </Label>
-      <div className="grid gap-2 text-sm sm:grid-cols-2">
-        <div className="rounded-md bg-muted p-2">
-          <p className="text-xs text-muted-foreground">Data pasien saat ini</p>
-          <p className="whitespace-pre-line">{props.current || "(kosong)"}</p>
-        </div>
-        <div className="rounded-md bg-muted p-2">
-          <p className="text-xs text-muted-foreground">Usulan dari isian</p>
-          <p className="whitespace-pre-line">{props.proposed || "(tidak ada di isian ini)"}</p>
-        </div>
-      </div>
-      <textarea
+      </Box>
+      <Box sx={{ display: "grid", gap: 1, fontSize: "0.875rem", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" } }}>
+        <Box sx={COMPARE}>
+          <Typography variant="caption" component="p" sx={{ color: "text.secondary" }}>
+            Data pasien saat ini
+          </Typography>
+          <Box component="p" sx={{ m: 0, whiteSpace: "pre-line" }}>
+            {props.current || "(kosong)"}
+          </Box>
+        </Box>
+        <Box sx={COMPARE}>
+          <Typography variant="caption" component="p" sx={{ color: "text.secondary" }}>
+            Usulan dari isian
+          </Typography>
+          <Box component="p" sx={{ m: 0, whiteSpace: "pre-line" }}>
+            {props.proposed || "(tidak ada di isian ini)"}
+          </Box>
+        </Box>
+      </Box>
+      <TextField
         id={id}
-        rows={4}
-        maxLength={2000}
+        multiline
+        minRows={4}
         value={props.value}
         onChange={(e) => props.onChange(e.target.value)}
-        className={textareaClass}
+        slotProps={{ htmlInput: { maxLength: 2000 } }}
+        fullWidth
       />
-    </div>
+    </Box>
   );
 }
 
@@ -76,15 +88,15 @@ export function IntakeApprovalForm({ intakeId, approval }: { intakeId: string; a
   }
 
   return (
-    <section aria-labelledby="setujui-data-pasien" className="space-y-4 rounded-lg border p-4">
+    <Paper component="section" variant="outlined" aria-labelledby="setujui-data-pasien" sx={{ p: 2, display: "flex", flexDirection: "column", gap: 2 }}>
       <div>
-        <h2 id="setujui-data-pasien" className="text-base font-medium">
+        <Typography component="h2" id="setujui-data-pasien" sx={{ fontSize: "1rem", fontWeight: 500 }}>
           Setujui ke data pasien
-        </h2>
-        <p className="text-sm text-muted-foreground">
+        </Typography>
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
           Isi kedua kolom di bawah menggantikan catatan alergi dan riwayat penyakit pasien. Jawaban pasien di
           isian ini tidak berubah.
-        </p>
+        </Typography>
       </div>
       <RecordField
         label="Alergi"
@@ -100,9 +112,11 @@ export function IntakeApprovalForm({ intakeId, approval }: { intakeId: string; a
         value={medicalHistory}
         onChange={setMedicalHistory}
       />
-      <Button onClick={handleApprove} disabled={pending}>
-        Setujui ke data pasien
-      </Button>
-    </section>
+      <Box>
+        <Button variant="contained" onClick={handleApprove} disabled={pending}>
+          Setujui ke data pasien
+        </Button>
+      </Box>
+    </Paper>
   );
 }

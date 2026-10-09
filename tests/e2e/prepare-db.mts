@@ -13,6 +13,9 @@ import { slimmingNewPatient } from "../fixtures/quiz-answers-v2";
 // Booking dan pasien dari putaran sebelumnya dibuang agar slot yang
 // ditawarkan selalu sama di setiap putaran.
 await purgeEncounters(prisma);
+// tampilan-admin.spec.ts membuka hari Minggu terapis lalu menutupnya lagi. Putaran yang gagal di tengah
+// meninggalkannya terbuka, sehingga putaran berikutnya tidak bisa "membuka" lagi; kembalikan ke tutup.
+await prisma.scheduleTemplate.deleteMany({ where: { weekday: 0, staff: { name: "Terapis SunDY Mahakeret" } } });
 // Pengeluaran dan kategori buatan e2e (laporan.spec.ts) dibuang tiap putaran; kategori bawaan dari migrasi tetap.
 await prisma.expense.deleteMany();
 await prisma.recurringExpense.deleteMany();

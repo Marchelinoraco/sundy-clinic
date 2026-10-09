@@ -1,19 +1,25 @@
 "use client";
 
+import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { EXPENSE_NOTE_MAX, validateExpense } from "@/lib/expense";
 import { formatRupiah } from "@/lib/format";
 import { createExpense } from "@/server/expense-actions";
 import type { CategoryRow } from "@/server/expense-read";
+import { DateField } from "../mui/date-field";
+import { DialogCloseButton } from "../mui/dialog-close-button";
+import { SelectField } from "../mui/select-field";
 import { RupiahInput } from "../rupiah-input";
-
-const selectClass = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm";
 
 /** Catat satu pengeluaran (spec laporan 7). Cabang kosong berarti pengeluaran umum. */
 export function ExpenseFormDialog({ categories, branches, today }: { categories: CategoryRow[]; branches: { id: string; name: string }[]; today: string }) {
@@ -61,69 +67,57 @@ export function ExpenseFormDialog({ categories, branches, today }: { categories:
     });
   }
 
+  function close() {
+    setOpen(false);
+    setError(null);
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) setError(null);
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button type="button">+ Pengeluaran</Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Catat pengeluaran</DialogTitle>
-          <DialogDescription>Salah catat dibatalkan dengan alasan, tidak dihapus.</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label htmlFor="expense-date">Tanggal</Label>
-            <Input id="expense-date" type="date" max={today} value={date} onChange={(e) => setDate(e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="expense-category">Kategori</Label>
-            <select id="expense-category" className={selectClass} value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+    <>
+      <Button type="button" variant="contained" onClick={() => setOpen(true)}>
+        + Pengeluaran
+      </Button>
+      <Dialog open={open} onClose={close} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ pr: 6 }}>Catat pengeluaran</DialogTitle>
+        <DialogCloseButton onClick={close} />
+        <DialogContent>
+          <DialogContentText>Salah catat dibatalkan dengan alasan, tidak dihapus.</DialogContentText>
+          <Stack spacing={2} sx={{ pt: 2 }}>
+            <DateField id="expense-date" label="Tanggal" max={today} value={date} onChange={setDate} fullWidth />
+            <SelectField id="expense-category" label="Kategori" value={categoryId} onChange={setCategoryId}>
               <option value="">Pilih kategori…</option>
               {categories.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.name}
                 </option>
               ))}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="expense-amount">Nominal</Label>
-            <RupiahInput id="expense-amount" value={amount} onChange={setAmount} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="expense-branch">Cabang</Label>
-            <select id="expense-branch" className={selectClass} value={branchId} onChange={(e) => setBranchId(e.target.value)}>
+            </SelectField>
+            <RupiahInput id="expense-amount" label="Nominal" value={amount} onChange={setAmount} fullWidth />
+            <SelectField id="expense-branch" label="Cabang" value={branchId} onChange={setBranchId}>
               <option value="">Umum (semua cabang)</option>
               {branches.map((branch) => (
                 <option key={branch.id} value={branch.id}>
                   {branch.name}
                 </option>
               ))}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="expense-note">Keterangan (opsional)</Label>
-            <Input id="expense-note" maxLength={EXPENSE_NOTE_MAX} value={note} onChange={(e) => setNote(e.target.value)} />
-          </div>
-        </div>
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        )}
-        <DialogFooter>
-          <Button type="button" onClick={save} disabled={pending}>
+            </SelectField>
+            <TextField
+              id="expense-note"
+              label="Keterangan (opsional)"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              fullWidth
+              slotProps={{ htmlInput: { maxLength: EXPENSE_NOTE_MAX } }}
+            />
+            {error && <Alert severity="error">{error}</Alert>}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button type="button" variant="contained" onClick={save} disabled={pending}>
             {pending ? "Menyimpan…" : "Simpan"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }

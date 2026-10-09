@@ -1,9 +1,13 @@
 "use client";
 
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { NIK_FORMAT_ERROR, NIK_MISSING_REASONS, normalizeNik, type NikMissingReasonValue } from "@/lib/nik";
 import { updatePatientNik } from "@/server/patient";
 import { NikInput, type NikDraft } from "./nik-input";
@@ -60,18 +64,26 @@ export function NikForm({
   if (!editing) {
     return (
       <div>
-        <h3 className="text-xs text-muted-foreground">NIK</h3>
+        <Typography component="h3" sx={{ fontSize: "0.75rem", fontWeight: 400, color: "text.secondary" }}>
+          NIK
+        </Typography>
         {nik ? (
-          <p>{nik}</p>
+          <Box component="p" sx={{ m: 0 }}>
+            {nik}
+          </Box>
         ) : missingReason ? (
-          <p className="font-medium text-amber-700">NIK belum ada ({NIK_MISSING_REASONS[missingReason]})</p>
+          <Box component="p" sx={{ m: 0, fontWeight: 500, color: "warning.main" }}>
+            NIK belum ada ({NIK_MISSING_REASONS[missingReason]})
+          </Box>
         ) : (
-          <p>—</p>
+          <Box component="p" sx={{ m: 0 }}>
+            —
+          </Box>
         )}
         <Button
-          variant="link"
-          size="sm"
-          className="h-auto px-0"
+          variant="text"
+          size="small"
+          sx={{ px: 0, minWidth: 0, textDecoration: "underline" }}
           onClick={() => {
             setDraft({ mode: "NIK", value: nik ?? "" });
             setEditing(true);
@@ -84,21 +96,17 @@ export function NikForm({
   }
 
   return (
-    <div className="space-y-2">
+    <Stack spacing={1}>
       <NikInput draft={draft} onChange={setDraft} />
-      {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
-      <div className="flex gap-2">
-        <Button size="sm" onClick={save} disabled={pending}>
+      {error && <Alert severity="error">{error}</Alert>}
+      <Stack direction="row" spacing={1}>
+        <Button size="small" variant="contained" onClick={save} disabled={pending}>
           Simpan
         </Button>
-        <Button size="sm" variant="outline" onClick={() => setEditing(false)} disabled={pending}>
+        <Button size="small" variant="outlined" onClick={() => setEditing(false)} disabled={pending}>
           Batal
         </Button>
-      </div>
-    </div>
+      </Stack>
+    </Stack>
   );
 }

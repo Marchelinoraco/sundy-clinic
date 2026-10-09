@@ -1,9 +1,10 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { RupiahInput } from "@/components/admin/rupiah-input";
 import { parseRupiahText, rupiahInputText } from "@/lib/rupiah-input";
+import { renderAdmin } from "../helpers/render-admin";
 
 describe("parseRupiahText", () => {
   it("hanya angka yang dibaca, termasuk teks yang ditempel", () => {
@@ -57,7 +58,7 @@ describe("RupiahInput", () => {
   it("diketik sebagai angka dan ditampilkan sebagai rupiah", async () => {
     const onChange = vi.fn();
     const user = userEvent.setup();
-    render(<Harness initial={null} onChange={onChange} />);
+    renderAdmin(<Harness initial={null} onChange={onChange} />);
     const input = screen.getByRole("textbox", { name: "Harga coret" });
     await user.type(input, "189000");
     expect(input).toHaveValue("Rp 189.000");
@@ -67,11 +68,19 @@ describe("RupiahInput", () => {
   it("dikosongkan menjadi null", async () => {
     const onChange = vi.fn();
     const user = userEvent.setup();
-    render(<Harness initial={250000} onChange={onChange} />);
+    renderAdmin(<Harness initial={250000} onChange={onChange} />);
     const input = screen.getByRole("textbox", { name: "Harga coret" });
     expect(input).toHaveValue("Rp 250.000");
     await user.clear(input);
     expect(input).toHaveValue("");
     expect(onChange).toHaveBeenLastCalledWith(null);
+  });
+
+  it("dengan label tampil: terhubung ke isian (pengganti pasangan Label + Input lama)", async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    renderAdmin(<RupiahInput id="expense-amount" label="Nominal" value={null} onChange={onChange} />);
+    await user.type(screen.getByLabelText("Nominal"), "5");
+    expect(onChange).toHaveBeenLastCalledWith(5);
   });
 });

@@ -1,10 +1,11 @@
 "use client";
 
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import TextField from "@mui/material/TextField";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { signIn } from "@/lib/auth-client";
 
 export function SignInForm() {
@@ -41,39 +42,23 @@ export function SignInForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-      <div className="space-y-2">
-        <Label htmlFor="email">Email</Label>
-        <Input
-          id="email"
-          type="email"
-          autoComplete="username"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        {fieldError && <p className="text-sm text-destructive">{fieldError}</p>}
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="password">Kata Sandi</Label>
-        <Input
-          id="password"
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-      </div>
-
-      {formError && (
-        <p role="alert" className="text-sm text-destructive">
-          {formError}
-        </p>
-      )}
-
-      <Button type="submit" className="w-full" disabled={pending}>
+    <Box component="form" onSubmit={handleSubmit} noValidate sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      <TextField
+        id="email"
+        label="Email"
+        type="email"
+        autoComplete="username"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        error={Boolean(fieldError)}
+        helperText={fieldError ?? undefined}
+        fullWidth
+      />
+      <TextField id="password" label="Kata Sandi" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} fullWidth />
+      {formError && <Alert severity="error">{formError}</Alert>}
+      <Button type="submit" variant="contained" size="large" fullWidth disabled={pending}>
         {pending ? "Memproses…" : "Masuk"}
       </Button>
-    </form>
+    </Box>
   );
 }

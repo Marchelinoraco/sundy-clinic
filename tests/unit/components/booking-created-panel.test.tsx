@@ -1,7 +1,8 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { BookingCreatedPanel, type CreatedBooking } from "@/components/admin/booking-created-panel";
+import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/server/appointment-message", () => ({
@@ -25,7 +26,7 @@ const created: CreatedBooking = {
 
 function renderPanel(booking: CreatedBooking) {
   const onNew = vi.fn();
-  render(<BookingCreatedPanel booking={booking} dateLabel="Sen, 5 Okt" onNew={onNew} />);
+  renderAdmin(<BookingCreatedPanel booking={booking} dateLabel="Sen, 5 Okt" onNew={onNew} />);
   return onNew;
 }
 

@@ -1,14 +1,15 @@
-import { render, screen } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { isNavItemVisible, NAV_GROUPS } from "@/components/admin/app-sidebar";
 import { StockAvailabilityTable } from "@/components/admin/dispensing/stock-availability-table";
+import { renderAdmin } from "./helpers/render-admin";
 
 const titlesFor = (role: Parameters<typeof isNavItemVisible>[0]) =>
   NAV_GROUPS.flatMap((group) => group.items).filter((item) => isNavItemVisible(role, item)).map((item) => item.title);
 
 describe("tabel ketersediaan stok", () => {
   it("menampilkan nama, jenis, sisa, satuan; Habis ditandai; tanpa harga", () => {
-    render(
+    renderAdmin(
       <StockAvailabilityTable
         rows={[
           { id: "a", name: "Amoxicillin", kind: "OBAT", unit: "kapsul", available: 9 },
@@ -23,7 +24,7 @@ describe("tabel ketersediaan stok", () => {
   });
 
   it("kosong menampilkan keterangan", () => {
-    render(<StockAvailabilityTable rows={[]} />);
+    renderAdmin(<StockAvailabilityTable rows={[]} />);
     expect(screen.getByText("Tidak ada barang yang cocok.")).toBeInTheDocument();
   });
 });

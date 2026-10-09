@@ -1,25 +1,22 @@
 "use client";
 
+import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { ActivityList } from "@/components/kuis/activity-list";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
 import { foodRecallHeader, foodRecallSubjectiveText, type FoodRecallAuthor, type FoodRecallView } from "@/lib/food-recall";
 import { formatShortIndonesianDate } from "@/lib/format";
 import type { ActivityEntry } from "@/lib/kuis/v1/answers";
 import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
 import { saveFoodRecallByStaff } from "@/server/food-recall-admin";
+import { ActivityListFields } from "./activity-list-fields";
 import { FoodRecallDialog } from "./food-recall-dialog";
 import { FoodRecallTable } from "./food-recall-table";
 
@@ -98,69 +95,77 @@ export function EncounterFoodRecallTab({
     .join(" · ");
 
   return (
-    <div className="space-y-3 text-sm">
-      <h3 className="text-base font-medium">Kemarin, {foodRecall.recallDateLabel}</h3>
+    <Stack spacing={1.5} sx={{ fontSize: "0.875rem" }}>
+      <Typography component="h3" sx={{ fontSize: "1rem", fontWeight: 500 }}>
+        Kemarin, {foodRecall.recallDateLabel}
+      </Typography>
 
       {editing ? (
-        <div className="space-y-3">
-          <ActivityList entries={entries} onChange={setEntries} />
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" onClick={save} disabled={pending || entries.length === 0}>
+        <Stack spacing={1.5}>
+          <ActivityListFields entries={entries} onChange={setEntries} />
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
+            <Button size="small" variant="contained" onClick={save} disabled={pending || entries.length === 0}>
               Simpan food recall
             </Button>
-            <Button size="sm" variant="outline" onClick={() => setEditing(false)} disabled={pending}>
+            <Button size="small" variant="outlined" onClick={() => setEditing(false)} disabled={pending}>
               Batal
             </Button>
-          </div>
-          <p className="text-xs text-muted-foreground">Setelah disimpan, link customer ditutup supaya catatan ini tidak tertimpa.</p>
-        </div>
+          </Stack>
+          <Typography variant="caption" component="p" sx={{ color: "text.secondary" }}>
+            Setelah disimpan, link customer ditutup supaya catatan ini tidak tertimpa.
+          </Typography>
+        </Stack>
       ) : foodRecall.state === "FILLED" ? (
         <>
-          {meta && <p className="text-xs text-muted-foreground">{meta}</p>}
+          {meta && (
+            <Typography variant="caption" component="p" sx={{ color: "text.secondary" }}>
+              {meta}
+            </Typography>
+          )}
           <FoodRecallTable entries={foodRecall.entries} label={`Food recall ${foodRecall.recallDateLabel}`} />
-          <div className="flex flex-wrap gap-2">
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
             {copy && (
-              <Button size="sm" onClick={requestCopy}>
+              <Button size="small" variant="contained" onClick={requestCopy}>
                 Salin ke S
               </Button>
             )}
             {editable && (
-              <Button size="sm" variant="outline" onClick={startEditing}>
+              <Button size="small" variant="outlined" onClick={startEditing}>
                 Lengkapi
               </Button>
             )}
-          </div>
+          </Stack>
         </>
       ) : (
         <>
-          <p className="text-muted-foreground">
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
             {foodRecall.state === "WAITING" ? "Customer belum mengisi food recall." : "Food recall tidak ditawarkan saat check-in."}
-          </p>
+          </Typography>
           {editable && (
-            <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="outline" onClick={() => setLinkOpen(true)}>
+            <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
+              <Button size="small" variant="outlined" onClick={() => setLinkOpen(true)}>
                 {foodRecall.state === "WAITING" ? "Buka QR dan link" : "Tawarkan sekarang"}
               </Button>
-              <Button size="sm" variant="outline" onClick={startEditing}>
+              <Button size="small" variant="outlined" onClick={startEditing}>
                 Isi sendiri
               </Button>
-            </div>
+            </Stack>
           )}
         </>
       )}
 
-      <AlertDialog open={confirmCopy} onOpenChange={setConfirmCopy}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Salin food recall lagi?</AlertDialogTitle>
-            <AlertDialogDescription>Kolom S sudah memuat food recall ini.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction onClick={doCopy}>Salin lagi</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <Dialog open={confirmCopy} onClose={() => setConfirmCopy(false)} maxWidth="xs" slotProps={{ paper: { role: "alertdialog" } }}>
+        <DialogTitle>Salin food recall lagi?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>Kolom S sudah memuat food recall ini.</DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmCopy(false)}>Batal</Button>
+          <Button variant="contained" onClick={doCopy}>
+            Salin lagi
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {linkOpen && (
         <FoodRecallDialog
@@ -174,6 +179,6 @@ export function EncounterFoodRecallTab({
           }}
         />
       )}
-    </div>
+    </Stack>
   );
 }

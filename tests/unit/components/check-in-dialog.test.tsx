@@ -1,8 +1,9 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CheckInDialog } from "@/components/admin/check-in-dialog";
 import { checkInAppointment, getCheckInForm, lookupNikOwner, mergeDuplicatePatient, type CheckInForm } from "@/server/check-in";
+import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
@@ -40,7 +41,7 @@ const OPEN_LINK = {
 };
 
 function renderDialog() {
-  render(<CheckInDialog target={TARGET} open onOpenChange={vi.fn()} />);
+  renderAdmin(<CheckInDialog target={TARGET} open onOpenChange={vi.fn()} />);
   return screen.findByRole("dialog", { name: "Check-in — SDY-CI01" });
 }
 
@@ -58,7 +59,7 @@ describe("CheckInDialog", () => {
     expect(await within(dialog).findByText(FORM.summary)).toBeInTheDocument();
     expect(within(dialog).getByLabelText("Jenis kelamin")).toBeInTheDocument();
     expect(within(dialog).getByLabelText("Pekerjaan")).toBeInTheDocument();
-    expect(within(dialog).queryByLabelText("Tanggal lahir")).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("group", { name: "Tanggal lahir" })).not.toBeInTheDocument();
     expect(within(dialog).queryByLabelText("Alamat")).not.toBeInTheDocument();
     expect(within(dialog).getByLabelText("Nomor WhatsApp")).toHaveValue("6281234567890");
     expect(within(dialog).getByLabelText("Tawarkan food recall")).toBeChecked();
@@ -150,7 +151,10 @@ describe("CheckInDialog", () => {
     expect(mergeDuplicatePatient).toHaveBeenCalledWith({ appointmentId: "a1", nik: "7171015705900001" });
     expect(await within(dialog).findByText("NIK 7171015705900001")).toBeInTheDocument();
 
-    await user.click(within(dialog).getByRole("button", { name: "Check-in" }));
+    // Tombol baru aktif setelah pemindahan selesai; tombol MUI nonaktif menolak klik (pointer-events: none).
+    const checkIn = within(dialog).getByRole("button", { name: "Check-in" });
+    await waitFor(() => expect(checkIn).toBeEnabled());
+    await user.click(checkIn);
     await waitFor(() => expect(checkInAppointment).toHaveBeenCalledWith(expect.objectContaining({ nik: { kind: "KEEP" }, identity: {} })));
   });
 

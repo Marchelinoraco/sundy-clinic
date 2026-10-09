@@ -58,7 +58,7 @@ function slotButtons(page: Page) {
 async function openConsultationSlots(page: Page, date: string) {
   // Konsultasi adalah pilihan bawaan dan dr. Diane satu-satunya dokter,
   // sehingga tenaga sudah terpilih otomatis dan strip tanggal langsung tampil.
-  await expect(page.locator("#booking-staff")).toContainText("Diane");
+  await expect(page.locator("#booking-staff option:checked")).toContainText("Diane");
   await page
     .getByRole("group", { name: "Pilih tanggal" })
     .locator(`[data-date="${date}"]`)
@@ -111,7 +111,7 @@ test("admin mencatat booking WA lewat strip tanggal, mengirim instruksi transfer
   // "Lihat di daftar" membuka tanggal booking dengan tepat satu baris tersorot.
   await page.getByRole("link", { name: /Lihat di daftar/ }).click();
   await expect(page).toHaveURL(new RegExp(`/admin/booking\\?tanggal=${date}&sorot=`), { timeout: 30_000 });
-  const row = page.locator('tr[data-highlighted="true"]');
+  const row = page.locator('[role="row"][data-highlighted="true"]');
   await expect(row).toHaveCount(1);
   // Digulir ke tengah layar sekali saat halaman dibuka (spec C1 5.4).
   await expect(row).toBeInViewport();

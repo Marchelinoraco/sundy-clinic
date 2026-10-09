@@ -1,17 +1,16 @@
 "use client";
 
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
 import { useRouter } from "next/navigation";
 import { useId, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import type { ActionResult } from "@/lib/action-result";
 import { IMPORTANT_NOTES_MAX, PAPER_RECORD_NUMBER_MAX } from "@/lib/encounter";
 import { updatePaperRecordNumber, updatePatientImportantNotes } from "@/server/patient";
-
-const textareaClass =
-  "min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-xs focus-visible:border-ring focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50";
 
 function InlineTextEditor(props: {
   label: string;
@@ -48,12 +47,16 @@ function InlineTextEditor(props: {
   if (!editing) {
     return (
       <div>
-        <h3 className="text-xs text-muted-foreground">{props.label}</h3>
-        <p className="whitespace-pre-line">{props.value ?? props.emptyText}</p>
+        <Typography component="h3" sx={{ fontSize: "0.75rem", fontWeight: 400, color: "text.secondary" }}>
+          {props.label}
+        </Typography>
+        <Box component="p" sx={{ m: 0, whiteSpace: "pre-line" }}>
+          {props.value ?? props.emptyText}
+        </Box>
         <Button
-          variant="link"
-          size="sm"
-          className="h-auto px-0"
+          variant="text"
+          size="small"
+          sx={{ px: 0, minWidth: 0, textDecoration: "underline" }}
           onClick={() => {
             setText(props.value ?? "");
             setEditing(true);
@@ -66,31 +69,26 @@ function InlineTextEditor(props: {
   }
 
   return (
-    <div className="space-y-2">
-      <Label htmlFor={id} className="text-xs text-muted-foreground">
-        {props.label}
-      </Label>
-      {props.multiline ? (
-        <textarea
-          id={id}
-          rows={3}
-          maxLength={props.maxLength}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          className={textareaClass}
-        />
-      ) : (
-        <Input id={id} maxLength={props.maxLength} value={text} onChange={(e) => setText(e.target.value)} />
-      )}
-      <div className="flex gap-2">
-        <Button size="sm" onClick={save} disabled={pending}>
+    <Stack spacing={1}>
+      <TextField
+        id={id}
+        label={props.label}
+        multiline={props.multiline}
+        minRows={props.multiline ? 3 : undefined}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        slotProps={{ htmlInput: { maxLength: props.maxLength } }}
+        fullWidth
+      />
+      <Stack direction="row" spacing={1}>
+        <Button size="small" variant="contained" onClick={save} disabled={pending}>
           Simpan
         </Button>
-        <Button size="sm" variant="outline" onClick={() => setEditing(false)} disabled={pending}>
+        <Button size="small" variant="outlined" onClick={() => setEditing(false)} disabled={pending}>
           Batal
         </Button>
-      </div>
-    </div>
+      </Stack>
+    </Stack>
   );
 }
 

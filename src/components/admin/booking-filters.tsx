@@ -1,16 +1,10 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import Stack from "@mui/material/Stack";
 import { APPOINTMENT_STATUSES, STATUS_LABEL } from "@/lib/appointment-status";
+import { DateField } from "./mui/date-field";
+import { SelectField } from "./mui/select-field";
 
 const ALL = "semua";
 
@@ -40,95 +34,40 @@ export function BookingFilters({ date, status, staffId, branchId, intake, staff,
   }
 
   return (
-    <div className="flex flex-wrap items-end gap-3">
-      <div className="space-y-1">
-        <Label htmlFor="filter-date" className="text-xs">
-          Tanggal
-        </Label>
-        <Input
-          id="filter-date"
-          type="date"
-          value={date}
-          onChange={(e) => e.target.value && update("tanggal", e.target.value)}
-          className="w-44"
-        />
-      </div>
-
-      <div className="space-y-1">
-        <Label htmlFor="filter-status" className="text-xs">
-          Status
-        </Label>
-        <Select value={status ?? ALL} onValueChange={(v) => update("status", v)}>
-          <SelectTrigger id="filter-status" className="w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>Semua status</SelectItem>
-            {APPOINTMENT_STATUSES.map((s) => (
-              <SelectItem key={s} value={s}>
-                {STATUS_LABEL[s]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="space-y-1">
-        <Label htmlFor="filter-intake" className="text-xs">
-          Isian
-        </Label>
-        <Select value={intake ?? ALL} onValueChange={(v) => update("isian", v)}>
-          <SelectTrigger id="filter-intake" className="w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>Semua isian</SelectItem>
-            <SelectItem value="belum-diperiksa">Belum diperiksa</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
+    <Stack direction="row" spacing={1.5} useFlexGap sx={{ flexWrap: "wrap", alignItems: "flex-start" }}>
+      <DateField id="filter-date" label="Tanggal" value={date} onChange={(value) => value && update("tanggal", value)} sx={{ width: 180 }} />
+      <SelectField id="filter-status" label="Status" value={status ?? ALL} onChange={(value) => update("status", value)} fullWidth={false} sx={{ minWidth: 192 }}>
+        <option value={ALL}>Semua status</option>
+        {APPOINTMENT_STATUSES.map((s) => (
+          <option key={s} value={s}>
+            {STATUS_LABEL[s]}
+          </option>
+        ))}
+      </SelectField>
+      <SelectField id="filter-intake" label="Isian" value={intake ?? ALL} onChange={(value) => update("isian", value)} fullWidth={false} sx={{ minWidth: 192 }}>
+        <option value={ALL}>Semua isian</option>
+        <option value="belum-diperiksa">Belum diperiksa</option>
+      </SelectField>
       {staff.length > 1 && (
-        <div className="space-y-1">
-          <Label htmlFor="filter-staff" className="text-xs">
-            Tenaga
-          </Label>
-          <Select value={staffId ?? ALL} onValueChange={(v) => update("staf", v)}>
-            <SelectTrigger id="filter-staff" className="w-56">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>Semua tenaga</SelectItem>
-              {staff.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <SelectField id="filter-staff" label="Tenaga" value={staffId ?? ALL} onChange={(value) => update("staf", value)} fullWidth={false} sx={{ minWidth: 224 }}>
+          <option value={ALL}>Semua tenaga</option>
+          {staff.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </SelectField>
       )}
-
       {branches.length > 1 && (
-        <div className="space-y-1">
-          <Label htmlFor="filter-branch" className="text-xs">
-            Cabang
-          </Label>
-          <Select value={branchId ?? ALL} onValueChange={(v) => update("cabang", v)}>
-            <SelectTrigger id="filter-branch" className="w-48">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>Semua cabang</SelectItem>
-              {branches.map((b) => (
-                <SelectItem key={b.id} value={b.id}>
-                  {b.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <SelectField id="filter-branch" label="Cabang" value={branchId ?? ALL} onChange={(value) => update("cabang", value)} fullWidth={false} sx={{ minWidth: 192 }}>
+          <option value={ALL}>Semua cabang</option>
+          {branches.map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.name}
+            </option>
+          ))}
+        </SelectField>
       )}
-    </div>
+    </Stack>
   );
 }

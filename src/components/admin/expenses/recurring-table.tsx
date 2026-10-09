@@ -1,8 +1,14 @@
-import { Badge } from "@/components/ui/badge";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+"use client";
+
+import Box from "@mui/material/Box";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
+import type { GridColDef } from "@mui/x-data-grid";
+import { useMemo } from "react";
 import { formatRupiah } from "@/lib/format";
 import type { CategoryRow, RecurringRow } from "@/server/expense-read";
-import { EmptyState } from "../page-layout";
+import { AdminDataGrid } from "../mui/admin-data-grid";
+import { StatusChip } from "../mui/status-chip";
 import { RecurringDialog } from "./recurring-dialog";
 import { StopRecurringButton } from "./stop-recurring-button";
 
@@ -18,46 +24,72 @@ export function RecurringTable({
   branches: { id: string; name: string }[];
   currentMonth: string;
 }) {
-  if (rows.length === 0) return <EmptyState>Belum ada pengeluaran berulang.</EmptyState>;
-  return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Kategori</TableHead>
-          <TableHead className="text-right">Nominal</TableHead>
-          <TableHead>Jadwal</TableHead>
-          <TableHead>Cabang</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead />
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {rows.map((row) => (
-          <TableRow key={row.id}>
-            <TableCell>
-              {row.categoryName}
-              {row.note && <div className="text-xs text-muted-foreground">{row.note}</div>}
-            </TableCell>
-            <TableCell className="text-right">{formatRupiah(row.amount)}</TableCell>
-            <TableCell>
-              Tiap tanggal {row.dayOfMonth}, dari {row.startMonth}
-              {row.endMonth ? ` sampai ${row.endMonth}` : ""}
-            </TableCell>
-            <TableCell>{row.branchName ?? "Umum"}</TableCell>
-            <TableCell>
-              <Badge variant={row.isActive ? "default" : "outline"}>{row.isActive ? "Aktif" : "Dihentikan"}</Badge>
-            </TableCell>
-            <TableCell className="space-x-1 whitespace-nowrap text-right">
-              {row.isActive && (
-                <>
-                  <RecurringDialog categories={categories} branches={branches} currentMonth={currentMonth} row={row} />
-                  <StopRecurringButton id={row.id} label={row.categoryName} />
-                </>
-              )}
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+  const columns = useMemo<GridColDef<RecurringRow>[]>(
+    () => [
+      {
+        field: "categoryName",
+        headerName: "Kategori",
+        flex: 1,
+        minWidth: 160,
+        renderCell: ({ row }) => (
+          <Box>
+            {row.categoryName}
+            {row.note && (
+              <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>
+                {row.note}
+              </Typography>
+            )}
+          </Box>
+        ),
+      },
+      {
+        field: "amount",
+        headerName: "Nominal",
+        type: "number",
+        align: "right",
+        headerAlign: "right",
+        width: 140,
+        renderCell: ({ row }) => formatRupiah(row.amount),
+      },
+      {
+        field: "dayOfMonth",
+        headerName: "Jadwal",
+        flex: 1,
+        minWidth: 180,
+        sortable: false,
+        renderCell: ({ row }) => (
+          <span>
+            Tiap tanggal {row.dayOfMonth}, dari {row.startMonth}
+            {row.endMonth ? ` sampai ${row.endMonth}` : ""}
+          </span>
+        ),
+      },
+      { field: "branchName", headerName: "Cabang", minWidth: 120, valueGetter: (_value, row) => row.branchName ?? "Umum" },
+      {
+        field: "isActive",
+        headerName: "Status",
+        width: 130,
+        valueGetter: (_value, row) => (row.isActive ? "Aktif" : "Dihentikan"),
+        renderCell: ({ row }) => <StatusChip label={row.isActive ? "Aktif" : "Dihentikan"} tone={row.isActive ? "success" : "neutral"} />,
+      },
+      {
+        field: "actions",
+        headerName: "",
+        sortable: false,
+        filterable: false,
+        disableColumnMenu: true,
+        minWidth: 180,
+        align: "right",
+        renderCell: ({ row }) =>
+          row.isActive ? (
+            <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <RecurringDialog categories={categories} branches={branches} currentMonth={currentMonth} row={row} />
+              <StopRecurringButton id={row.id} label={row.categoryName} />
+            </Stack>
+          ) : null,
+      },
+    ],
+    [categories, branches, currentMonth],
   );
+  return <AdminDataGrid rows={rows} columns={columns} label="Daftar pengeluaran berulang" emptyText="Belum ada pengeluaran berulang." />;
 }

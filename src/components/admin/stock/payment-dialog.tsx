@@ -1,20 +1,17 @@
 "use client";
 
+import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { formatRupiah } from "@/lib/format";
 import {
   PAYMENT_METHOD_LABEL,
@@ -25,8 +22,9 @@ import {
 } from "@/lib/stock";
 import { recordSupplierPayment } from "@/server/payables";
 import { RupiahInput } from "../rupiah-input";
-
-const selectClass = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm";
+import { DateField } from "../mui/date-field";
+import { DialogCloseButton } from "../mui/dialog-close-button";
+import { SelectField } from "../mui/select-field";
 
 /** Catat pembayaran ke supplier atau pengembalian dana dari supplier (spec stok 6.2–6.3). */
 export function PaymentDialog({
@@ -79,76 +77,56 @@ export function PaymentDialog({
     });
   }
 
+  function openDialog() {
+    setTyped(undefined);
+    setPaidAt(today);
+    setOpen(true);
+  }
+
+  function close() {
+    setOpen(false);
+    setError(null);
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (next) {
-          setTyped(undefined);
-          setPaidAt(today);
-        } else {
-          setError(null);
-        }
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button type="button" variant={kind === "BAYAR" ? "default" : "outline"}>
-          {title}
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>
+    <>
+      <Button type="button" variant={kind === "BAYAR" ? "contained" : "outlined"} onClick={openDialog}>
+        {title}
+      </Button>
+      <Dialog open={open} onClose={close} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ pr: 6 }}>{title}</DialogTitle>
+        <DialogCloseButton onClick={close} />
+        <DialogContent>
+          <DialogContentText>
             {kind === "BAYAR" ? `Sisa hutang ${formatRupiah(limit)}.` : `Kredit dari supplier ${formatRupiah(limit)}.`}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label htmlFor="payment-amount">Nominal</Label>
-            <RupiahInput id="payment-amount" value={amount} onChange={setTyped} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="payment-method">Metode</Label>
-            <select
-              id="payment-method"
-              className={selectClass}
-              value={method}
-              onChange={(e) => setMethod(e.target.value as PaymentMethodValue)}
-            >
+          </DialogContentText>
+          <Stack spacing={2} sx={{ pt: 2 }}>
+            <RupiahInput id="payment-amount" label="Nominal" value={amount} onChange={setTyped} fullWidth />
+            <SelectField id="payment-method" label="Metode" value={method} onChange={(value) => setMethod(value as PaymentMethodValue)}>
               {PAYMENT_METHODS.map((value) => (
                 <option key={value} value={value}>
                   {PAYMENT_METHOD_LABEL[value]}
                 </option>
               ))}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="payment-date">Tanggal</Label>
-            <Input id="payment-date" type="date" min={invoiceDate} max={today} value={paidAt} onChange={(e) => setPaidAt(e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="payment-reference">Referensi (opsional)</Label>
-            <Input
+            </SelectField>
+            <DateField id="payment-date" label="Tanggal" min={invoiceDate} max={today} value={paidAt} onChange={setPaidAt} fullWidth />
+            <TextField
               id="payment-reference"
+              label="Referensi (opsional)"
               value={reference}
               onChange={(e) => setReference(e.target.value)}
               placeholder="Nomor transfer atau kuitansi"
+              fullWidth
             />
-          </div>
-        </div>
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        )}
-        <DialogFooter>
-          <Button type="button" onClick={save} disabled={pending}>
+            {error && <Alert severity="error">{error}</Alert>}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button type="button" variant="contained" onClick={save} disabled={pending}>
             {pending ? "Menyimpan…" : "Simpan"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }

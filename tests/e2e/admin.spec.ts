@@ -30,15 +30,15 @@ test("halaman login tidak meminta mesin pencari mengindeksnya", async ({ page })
 
 test("kredensial salah ditolak tanpa menyebut kolom mana yang keliru", async ({ page }) => {
   await page.goto("/masuk");
+  await page.waitForLoadState("networkidle");
   await page.getByLabel("Email").fill("bukan-siapa-siapa@sundy.test");
   await page.getByLabel("Kata Sandi").fill("kataSandiSalah123");
   await page.getByRole("button", { name: "Masuk" }).click();
 
   // Dipersempit ke <form>: Next menyuntikkan role="alert" tersembunyi milik
   // route announcer di luar form, membuat pencocokan role mentah ambigu.
-  await expect(page.locator("form").getByRole("alert")).toHaveText(
-    /email atau kata sandi salah/i,
-  );
+  // 30 detik seperti signIn: rute autentikasi dikompilasi `next dev` saat pertama dipanggil.
+  await expect(page.locator("form").getByRole("alert")).toHaveText(/email atau kata sandi salah/i, { timeout: 30_000 });
   await expect(page).toHaveURL(/\/masuk$/);
 });
 

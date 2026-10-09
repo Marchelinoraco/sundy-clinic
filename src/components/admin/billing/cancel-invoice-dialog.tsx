@@ -1,14 +1,20 @@
 "use client";
 
+import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { validateReason } from "@/lib/stock";
 import { cancelInvoice } from "@/server/invoice-lifecycle";
+import { DialogCloseButton } from "../mui/dialog-close-button";
 
 /** Batalkan tagihan (spec tagihan 5): tidak dihapus; stok kembali dan alasan tercatat. Draf dibuang dengan cara yang sama. */
 export function CancelInvoiceDialog({ invoiceId, label, draft = false }: { invoiceId: string; label: string; draft?: boolean }) {
@@ -42,41 +48,34 @@ export function CancelInvoiceDialog({ invoiceId, label, draft = false }: { invoi
     });
   }
 
+  function close() {
+    setOpen(false);
+    setError(null);
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) setError(null);
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button type="button" variant="outline">
-          {trigger}
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{draft ? "Buang draf?" : "Batalkan tagihan?"}</DialogTitle>
-          <DialogDescription>
+    <>
+      <Button type="button" variant="outlined" onClick={() => setOpen(true)}>
+        {trigger}
+      </Button>
+      <Dialog open={open} onClose={close} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ pr: 6 }}>{draft ? "Buang draf?" : "Batalkan tagihan?"}</DialogTitle>
+        <DialogCloseButton onClick={close} />
+        <DialogContent>
+          <DialogContentText>
             {label}. {draft ? "Draf tetap tercatat dengan tanda dibatalkan." : "Tagihan tetap tercatat dengan tanda dibatalkan dan stok barang kembali."}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-1">
-          <Label htmlFor={`cancel-${invoiceId}`}>Alasan</Label>
-          <Input id={`cancel-${invoiceId}`} value={reason} onChange={(e) => setReason(e.target.value)} />
-        </div>
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        )}
-        <DialogFooter>
-          <Button type="button" variant="destructive" onClick={confirm} disabled={pending}>
+          </DialogContentText>
+          <Stack spacing={2} sx={{ pt: 2 }}>
+            <TextField id={`cancel-${invoiceId}`} label="Alasan" value={reason} onChange={(e) => setReason(e.target.value)} fullWidth />
+            {error && <Alert severity="error">{error}</Alert>}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button type="button" variant="contained" color="error" onClick={confirm} disabled={pending}>
             {trigger}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }

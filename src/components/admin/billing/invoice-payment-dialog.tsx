@@ -1,19 +1,25 @@
 "use client";
 
+import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { formatRupiah } from "@/lib/format";
 import { validateInvoicePayment } from "@/lib/invoice";
 import { PAYMENT_METHOD_LABEL, PAYMENT_METHODS, type PaymentMethodValue } from "@/lib/stock";
 import { recordInvoicePayment } from "@/server/invoice-payments";
+import { DateField } from "../mui/date-field";
+import { DialogCloseButton } from "../mui/dialog-close-button";
+import { SelectField } from "../mui/select-field";
 import { RupiahInput } from "../rupiah-input";
-
-const selectClass = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm";
 
 /** Catat pembayaran customer (spec tagihan 4.4): tunai, transfer, atau QRIS; bisa sebagian. */
 export function InvoicePaymentDialog({
@@ -63,62 +69,54 @@ export function InvoicePaymentDialog({
     });
   }
 
+  function openDialog() {
+    setTyped(undefined);
+    setPaidAt(today);
+    setOpen(true);
+  }
+
+  function close() {
+    setOpen(false);
+    setError(null);
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (next) {
-          setTyped(undefined);
-          setPaidAt(today);
-        } else {
-          setError(null);
-        }
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button type="button">Catat pembayaran</Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Catat pembayaran</DialogTitle>
-          <DialogDescription>Sisa tagihan {formatRupiah(limit)}.</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label htmlFor="inv-payment-amount">Nominal</Label>
-            <RupiahInput id="inv-payment-amount" value={amount} onChange={setTyped} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="inv-payment-method">Metode</Label>
-            <select id="inv-payment-method" className={selectClass} value={method} onChange={(e) => setMethod(e.target.value as PaymentMethodValue)}>
+    <>
+      <Button type="button" variant="contained" onClick={openDialog}>
+        Catat pembayaran
+      </Button>
+      <Dialog open={open} onClose={close} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ pr: 6 }}>Catat pembayaran</DialogTitle>
+        <DialogCloseButton onClick={close} />
+        <DialogContent>
+          <DialogContentText>Sisa tagihan {formatRupiah(limit)}.</DialogContentText>
+          <Stack spacing={2} sx={{ pt: 2 }}>
+            <RupiahInput id="inv-payment-amount" label="Nominal" value={amount} onChange={setTyped} fullWidth />
+            <SelectField id="inv-payment-method" label="Metode" value={method} onChange={(value) => setMethod(value as PaymentMethodValue)}>
               {PAYMENT_METHODS.map((value) => (
                 <option key={value} value={value}>
                   {PAYMENT_METHOD_LABEL[value]}
                 </option>
               ))}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="inv-payment-date">Tanggal</Label>
-            <Input id="inv-payment-date" type="date" min={finalizedDate} max={today} value={paidAt} onChange={(e) => setPaidAt(e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="inv-payment-reference">Referensi (opsional)</Label>
-            <Input id="inv-payment-reference" value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Nomor kuitansi atau transfer" />
-          </div>
-        </div>
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        )}
-        <DialogFooter>
-          <Button type="button" onClick={save} disabled={pending}>
+            </SelectField>
+            <DateField id="inv-payment-date" label="Tanggal" min={finalizedDate} max={today} value={paidAt} onChange={setPaidAt} fullWidth />
+            <TextField
+              id="inv-payment-reference"
+              label="Referensi (opsional)"
+              value={reference}
+              onChange={(e) => setReference(e.target.value)}
+              placeholder="Nomor kuitansi atau transfer"
+              fullWidth
+            />
+            {error && <Alert severity="error">{error}</Alert>}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button type="button" variant="contained" onClick={save} disabled={pending}>
             {pending ? "Menyimpan…" : "Simpan"}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }

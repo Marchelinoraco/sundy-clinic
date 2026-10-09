@@ -1,3 +1,4 @@
+import Typography from "@mui/material/Typography";
 import { notFound } from "next/navigation";
 import { AdminHeader } from "@/components/admin/admin-header";
 import { InvoiceFinalView } from "@/components/admin/billing/invoice-final-view";
@@ -31,7 +32,9 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           canManage ? (
             <InvoiceDraftEditor detail={detail} items={await listBillingItems(detail.branchId)} canExceedDiscount={can(staff.role, "invoice:correct")} />
           ) : (
-            <p role="status" className="text-sm text-muted-foreground">Tagihan ini masih draf; hanya resepsionis yang bisa mengubahnya.</p>
+            <Typography role="status" variant="body2" sx={{ color: "text.secondary" }}>
+              Tagihan ini masih draf; hanya resepsionis yang bisa mengubahnya.
+            </Typography>
           )
         ) : (
           <InvoiceFinalView

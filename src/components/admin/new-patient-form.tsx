@@ -1,10 +1,13 @@
 "use client";
 
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { createPatient, findPatientsByWhatsapp, type PatientSummary } from "@/server/patient";
 
 type Props = {
@@ -75,63 +78,56 @@ export function NewPatientForm({ onCreated, onPickExisting }: Props) {
 
   if (!open) {
     return (
-      <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
+      <Button type="button" variant="outlined" size="small" onClick={() => setOpen(true)}>
         + Pasien Baru
       </Button>
     );
   }
 
   return (
-    <div className="max-w-md space-y-3 rounded-lg border p-3">
-      <div className="space-y-1">
-        <Label htmlFor="new-patient-name">Nama</Label>
-        <Input id="new-patient-name" value={name} onChange={(e) => setName(e.target.value)} />
-      </div>
-      <div className="space-y-1">
-        <Label htmlFor="new-patient-whatsapp">Nomor WhatsApp</Label>
-        <Input
-          id="new-patient-whatsapp"
-          inputMode="tel"
-          value={whatsapp}
-          onChange={(e) => setWhatsapp(e.target.value)}
-          onBlur={handleCheckDuplicate}
-          placeholder="081234567890"
-        />
-      </div>
+    <Paper variant="outlined" sx={{ maxWidth: 448, p: 1.5, display: "flex", flexDirection: "column", gap: 1.5 }}>
+      <TextField id="new-patient-name" label="Nama" value={name} onChange={(e) => setName(e.target.value)} fullWidth />
+      <TextField
+        id="new-patient-whatsapp"
+        label="Nomor WhatsApp"
+        value={whatsapp}
+        onChange={(e) => setWhatsapp(e.target.value)}
+        onBlur={handleCheckDuplicate}
+        placeholder="081234567890"
+        slotProps={{ htmlInput: { inputMode: "tel" } }}
+        fullWidth
+      />
 
       {duplicates.length > 0 && (
-        <div className="space-y-2 rounded-md bg-amber-100 p-2 text-sm text-amber-900">
-          <p>Nomor ini sudah terdaftar. Pastikan ini bukan pasien yang sama:</p>
-          <ul className="space-y-1">
+        <Alert severity="warning" icon={false}>
+          <Box component="p" sx={{ mt: 0, mb: 1 }}>
+            Nomor ini sudah terdaftar. Pastikan ini bukan pasien yang sama:
+          </Box>
+          <Box component="ul" sx={{ listStyle: "none", m: 0, p: 0, display: "flex", flexDirection: "column", gap: 0.5 }}>
             {duplicates.map((p) => (
-              <li key={p.id} className="flex flex-wrap items-center justify-between gap-2">
+              <Box component="li" key={p.id} sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
                 <span>
                   <strong>{p.name}</strong> · {p.medicalRecordNumber}
                 </span>
                 {onPickExisting && (
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handlePickExisting(p)}
-                  >
+                  <Button type="button" size="small" variant="outlined" onClick={() => handlePickExisting(p)}>
                     Pakai pasien ini
                   </Button>
                 )}
-              </li>
+              </Box>
             ))}
-          </ul>
-        </div>
+          </Box>
+        </Alert>
       )}
 
-      <div className="flex gap-2">
-        <Button type="button" size="sm" disabled={pending} onClick={handleCreate}>
+      <Stack direction="row" spacing={1}>
+        <Button type="button" size="small" variant="contained" disabled={pending} onClick={handleCreate}>
           {pending ? "Menyimpan…" : "Buat Pasien"}
         </Button>
-        <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={close}>
+        <Button type="button" size="small" variant="text" disabled={pending} onClick={close}>
           Batal
         </Button>
-      </div>
-    </div>
+      </Stack>
+    </Paper>
   );
 }

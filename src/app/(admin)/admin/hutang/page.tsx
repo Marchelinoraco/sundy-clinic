@@ -1,5 +1,7 @@
-import Link from "next/link";
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
 import { AdminHeader } from "@/components/admin/admin-header";
+import { TextLink } from "@/components/admin/mui/links";
 import { PageTabs } from "@/components/admin/page-tabs";
 import { EmptyState, PageBody, PageHeader, SectionCard } from "@/components/admin/page-layout";
 import { StatTile } from "@/components/admin/stat-tile";
@@ -37,7 +39,11 @@ export default async function PayablesPage({ searchParams }: { searchParams: Pro
       <PageBody>
         <PageHeader title="Hutang" description="Hutang ke supplier dari faktur barang masuk." />
 
-        <section aria-label="Ringkasan hutang" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Box
+          component="section"
+          aria-label="Ringkasan hutang"
+          sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", xl: "repeat(4, 1fr)" } }}
+        >
           <StatTile label="Sisa hutang" value={formatRupiah(overview.totalBalance)} href={href({ lihat: "BELUM_LUNAS", supplier: null })} />
           <StatTile
             label="Terlambat"
@@ -54,7 +60,7 @@ export default async function PayablesPage({ searchParams }: { searchParams: Pro
             attention={overview.dueSoonCount > 0}
           />
           <StatTile label="Kredit dari supplier" value={formatRupiah(overview.credit)} href={href({ lihat: "BELUM_LUNAS", supplier: null })} />
-        </section>
+        </Box>
 
         <PageTabs
           label="Tampilan hutang"
@@ -62,15 +68,15 @@ export default async function PayablesPage({ searchParams }: { searchParams: Pro
           tabs={PAYABLE_VIEWS.map((value) => ({ id: value, label: PAYABLE_VIEW_LABEL[value], href: href({ lihat: value }) }))}
         />
         {supplierName && (
-          <p className="text-sm">
+          <Typography variant="body2">
             Supplier: <strong>{supplierName}</strong> ·{" "}
-            <Link href={href({ supplier: null })} className="underline underline-offset-4">
+            <TextLink href={href({ supplier: null })} underline="always">
               Semua supplier
-            </Link>
-          </p>
+            </TextLink>
+          </Typography>
         )}
 
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
+        <Box sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "minmax(0, 1fr)", xl: "minmax(0, 1fr) 20rem" } }}>
           <SectionCard title="Daftar hutang" flush>
             <PayableTable rows={rows} />
           </SectionCard>
@@ -78,22 +84,24 @@ export default async function PayablesPage({ searchParams }: { searchParams: Pro
             {overview.bySupplier.length === 0 ? (
               <EmptyState>Tidak ada hutang.</EmptyState>
             ) : (
-              <ul className="divide-y text-sm">
+              <Box component="ul" sx={{ listStyle: "none", m: 0, p: 0, fontSize: "0.875rem", "& > li + li": { borderTop: 1, borderColor: "divider" } }}>
                 {overview.bySupplier.map((row) => (
-                  <li key={row.supplierId} className="flex items-center justify-between gap-2 px-4 py-2">
-                    <Link href={href({ supplier: row.supplierId })} className="underline-offset-4 hover:underline">
-                      {row.supplierName}
-                    </Link>
-                    <span className="text-right">
+                  <Box component="li" key={row.supplierId} sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, px: 2, py: 1 }}>
+                    <TextLink href={href({ supplier: row.supplierId })}>{row.supplierName}</TextLink>
+                    <Box component="span" sx={{ textAlign: "right" }}>
                       {formatRupiah(row.balance)}
-                      {row.overdueCount > 0 && <span className="block text-xs text-destructive">{row.overdueCount} terlambat</span>}
-                    </span>
-                  </li>
+                      {row.overdueCount > 0 && (
+                        <Box component="span" sx={{ display: "block", fontSize: "0.75rem", color: "error.main" }}>
+                          {row.overdueCount} terlambat
+                        </Box>
+                      )}
+                    </Box>
+                  </Box>
                 ))}
-              </ul>
+              </Box>
             )}
           </SectionCard>
-        </div>
+        </Box>
       </PageBody>
     </>
   );

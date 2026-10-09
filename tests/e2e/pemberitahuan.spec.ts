@@ -40,8 +40,12 @@ test("resep dari dokter langsung diketahui Apoteker dan resepsionis; penyerahan 
 
   // 1. Dokter memfinalkan dengan Catatan untuk Apoteker.
   await examine(doctor, withNote, "Amoxicillin 3x1 selama 5 hari");
-  await expect(pharmacist.getByText(`Resep baru: ${withNote}`)).toBeVisible({ timeout: 40_000 });
-  await expect(receptionist.getByText(`Resep baru: ${withNote}`)).toBeVisible({ timeout: 40_000 });
+  // Ditunggu bersamaan: toast hilang setelah 4 detik, dan pemeriksaan tiap halaman tidak serentak, sehingga
+  // toast resepsionis bisa sudah hilang bila baru dicari setelah toast Apoteker muncul.
+  await Promise.all([
+    expect(pharmacist.getByText(`Resep baru: ${withNote}`)).toBeVisible({ timeout: 40_000 }),
+    expect(receptionist.getByText(`Resep baru: ${withNote}`)).toBeVisible({ timeout: 40_000 }),
+  ]);
   // Antrean Apoteker terbarui tanpa muat ulang halaman.
   await expect(pharmacist.getByRole("link", { name: withNote })).toBeVisible({ timeout: 20_000 });
 

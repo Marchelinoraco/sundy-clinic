@@ -1,8 +1,9 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { PaymentDialog } from "@/components/admin/stock/payment-dialog";
 import { recordSupplierPayment } from "@/server/payables";
+import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -14,7 +15,7 @@ describe("PaymentDialog", () => {
   it("bawaannya melunasi sisa dengan transfer hari ini", async () => {
     const user = userEvent.setup();
     vi.mocked(recordSupplierPayment).mockResolvedValue({ ok: true, data: { id: "pay1" } });
-    render(<PaymentDialog invoiceId="p1" kind="BAYAR" limit={60000} invoiceDate="2026-10-01" today="2026-10-07" />);
+    renderAdmin(<PaymentDialog invoiceId="p1" kind="BAYAR" limit={60000} invoiceDate="2026-10-01" today="2026-10-07" />);
     await user.click(screen.getByRole("button", { name: "Catat pembayaran" }));
     await user.click(screen.getByRole("button", { name: "Simpan" }));
     await waitFor(() =>
@@ -31,7 +32,7 @@ describe("PaymentDialog", () => {
 
   it("nominal di atas sisa ditolak di browser", async () => {
     const user = userEvent.setup();
-    render(<PaymentDialog invoiceId="p1" kind="BAYAR" limit={60000} invoiceDate="2026-10-01" today="2026-10-07" />);
+    renderAdmin(<PaymentDialog invoiceId="p1" kind="BAYAR" limit={60000} invoiceDate="2026-10-01" today="2026-10-07" />);
     await user.click(screen.getByRole("button", { name: "Catat pembayaran" }));
     await user.clear(screen.getByLabelText("Nominal"));
     await user.type(screen.getByLabelText("Nominal"), "70000");
@@ -43,7 +44,7 @@ describe("PaymentDialog", () => {
   it("pengembalian dana dari supplier memakai jenis PENGEMBALIAN", async () => {
     const user = userEvent.setup();
     vi.mocked(recordSupplierPayment).mockResolvedValue({ ok: true, data: { id: "pay2" } });
-    render(<PaymentDialog invoiceId="p1" kind="PENGEMBALIAN" limit={30000} invoiceDate="2026-10-01" today="2026-10-07" />);
+    renderAdmin(<PaymentDialog invoiceId="p1" kind="PENGEMBALIAN" limit={30000} invoiceDate="2026-10-01" today="2026-10-07" />);
     await user.click(screen.getByRole("button", { name: "Catat pengembalian dana" }));
     await user.selectOptions(screen.getByLabelText("Metode"), "TUNAI");
     await user.click(screen.getByRole("button", { name: "Simpan" }));

@@ -1,12 +1,18 @@
 "use client";
 
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { formatRupiah } from "@/lib/format";
 import { updateOnlineService, type OnlineServiceSettings } from "@/server/service-admin";
+import { SelectField } from "./mui/select-field";
 import { SectionCard } from "./page-layout";
 import { RupiahInput } from "./rupiah-input";
 
@@ -43,44 +49,31 @@ export function OnlineServiceCard({ settings }: { settings: OnlineServiceSetting
       title="Konsultasi Online"
       description="Konsultasi lewat WhatsApp tanpa slot jadwal. Customer membayar biaya booking ditambah harga ini di muka."
     >
-      <div className="space-y-4 text-sm">
-        <p>
+      <Stack spacing={2}>
+        <Typography variant="body2">
           Status: <strong>{settings.active ? `Aktif · ${formatRupiah(settings.price)}` : "Belum aktif"}</strong>
-        </p>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-1">
-            <Label htmlFor="online-price">Harga</Label>
-            <RupiahInput id="online-price" aria-label="Harga Konsultasi Online" value={price} onChange={setPrice} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="online-duration">Durasi</Label>
-            <select
-              id="online-duration"
-              value={durationMin}
-              onChange={(e) => setDurationMin(Number(e.target.value))}
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-            >
-              {DURATIONS.map((minutes) => (
-                <option key={minutes} value={minutes}>
-                  {minutes} menit
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <label className="flex items-center gap-2">
-          <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
-          Aktifkan konsultasi online
-        </label>
-        {error && (
-          <p role="alert" className="text-destructive">
-            {error}
-          </p>
-        )}
-        <Button type="button" onClick={save} disabled={pending}>
-          Simpan
-        </Button>
-      </div>
+        </Typography>
+        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" } }}>
+          <RupiahInput id="online-price" label="Harga" aria-label="Harga Konsultasi Online" value={price} onChange={setPrice} fullWidth />
+          <SelectField id="online-duration" label="Durasi" value={String(durationMin)} onChange={(value) => setDurationMin(Number(value))}>
+            {DURATIONS.map((minutes) => (
+              <option key={minutes} value={minutes}>
+                {minutes} menit
+              </option>
+            ))}
+          </SelectField>
+        </Box>
+        <FormControlLabel
+          control={<Checkbox checked={active} onChange={(e) => setActive(e.target.checked)} />}
+          label="Aktifkan konsultasi online"
+        />
+        {error && <Alert severity="error">{error}</Alert>}
+        <Box>
+          <Button type="button" variant="contained" onClick={save} disabled={pending}>
+            Simpan
+          </Button>
+        </Box>
+      </Stack>
     </SectionCard>
   );
 }

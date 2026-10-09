@@ -1,15 +1,17 @@
 "use client";
 
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { DISCOUNT_KIND_LABEL, DISCOUNT_LIMIT_PERCENT, validateDiscount, type DiscountKindValue } from "@/lib/invoice";
 import { setInvoiceDiscount } from "@/server/invoice-drafts";
 import type { InvoiceDetail } from "@/server/invoice-read";
+import { SelectField } from "../mui/select-field";
 import type { useInvoiceAction } from "./invoice-draft-editor";
-
-const selectClass = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm";
 
 /** Diskon per tagihan (spec tagihan TG9): nominal atau persen, wajib alasan; resepsionis paling banyak 20%. */
 export function DiscountForm({
@@ -44,40 +46,47 @@ export function DiscountForm({
   }
 
   return (
-    <fieldset className="space-y-2 rounded-md border p-3">
-      <legend className="px-1 text-sm font-medium">Diskon</legend>
-      <div className="grid gap-3 sm:grid-cols-[10rem_8rem_1fr]">
-        <div className="space-y-1">
-          <Label htmlFor="discount-kind">Jenis diskon</Label>
-          <select id="discount-kind" className={selectClass} value={kind} onChange={(e) => setKind(e.target.value as DiscountKindValue | "")}>
+    <Paper component="fieldset" variant="outlined" sx={{ m: 0, p: 1.5, minWidth: 0 }}>
+      <Box component="legend" sx={{ px: 0.5, fontSize: "0.875rem", fontWeight: 500 }}>
+        Diskon
+      </Box>
+      <Stack spacing={1.5}>
+        <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "11rem 9rem 1fr" } }}>
+          <SelectField id="discount-kind" label="Jenis diskon" value={kind} onChange={(next) => setKind(next as DiscountKindValue | "")}>
             <option value="">Tanpa diskon</option>
             {(Object.keys(DISCOUNT_KIND_LABEL) as DiscountKindValue[]).map((option) => (
               <option key={option} value={option}>
                 {DISCOUNT_KIND_LABEL[option]}
               </option>
             ))}
-          </select>
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="discount-value">Nilai diskon</Label>
-          <Input id="discount-value" type="number" min={0} value={value} onChange={(e) => setValue(e.target.value)} />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="discount-reason">Alasan diskon</Label>
-          <Input id="discount-reason" value={reason} onChange={(e) => setReason(e.target.value)} />
-        </div>
-      </div>
-      {!canExceed && <p className="text-xs text-muted-foreground">Diskon di atas {DISCOUNT_LIMIT_PERCENT}% dari subtotal hanya bisa diberikan Admin Keuangan.</p>}
-      <div className="flex gap-2">
-        <Button type="button" size="sm" onClick={apply} disabled={disabled}>
-          Terapkan diskon
-        </Button>
-        {detail.discountKind && (
-          <Button type="button" size="sm" variant="ghost" onClick={clear} disabled={disabled}>
-            Hapus diskon
-          </Button>
+          </SelectField>
+          <TextField
+            id="discount-value"
+            label="Nilai diskon"
+            type="number"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            fullWidth
+            slotProps={{ htmlInput: { min: 0 } }}
+          />
+          <TextField id="discount-reason" label="Alasan diskon" value={reason} onChange={(e) => setReason(e.target.value)} fullWidth />
+        </Box>
+        {!canExceed && (
+          <Typography variant="caption" component="p" sx={{ color: "text.secondary" }}>
+            Diskon di atas {DISCOUNT_LIMIT_PERCENT}% dari subtotal hanya bisa diberikan Admin Keuangan.
+          </Typography>
         )}
-      </div>
-    </fieldset>
+        <Stack direction="row" spacing={1}>
+          <Button type="button" size="small" variant="contained" onClick={apply} disabled={disabled}>
+            Terapkan diskon
+          </Button>
+          {detail.discountKind && (
+            <Button type="button" size="small" variant="text" onClick={clear} disabled={disabled}>
+              Hapus diskon
+            </Button>
+          )}
+        </Stack>
+      </Stack>
+    </Paper>
   );
 }

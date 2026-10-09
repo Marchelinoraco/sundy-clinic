@@ -1,3 +1,4 @@
+import Typography from "@mui/material/Typography";
 import { notFound } from "next/navigation";
 import { AdminHeader } from "@/components/admin/admin-header";
 import { DispensingEditor } from "@/components/admin/dispensing/dispensing-editor";
@@ -29,7 +30,9 @@ export default async function DispensingDetailPage({ params }: { params: Promise
           canManage ? (
             <DispensingEditor detail={detail} items={await listDispenseItems(detail.branchId)} />
           ) : (
-            <p role="status" className="text-sm text-muted-foreground">Penyerahan ini masih menunggu Apoteker.</p>
+            <Typography role="status" variant="body2" sx={{ color: "text.secondary" }}>
+              Penyerahan ini masih menunggu Apoteker.
+            </Typography>
           )
         ) : (
           <DispensingSummary detail={detail} />

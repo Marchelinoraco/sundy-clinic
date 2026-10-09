@@ -1,6 +1,11 @@
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
 import Form from "next/form";
-import Link from "next/link";
 import { AdminHeader } from "@/components/admin/admin-header";
+import { LinkButton } from "@/components/admin/mui/links";
+import { SelectField } from "@/components/admin/mui/select-field";
 import { PageTabs } from "@/components/admin/page-tabs";
 import { EmptyState, PageBody, PageHeader, SectionCard } from "@/components/admin/page-layout";
 import { PurchaseTable } from "@/components/admin/stock/purchase-table";
@@ -8,8 +13,6 @@ import { StockItemDialog } from "@/components/admin/stock/stock-item-dialog";
 import { StockItemTable } from "@/components/admin/stock/stock-item-table";
 import { SupplierDialog } from "@/components/admin/stock/supplier-dialog";
 import { SupplierTable } from "@/components/admin/stock/supplier-table";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { formatRupiah } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import {
@@ -30,7 +33,6 @@ export const metadata = { title: "Stok" };
 type Search = { tab?: string; cabang?: string; jenis?: string; tanda?: string; cari?: string };
 type Tab = "barang" | "masuk" | "supplier";
 
-const selectClass = "h-9 rounded-md border border-input bg-background px-3 text-sm";
 const FLAGS = Object.keys(STOCK_FLAG_LABEL) as StockFlag[];
 const KINDS = Object.keys(STOCK_ITEM_KIND_LABEL) as StockItemKindValue[];
 
@@ -43,9 +45,9 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
   const actions = !canManage ? undefined : tab === "barang" ? (
     <StockItemDialog triggerLabel="+ Barang" />
   ) : tab === "masuk" ? (
-    <Button asChild>
-      <Link href="/admin/stok/masuk/baru">+ Barang masuk</Link>
-    </Button>
+    <LinkButton href="/admin/stok/masuk/baru" variant="contained">
+      + Barang masuk
+    </LinkButton>
   ) : (
     <SupplierDialog triggerLabel="+ Supplier" />
   );
@@ -97,57 +99,77 @@ async function ItemsTab({ params }: { params: Search }) {
   return (
     <>
       <SectionCard title={`Ringkasan ${branch.name}`}>
-        <dl className="grid gap-4 text-sm sm:grid-cols-4">
+        <Box
+          component="dl"
+          sx={{
+            m: 0,
+            display: "grid",
+            gap: 2,
+            gridTemplateColumns: { xs: "1fr", sm: "repeat(4, 1fr)" },
+            fontSize: "0.875rem",
+            "& dt": { color: "text.secondary" },
+            "& dd": { m: 0, fontSize: "1.125rem", fontWeight: 600 },
+          }}
+        >
           <div>
-            <dt className="text-muted-foreground">Nilai stok (harga beli)</dt>
-            <dd className="text-lg font-semibold">{formatRupiah(summary.value)}</dd>
+            <dt>Nilai stok (harga beli)</dt>
+            <dd>{formatRupiah(summary.value)}</dd>
           </div>
           <div>
-            <dt className="text-muted-foreground">Menipis</dt>
-            <dd className="text-lg font-semibold">{summary.low} barang</dd>
+            <dt>Menipis</dt>
+            <dd>{summary.low} barang</dd>
           </div>
           <div>
-            <dt className="text-muted-foreground">Segera kedaluwarsa</dt>
-            <dd className="text-lg font-semibold">{summary.expiringSoon} barang</dd>
+            <dt>Segera kedaluwarsa</dt>
+            <dd>{summary.expiringSoon} barang</dd>
           </div>
           <div>
-            <dt className="text-muted-foreground">Kedaluwarsa</dt>
-            <dd className="text-lg font-semibold">{summary.expired} barang</dd>
+            <dt>Kedaluwarsa</dt>
+            <dd>{summary.expired} barang</dd>
           </div>
-        </dl>
+        </Box>
       </SectionCard>
 
-      <Form action="/admin/stok" className="flex flex-wrap items-end gap-2" aria-label="Saring barang">
-        {branches.length > 1 && (
-          <select name="cabang" defaultValue={branch.id} aria-label="Cabang" className={selectClass}>
-            {branches.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
+      <Form action="/admin/stok" aria-label="Saring barang">
+        <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center" }}>
+          {branches.length > 1 && (
+            <SelectField name="cabang" defaultValue={branch.id} aria-label="Cabang" fullWidth={false} sx={{ minWidth: 160 }}>
+              {branches.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name}
+                </option>
+              ))}
+            </SelectField>
+          )}
+          <SelectField name="jenis" defaultValue={kind ?? ""} aria-label="Jenis" fullWidth={false} sx={{ minWidth: 150 }}>
+            <option value="">Semua jenis</option>
+            {KINDS.map((k) => (
+              <option key={k} value={k}>
+                {STOCK_ITEM_KIND_LABEL[k]}
               </option>
             ))}
-          </select>
-        )}
-        <select name="jenis" defaultValue={kind ?? ""} aria-label="Jenis" className={selectClass}>
-          <option value="">Semua jenis</option>
-          {KINDS.map((k) => (
-            <option key={k} value={k}>
-              {STOCK_ITEM_KIND_LABEL[k]}
-            </option>
-          ))}
-        </select>
-        <select name="tanda" defaultValue={flag ?? ""} aria-label="Tanda" className={selectClass}>
-          <option value="">Semua barang aktif</option>
-          {FLAGS.map((f) => (
-            <option key={f} value={f}>
-              {STOCK_FLAG_LABEL[f]}
-            </option>
-          ))}
-          <option value="NONAKTIF">Nonaktif</option>
-        </select>
-        <Input name="cari" defaultValue={q ?? ""} placeholder="Cari nama atau kode" aria-label="Cari nama atau kode" className="w-56" />
-        <Button type="submit" variant="outline">
-          Terapkan
-        </Button>
+          </SelectField>
+          <SelectField name="tanda" defaultValue={flag ?? ""} aria-label="Tanda" fullWidth={false} sx={{ minWidth: 190 }}>
+            <option value="">Semua barang aktif</option>
+            {FLAGS.map((f) => (
+              <option key={f} value={f}>
+                {STOCK_FLAG_LABEL[f]}
+              </option>
+            ))}
+            <option value="NONAKTIF">Nonaktif</option>
+          </SelectField>
+          <TextField
+            name="cari"
+            defaultValue={q ?? ""}
+            placeholder="Cari nama atau kode"
+            autoComplete="off"
+            slotProps={{ htmlInput: { "aria-label": "Cari nama atau kode" } }}
+            sx={{ width: "100%", maxWidth: 224 }}
+          />
+          <Button type="submit" variant="outlined">
+            Terapkan
+          </Button>
+        </Stack>
       </Form>
 
       <SectionCard title="Barang" flush>

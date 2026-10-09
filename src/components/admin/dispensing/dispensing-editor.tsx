@@ -1,18 +1,26 @@
 "use client";
 
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { validateDispensingLine } from "@/lib/dispensing";
 import { addDispensingLine, removeDispensingLine, updateDispensingLine } from "@/server/dispensing-drafts";
 import { completeDispensing, markNoDispensing } from "@/server/dispensing-lifecycle";
 import type { DispenseItem, DispensingDetail } from "@/server/dispensing-read";
+import { ItemAutocomplete } from "../mui/item-autocomplete";
 import { useDispensingAction } from "./use-dispensing-action";
-
-const selectClass = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm";
 
 function LineRow({
   detail,
@@ -40,27 +48,34 @@ function LineRow({
 
   return (
     <TableRow>
-      <TableCell className="font-medium">{line.itemName}</TableCell>
-      <TableCell className="w-28">
-        <Input aria-label={`Jumlah ${line.itemName}`} type="number" min={1} value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+      <TableCell sx={{ fontWeight: 500 }}>{line.itemName}</TableCell>
+      <TableCell sx={{ width: 112 }}>
+        <TextField
+          type="number"
+          value={quantity}
+          onChange={(e) => setQuantity(e.target.value)}
+          slotProps={{ htmlInput: { "aria-label": `Jumlah ${line.itemName}`, min: 1 } }}
+        />
       </TableCell>
       <TableCell>
-        <Input aria-label={`Aturan pakai ${line.itemName}`} value={usage} onChange={(e) => setUsage(e.target.value)} />
+        <TextField value={usage} onChange={(e) => setUsage(e.target.value)} fullWidth slotProps={{ htmlInput: { "aria-label": `Aturan pakai ${line.itemName}` } }} />
       </TableCell>
-      <TableCell className="space-x-1 whitespace-nowrap text-right">
-        <Button type="button" size="sm" variant="outline" disabled={disabled} onClick={save} aria-label={`Simpan ${line.itemName}`}>
-          Simpan
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          disabled={disabled}
-          aria-label={`Hapus ${line.itemName}`}
-          onClick={() => run(() => removeDispensingLine({ dispensingId: detail.id, version: detail.version, lineId: line.id }))}
-        >
-          Hapus
-        </Button>
+      <TableCell align="right">
+        <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end" }}>
+          <Button type="button" size="small" variant="outlined" disabled={disabled} onClick={save} aria-label={`Simpan ${line.itemName}`}>
+            Simpan
+          </Button>
+          <Button
+            type="button"
+            size="small"
+            variant="text"
+            disabled={disabled}
+            aria-label={`Hapus ${line.itemName}`}
+            onClick={() => run(() => removeDispensingLine({ dispensingId: detail.id, version: detail.version, lineId: line.id }))}
+          >
+            Hapus
+          </Button>
+        </Stack>
       </TableCell>
     </TableRow>
   );
@@ -88,72 +103,79 @@ export function DispensingEditor({ detail, items }: { detail: DispensingDetail; 
   }
 
   return (
-    <div className="space-y-6">
-      <section aria-label="Catatan untuk Apoteker" className="space-y-1 rounded-md border bg-muted/30 p-3">
-        <h2 className="text-sm font-medium">Catatan untuk Apoteker</h2>
-        <p className="whitespace-pre-wrap text-sm">{detail.note || "Tidak ada catatan."}</p>
-      </section>
+    <Stack spacing={3}>
+      <Paper component="section" aria-label="Catatan untuk Apoteker" variant="outlined" sx={{ p: 1.5, bgcolor: "action.hover" }}>
+        <Typography component="h2" sx={{ fontSize: "0.875rem", fontWeight: 500 }}>
+          Catatan untuk Apoteker
+        </Typography>
+        <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+          {detail.note || "Tidak ada catatan."}
+        </Typography>
+      </Paper>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Obat</TableHead>
-            <TableHead>Jumlah</TableHead>
-            <TableHead>Aturan pakai</TableHead>
-            <TableHead />
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {detail.lines.length === 0 ? (
+      <TableContainer>
+        <Table size="small">
+          <TableHead>
             <TableRow>
-              <TableCell colSpan={4} className="text-center text-sm text-muted-foreground">
-                Belum ada obat. Tambahkan di bawah, atau pilih Tanpa obat.
-              </TableCell>
+              <TableCell>Obat</TableCell>
+              <TableCell>Jumlah</TableCell>
+              <TableCell>Aturan pakai</TableCell>
+              <TableCell />
             </TableRow>
-          ) : (
-            detail.lines.map((line) => <LineRow key={`${line.id}-${detail.version}`} detail={detail} line={line} disabled={pending} run={run} fail={setError} />)
-          )}
-        </TableBody>
-      </Table>
+          </TableHead>
+          <TableBody>
+            {detail.lines.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4} align="center" sx={{ color: "text.secondary" }}>
+                  Belum ada obat. Tambahkan di bawah, atau pilih Tanpa obat.
+                </TableCell>
+              </TableRow>
+            ) : (
+              detail.lines.map((line) => <LineRow key={`${line.id}-${detail.version}`} detail={detail} line={line} disabled={pending} run={run} fail={setError} />)
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
-      <fieldset className="space-y-3 rounded-md border p-3">
-        <legend className="px-1 text-sm font-medium">Tambah obat</legend>
-        <div className="grid gap-3 sm:grid-cols-[1fr_7rem_1fr]">
-          <div className="space-y-1">
-            <Label htmlFor="dispense-item">Obat</Label>
-            <select id="dispense-item" className={selectClass} value={itemId} onChange={(e) => setItemId(e.target.value)}>
-              <option value="">Pilih obat…</option>
-              {items.map((item) => (
-                <option key={item.id} value={item.id} disabled={item.available <= 0}>
-                  {item.name} ({item.code}) — sisa {item.available} {item.unit}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="dispense-quantity">Jumlah</Label>
-            <Input id="dispense-quantity" type="number" min={1} value={quantity} onChange={(e) => setQuantity(e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="dispense-usage">Aturan pakai</Label>
-            <Input id="dispense-usage" value={usage} onChange={(e) => setUsage(e.target.value)} placeholder="mis. 3 x 1 sesudah makan" />
-          </div>
-        </div>
-        <Button type="button" size="sm" variant="outline" onClick={add} disabled={pending}>
-          + Tambah obat
-        </Button>
-      </fieldset>
+      <Paper component="fieldset" variant="outlined" sx={{ m: 0, p: 1.5, minWidth: 0 }}>
+        <Box component="legend" sx={{ px: 0.5, fontSize: "0.875rem", fontWeight: 500 }}>
+          Tambah obat
+        </Box>
+        <Stack spacing={1.5}>
+          <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "1fr 7rem 1fr" } }}>
+            <ItemAutocomplete id="dispense-item" label="Obat" items={items} value={itemId} onChange={setItemId} showStock />
+            <TextField
+              id="dispense-quantity"
+              label="Jumlah"
+              type="number"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              fullWidth
+              slotProps={{ htmlInput: { min: 1 } }}
+            />
+            <TextField
+              id="dispense-usage"
+              label="Aturan pakai"
+              value={usage}
+              onChange={(e) => setUsage(e.target.value)}
+              placeholder="mis. 3 x 1 sesudah makan"
+              fullWidth
+            />
+          </Box>
+          <Box>
+            <Button type="button" size="small" variant="outlined" onClick={add} disabled={pending}>
+              + Tambah obat
+            </Button>
+          </Box>
+        </Stack>
+      </Paper>
 
-      {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
+      {error && <Alert severity="error">{error}</Alert>}
 
-      <div className="flex flex-wrap justify-end gap-2">
+      <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", justifyContent: "flex-end" }}>
         <Button
           type="button"
-          variant="outline"
+          variant="outlined"
           disabled={pending || detail.lines.length > 0}
           onClick={() =>
             run(() => markNoDispensing({ dispensingId: detail.id, version: detail.version }), () => toast.success("Ditandai tanpa obat."))
@@ -163,12 +185,13 @@ export function DispensingEditor({ detail, items }: { detail: DispensingDetail; 
         </Button>
         <Button
           type="button"
+          variant="contained"
           disabled={pending || detail.lines.length === 0}
           onClick={() => run(() => completeDispensing({ dispensingId: detail.id, version: detail.version }), () => toast.success("Penyerahan selesai."))}
         >
           Selesai
         </Button>
-      </div>
-    </div>
+      </Stack>
+    </Stack>
   );
 }

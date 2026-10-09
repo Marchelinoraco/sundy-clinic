@@ -1,9 +1,12 @@
 "use client";
 
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import QRCode from "qrcode";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import type { FoodRecallLinkInfo } from "@/lib/food-recall";
 
 type ShownInfo = Exclude<FoodRecallLinkInfo, { state: "NOT_OFFERED" }>;
@@ -46,37 +49,45 @@ export function FoodRecallLinkPanel({ info }: { info: ShownInfo }) {
   // anggota "OPEN" dengan pasti lewat perbandingan positif terhadap literal tunggal ini.
   if (info.state === "OPEN") {
     return (
-      <div className="space-y-2">
-        <p className="text-sm">{info.filled ? "Sudah diisi — customer masih bisa mengirim ulang." : "Belum diisi."}</p>
+      <Stack spacing={1}>
+        <Typography variant="body2">{info.filled ? "Sudah diisi — customer masih bisa mengirim ulang." : "Belum diisi."}</Typography>
         {qr && (
-          // eslint-disable-next-line @next/next/no-img-element -- data URI SVG buatan browser, bukan gambar dari server
-          <img src={qr} alt="QR link food recall" className="mx-auto size-56 rounded-md border bg-white p-2" />
+          // QR selalu di atas putih agar terbaca kamera, juga di mode gelap.
+          <Box
+            component="img"
+            src={qr}
+            alt="QR link food recall"
+            sx={{ mx: "auto", width: 224, height: 224, borderRadius: 1.5, border: 1, borderColor: "divider", bgcolor: "common.white", p: 1 }}
+          />
         )}
-        <Button asChild variant="outline" className="w-full">
-          <a href={info.url} target="_blank" rel="noopener noreferrer">
-            Buka di tablet
-          </a>
+        <Button component="a" href={info.url} target="_blank" rel="noopener noreferrer" variant="outlined" fullWidth>
+          Buka di tablet
         </Button>
         {info.message.link ? (
-          <Button asChild className="w-full bg-emerald-700 text-white hover:bg-emerald-800">
-            <a href={info.message.link} target="_blank" rel="noopener noreferrer">
-              Kirim lewat WA
-            </a>
+          <Button component="a" href={info.message.link} target="_blank" rel="noopener noreferrer" variant="contained" color="success" fullWidth>
+            Kirim lewat WA
           </Button>
         ) : (
-          <p className="text-sm text-muted-foreground">Nomor WhatsApp pasien tidak dikenali.</p>
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            Nomor WhatsApp pasien tidak dikenali.
+          </Typography>
         )}
-        <Button type="button" variant="outline" className="w-full" onClick={() => void copy(info.url)}>
+        <Button type="button" variant="outlined" fullWidth onClick={() => void copy(info.url)}>
           Salin link
         </Button>
-      </div>
+      </Stack>
     );
   }
 
-  if (info.state === "RECEIVED") return <p className="text-sm text-muted-foreground">Food recall sudah diterima dokter.</p>;
+  if (info.state === "RECEIVED")
+    return (
+      <Typography variant="body2" sx={{ color: "text.secondary" }}>
+        Food recall sudah diterima dokter.
+      </Typography>
+    );
   return (
-    <p className="text-sm text-muted-foreground">
+    <Typography variant="body2" sx={{ color: "text.secondary" }}>
       Link food recall tidak berlaku lagi: hanya bisa dibuka pada hari kunjungan selama customer berstatus hadir.
-    </p>
+    </Typography>
   );
 }

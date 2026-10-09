@@ -1,10 +1,17 @@
 "use client";
 
+import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogContent from "@mui/material/DialogContent";
+import DialogContentText from "@mui/material/DialogContentText";
+import DialogTitle from "@mui/material/DialogTitle";
+import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { createDirectSale } from "@/server/invoice-drafts";
+import { DialogCloseButton } from "../mui/dialog-close-button";
 import { PatientPicker } from "../patient-picker";
 
 /** Penjualan langsung tanpa kunjungan (spec tagihan 4.1): pilih pasien, lalu tagihan draf kosong terbuka. */
@@ -31,32 +38,32 @@ export function DirectSaleDialog() {
     });
   }
 
+  function close() {
+    setOpen(false);
+    setError(null);
+  }
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) setError(null);
-      }}
-    >
-      <DialogTrigger asChild>
-        <Button type="button" variant="outline">
-          + Penjualan langsung
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Penjualan langsung</DialogTitle>
-          <DialogDescription>Untuk obat atau produk yang dibeli tanpa kunjungan. Pilih pasien dulu.</DialogDescription>
-        </DialogHeader>
-        <PatientPicker onSelect={choose} />
-        {pending && <p className="text-sm text-muted-foreground">Membuat tagihan…</p>}
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        )}
-      </DialogContent>
-    </Dialog>
+    <>
+      <Button type="button" variant="outlined" onClick={() => setOpen(true)}>
+        + Penjualan langsung
+      </Button>
+      <Dialog open={open} onClose={close} fullWidth maxWidth="sm">
+        <DialogTitle sx={{ pr: 6 }}>Penjualan langsung</DialogTitle>
+        <DialogCloseButton onClick={close} />
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>Untuk obat atau produk yang dibeli tanpa kunjungan. Pilih pasien dulu.</DialogContentText>
+          <Stack spacing={2}>
+            <PatientPicker onSelect={choose} />
+            {pending && (
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                Membuat tagihan…
+              </Typography>
+            )}
+            {error && <Alert severity="error">{error}</Alert>}
+          </Stack>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

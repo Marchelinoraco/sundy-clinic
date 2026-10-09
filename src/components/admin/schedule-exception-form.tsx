@@ -1,20 +1,15 @@
 "use client";
 
+import Button from "@mui/material/Button";
+import Paper from "@mui/material/Paper";
+import TextField from "@mui/material/TextField";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import type { ExceptionKind } from "@prisma/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { timeInputToMinutes } from "@/lib/time";
 import { createScheduleException } from "@/server/schedule";
+import { DateField } from "./mui/date-field";
+import { SelectField } from "./mui/select-field";
 
 export function ScheduleExceptionForm({ staffId }: { staffId: string }) {
   const [date, setDate] = useState("");
@@ -63,63 +58,38 @@ export function ScheduleExceptionForm({ staffId }: { staffId: string }) {
   }
 
   return (
-    <div className="flex flex-wrap items-end gap-3 rounded-lg border p-3">
-      <div className="space-y-1">
-        <Label htmlFor="exception-date" className="text-xs">
-          Tanggal
-        </Label>
-        <Input
-          id="exception-date"
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="w-40"
-        />
-      </div>
-      <div className="space-y-1">
-        <Label className="text-xs">Jenis</Label>
-        <Select value={kind} onValueChange={(v) => setKind(v as ExceptionKind)}>
-          <SelectTrigger className="w-56">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="LIBUR">Cuti (libur sehari penuh)</SelectItem>
-            <SelectItem value="JAM_TAMBAHAN">Jam tambahan</SelectItem>
-            <SelectItem value="BLOKIR_SEBAGIAN">Blokir sebagian jam</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+    <Paper variant="outlined" sx={{ p: 1.5, display: "flex", flexWrap: "wrap", alignItems: "flex-start", gap: 1.5 }}>
+      <DateField id="exception-date" label="Tanggal" value={date} onChange={setDate} sx={{ width: 180 }} />
+      <SelectField id="exception-kind" label="Jenis" value={kind} onChange={(value) => setKind(value as ExceptionKind)} fullWidth={false} sx={{ width: 240 }}>
+        <option value="LIBUR">Cuti (libur sehari penuh)</option>
+        <option value="JAM_TAMBAHAN">Jam tambahan</option>
+        <option value="BLOKIR_SEBAGIAN">Blokir sebagian jam</option>
+      </SelectField>
       {needsTime && (
         <>
-          <div className="space-y-1">
-            <Label htmlFor="exception-start" className="text-xs">
-              Mulai
-            </Label>
-            <Input
-              id="exception-start"
-              type="time"
-              value={start}
-              onChange={(e) => setStart(e.target.value)}
-              className="w-28"
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="exception-end" className="text-xs">
-              Selesai
-            </Label>
-            <Input
-              id="exception-end"
-              type="time"
-              value={end}
-              onChange={(e) => setEnd(e.target.value)}
-              className="w-28"
-            />
-          </div>
+          <TextField
+            id="exception-start"
+            label="Mulai"
+            type="time"
+            value={start}
+            onChange={(e) => setStart(e.target.value)}
+            slotProps={{ inputLabel: { shrink: true } }}
+            sx={{ width: 130 }}
+          />
+          <TextField
+            id="exception-end"
+            label="Selesai"
+            type="time"
+            value={end}
+            onChange={(e) => setEnd(e.target.value)}
+            slotProps={{ inputLabel: { shrink: true } }}
+            sx={{ width: 130 }}
+          />
         </>
       )}
-      <Button size="sm" disabled={pending} onClick={handleSubmit}>
+      <Button size="small" variant="contained" disabled={pending} onClick={handleSubmit} sx={{ height: 40 }}>
         {pending ? "Menyimpan…" : "Tambah"}
       </Button>
-    </div>
+    </Paper>
   );
 }

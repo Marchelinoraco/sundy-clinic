@@ -1,9 +1,10 @@
+import Box from "@mui/material/Box";
 import { StatTile } from "../stat-tile";
 
 /** Kotak Stok di dasbor (spec stok 8): barang yang perlu perhatian di cabang aktif. */
 export function StockAlertTiles({ alerts }: { alerts: { low: number; expiringSoon: number; expired: number } }) {
   return (
-    <section aria-label="Stok" className="grid gap-4 sm:grid-cols-3">
+    <Box component="section" aria-label="Stok" sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "repeat(3, 1fr)" } }}>
       <StatTile label="Stok menipis" value={alerts.low} note="barang" href="/admin/stok?tanda=MENIPIS" attention={alerts.low > 0} />
       <StatTile
         label="Segera kedaluwarsa"
@@ -19,6 +20,6 @@ export function StockAlertTiles({ alerts }: { alerts: { low: number; expiringSoo
         href="/admin/stok?tanda=KEDALUWARSA"
         attention={alerts.expired > 0}
       />
-    </section>
+    </Box>
   );
 }

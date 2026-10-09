@@ -1,21 +1,28 @@
 "use client";
 
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import InputAdornment from "@mui/material/InputAdornment";
+import Paper from "@mui/material/Paper";
+import Stack from "@mui/material/Stack";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { formatRupiah } from "@/lib/format";
 import { DEFAULT_DUE_DAYS, isDateString, validatePurchase, type PurchaseInput } from "@/lib/stock";
 import { addDaysToDateString } from "@/lib/time";
 import { createPurchase } from "@/server/purchases";
 import type { StockItemOption, SupplierOption } from "@/server/stock-read";
+import { DateField } from "../mui/date-field";
+import { ItemAutocomplete } from "../mui/item-autocomplete";
+import { SelectField } from "../mui/select-field";
 import { RupiahInput } from "../rupiah-input";
 import { SupplierDialog } from "./supplier-dialog";
 
 type LineDraft = { key: number; itemId: string; quantity: string; unitCost: number | null; batchNumber: string; expiryDate: string };
 
-const selectClass = "h-9 w-full rounded-md border border-input bg-background px-3 text-sm";
 const emptyLine = (key: number): LineDraft => ({ key, itemId: "", quantity: "", unitCost: null, batchNumber: "", expiryDate: "" });
 
 /**
@@ -103,156 +110,165 @@ export function PurchaseForm({
     });
   }
 
+  const wide = { gridColumn: { sm: "span 2" } } as const;
+
   return (
-    <div className="space-y-6">
-      <section className="grid gap-4 rounded-lg border p-4 sm:grid-cols-2" aria-label="Faktur supplier">
-        <div className="space-y-1 sm:col-span-2">
-          <Label htmlFor="purchase-supplier">Supplier</Label>
-          <div className="flex flex-wrap gap-2">
-            <select
-              id="purchase-supplier"
-              className={`${selectClass} sm:w-96`}
-              value={supplierId}
-              onChange={(e) => setSupplierId(e.target.value)}
-            >
-              <option value="">Pilih supplier</option>
-              {suppliers.map((supplier) => (
-                <option key={supplier.id} value={supplier.id}>
-                  {supplier.name}
-                </option>
-              ))}
-            </select>
-            <SupplierDialog
-              triggerLabel="+ Supplier baru"
-              onSaved={(supplier) => {
-                setSuppliers((current) => [...current, supplier].sort((a, b) => a.name.localeCompare(b.name)));
-                setSupplierId(supplier.id);
-              }}
-            />
-          </div>
-        </div>
-        {branches.length > 1 ? (
-          <div className="space-y-1">
-            <Label htmlFor="purchase-branch">Cabang penerima</Label>
-            <select id="purchase-branch" className={selectClass} value={branchId} onChange={(e) => setBranchId(e.target.value)}>
-              {branches.map((branch) => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">Cabang penerima: {branches[0]?.name}</p>
-        )}
-        <div className="space-y-1">
-          <Label htmlFor="purchase-number">Nomor faktur</Label>
-          <Input id="purchase-number" value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="purchase-date">Tanggal faktur</Label>
-          <Input id="purchase-date" type="date" max={today} value={invoiceDate} onChange={(e) => changeInvoiceDate(e.target.value)} />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor="purchase-due">Jatuh tempo</Label>
-          <Input
-            id="purchase-due"
-            type="date"
-            min={invoiceDate}
-            value={dueDate}
-            onChange={(e) => {
-              setDueTouched(true);
-              setDueDate(e.target.value);
+    <Stack spacing={3}>
+      <Paper
+        component="section"
+        aria-label="Faktur supplier"
+        variant="outlined"
+        sx={{ p: 2, display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" } }}
+      >
+        <Stack direction="row" spacing={1} useFlexGap sx={{ ...wide, flexWrap: "wrap", alignItems: "center" }}>
+          <SelectField
+            id="purchase-supplier"
+            label="Supplier"
+            value={supplierId}
+            onChange={setSupplierId}
+            fullWidth={false}
+            sx={{ width: "100%", maxWidth: 384 }}
+          >
+            <option value="">Pilih supplier</option>
+            {suppliers.map((supplier) => (
+              <option key={supplier.id} value={supplier.id}>
+                {supplier.name}
+              </option>
+            ))}
+          </SelectField>
+          <SupplierDialog
+            triggerLabel="+ Supplier baru"
+            onSaved={(supplier) => {
+              setSuppliers((current) => [...current, supplier].sort((a, b) => a.name.localeCompare(b.name)));
+              setSupplierId(supplier.id);
             }}
           />
-        </div>
-        <div className="space-y-1 sm:col-span-2">
-          <Label htmlFor="purchase-notes">Catatan</Label>
-          <Input id="purchase-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
-        </div>
-      </section>
+        </Stack>
+        {branches.length > 1 ? (
+          <SelectField id="purchase-branch" label="Cabang penerima" value={branchId} onChange={setBranchId}>
+            {branches.map((branch) => (
+              <option key={branch.id} value={branch.id}>
+                {branch.name}
+              </option>
+            ))}
+          </SelectField>
+        ) : (
+          <Typography variant="body2" sx={{ color: "text.secondary", alignSelf: "center" }}>
+            Cabang penerima: {branches[0]?.name}
+          </Typography>
+        )}
+        <TextField id="purchase-number" label="Nomor faktur" value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} fullWidth />
+        <DateField id="purchase-date" label="Tanggal faktur" max={today} value={invoiceDate} onChange={changeInvoiceDate} fullWidth />
+        <DateField
+          id="purchase-due"
+          label="Jatuh tempo"
+          min={invoiceDate}
+          value={dueDate}
+          onChange={(value) => {
+            setDueTouched(true);
+            setDueDate(value);
+          }}
+          fullWidth
+        />
+        <TextField id="purchase-notes" label="Catatan" value={notes} onChange={(e) => setNotes(e.target.value)} fullWidth sx={wide} />
+      </Paper>
 
-      <section className="space-y-3" aria-label="Barang di faktur">
+      <Stack component="section" aria-label="Barang di faktur" spacing={1.5}>
         {lines.map((line, index) => {
           const n = index + 1;
           const unit = byId.get(line.itemId)?.unit;
           return (
-            <fieldset key={line.key} className="grid gap-3 rounded-lg border p-3 sm:grid-cols-6">
-              <legend className="px-1 text-sm font-medium">Baris {n}</legend>
-              <select
-                aria-label={`Barang baris ${n}`}
-                className={`${selectClass} sm:col-span-2`}
+            <Paper
+              key={line.key}
+              component="fieldset"
+              variant="outlined"
+              sx={{
+                m: 0,
+                p: 1.5,
+                minWidth: 0,
+                display: "grid",
+                gap: 1.5,
+                // Label MUI ada di dalam isian dan tidak bisa turun baris: lima isian sebaris terlalu sempit.
+                gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", lg: "repeat(3, 1fr)" },
+              }}
+            >
+              <Box component="legend" sx={{ px: 0.5, fontSize: "0.875rem", fontWeight: 500 }}>
+                Baris {n}
+              </Box>
+              <ItemAutocomplete
+                label={`Barang baris ${n}`}
+                items={items}
                 value={line.itemId}
-                onChange={(e) => update(line.key, { itemId: e.target.value })}
-              >
-                <option value="">Pilih barang</option>
-                {items.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name} ({item.code})
-                  </option>
-                ))}
-              </select>
-              <Input
-                aria-label={`Jumlah baris ${n}`}
+                onChange={(itemId) => update(line.key, { itemId })}
+                sx={{ gridColumn: { sm: "span 2" } }}
+              />
+              <TextField
+                label={`Jumlah baris ${n}`}
                 type="number"
-                min={1}
-                inputMode="numeric"
-                placeholder={unit ? `Jumlah (${unit})` : "Jumlah"}
                 value={line.quantity}
                 onChange={(e) => update(line.key, { quantity: e.target.value })}
+                fullWidth
+                slotProps={{
+                  htmlInput: { min: 1, inputMode: "numeric" },
+                  input: unit ? { endAdornment: <InputAdornment position="end">{unit}</InputAdornment> } : undefined,
+                }}
               />
               <RupiahInput
-                aria-label={`Harga beli baris ${n}`}
-                placeholder="Harga beli per satuan"
+                label={`Harga beli baris ${n}`}
+                placeholder="per satuan"
                 value={line.unitCost}
                 onChange={(next) => update(line.key, { unitCost: next })}
+                fullWidth
               />
-              <Input
-                aria-label={`Batch baris ${n}`}
+              <TextField
+                label={`Batch baris ${n}`}
                 placeholder="Nomor batch"
                 value={line.batchNumber}
                 onChange={(e) => update(line.key, { batchNumber: e.target.value })}
+                fullWidth
               />
-              <Input
-                aria-label={`Kedaluwarsa baris ${n}`}
-                type="date"
+              <DateField
+                label={`Kedaluwarsa baris ${n}`}
                 min={today}
                 value={line.expiryDate}
-                onChange={(e) => update(line.key, { expiryDate: e.target.value })}
+                onChange={(expiryDate) => update(line.key, { expiryDate })}
+                fullWidth
               />
               {lines.length > 1 && (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="justify-self-start sm:col-span-6"
-                  aria-label={`Hapus baris ${n}`}
-                  onClick={() => setLines((current) => current.filter((l) => l.key !== line.key))}
-                >
-                  Hapus
-                </Button>
+                <Box sx={{ gridColumn: "1 / -1" }}>
+                  <Button
+                    type="button"
+                    size="small"
+                    variant="text"
+                    aria-label={`Hapus baris ${n}`}
+                    onClick={() => setLines((current) => current.filter((l) => l.key !== line.key))}
+                  >
+                    Hapus
+                  </Button>
+                </Box>
               )}
-            </fieldset>
+            </Paper>
           );
         })}
-        <Button type="button" variant="outline" onClick={addLine}>
-          + Tambah baris
-        </Button>
-      </section>
+        <Box>
+          <Button type="button" variant="outlined" onClick={addLine}>
+            + Tambah baris
+          </Button>
+        </Box>
+      </Stack>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-4">
-        <p className="text-sm" aria-live="polite">
-          Total faktur: <strong className="text-base">{formatRupiah(total)}</strong>
-        </p>
-        <Button type="button" onClick={submit} disabled={pending}>
+      <Paper variant="outlined" sx={{ p: 2, display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 1.5 }}>
+        <Typography variant="body2" aria-live="polite">
+          Total faktur:{" "}
+          <Box component="strong" sx={{ fontSize: "1rem" }}>
+            {formatRupiah(total)}
+          </Box>
+        </Typography>
+        <Button type="button" variant="contained" onClick={submit} disabled={pending}>
           {pending ? "Menyimpan…" : "Simpan barang masuk"}
         </Button>
-      </div>
-      {error && (
-        <p role="alert" className="text-sm text-destructive">
-          {error}
-        </p>
-      )}
-    </div>
+      </Paper>
+      {error && <Alert severity="error">{error}</Alert>}
+    </Stack>
   );
 }

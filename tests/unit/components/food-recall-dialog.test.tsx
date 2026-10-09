@@ -1,8 +1,9 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FoodRecallDialog } from "@/components/admin/food-recall-dialog";
 import { getFoodRecallLink, offerFoodRecall } from "@/server/food-recall-admin";
+import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
@@ -17,7 +18,7 @@ const OPEN_LINK = {
 };
 
 function renderDialog() {
-  render(<FoodRecallDialog target={TARGET} open onOpenChange={vi.fn()} />);
+  renderAdmin(<FoodRecallDialog target={TARGET} open onOpenChange={vi.fn()} />);
   return screen.findByRole("dialog", { name: "Food recall — SDY-CI01" });
 }
 

@@ -1,0 +1,58 @@
+import type { Page } from "@playwright/test";
+
+/** Halaman detail dicari lewat tautan pertama (`link`) di halaman `from`, atau lewat halaman perantara (`via`). */
+export type AdminPage = { path: string; from?: string; via?: string; link?: string };
+
+/** Ke-26 halaman panel admin (spec MUI 1). `/masuk` diuji terpisah karena perlu keadaan belum masuk. */
+export const ADMIN_PAGES: AdminPage[] = [
+  { path: "/admin" },
+  { path: "/admin/booking" },
+  { path: "/admin/booking/baru" },
+  { path: "/admin/pengingat" },
+  { path: "/admin/pasien" },
+  { path: "/admin/pasien/[id]", from: "/admin/pasien", link: 'a[href^="/admin/pasien/"]' },
+  // Dari "Pasien hari ini" di dasbor: pasien yang diperiksa spek E2E tidak selalu ada di 10 pasien pertama menurut abjad.
+  { path: "/admin/kunjungan/[id]", from: "/admin", link: 'a[href^="/admin/kunjungan/"]' },
+  // Lewat halaman kunjungan dari dasbor: tautan "Buka halaman isian" ada di tab Isian kuis (panel tetap terpasang). Di daftar
+  // booking tautan itu hanya ada di menu yang baru terpasang saat dibuka, dan pasien yang diperiksa tidak selalu di 10 pasien pertama.
+  { path: "/admin/isian/[id]", from: "/admin", via: 'a[href^="/admin/kunjungan/"]', link: 'a[href^="/admin/isian/"]' },
+  { path: "/admin/jadwal" },
+  { path: "/admin/tagihan" },
+  { path: "/admin/tagihan/[id]", from: "/admin/tagihan?lihat=BELUM_LUNAS", link: 'a[href^="/admin/tagihan/"]' },
+  { path: "/admin/resep" },
+  // Dari tampilan Selesai: resep yang diserahkan spek E2E tidak lagi ada di tampilan bawaan (Menunggu), dan etiket hanya ada untuk yang Selesai.
+  { path: "/admin/resep/[id]", from: "/admin/resep?lihat=SELESAI", link: 'a[href^="/admin/resep/"]' },
+  { path: "/admin/resep/[id]/etiket", from: "/admin/resep?lihat=SELESAI", via: 'a[href^="/admin/resep/"]', link: 'a[href$="/etiket"]' },
+  { path: "/admin/stok" },
+  { path: "/admin/stok/barang/[id]", from: "/admin/stok", link: 'a[href^="/admin/stok/barang/"]' },
+  { path: "/admin/stok/masuk/[id]", from: "/admin/stok?tab=masuk", link: 'a[href^="/admin/stok/masuk/"]:not([href$="/baru"])' },
+  { path: "/admin/stok/masuk/baru" },
+  { path: "/admin/stok-dokter" },
+  { path: "/admin/hutang" },
+  { path: "/admin/pengeluaran" },
+  { path: "/admin/laporan" },
+  { path: "/admin/layanan" },
+  { path: "/admin/staf" },
+  { path: "/admin/pengaturan" },
+  { path: "/admin/stok?tab=supplier" },
+];
+
+async function firstHref(page: Page, from: string, selector: string): Promise<string | null> {
+  await page.goto(from);
+  await page.waitForLoadState("networkidle");
+  return page.locator(selector).first().getAttribute("href", { timeout: 3_000 }).catch(() => null);
+}
+
+/** Alamat sebenarnya untuk sebuah halaman; `null` bila data contohnya belum ada (mis. belum ada resep). */
+export async function resolveAdminPage(page: Page, target: AdminPage): Promise<string | null> {
+  if (!target.from) return target.path;
+  if (!target.via) return firstHref(page, target.from, target.link!);
+  await page.goto(target.from);
+  await page.waitForLoadState("networkidle");
+  const hops = await page.locator(target.via).evaluateAll((links) => links.slice(0, 10).map((a) => a.getAttribute("href")));
+  for (const hop of hops) {
+    const href = hop && (await firstHref(page, hop, target.link!));
+    if (href) return href;
+  }
+  return null;
+}

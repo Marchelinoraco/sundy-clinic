@@ -2,27 +2,16 @@
 
 import { Button } from "@/components/ui/button";
 import {
+  CONTACT_END_CHOICES,
+  CONTACT_START_CHOICES,
   EMPTY_WINDOW_DRAFT,
-  ONLINE_FIRST_MINUTE,
-  ONLINE_LAST_MINUTE,
   ONLINE_MAX_WINDOWS,
-  ONLINE_MIN_WINDOW_MINUTES,
-  ONLINE_STEP_MINUTES,
   type WindowDraft,
 } from "@/lib/online-consultation";
 import { minutesToTimeLabel } from "@/lib/time";
 
 const fieldClass =
   "h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
-
-function minutesBetween(from: number, to: number): number[] {
-  const list: number[] = [];
-  for (let minute = from; minute <= to; minute += ONLINE_STEP_MINUTES) list.push(minute);
-  return list;
-}
-
-const START_CHOICES = minutesBetween(ONLINE_FIRST_MINUTE, ONLINE_LAST_MINUTE - ONLINE_MIN_WINDOW_MINUTES);
-const END_CHOICES = minutesBetween(ONLINE_FIRST_MINUTE + ONLINE_MIN_WINDOW_MINUTES, ONLINE_LAST_MINUTE);
 
 /**
  * 1–3 rentang waktu luang (spec konsultasi online 3.2). Aturan lengkapnya diperiksa
@@ -70,7 +59,7 @@ export function ContactWindowsEditor({
                 onChange={(e) => update(index, { startMinute: Number(e.target.value) })}
                 className={fieldClass}
               >
-                {START_CHOICES.map((minute) => (
+                {CONTACT_START_CHOICES.map((minute) => (
                   <option key={minute} value={minute}>
                     {minutesToTimeLabel(minute)}
                   </option>
@@ -85,7 +74,7 @@ export function ContactWindowsEditor({
                 onChange={(e) => update(index, { endMinute: Number(e.target.value) })}
                 className={fieldClass}
               >
-                {END_CHOICES.map((minute) => (
+                {CONTACT_END_CHOICES.map((minute) => (
                   <option key={minute} value={minute}>
                     {minutesToTimeLabel(minute)}
                   </option>

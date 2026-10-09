@@ -1,12 +1,12 @@
 "use client";
 
+import Button from "@mui/material/Button";
+import Stack from "@mui/material/Stack";
 import Form from "next/form";
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { REPORT_PRESET_LABEL, REPORT_PRESETS, type ReportPeriod, type ReportPreset } from "@/lib/report";
-
-const selectClass = "h-9 rounded-md border border-input bg-background px-3 text-sm";
+import { DateField } from "../mui/date-field";
+import { SelectField } from "../mui/select-field";
 
 /**
  * Pilihan periode dan cabang (spec laporan 7). Tanggal "dari" dan "sampai" dipakai bila periode = Rentang bebas;
@@ -25,27 +25,29 @@ export function ReportFilter({
 }) {
   const [preset, setPreset] = useState<ReportPreset>(initialPreset);
   return (
-    <Form action="/admin/laporan" className="flex flex-wrap items-end gap-2">
-      <select name="periode" aria-label="Periode" value={preset} onChange={(e) => setPreset(e.target.value as ReportPreset)} className={selectClass}>
-        {REPORT_PRESETS.map((value) => (
-          <option key={value} value={value}>
-            {REPORT_PRESET_LABEL[value]}
-          </option>
-        ))}
-      </select>
-      <Input name="dari" type="date" aria-label="Dari tanggal" defaultValue={period.from} onChange={() => setPreset("RENTANG")} className="w-40" />
-      <Input name="sampai" type="date" aria-label="Sampai tanggal" defaultValue={period.to} onChange={() => setPreset("RENTANG")} className="w-40" />
-      <select name="cabang" aria-label="Cabang" defaultValue={branchId ?? ""} className={selectClass}>
-        <option value="">Semua cabang</option>
-        {branches.map((branch) => (
-          <option key={branch.id} value={branch.id}>
-            {branch.name}
-          </option>
-        ))}
-      </select>
-      <Button type="submit" variant="outline">
-        Tampilkan
-      </Button>
+    <Form action="/admin/laporan">
+      <Stack direction="row" spacing={1.5} useFlexGap sx={{ flexWrap: "wrap", alignItems: "flex-start" }}>
+        <SelectField name="periode" label="Periode" value={preset} onChange={(value) => setPreset(value as ReportPreset)} fullWidth={false} sx={{ minWidth: 180 }}>
+          {REPORT_PRESETS.map((value) => (
+            <option key={value} value={value}>
+              {REPORT_PRESET_LABEL[value]}
+            </option>
+          ))}
+        </SelectField>
+        <DateField name="dari" label="Dari tanggal" defaultValue={period.from} onChange={() => setPreset("RENTANG")} sx={{ width: 180 }} />
+        <DateField name="sampai" label="Sampai tanggal" defaultValue={period.to} onChange={() => setPreset("RENTANG")} sx={{ width: 180 }} />
+        <SelectField name="cabang" label="Cabang" defaultValue={branchId ?? ""} fullWidth={false} sx={{ minWidth: 180 }}>
+          <option value="">Semua cabang</option>
+          {branches.map((branch) => (
+            <option key={branch.id} value={branch.id}>
+              {branch.name}
+            </option>
+          ))}
+        </SelectField>
+        <Button type="submit" variant="outlined" sx={{ height: 40 }}>
+          Tampilkan
+        </Button>
+      </Stack>
     </Form>
   );
 }

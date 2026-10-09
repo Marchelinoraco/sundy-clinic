@@ -1,5 +1,6 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { E2E_ADMIN, E2E_RESEPSIONIS } from "./credentials";
+import { tungguHidrasi } from "./helpers/mui";
 
 test.setTimeout(120_000);
 
@@ -31,8 +32,10 @@ test("dokter memeriksa pasien hadir, memfinalisasi, lalu menambah adendum", asyn
   // Tanda simpan otomatis; bukan getByRole("status"), karena toast juga bisa berperan status.
   await expect(page.getByText(/^Tersimpan \d{2}\.\d{2}$/)).toBeVisible({ timeout: 15_000 });
 
-  // Draf bertahan setelah halaman dimuat ulang.
+  // Draf bertahan setelah halaman dimuat ulang. Tunggu hidrasi: isian sudah terisi dari HTML server,
+  // tetapi klik Tambah treatment sebelum React terpasang hilang (gagal saat tiga spek berjalan bersamaan).
   await page.reload();
+  await tungguHidrasi(page);
   await expect(page.getByLabel("Keluhan dan anamnesis dokter")).toHaveValue("Berat naik 3 kg sejak Juli.");
   await expect(page.getByLabel("Berat badan (kg)")).toHaveValue("72,5");
 

@@ -1,9 +1,10 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SendMessageDialog } from "@/components/admin/send-message-dialog";
 import type { BookingMessage } from "@/lib/booking-messages";
 import { recordAppointmentMessage } from "@/server/appointment-message";
+import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/server/appointment-message", () => ({ recordAppointmentMessage: vi.fn() }));
@@ -17,7 +18,7 @@ const MESSAGE: BookingMessage = {
 
 function renderDialog(message: BookingMessage | null = MESSAGE) {
   const onOpenChange = vi.fn();
-  render(
+  renderAdmin(
     <SendMessageDialog
       open
       onOpenChange={onOpenChange}
