@@ -1,12 +1,12 @@
 import { AdminHeader } from "@/components/admin/admin-header";
 import { PageBody, PageHeader, SectionCard } from "@/components/admin/page-layout";
 import { StaffTable } from "@/components/admin/staff-table";
-import { listStaff } from "@/server/staff";
+import { listStaffAccounts } from "@/server/staff";
 import { requireCapability } from "@/server/session";
 
 export default async function StaffPage() {
   await requireCapability("staff:manage");
-  const staff = await listStaff();
+  const staff = await listStaffAccounts();
 
   return (
     <>

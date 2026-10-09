@@ -1,23 +1,13 @@
 import { screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
-import type { Staff } from "@prisma/client";
 import { StaffTable } from "@/components/admin/staff-table";
+import type { StaffRow } from "@/server/staff";
 import { mockGridLayout } from "../helpers/mui";
 import { renderAdmin } from "../helpers/render-admin";
 
 beforeEach(() => mockGridLayout());
 
-const base = {
-  slug: "x",
-  title: null,
-  bio: null,
-  photoUrl: null,
-  showOnWebsite: false,
-  isActive: true,
-  sortOrder: 0,
-  createdAt: new Date(),
-  updatedAt: new Date(),
-} as unknown as Staff;
+const base: StaffRow = { id: "x", name: "X", role: "RESEPSIONIS", showOnWebsite: false, isActive: true, email: null, mustChangePassword: false };
 
 describe("StaffTable", () => {
   it("peran dan status sebagai tanda", () => {

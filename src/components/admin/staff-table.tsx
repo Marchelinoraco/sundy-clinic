@@ -2,12 +2,12 @@
 
 import Typography from "@mui/material/Typography";
 import type { GridColDef } from "@mui/x-data-grid";
-import type { Staff } from "@prisma/client";
 import { STAFF_ROLE_LABEL } from "@/lib/staff-role";
+import type { StaffRow } from "@/server/staff";
 import { AdminDataGrid } from "./mui/admin-data-grid";
 import { StatusChip } from "./mui/status-chip";
 
-const COLUMNS: GridColDef<Staff>[] = [
+const COLUMNS: GridColDef<StaffRow>[] = [
   {
     field: "name",
     headerName: "Nama",
@@ -32,6 +32,6 @@ const COLUMNS: GridColDef<Staff>[] = [
   },
 ];
 
-export function StaffTable({ staff }: { staff: Staff[] }) {
+export function StaffTable({ staff }: { staff: StaffRow[] }) {
   return <AdminDataGrid rows={staff} columns={COLUMNS} label="Daftar staf" emptyText="Belum ada staf." />;
 }
