@@ -50,6 +50,7 @@ export async function saveBiaNumbers(input: {
 }): Promise<ActionResult<{ version: number }>> {
   return runAction(async () => {
     const actor = await requireCapability("record:write");
+    if (!Number.isInteger(input?.version)) throw new UserFacingError("Isian angka BIA tidak lengkap. Muat ulang halaman.");
     const parsed = parseBiaInput(input?.numbers, input?.note ?? "");
     if (!parsed.ok) throw new UserFacingError(parsed.message);
     const id = String(input?.measurementId ?? "");

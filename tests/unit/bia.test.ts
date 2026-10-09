@@ -4,6 +4,7 @@ import {
   BIA_MAX_BYTES,
   EMPTY_BIA_INPUT,
   biaAccess,
+  uniqueChartLabels,
   biaFieldLabel,
   biaInputValue,
   contentDisposition,
@@ -54,6 +55,12 @@ describe("angka BIA", () => {
     expect(parseBiaInput(EMPTY_BIA_INPUT, "")).toEqual({ ok: false, message: "Isi minimal satu angka BIA." });
     expect(parseBiaInput({ ...EMPTY_BIA_INPUT, bmr: "20" }, "")).toEqual({ ok: false, message: expect.stringContaining("Metabolisme basal harus") });
     expect(parseBiaInput({ ...EMPTY_BIA_INPUT, bmr: "1450" }, "x".repeat(501))).toEqual({ ok: false, message: "Catatan paling banyak 500 karakter." });
+  });
+
+  it("isian yang bukan objek ditolak dengan pesan jelas, tanpa galat", () => {
+    for (const bad of [undefined, null, "x", 5]) {
+      expect(parseBiaInput(bad as never, "")).toEqual({ ok: false, message: "Isian angka BIA tidak lengkap. Muat ulang halaman." });
+    }
   });
 
   it("menulis angka kembali ke isian dengan koma desimal, dan label memuat satuan", () => {
@@ -133,5 +140,13 @@ describe("hak atas BIA per peran dan status booking", () => {
     for (const status of ["MENUNGGU_KONFIRMASI", "TERKONFIRMASI", "DIBATALKAN", "TIDAK_HADIR", "KEDALUWARSA"]) {
       expect(biaAccess("DOKTER", klinik(status))).toMatchObject({ upload: false, editNumbers: false, voidAny: false });
     }
+  });
+});
+
+describe("label sumbu grafik", () => {
+  it("memberi nomor pada label yang kembar, dan membiarkan yang unik", () => {
+    expect(uniqueChartLabels(["2 Sep", "9 Okt", "9 Okt", "9 Okt", "1 Nov"])).toEqual(["2 Sep", "9 Okt (1)", "9 Okt (2)", "9 Okt (3)", "1 Nov"]);
+    expect(uniqueChartLabels(["2 Sep", "9 Okt"])).toEqual(["2 Sep", "9 Okt"]);
+    expect(uniqueChartLabels([])).toEqual([]);
   });
 });

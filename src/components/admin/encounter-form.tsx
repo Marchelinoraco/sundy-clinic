@@ -1,5 +1,6 @@
 "use client";
 
+import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
@@ -192,6 +193,8 @@ export type EncounterFormProps = {
   retryDelaysMs?: readonly number[];
   /** Tab food recall menambahkan ringkasan ke S lewat pegangan ini. */
   subjectiveRef?: Ref<SubjectiveHandle>;
+  /** Ada angka BIA yang diketik tetapi belum disimpan di tab BIA (spec hasil BIA 6.2). */
+  biaUnsaved?: boolean;
 };
 
 /** Catatan draf S/O/A/P + treatment dengan simpan otomatis (spec 4–5, 7). */
@@ -432,6 +435,11 @@ export function EncounterForm(props: EncounterFormProps) {
           <DialogContentText>
             Catatan yang sudah final tidak bisa diubah, hanya bisa ditambah adendum. Booking ditandai Selesai.
           </DialogContentText>
+          {props.biaUnsaved && (
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              Angka BIA yang Anda ketik belum disimpan. Kembali, buka tab BIA, lalu tekan Simpan angka BIA.
+            </Alert>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirm(null)}>Kembali</Button>

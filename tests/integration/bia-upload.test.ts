@@ -138,6 +138,54 @@ describe("layanan unggah hasil BIA", () => {
     expect(await filesOnDisk()).toHaveLength(1);
   });
 
+  it("unggah yang bersamaan dengan finalisasi: status dibaca ulang di dalam transaksi, resepsionis ditolak bila kunjungan baru saja final", async () => {
+    // Booking tersendiri: setelah SELESAI ia tidak bisa dikembalikan ke HADIR (pemicu kunci kunjungan final).
+    const { appointmentId: racer } = await finalVisit(world);
+    let locked: () => void = () => undefined;
+    const lockHeld = new Promise<void>((resolve) => (locked = resolve));
+    const finalizing = prisma.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`SELECT "id" FROM "Appointment" WHERE "id" = ${racer} FOR UPDATE`;
+        await tx.appointment.update({ where: { id: racer }, data: { status: "SELESAI" } });
+        locked();
+        await new Promise((resolve) => setTimeout(resolve, 700));
+      },
+      { timeout: 10_000 },
+    );
+    await lockHeld;
+    // Pemeriksaan awal tanpa kunci masih melihat HADIR; transaksi unggah harus menunggu dan melihat SELESAI.
+    const racing = upload(resepsionis, racer).then(() => null, (e: unknown) => e);
+    await finalizing;
+    const error = await racing;
+    expect(error).toBeInstanceOf(UserFacingError);
+    expect((error as UserFacingError).message).toMatch(/sudah final/);
+    expect(await filesOnDisk()).toHaveLength(0);
+  });
+
+  it("unggah yang bersamaan dengan pembatalan pengukuran: berkas masuk ke pengukuran baru, bukan yang baru dibatalkan", async () => {
+    const first = await upload(dokter);
+    let locked: () => void = () => undefined;
+    const lockHeld = new Promise<void>((resolve) => (locked = resolve));
+    const voiding = prisma.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`SELECT "id" FROM "BiaMeasurement" WHERE "id" = ${first.measurementId} FOR UPDATE`;
+        await tx.biaMeasurement.update({
+          where: { id: first.measurementId },
+          data: { voidedAt: new Date(), voidedById: "s", voidedByName: "Uji", voidReason: "Salah" },
+        });
+        locked();
+        await new Promise((resolve) => setTimeout(resolve, 700));
+      },
+      { timeout: 10_000 },
+    );
+    await lockHeld;
+    const racing = upload(dokter);
+    await voiding;
+    const second = await racing;
+    expect(second.measurementId).not.toBe(first.measurementId);
+    expect((await prisma.biaMeasurement.findUniqueOrThrow({ where: { id: second.measurementId } })).voidedAt).toBeNull();
+  });
+
   it("menolak booking tak dikenal, booking online, status belum check-in, dan peran tanpa hak", async () => {
     await refuse(upload(dokter, "tidak-ada"), /Booking tidak ditemukan/);
     const waiting = await prisma.appointment.findUniqueOrThrow({ where: { id: hadir } });

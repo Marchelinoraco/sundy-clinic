@@ -81,6 +81,8 @@ export function parseBiaNumber(spec: BiaFieldSpec, raw: string): Parsed<number |
 
 /** Seluruh isian: pesan pertama yang ditemukan dikembalikan apa adanya ke pengguna. */
 export function parseBiaInput(input: BiaInput, note: string): Parsed<{ numbers: BiaNumbers; note: string | null }> {
+  // Klien lama atau permintaan yang dibuat tangan bisa mengirim bentuk lain; jangan sampai jadi galat umum.
+  if (typeof input !== "object" || input === null) return fail("Isian angka BIA tidak lengkap. Muat ulang halaman.");
   const numbers: BiaNumbers = { ...EMPTY_BIA_NUMBERS };
   for (const spec of BIA_FIELDS) {
     const parsed = parseBiaNumber(spec, input[spec.key] ?? "");
@@ -161,6 +163,19 @@ export function biaAccess(role: StaffRole, appointment: { status: string; channe
     return { upload: uploader && clinical, editNumbers: clinical, voidAny: clinical, voidOwnFile: false, view };
   }
   return none;
+}
+
+/** Label sumbu yang kembar (dua pengukuran di tanggal yang sama) diberi nomor supaya titiknya tidak bertumpuk. */
+export function uniqueChartLabels(labels: string[]): string[] {
+  const total = new Map<string, number>();
+  for (const label of labels) total.set(label, (total.get(label) ?? 0) + 1);
+  const seen = new Map<string, number>();
+  return labels.map((label) => {
+    if ((total.get(label) ?? 0) < 2) return label;
+    const n = (seen.get(label) ?? 0) + 1;
+    seen.set(label, n);
+    return `${label} (${n})`;
+  });
 }
 
 /** Satu titik grafik komposisi tubuh. */

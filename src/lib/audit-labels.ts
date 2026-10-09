@@ -6,6 +6,11 @@ const ACTION_LABEL: Record<string, string> = {
   "encounter.discard": "membuang draf",
   "encounter.addendum": "menambah adendum",
   "encounter.view": "membuka",
+  "bia.upload": "mengunggah hasil BIA",
+  "bia.numbers.save": "menyimpan angka BIA",
+  "bia.void": "membatalkan pengukuran BIA",
+  "bia.file.void": "membatalkan berkas BIA",
+  "bia.view": "membuka berkas BIA",
 };
 
 const ROLE_LABEL: Record<string, string> = {

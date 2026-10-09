@@ -169,7 +169,10 @@ describe("PatientDetailView (spec D 5.3)", () => {
         appointmentCode: "SDY-0002",
         numbers: { bodyFatPercent: 28.5, muscleMassKg: 41, visceralFat: 9, bmr: 1450, metabolicAge: 38, bodyWaterPercent: 47.5, boneMassKg: 2.6 },
         numbersAt: new Date(),
-        files: [{ id: "f1", originalName: "hasil.pdf", mimeType: "application/pdf", sizeBytes: 10, uploadedByName: "Rina", uploadedAt: new Date(), previewable: true, voided: null }],
+        files: [
+          { id: "f1", originalName: "hasil.pdf", mimeType: "application/pdf", sizeBytes: 10, uploadedByName: "Rina", uploadedAt: new Date(), previewable: true, voided: null },
+          { id: "f2", originalName: "buram.jpg", mimeType: "image/jpeg", sizeBytes: 10, uploadedByName: "Rina", uploadedAt: new Date(), previewable: true, voided: { at: new Date(), by: "dr. Diane", reason: "Foto buram" } },
+        ],
       }),
       biaMeasurement({ id: "m1", appointmentCode: "SDY-0001", voided: { at: new Date(), by: "dr. Diane", reason: "Salah pasien" } }),
     ];
@@ -179,6 +182,9 @@ describe("PatientDetailView (spec D 5.3)", () => {
     const table = screen.getByRole("table", { name: "Riwayat BIA" });
     expect(within(table).getByRole("link", { name: "hasil.pdf" })).toHaveAttribute("href", "/admin/bia/berkas/f1");
     expect(within(table).getByText("Dibatalkan: Salah pasien")).toBeInTheDocument();
+    // Berkas yang dibatalkan tetap bisa dibuka dokter, tetapi diberi tanda.
+    expect(within(table).getByRole("link", { name: "buram.jpg" })).toBeInTheDocument();
+    expect(within(table).getByText("(dibatalkan: Foto buram)")).toBeInTheDocument();
   });
 
   it("tanpa data BIA (resepsionis): tidak ada tab BIA", () => {

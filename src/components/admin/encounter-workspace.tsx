@@ -26,6 +26,7 @@ import { EncounterRecord } from "./encounter-record";
  */
 export function EncounterWorkspace({ encounter, bia, canWrite }: { encounter: EncounterDetail; bia: BiaVisitView; canWrite: boolean }) {
   const [currentVitals, setCurrentVitals] = useState(encounter.vitals);
+  const [biaUnsaved, setBiaUnsaved] = useState(false);
   const isFinal = encounter.status === "FINAL";
   const editable = !isFinal && canWrite;
   const weightHistory = encounter.history.map((visit) => ({ date: visit.startAt, vitals: visit.vitals }));
@@ -58,6 +59,7 @@ export function EncounterWorkspace({ encounter, bia, canWrite }: { encounter: En
           currentVitals={editable ? currentVitals : encounter.vitals}
           canEditFoodRecall={editable}
           copyToSubjective={copyToSubjective}
+          onBiaUnsavedChange={setBiaUnsaved}
         />
       </Box>
 
@@ -71,6 +73,7 @@ export function EncounterWorkspace({ encounter, bia, canWrite }: { encounter: En
             weightHistory={weightHistory}
             onVitalsChange={setCurrentVitals}
             subjectiveRef={subjectiveRef}
+            biaUnsaved={biaUnsaved}
           />
         ) : (
           <EncounterRecord encounter={encounter} />

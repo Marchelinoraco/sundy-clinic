@@ -36,6 +36,7 @@ export function EncounterContextPanel({
   currentVitals,
   canEditFoodRecall,
   copyToSubjective,
+  onBiaUnsavedChange,
 }: {
   encounter: EncounterDetail;
   /** Hasil BIA kunjungan ini dan titik grafik pasien (spec hasil BIA 6.2). */
@@ -46,6 +47,8 @@ export function EncounterContextPanel({
   canEditFoodRecall?: boolean;
   /** Jalan ke kolom S (hanya saat formulir draf terbuka). */
   copyToSubjective?: SubjectiveCopy;
+  /** Angka BIA yang diketik tetapi belum disimpan, untuk peringatan di dialog Finalisasi. */
+  onBiaUnsavedChange?: (unsaved: boolean) => void;
 }) {
   const id = useId();
   const [tab, setTab] = useState<ContextTab>(() =>
@@ -97,7 +100,7 @@ export function EncounterContextPanel({
                 copy={copyToSubjective}
               />
             )}
-            {item.key === "bia" && <BiaTab bia={bia} appointmentId={encounter.appointment.id} />}
+            {item.key === "bia" && <BiaTab bia={bia} appointmentId={encounter.appointment.id} onUnsavedChange={onBiaUnsavedChange} />}
             {item.key === "previous" && (
               <PreviousVisitsTab history={encounter.history} hasMore={encounter.hasMoreHistory} patientId={encounter.patient.id} />
             )}

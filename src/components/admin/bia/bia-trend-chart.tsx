@@ -13,7 +13,7 @@ import { ChartsTooltip } from "@mui/x-charts/ChartsTooltip";
 import { ChartsXAxis } from "@mui/x-charts/ChartsXAxis";
 import { ChartsYAxis } from "@mui/x-charts/ChartsYAxis";
 import { LinePlot, MarkPlot } from "@mui/x-charts/LineChart";
-import type { BiaPoint } from "@/lib/bia";
+import { uniqueChartLabels, type BiaPoint } from "@/lib/bia";
 import { formatDecimal } from "@/lib/encounter";
 import { formatShortIndonesianDate } from "@/lib/format";
 import { DARK, STATUS, SUNDY } from "../mui/theme";
@@ -28,13 +28,14 @@ export function BiaTrendChart({ points }: { points: BiaPoint[] }) {
   const { mode, systemMode } = useColorScheme();
   const dark = (mode === "system" ? systemMode : mode) === "dark";
   if (points.length === 0) return <Typography variant="body2">Belum ada hasil BIA.</Typography>;
+  const labels = uniqueChartLabels(points.map((p) => formatShortIndonesianDate(p.at)));
   const color = dark ? { fat: DARK.primary, muscle: STATUS.dark.success } : { fat: SUNDY.brown600, muscle: STATUS.light.success };
   return (
     <Stack spacing={1}>
       <Box role="img" aria-label="Grafik komposisi tubuh" sx={{ width: "100%", minHeight: 240 }}>
         <ChartsDataProvider
           height={220}
-          xAxis={[{ id: "tanggal", scaleType: "point", data: points.map((p) => formatShortIndonesianDate(p.at)) }]}
+          xAxis={[{ id: "tanggal", scaleType: "point", data: labels }]}
           yAxis={[{ id: "nilai", width: 40 }]}
           series={[
             { type: "line", id: "fat", label: "Lemak tubuh (%)", data: points.map((p) => p.bodyFatPercent), color: color.fat, connectNulls: true },
@@ -61,9 +62,9 @@ export function BiaTrendChart({ points }: { points: BiaPoint[] }) {
           </tr>
         </thead>
         <tbody>
-          {points.map((point) => (
-            <tr key={point.at.toISOString()}>
-              <td>{formatShortIndonesianDate(point.at)}</td>
+          {points.map((point, index) => (
+            <tr key={`${point.at.toISOString()}-${index}`}>
+              <td>{labels[index]}</td>
               <td>{show(point.bodyFatPercent, "%")}</td>
               <td>{show(point.muscleMassKg, "kg")}</td>
             </tr>

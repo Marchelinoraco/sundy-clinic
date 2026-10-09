@@ -130,4 +130,35 @@ describe("rute hasil BIA", () => {
     expect(response.headers.get("content-type")).toBe("image/heic");
     expect(response.headers.get("content-disposition")).toMatch(/^attachment;/);
   });
+
+  it("unggah: X-Forwarded-Host dari klien tidak dipercaya untuk memeriksa asal", async () => {
+    as("RESEPSIONIS");
+    const spoofed = await post(form(hadir), { origin: "https://jahat.example", host: "sundyclinic.com", "x-forwarded-host": "jahat.example" });
+    expect(spoofed.status).toBe(403);
+  });
+
+  it("unggah: isi permintaan yang jelas terlalu besar ditolak 413 sebelum dibaca", async () => {
+    as("RESEPSIONIS");
+    const request = new Request(`${ORIGIN}/admin/bia/unggah`, {
+      method: "POST",
+      body: form(hadir),
+      headers: { origin: ORIGIN, host: "sundyclinic.com", "content-length": String(20 * 1024 * 1024) },
+    });
+    const reading = vi.spyOn(request, "formData");
+    const response = await POST(request);
+    expect(response.status).toBe(413);
+    expect(await response.json()).toEqual({ ok: false, error: "Berkas terlalu besar (maks. 10 MB)." });
+    expect(reading).not.toHaveBeenCalled();
+  });
+
+  it("buka berkas: gambar disajikan dengan CSP ketat; PDF tidak diberi CSP (penampil PDF peramban bisa rusak)", async () => {
+    as("RESEPSIONIS");
+    const png = (await (await post(form(hadir))).json()) as { fileId: string };
+    const pdf = (await (await post(form(hadir, new TextEncoder().encode("%PDF-1.7 contoh"), "hasil.pdf", "application/pdf"))).json()) as { fileId: string };
+    as("DOKTER");
+    expect((await get(png.fileId)).headers.get("content-security-policy")).toBe("default-src 'none'; img-src 'self'; style-src 'unsafe-inline'");
+    const pdfResponse = await get(pdf.fileId);
+    expect(pdfResponse.headers.get("content-type")).toBe("application/pdf");
+    expect(pdfResponse.headers.get("content-security-policy")).toBeNull();
+  });
 });

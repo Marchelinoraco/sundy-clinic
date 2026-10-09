@@ -11,7 +11,7 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { BIA_FIELDS, BIA_KEYS, biaFieldLabel, biaInputValue, type BiaInput } from "@/lib/bia";
 import { formatDecimal } from "@/lib/encounter";
@@ -93,9 +93,23 @@ function NumbersReadOnly({ measurement }: { measurement: BiaMeasurementView }) {
   );
 }
 
-function NumbersForm({ measurement, onSaved }: { measurement: BiaMeasurementView; onSaved: () => void }) {
+function NumbersForm({
+  measurement,
+  onSaved,
+  onUnsavedChange,
+}: {
+  measurement: BiaMeasurementView;
+  onSaved: () => void;
+  onUnsavedChange?: (unsaved: boolean) => void;
+}) {
   const [values, setValues] = useState<BiaInput>(() => inputsOf(measurement));
   const [note, setNote] = useState(measurement.note ?? "");
+  // Dokter yang menutup halaman atau memfinalisasi tanpa menyimpan kehilangan ketikannya; kabarkan induknya.
+  const unsaved = BIA_KEYS.some((key) => values[key] !== biaInputValue(key, measurement.numbers[key])) || note !== (measurement.note ?? "");
+  useEffect(() => {
+    onUnsavedChange?.(unsaved);
+    return () => onUnsavedChange?.(false);
+  }, [unsaved, onUnsavedChange]);
   const [version, setVersion] = useState(measurement.version);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -143,7 +157,7 @@ function NumbersForm({ measurement, onSaved }: { measurement: BiaMeasurementView
 }
 
 /** Tab BIA halaman kunjungan (spec hasil BIA 6.2). */
-export function BiaTab({ bia, appointmentId }: { bia: BiaVisitView; appointmentId: string }) {
+export function BiaTab({ bia, appointmentId, onUnsavedChange }: { bia: BiaVisitView; appointmentId: string; onUnsavedChange?: (unsaved: boolean) => void }) {
   const router = useRouter();
   const { active, access, final } = bia;
   const locked = final && active?.numbersAt != null;
@@ -166,6 +180,12 @@ export function BiaTab({ bia, appointmentId }: { bia: BiaVisitView; appointmentI
       {!active ? (
         <Stack spacing={1} sx={{ alignItems: "flex-start" }}>
           <Typography variant="body2">Belum ada hasil BIA untuk kunjungan ini.</Typography>
+          {(access.upload || access.editNumbers) && (
+            <Typography variant="caption" sx={{ color: "text.secondary" }}>
+              Unggah foto atau PDF hasil timbang di bawah, lalu isi angkanya.
+              {access.editNumbers ? " Tanpa berkas pun angka bisa diisi lewat tombol di bawah." : ""}
+            </Typography>
+          )}
           {access.editNumbers && (
             <Button size="small" onClick={() => void start()}>
               Isi angka tanpa berkas
@@ -182,7 +202,7 @@ export function BiaTab({ bia, appointmentId }: { bia: BiaVisitView; appointmentI
         </>
       )}
       {access.upload && !locked && <BiaFilePicker appointmentId={appointmentId} onUploaded={refresh} />}
-      {active && (access.editNumbers && !locked ? <NumbersForm key={`${active.id}-${active.version}`} measurement={active} onSaved={refresh} /> : <NumbersReadOnly measurement={active} />)}
+      {active && (access.editNumbers && !locked ? <NumbersForm key={`${active.id}-${active.version}`} measurement={active} onSaved={refresh} onUnsavedChange={onUnsavedChange} /> : <NumbersReadOnly measurement={active} />)}
       {active && access.voidAny && (
         <Box>
           <Button color="error" size="small" onClick={() => setVoidingMeasurement(true)}>
