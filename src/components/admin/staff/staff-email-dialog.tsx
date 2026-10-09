@@ -17,16 +17,20 @@ import { changeStaffEmail, createAccountForStaff, type Credentials, type StaffRo
 export function StaffEmailDialog({
   mode,
   row,
+  isSelf = false,
   onClose,
   onCredentials,
 }: {
   mode: "create" | "change";
   row: StaffRow;
+  /** Mengganti email akun sendiri: sesi dicabut dan salah ketik mengunci pemilik, jadi email diketik dua kali. */
+  isSelf?: boolean;
   onClose: () => void;
   onCredentials: (name: string, credentials: Credentials) => void;
 }) {
   const router = useRouter();
   const [email, setEmail] = useState(mode === "change" ? (row.email ?? "") : "");
+  const [repeat, setRepeat] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const label = mode === "create" ? "Buat akun" : "Ganti email";
@@ -34,6 +38,11 @@ export function StaffEmailDialog({
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError(null);
+    const confirmSelf = mode === "change" && isSelf;
+    if (confirmSelf && email.trim().toLowerCase() !== repeat.trim().toLowerCase()) {
+      setError("Email ulangan tidak sama.");
+      return;
+    }
     setPending(true);
     try {
       if (mode === "create") {
@@ -80,6 +89,12 @@ export function StaffEmailDialog({
             autoFocus
             fullWidth
           />
+          {mode === "change" && isSelf && (
+            <>
+              <Alert severity="warning">Anda akan keluar dari semua perangkat dan harus masuk lagi dengan email baru. Pastikan email baru benar dan bisa Anda ingat.</Alert>
+              <TextField id="staf-email-ulang" label="Ulangi email baru" type="text" slotProps={{ htmlInput: { inputMode: "email" } }} autoComplete="off" value={repeat} onChange={(e) => setRepeat(e.target.value)} fullWidth />
+            </>
+          )}
           {error && <Alert severity="error">{error}</Alert>}
         </Stack>
       </DialogContent>

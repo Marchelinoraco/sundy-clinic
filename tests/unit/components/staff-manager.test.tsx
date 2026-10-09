@@ -130,6 +130,56 @@ describe("tambah staf", () => {
   });
 });
 
+describe("dialog kata sandi sementara", () => {
+  it("untuk staf lain: Esc tidak menutup dan tidak ada kotak konfirmasi; Tutup langsung aktif", async () => {
+    vi.mocked(resetStaffPassword).mockResolvedValue({ ok: true, data: { credentials } });
+    const user = userEvent.setup();
+    renderManager();
+    await openMenu(user, "Rina Baru");
+    await user.click(screen.getByRole("menuitem", { name: "Reset kata sandi" }));
+    await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Reset kata sandi" }));
+    const temp = await screen.findByRole("dialog", { name: "Kata sandi sementara — Rina Baru" });
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("dialog", { name: "Kata sandi sementara — Rina Baru" })).toBeInTheDocument();
+    expect(within(temp).queryByLabelText("Saya sudah menyimpan kata sandi ini")).toBeNull();
+    expect(within(temp).getByRole("button", { name: "Tutup" })).toBeEnabled();
+  });
+});
+
+describe("ganti email diri sendiri", () => {
+  it("memperingatkan akan keluar dan meminta email diketik dua kali; yang berbeda ditolak sebelum dikirim", async () => {
+    vi.mocked(changeStaffEmail).mockResolvedValue({ ok: true, data: undefined });
+    const user = userEvent.setup();
+    renderManager();
+    await openMenu(user, "Pemilik SunDY");
+    await user.click(screen.getByRole("menuitem", { name: "Ganti email" }));
+    const form = await screen.findByRole("dialog", { name: "Ganti email — Pemilik SunDY" });
+    expect(within(form).getByText(/Anda akan keluar dari semua perangkat dan harus masuk lagi dengan email baru/)).toBeInTheDocument();
+    const field = within(form).getByLabelText("Email login");
+    await user.clear(field);
+    await user.type(field, "baru@sundy.test");
+    await user.type(within(form).getByLabelText("Ulangi email baru"), "beda@sundy.test");
+    await user.click(within(form).getByRole("button", { name: "Ganti email" }));
+    expect(await within(form).findByText("Email ulangan tidak sama.")).toBeInTheDocument();
+    expect(changeStaffEmail).not.toHaveBeenCalled();
+
+    await user.clear(within(form).getByLabelText("Ulangi email baru"));
+    await user.type(within(form).getByLabelText("Ulangi email baru"), " BARU@sundy.test ");
+    await user.click(within(form).getByRole("button", { name: "Ganti email" }));
+    await waitFor(() => expect(changeStaffEmail).toHaveBeenCalledWith({ staffId: "s-owner", email: "baru@sundy.test" }));
+  });
+
+  it("untuk staf lain tidak ada peringatan keluar dan tidak ada isian ulangan", async () => {
+    const user = userEvent.setup();
+    renderManager();
+    await openMenu(user, "Rina Baru");
+    await user.click(screen.getByRole("menuitem", { name: "Ganti email" }));
+    const form = await screen.findByRole("dialog", { name: "Ganti email — Rina Baru" });
+    expect(within(form).queryByLabelText("Ulangi email baru")).toBeNull();
+    expect(within(form).queryByText(/Anda akan keluar/)).toBeNull();
+  });
+});
+
 describe("aksi per baris", () => {
   it("Ubah: mengirim nama, peran, dan tampil di situs", async () => {
     vi.mocked(updateStaff).mockResolvedValue({ ok: true, data: undefined });
@@ -223,6 +273,11 @@ describe("aksi per baris", () => {
     await user.click(within(confirm).getByRole("button", { name: "Reset kata sandi" }));
     const temp = await screen.findByRole("dialog", { name: "Kata sandi sementara — Pemilik SunDY" });
     expect(refresh).not.toHaveBeenCalled();
+    // Pemilik tunggal yang tak sengaja menutup dialog ini terkunci dari panel: Esc diabaikan dan Tutup menunggu konfirmasi.
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("dialog", { name: "Kata sandi sementara — Pemilik SunDY" })).toBeInTheDocument();
+    expect(within(temp).getByRole("button", { name: "Tutup" })).toBeDisabled();
+    await user.click(within(temp).getByLabelText("Saya sudah menyimpan kata sandi ini"));
     await user.click(within(temp).getByRole("button", { name: "Tutup" }));
     expect(push).toHaveBeenCalledWith("/masuk");
   });

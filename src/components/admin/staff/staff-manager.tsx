@@ -140,7 +140,7 @@ export function StaffManager({ rows, currentStaffId }: { rows: StaffRow[]; curre
       {dialog?.kind === "add" && <StaffFormDialog mode="add" onClose={() => setDialog(null)} onCredentials={showCredentials} />}
       {dialog?.kind === "edit" && <StaffFormDialog key={dialog.row.id} mode="edit" row={dialog.row} onClose={() => setDialog(null)} onCredentials={showCredentials} />}
       {dialog?.kind === "account" && <StaffEmailDialog key={dialog.row.id} mode="create" row={dialog.row} onClose={() => setDialog(null)} onCredentials={showCredentials} />}
-      {dialog?.kind === "email" && <StaffEmailDialog key={dialog.row.id} mode="change" row={dialog.row} onClose={() => setDialog(null)} onCredentials={showCredentials} />}
+      {dialog?.kind === "email" && <StaffEmailDialog key={dialog.row.id} mode="change" row={dialog.row} isSelf={dialog.row.id === currentStaffId} onClose={() => setDialog(null)} onCredentials={showCredentials} />}
       {dialog?.kind === "deactivate" && (
         <StaffConfirmDialog
           title={`Nonaktifkan ${dialog.row.name}?`}
@@ -174,7 +174,7 @@ export function StaffManager({ rows, currentStaffId }: { rows: StaffRow[]; curre
           }}
         />
       )}
-      {temp && <TempPasswordDialog name={temp.name} credentials={temp.credentials} onClose={closeTemp} />}
+      {temp && <TempPasswordDialog name={temp.name} credentials={temp.credentials} requireConfirm={temp.selfReset} onClose={closeTemp} />}
     </Stack>
   );
 }
