@@ -82,4 +82,23 @@ describe("ganti kata sandi sendiri", () => {
     expect(await changeOwnPassword(input())).toEqual({ ok: false, error: "Anda tidak perlu mengganti kata sandi sekarang. Muat ulang halaman." });
     expect((await signIn(TEMP)).user.email).toBe(email);
   });
+
+  it("atomik: bila pencabutan sesi gagal, kata sandi sementara tetap berlaku dan tanda tetap menyala", async () => {
+    await prisma.$executeRawUnsafe(`CREATE OR REPLACE FUNCTION gantisendiri_tolak_sesi() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'gantisendiri_tolak_sesi'; END; $$`);
+    await prisma.$executeRawUnsafe(`CREATE TRIGGER gantisendiri_tolak_sesi BEFORE DELETE ON "session" FOR EACH ROW EXECUTE FUNCTION gantisendiri_tolak_sesi()`);
+    try {
+      await expect(changeOwnPassword(input())).rejects.toThrow();
+      expect((await signIn(TEMP)).user.email).toBe(email);
+      await expect(signIn(NEW)).rejects.toThrow();
+      expect((await prisma.user.findUniqueOrThrow({ where: { id: userId } })).mustChangePassword).toBe(true);
+    } finally {
+      await prisma.$executeRawUnsafe(`DROP TRIGGER IF EXISTS gantisendiri_tolak_sesi ON "session"`);
+      await prisma.$executeRawUnsafe(`DROP FUNCTION IF EXISTS gantisendiri_tolak_sesi()`);
+    }
+  });
+
+  it("kata sandi saat ini yang bukan string ditolak dengan pesan jelas, bukan galat umum", async () => {
+    expect(await changeOwnPassword(input({ currentPassword: 12345 as never }))).toEqual({ ok: false, error: "Kata sandi saat ini salah." });
+    expect(await changeOwnPassword(input({ currentPassword: undefined as never }))).toEqual({ ok: false, error: "Isi kata sandi saat ini." });
+  });
 });

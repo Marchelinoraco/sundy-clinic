@@ -27,7 +27,7 @@ export default async function ChangePasswordPage() {
         <Typography variant="body2" sx={{ color: "text.secondary", mt: 0.5, mb: 3 }}>
           {CLINIC_FULL_NAME} · {pending.email}. Kata sandi sementara dari pemilik hanya berlaku untuk masuk pertama. Buat kata sandi yang hanya Anda yang tahu.
         </Typography>
-        <ChangePasswordForm />
+        <ChangePasswordForm email={pending.email} />
         <Box sx={{ mt: 2, display: "flex", justifyContent: "center" }}>
           <SignOutButton />
         </Box>

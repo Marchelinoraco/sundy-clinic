@@ -66,6 +66,31 @@ describe("daftar dan menu aksi", () => {
     expect(items(await openMenu(user, "Budi Berhenti"))).toEqual(["Ubah", "Reset kata sandi", "Ganti email", "Aktifkan"]);
   });
 
+  it("tombol menu memberi tahu pembaca layar status dan menu yang dikendalikannya", async () => {
+    const user = userEvent.setup();
+    renderManager();
+    const button = screen.getByRole("button", { name: "Aksi lain Dr. Diane" });
+    expect(button).toHaveAttribute("aria-haspopup", "menu");
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    expect(button).not.toHaveAttribute("aria-controls");
+    await user.click(button);
+    expect(button).toHaveAttribute("aria-expanded", "true");
+    expect(button).toHaveAttribute("aria-controls", screen.getByRole("menu").closest("[id]")?.id);
+    // Tombol baris lain tetap tertutup.
+    // Saat menu terbuka sisa halaman disembunyikan dari pohon aksesibilitas, jadi dicari dengan hidden: true.
+    expect(screen.getByRole("button", { name: "Aksi lain Rina Baru", hidden: true })).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("chip 'Wajib ganti kata sandi' ada di kolom Status, bukan di kolom Akun", () => {
+    renderManager();
+    const rina = screen.getByRole("row", { name: /Rina Baru/ });
+    const cells = within(rina).getAllByRole("gridcell");
+    const account = cells.find((c) => c.getAttribute("data-field") === "email")!;
+    const status = cells.find((c) => c.getAttribute("data-field") === "isActive")!;
+    expect(within(account).queryByText("Wajib ganti kata sandi")).toBeNull();
+    expect(within(status).getByText("Wajib ganti kata sandi")).toBeInTheDocument();
+  });
+
   it("pemilik tidak punya 'Nonaktifkan' untuk dirinya sendiri, tetapi boleh mereset akunnya", async () => {
     const user = userEvent.setup();
     renderManager();
@@ -142,6 +167,7 @@ describe("dialog kata sandi sementara", () => {
     await user.keyboard("{Escape}");
     expect(screen.getByRole("dialog", { name: "Kata sandi sementara — Rina Baru" })).toBeInTheDocument();
     expect(within(temp).queryByLabelText("Saya sudah menyimpan kata sandi ini")).toBeNull();
+    expect(temp).toHaveAccessibleDescription(/hanya tampil sekali/);
     expect(within(temp).getByRole("button", { name: "Tutup" })).toBeEnabled();
   });
 });
