@@ -13,7 +13,9 @@ export const ADMIN_PAGES: AdminPage[] = [
   { path: "/admin/pasien/[id]", from: "/admin/pasien", link: 'a[href^="/admin/pasien/"]' },
   // Dari "Pasien hari ini" di dasbor: pasien yang diperiksa spek E2E tidak selalu ada di 10 pasien pertama menurut abjad.
   { path: "/admin/kunjungan/[id]", from: "/admin", link: 'a[href^="/admin/kunjungan/"]' },
-  { path: "/admin/isian/[id]", from: "/admin/pasien", via: 'a[href^="/admin/pasien/"]', link: 'a[href^="/admin/isian/"]' },
+  // Lewat halaman kunjungan dari dasbor: tautan "Buka halaman isian" ada di tab Isian kuis (panel tetap terpasang). Di daftar
+  // booking tautan itu hanya ada di menu yang baru terpasang saat dibuka, dan pasien yang diperiksa tidak selalu di 10 pasien pertama.
+  { path: "/admin/isian/[id]", from: "/admin", via: 'a[href^="/admin/kunjungan/"]', link: 'a[href^="/admin/isian/"]' },
   { path: "/admin/jadwal" },
   { path: "/admin/tagihan" },
   { path: "/admin/tagihan/[id]", from: "/admin/tagihan?lihat=BELUM_LUNAS", link: 'a[href^="/admin/tagihan/"]' },

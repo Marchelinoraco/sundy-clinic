@@ -177,178 +177,23 @@ describe("batasan arsitektur", () => {
     expect(layout).toContain("InitColorSchemeScript");
   });
 
-  // Rencana MUI (Task 5–12): berkas admin yang sudah pindah ke MUI tidak boleh kembali memakai shadcn,
-  // lucide, atau kelas warna Tailwind (warna tetap tidak ikut mode gelap). Setiap tugas modul menambah
-  // berkasnya ke sini sebelum konversi. Task 13 menggantinya dengan aturan untuk seluruh panel admin.
-  const MUI_MIGRATED = [
-    // Task 2–4
-    "src/app/(admin)/admin/layout.tsx",
-    "src/app/(admin)/masuk/page.tsx",
-    "src/components/admin/admin-header.tsx",
-    "src/components/admin/app-sidebar.tsx",
-    "src/components/admin/live-notifier.tsx",
-    "src/components/admin/nav-user.tsx",
-    "src/components/admin/page-layout.tsx",
-    "src/components/admin/page-tabs.tsx",
-    "src/components/admin/patient-picker.tsx",
-    "src/components/admin/report/report-filter.tsx",
-    "src/components/admin/rupiah-input.tsx",
-    "src/components/admin/sign-in-form.tsx",
-    "src/components/admin/stat-tile.tsx",
-    // Task 5
-    "src/app/(admin)/admin/page.tsx",
-    "src/app/(admin)/admin/layanan/page.tsx",
-    "src/app/(admin)/admin/pengaturan/page.tsx",
-    "src/app/(admin)/admin/staf/page.tsx",
-    "src/components/admin/booking-source-chart.tsx",
-    "src/components/admin/clinic-setting-form.tsx",
-    "src/components/admin/dashboard-numbers.tsx",
-    "src/components/admin/dashboard-work.tsx",
-    "src/components/admin/online-service-card.tsx",
-    "src/components/admin/schedule-timeline.tsx",
-    "src/components/admin/service-price-table.tsx",
-    "src/components/admin/staff-table.tsx",
-    // Task 6
-    "src/app/(admin)/admin/pasien/page.tsx",
-    "src/app/(admin)/admin/pasien/[id]/page.tsx",
-    "src/app/(admin)/admin/isian/[id]/page.tsx",
-    "src/components/admin/patient-table.tsx",
-    "src/components/admin/patient-detail-view.tsx",
-    "src/components/admin/patient-note-forms.tsx",
-    "src/components/admin/new-patient-form.tsx",
-    "src/components/admin/nik-form.tsx",
-    "src/components/admin/nik-input.tsx",
-    "src/components/admin/intake-view.tsx",
-    "src/components/admin/intake-clinical-content.tsx",
-    "src/components/admin/intake-approval-form.tsx",
-    "src/components/admin/match-patient-dialog.tsx",
-    "src/components/admin/food-recall-table.tsx",
-    "src/components/admin/food-recall-link-panel.tsx",
-    "src/components/admin/food-recall-dialog.tsx",
-    // Task 7
-    "src/app/(admin)/admin/booking/page.tsx",
-    "src/app/(admin)/admin/booking/baru/page.tsx",
-    "src/components/admin/appointment-form.tsx",
-    "src/components/admin/appointment-table.tsx",
-    "src/components/admin/appointment-status-badge.tsx",
-    "src/components/admin/booking-created-panel.tsx",
-    "src/components/admin/booking-dialogs.tsx",
-    "src/components/admin/booking-filters.tsx",
-    "src/components/admin/booking-summary.tsx",
-    "src/components/admin/date-strip.tsx",
-    "src/components/admin/slot-picker.tsx",
-    "src/components/admin/reschedule-dialog.tsx",
-    "src/components/admin/check-in-dialog.tsx",
-    "src/components/admin/send-message-dialog.tsx",
-    "src/components/admin/message-actions.tsx",
-    "src/components/admin/whatsapp-send-button.tsx",
-    "src/components/admin/quiz-link-dialog.tsx",
-    // Task 8
-    "src/app/(admin)/admin/jadwal/page.tsx",
-    "src/app/(admin)/admin/pengingat/page.tsx",
-    "src/components/admin/holiday-list.tsx",
-    "src/components/admin/schedule-exception-form.tsx",
-    "src/components/admin/schedule-exception-list.tsx",
-    "src/components/admin/weekly-schedule-form.tsx",
-    "src/components/admin/reminder-worklist.tsx",
-    "src/components/admin/online-work.tsx",
-    "src/components/admin/online-appointment-form.tsx",
-    "src/components/admin/contact-windows-dialog.tsx",
-    "src/components/admin/contact-windows-fields.tsx",
-    // Task 9
-    "src/app/(admin)/admin/kunjungan/[id]/page.tsx",
-    "src/components/admin/encounter-workspace.tsx",
-    "src/components/admin/encounter-page-view.tsx",
-    "src/components/admin/encounter-record.tsx",
-    "src/components/admin/encounter-form.tsx",
-    "src/components/admin/encounter-warnings.tsx",
-    "src/components/admin/encounter-context-panel.tsx",
-    "src/components/admin/encounter-intake-tab.tsx",
-    "src/components/admin/encounter-food-recall-tab.tsx",
-    "src/components/admin/previous-visits-tab.tsx",
-    "src/components/admin/vitals-trend-tab.tsx",
-    "src/components/admin/addendum-form.tsx",
-    "src/components/admin/audit-trail.tsx",
-    "src/components/admin/doctor-worklist.tsx",
-    "src/components/admin/open-encounter-button.tsx",
-    "src/components/admin/activity-list-fields.tsx",
-    // Task 10
-    "src/app/(admin)/admin/tagihan/page.tsx",
-    "src/app/(admin)/admin/tagihan/[id]/page.tsx",
-    "src/app/(admin)/admin/resep/page.tsx",
-    "src/app/(admin)/admin/resep/[id]/page.tsx",
-    "src/app/(admin)/admin/resep/[id]/etiket/page.tsx",
-    "src/app/(admin)/admin/stok-dokter/page.tsx",
-    "src/components/admin/billing/add-free-line-dialog.tsx",
-    "src/components/admin/billing/add-item-dialog.tsx",
-    "src/components/admin/billing/billable-table.tsx",
-    "src/components/admin/billing/billing-tiles.tsx",
-    "src/components/admin/billing/cancel-invoice-dialog.tsx",
-    "src/components/admin/billing/create-invoice-button.tsx",
-    "src/components/admin/billing/direct-sale-dialog.tsx",
-    "src/components/admin/billing/discount-form.tsx",
-    "src/components/admin/billing/final-discount-dialog.tsx",
-    "src/components/admin/billing/invoice-draft-editor.tsx",
-    "src/components/admin/billing/invoice-final-view.tsx",
-    "src/components/admin/billing/invoice-payment-dialog.tsx",
-    "src/components/admin/billing/invoice-status-badge.tsx",
-    "src/components/admin/billing/invoice-table.tsx",
-    "src/components/admin/billing/print-button.tsx",
-    "src/components/admin/billing/revoke-invoice-payment-dialog.tsx",
-    "src/components/admin/dispensing/dispensing-editor.tsx",
-    "src/components/admin/dispensing/dispensing-label.tsx",
-    "src/components/admin/dispensing/dispensing-status-badge.tsx",
-    "src/components/admin/dispensing/dispensing-summary.tsx",
-    "src/components/admin/dispensing/dispensing-table.tsx",
-    "src/components/admin/dispensing/dispensing-tiles.tsx",
-    "src/components/admin/dispensing/reopen-dispensing-button.tsx",
-    "src/components/admin/dispensing/stock-availability-table.tsx",
-    // Task 11
-    "src/app/(admin)/admin/stok/page.tsx",
-    "src/app/(admin)/admin/stok/barang/[id]/page.tsx",
-    "src/app/(admin)/admin/stok/masuk/[id]/page.tsx",
-    "src/app/(admin)/admin/stok/masuk/baru/page.tsx",
-    "src/app/(admin)/admin/hutang/page.tsx",
-    "src/components/admin/stock/adjust-stock-dialog.tsx",
-    "src/components/admin/stock/cancel-purchase-dialog.tsx",
-    "src/components/admin/stock/due-date-dialog.tsx",
-    "src/components/admin/stock/payable-status-badge.tsx",
-    "src/components/admin/stock/payable-table.tsx",
-    "src/components/admin/stock/payable-tiles.tsx",
-    "src/components/admin/stock/payment-dialog.tsx",
-    "src/components/admin/stock/purchase-form.tsx",
-    "src/components/admin/stock/purchase-payments-section.tsx",
-    "src/components/admin/stock/purchase-table.tsx",
-    "src/components/admin/stock/revoke-payment-dialog.tsx",
-    "src/components/admin/stock/stock-alert-tiles.tsx",
-    "src/components/admin/stock/stock-item-active-button.tsx",
-    "src/components/admin/stock/stock-item-dialog.tsx",
-    "src/components/admin/stock/stock-item-table.tsx",
-    "src/components/admin/stock/supplier-active-button.tsx",
-    "src/components/admin/stock/supplier-dialog.tsx",
-    "src/components/admin/stock/supplier-return-dialog.tsx",
-    "src/components/admin/stock/supplier-table.tsx",
-    // Task 12
-    "src/app/(admin)/admin/pengeluaran/page.tsx",
-    "src/app/(admin)/admin/laporan/page.tsx",
-    "src/components/admin/expenses/category-manager.tsx",
-    "src/components/admin/expenses/expense-form-dialog.tsx",
-    "src/components/admin/expenses/expense-table.tsx",
-    "src/components/admin/expenses/recurring-dialog.tsx",
-    "src/components/admin/expenses/recurring-table.tsx",
-    "src/components/admin/expenses/stop-recurring-button.tsx",
-    "src/components/admin/expenses/void-expense-dialog.tsx",
-    "src/components/admin/report/cash-flow-card.tsx",
-    "src/components/admin/report/profit-tiles.tsx",
-    "src/components/admin/report/report-detail.tsx",
-    "src/components/admin/report/report-summary.tsx",
-    "src/components/admin/report/trend-chart.tsx",
-  ];
+  // Panel admin memakai Material UI seluruhnya (spec MUI): shadcn, lucide, dan kelas warna Tailwind tidak ikut
+  // mode gelap.
+  // Kelas dikenali hanya di awal token (setelah kutip, spasi, atau awalan varian seperti "hover:"), supaya
+  // variabel CSS tema seperti "--mui-palette-text-primary" tidak terhitung sebagai kelas Tailwind.
   const SHADCN_OR_FIXED_COLOR =
-    /from "@\/components\/ui\/|from "lucide-react"|["'`][^"'`\n]*\b(?:text|bg|border|fill|stroke|ring)-(?:muted|foreground|primary|secondary|destructive|accent|card|background|input|amber|emerald|stone|red|green|gold|brown|cream|white|black)\b/;
+    /from "@\/components\/ui\/|from "lucide-react"|["'`][^"'`\n]*(?<=["'`\s:])(?:text|bg|border|fill|stroke|ring)-(?:muted|foreground|primary|secondary|destructive|accent|card|background|input|amber|emerald|stone|red|green|gold|brown|cream|white|black)\b/;
 
-  it("berkas admin yang sudah pindah ke MUI tidak memakai shadcn, lucide, atau kelas warna Tailwind", () => {
-    const offenders = MUI_MIGRATED.filter((file) => !existsSync(file) || SHADCN_OR_FIXED_COLOR.test(readFileSync(file, "utf8")));
+  it("panel admin seluruhnya memakai MUI: tanpa shadcn, lucide, atau kelas warna Tailwind", () => {
+    const adminFiles = [...collectSourceFiles("src/app/(admin)"), ...collectSourceFiles("src/components/admin")];
+    const offenders = adminFiles.filter((file) => SHADCN_OR_FIXED_COLOR.test(readFileSync(file, "utf8")));
     expect(offenders).toEqual([]);
+  });
+
+  it("panel admin tidak memakai komponen situs publik (gayanya tidak ikut mode gelap)", () => {
+    // Komponen yang dipakai bersama punya kembaran MUI di admin (mis. ContactWindowsFields, ActivityListFields).
+    const shared = /from "@\/components\/(online|kuis|pendaftaran|layout|food-recall|ui)\//;
+    const adminFiles = [...collectSourceFiles("src/app/(admin)"), ...collectSourceFiles("src/components/admin")];
+    expect(adminFiles.filter((file) => shared.test(readFileSync(file, "utf8")))).toEqual([]);
   });
 });

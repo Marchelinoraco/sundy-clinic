@@ -20,8 +20,6 @@ export function RupiahInput({
   value: number | null;
   onChange: (value: number | null) => void;
   placeholder?: string;
-  /** Sisa API lama; diabaikan (dihapus di Task 13). */
-  className?: string;
   sx?: SxProps<Theme>;
   fullWidth?: boolean;
   "aria-label"?: string;

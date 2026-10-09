@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { E2E_ADMIN } from "./credentials";
+import { ADMIN_PAGES, resolveAdminPage } from "./helpers/admin-pages";
 import { tungguHidrasi } from "./helpers/mui";
 import { signIn } from "./helpers/quiz";
 
@@ -109,4 +110,33 @@ test("Data Pasien: tab Booking lalu + Booking membuka Booking Baru dengan pasien
   await expect(page).toHaveURL(/\/admin\/booking\/baru\?pasien=/, { timeout: 30_000 });
   await expect(page.getByRole("complementary", { name: "Ringkasan booking" })).toContainText(name);
   await expect(page.getByRole("button", { name: "Ganti pasien" })).toBeVisible();
+});
+
+test("semua halaman admin terbuka tanpa galat di skema terang dan gelap, tanpa gulir mendatar di ponsel", async ({ page }, testInfo) => {
+  test.setTimeout(900_000);
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(`${page.url()}: ${error.message}`));
+  page.on("console", (message) => message.type() === "error" && errors.push(`${page.url()}: ${message.text()}`));
+  await signIn(page, E2E_ADMIN);
+  const missing: string[] = [];
+  for (const scheme of ["light", "dark"] as const) {
+    await page.evaluate((value) => localStorage.setItem("sundy-mode-admin", value), scheme);
+    for (const target of ADMIN_PAGES) {
+      const href = await resolveAdminPage(page, target);
+      if (!href) {
+        missing.push(`${scheme} ${target.path}`);
+        continue;
+      }
+      await page.goto(href);
+      await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1, { timeout: 30_000 });
+      await expect(page.locator("html")).toHaveAttribute(`data-${scheme}`, "");
+      if (testInfo.project.name === "mobile") {
+        const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        expect(overflow, `${href} (${scheme}) melebar ${overflow}px`).toBeLessThanOrEqual(1);
+      }
+    }
+  }
+  // Halaman detail tanpa data contoh dilewati di sini; pemeriksaan lengkapnya ada di Step 6 (foto, dengan data).
+  testInfo.annotations.push({ type: "halaman detail tanpa data", description: missing.join("; ") || "-" });
+  expect(errors).toEqual([]);
 });

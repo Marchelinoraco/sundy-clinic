@@ -2,7 +2,7 @@
 
 - **Versi:** 1.0
 - **Tanggal:** 8 Oktober 2026
-- **Status:** Menunggu tinjauan pemilik
+- **Status:** Disetujui pemilik (8 Okt 2026); diimplementasikan di branch `desain-mui`
 - **Menyentuh:** seluruh tampilan panel admin (`src/app/(admin)/**`, `src/components/admin/**`). Server, aksi, hak akses, dan situs publik tidak berubah.
 
 ## 1. Latar belakang & tujuan

@@ -82,8 +82,6 @@ export function SectionCard({
   description?: ReactNode;
   actions?: ReactNode;
   flush?: boolean;
-  /** Tidak dipakai lagi; dipertahankan agar pemanggil lama tetap terkompilasi selama migrasi (dihapus di Task 13). */
-  className?: string;
   children: ReactNode;
 }) {
   return (

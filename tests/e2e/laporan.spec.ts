@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { expect, test, type TestInfo } from "@playwright/test";
 import { E2E_APOTEKER, E2E_KEUANGAN, E2E_RESEPSIONIS } from "./credentials";
 import { signIn } from "./helpers/quiz";
-import { isiTanggal } from "./helpers/mui";
+import { isiTanggal, tungguHidrasi } from "./helpers/mui";
 
 // Satu cerita berurutan per proyek (desktop/ponsel, data masing-masing):
 // Admin Keuangan mengelola kategori, mencatat dan membatalkan pengeluaran, membuat dan mengubah pengeluaran
@@ -18,11 +18,13 @@ test("kategori, pengeluaran, dan pembatalan", async ({ page }, testInfo) => {
   await expect(page.getByRole("region", { name: "Laporan", exact: true }).getByRole("link", { name: /bersih bulan ini/ })).toBeVisible();
 
   await page.goto("/admin/pengeluaran?tab=kategori");
+  await tungguHidrasi(page);
   await page.getByLabel("Nama kategori baru").fill(`E2E Kategori ${t}`);
   await page.getByRole("button", { name: "Tambah kategori" }).click();
   await expect(page.getByText(`E2E Kategori ${t}`, { exact: true })).toBeVisible({ timeout: 30_000 });
 
   await page.goto("/admin/pengeluaran");
+  await tungguHidrasi(page);
   await page.getByRole("button", { name: "+ Pengeluaran" }).click();
   const dialog = page.getByRole("dialog", { name: "Catat pengeluaran" });
   await dialog.getByLabel("Kategori").selectOption({ label: "Sewa" });
