@@ -7,7 +7,9 @@ import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import { useId, useState } from "react";
 import { initialContextTab, type ContextTab, type VitalKey } from "@/lib/encounter";
+import type { BiaVisitView } from "@/server/bia-read";
 import type { EncounterDetail } from "@/server/encounter-read";
+import { BiaTab } from "./bia/bia-tab";
 import { EncounterFoodRecallTab, type SubjectiveCopy } from "./encounter-food-recall-tab";
 import { EncounterIntakeTab } from "./encounter-intake-tab";
 import { EncounterWarningsBox } from "./encounter-warnings";
@@ -17,6 +19,7 @@ import { VitalsTrendTab } from "./vitals-trend-tab";
 const TABS: { key: ContextTab; label: string }[] = [
   { key: "intake", label: "Isian kuis" },
   { key: "foodRecall", label: "Food recall" },
+  { key: "bia", label: "BIA" },
   { key: "previous", label: "Sebelumnya" },
   { key: "trend", label: "Tren" },
 ];
@@ -27,11 +30,14 @@ const TABS: { key: ContextTab; label: string }[] = [
  */
 export function EncounterContextPanel({
   encounter,
+  bia,
   currentVitals,
   canEditFoodRecall,
   copyToSubjective,
 }: {
   encounter: EncounterDetail;
+  /** Hasil BIA kunjungan ini dan titik grafik pasien (spec hasil BIA 6.2). */
+  bia: BiaVisitView;
   /** Angka vital formulir saat ini, untuk baris "Kunjungan ini" di Tren. */
   currentVitals: Record<VitalKey, number | null>;
   /** Catatan masih draf dan staf memegang record:write. */
@@ -53,7 +59,7 @@ export function EncounterContextPanel({
     <Stack spacing={2}>
       <EncounterWarningsBox warnings={encounter.warnings} />
       <Box component="details" open sx={{ "& > summary": { cursor: "pointer", fontSize: "0.875rem", fontWeight: 500, mb: 1.5, display: { lg: "none" } } }}>
-        <summary>Isian, kunjungan sebelumnya, dan tren</summary>
+        <summary>Isian, BIA, kunjungan sebelumnya, dan tren</summary>
         <Tabs
           value={tab}
           onChange={(_, next: ContextTab) => setTab(next)}
@@ -89,6 +95,7 @@ export function EncounterContextPanel({
                 copy={copyToSubjective}
               />
             )}
+            {item.key === "bia" && <BiaTab bia={bia} appointmentId={encounter.appointment.id} />}
             {item.key === "previous" && (
               <PreviousVisitsTab history={encounter.history} hasMore={encounter.hasMoreHistory} patientId={encounter.patient.id} />
             )}

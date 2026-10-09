@@ -3,13 +3,14 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { formatIndonesianDate } from "@/lib/format";
 import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
+import type { BiaVisitView } from "@/server/bia-read";
 import type { EncounterDetail } from "@/server/encounter-read";
 import { EncounterWorkspace } from "./encounter-workspace";
 import { TextLink } from "./mui/links";
 import { StatusChip } from "./mui/status-chip";
 
 /** Halaman kunjungan (spec UI B bagian 3): kepala satu baris dan ruang kerja dua kolom. */
-export function EncounterPageView({ encounter, canWrite }: { encounter: EncounterDetail; canWrite: boolean }) {
+export function EncounterPageView({ encounter, bia, canWrite }: { encounter: EncounterDetail; bia: BiaVisitView; canWrite: boolean }) {
   const { appointment, patient } = encounter;
   const isFinal = encounter.status === "FINAL";
   const time = minutesToTimeLabel(witaMinutesOfDay(appointment.startAt));
@@ -47,7 +48,7 @@ export function EncounterPageView({ encounter, canWrite }: { encounter: Encounte
           Data pasien
         </TextLink>
       </Paper>
-      <EncounterWorkspace encounter={encounter} canWrite={canWrite} />
+      <EncounterWorkspace encounter={encounter} bia={bia} canWrite={canWrite} />
     </Stack>
   );
 }
