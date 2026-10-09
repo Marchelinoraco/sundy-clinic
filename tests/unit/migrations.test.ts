@@ -179,3 +179,12 @@ describe("migrasi pemicu BIA yang lebih ketat", () => {
   });
 });
 
+describe("migrasi wajib ganti kata sandi", () => {
+  const sql = readFileSync("prisma/migrations/20261009170000_wajib_ganti_kata_sandi/migration.sql", "utf8");
+
+  it("hanya menambah satu kolom bawaan false di tabel user: tanpa DROP", () => {
+    expect(sql).not.toMatch(/\bDROP\b/i);
+    expect(sql).toMatch(/ALTER TABLE "user" ADD COLUMN "mustChangePassword" BOOLEAN NOT NULL DEFAULT false/);
+  });
+});
+
