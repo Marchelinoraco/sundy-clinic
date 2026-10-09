@@ -189,4 +189,16 @@ describe("EncounterContextPanel", () => {
     await userEvent.click(screen.getByRole("tab", { name: "BIA" }));
     expect(screen.getByRole("tabpanel", { name: "BIA" })).toHaveTextContent("Belum ada hasil BIA untuk kunjungan ini.");
   });
+
+  it("tab Tren memuat grafik komposisi tubuh dari titik BIA pasien", async () => {
+    renderAdmin(
+      <EncounterContextPanel
+        encounter={encounterDetail()}
+        currentVitals={encounterDetail().vitals}
+        bia={biaVisit({ points: [{ at: new Date("2026-10-09T02:00:00Z"), bodyFatPercent: 28.5, muscleMassKg: 41 }] })}
+      />,
+    );
+    await userEvent.click(screen.getByRole("tab", { name: "Tren" }));
+    expect(screen.getByRole("img", { name: "Grafik komposisi tubuh" })).toBeInTheDocument();
+  });
 });

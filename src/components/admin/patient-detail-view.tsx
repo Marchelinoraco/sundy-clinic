@@ -11,7 +11,10 @@ import { AppointmentStatusBadge } from "@/components/admin/appointment-status-ba
 import { formatIndonesianDate } from "@/lib/format";
 import { resolveTab } from "@/lib/page-tabs";
 import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
+import type { BiaHistory } from "@/server/bia-read";
 import type { PatientDetail } from "@/server/patient";
+import { BiaHistoryTable } from "./bia/bia-history-table";
+import { BiaTrendChart } from "./bia/bia-trend-chart";
 import { FoodRecallTable } from "./food-recall-table";
 import { TextLink } from "./mui/links";
 import { StatusChip } from "./mui/status-chip";
@@ -32,7 +35,7 @@ const INTAKE_STATUS_LABEL: Record<PatientDetail["intakes"][number]["status"], st
   DIPERIKSA: "Diperiksa",
 };
 
-type PatientTab = "kunjungan" | "booking" | "isian";
+type PatientTab = "kunjungan" | "bia" | "booking" | "isian";
 
 const when = (date: Date) => `${formatIndonesianDate(date)}, ${minutesToTimeLabel(witaMinutesOfDay(date))}`;
 
@@ -58,13 +61,16 @@ export function PatientDetailView({
   canReadRecords,
   canWriteRecords,
   tab,
+  bia = null,
 }: {
   patient: PatientDetail;
   canReadRecords: boolean;
   canWriteRecords: boolean;
   tab?: string;
+  /** Riwayat BIA untuk pembaca rekam medis (spec hasil BIA 6.3); kosong untuk peran lain. */
+  bia?: BiaHistory | null;
 }) {
-  const tabs: PatientTab[] = patient.encounters ? ["kunjungan", "booking", "isian"] : ["booking", "isian"];
+  const tabs: PatientTab[] = [...(patient.encounters ? ["kunjungan" as const] : []), ...(bia ? ["bia" as const] : []), "booking", "isian"];
   const active = resolveTab(tab, tabs, patient.encounters && patient.encounters.length > 0 ? "kunjungan" : "booking");
   const href = (id: PatientTab) => `/admin/pasien/${patient.id}?tab=${id}`;
   const birth = patient.birthDateLabel
@@ -150,6 +156,7 @@ export function PatientDetailView({
         active={active}
         tabs={[
           ...(patient.encounters ? [{ id: "kunjungan", label: `Kunjungan (${patient.encounters.length})`, href: href("kunjungan") }] : []),
+          ...(bia ? [{ id: "bia", label: `BIA (${bia.items.filter((m) => !m.voided).length})`, href: href("bia") }] : []),
           { id: "booking", label: `Booking (${patient.appointments.length})`, href: href("booking") },
           { id: "isian", label: `Isian (${patient.intakes.length})`, href: href("isian") },
         ]}
@@ -206,6 +213,15 @@ export function PatientDetailView({
               </Table>
             </TableContainer>
           )}
+        </SectionCard>
+      )}
+
+      {active === "bia" && bia && (
+        <SectionCard title="Hasil BIA">
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <BiaTrendChart points={bia.points} />
+            {bia.items.length > 0 && <BiaHistoryTable items={bia.items} />}
+          </Box>
         </SectionCard>
       )}
 

@@ -5,11 +5,13 @@ import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
+import Typography from "@mui/material/Typography";
 import { useId, useState } from "react";
 import { initialContextTab, type ContextTab, type VitalKey } from "@/lib/encounter";
 import type { BiaVisitView } from "@/server/bia-read";
 import type { EncounterDetail } from "@/server/encounter-read";
 import { BiaTab } from "./bia/bia-tab";
+import { BiaTrendChart } from "./bia/bia-trend-chart";
 import { EncounterFoodRecallTab, type SubjectiveCopy } from "./encounter-food-recall-tab";
 import { EncounterIntakeTab } from "./encounter-intake-tab";
 import { EncounterWarningsBox } from "./encounter-warnings";
@@ -99,7 +101,15 @@ export function EncounterContextPanel({
             {item.key === "previous" && (
               <PreviousVisitsTab history={encounter.history} hasMore={encounter.hasMoreHistory} patientId={encounter.patient.id} />
             )}
-            {item.key === "trend" && <VitalsTrendTab current={currentVitals} history={trendSource} />}
+            {item.key === "trend" && (
+              <Stack spacing={2}>
+                <VitalsTrendTab current={currentVitals} history={trendSource} />
+                <Typography component="h3" variant="subtitle2">
+                  Komposisi tubuh (BIA)
+                </Typography>
+                <BiaTrendChart points={bia.points} />
+              </Stack>
+            )}
           </Paper>
         ))}
       </Box>
