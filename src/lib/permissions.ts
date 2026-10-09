@@ -26,7 +26,8 @@ export type Capability =
   | "dispense:manage"
   | "stock:availability"
   | "expense:manage"
-  | "profit:read";
+  | "profit:read"
+  | "bia:upload";
 
 export const CAPABILITIES_BY_ROLE: Record<StaffRole, readonly Capability[]> = {
   SUPER_ADMIN: [
@@ -49,16 +50,17 @@ export const CAPABILITIES_BY_ROLE: Record<StaffRole, readonly Capability[]> = {
     "stock:availability",
     "expense:manage",
     "profit:read",
+    "bia:upload",
   ],
 
   // Dokter memegang rekam medis, tetapi tidak mengelola akun staf.
   // report:read (Angka dasbor, termasuk biaya booking masuk) hanya untuk Super Admin dan Admin Keuangan (spec D 4.6, spec stok 7.2).
-  DOKTER: ["booking:manage", "schedule:manage", "record:read", "record:write", "stock:availability"],
+  DOKTER: ["booking:manage", "schedule:manage", "record:read", "record:write", "stock:availability", "bia:upload"],
 
   // Resepsionis mengurus booking dan jadwal. Catatan klinis sengaja tidak ada
   // di daftar ini — lihat PRD bagian 4.
   // Resepsionis juga menagih customer (spec tagihan 6); koreksi uang masuk ada di Admin Keuangan.
-  RESEPSIONIS: ["booking:manage", "schedule:manage", "invoice:read", "invoice:manage"],
+  RESEPSIONIS: ["booking:manage", "schedule:manage", "invoice:read", "invoice:manage", "bia:upload"],
 
   // Terapis adalah sumber daya jadwal, bukan pengguna panel. Ia punya baris
   // Staff agar dapat dijadwalkan, tanpa akses apa pun ke panel admin.
