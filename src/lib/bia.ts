@@ -163,5 +163,18 @@ export function biaAccess(role: StaffRole, appointment: { status: string; channe
   return none;
 }
 
+/** Label sumbu yang kembar (dua pengukuran di tanggal yang sama) diberi nomor supaya titiknya tidak bertumpuk. */
+export function uniqueChartLabels(labels: string[]): string[] {
+  const total = new Map<string, number>();
+  for (const label of labels) total.set(label, (total.get(label) ?? 0) + 1);
+  const seen = new Map<string, number>();
+  return labels.map((label) => {
+    if ((total.get(label) ?? 0) < 2) return label;
+    const n = (seen.get(label) ?? 0) + 1;
+    seen.set(label, n);
+    return `${label} (${n})`;
+  });
+}
+
 /** Satu titik grafik komposisi tubuh. */
 export type BiaPoint = { at: Date; bodyFatPercent: number | null; muscleMassKg: number | null };

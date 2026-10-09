@@ -5,6 +5,7 @@ import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import Typography from "@mui/material/Typography";
 import { BIA_FIELDS } from "@/lib/bia";
 import { formatDecimal } from "@/lib/encounter";
 import { formatIndonesianDate } from "@/lib/format";
@@ -49,6 +50,11 @@ export function BiaHistoryTable({ items }: { items: BiaMeasurementView[] }) {
                         <Link href={`/admin/bia/berkas/${file.id}${file.previewable ? "" : "?unduh=1"}`} target="_blank" rel="noopener">
                           {file.originalName}
                         </Link>
+                        {file.voided && (
+                          <Typography component="span" variant="caption" sx={{ ml: 0.5, color: "error.main" }}>
+                            (dibatalkan: {file.voided.reason})
+                          </Typography>
+                        )}
                       </div>
                     ))}
               </TableCell>

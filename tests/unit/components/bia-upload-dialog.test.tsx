@@ -66,4 +66,21 @@ describe("dialog unggah hasil BIA", () => {
     expect(await within(dialog).findByText("Unggahan sudah ditutup untuk booking ini. Minta dokter menambahkan hasil BIA.")).toBeInTheDocument();
     expect(within(dialog).queryByLabelText("Berkas hasil BIA")).toBeNull();
   });
+
+  it("tombol pilih berkas bisa dipakai lewat papan ketik, dan hasil unggahan diumumkan ke pembaca layar", async () => {
+    vi.mocked(listBiaUploads).mockResolvedValue(summary([]));
+    vi.mocked(sendBiaFile).mockResolvedValue({ name: "hasil.png", ok: true });
+    const opened = vi.spyOn(HTMLInputElement.prototype, "click");
+    renderAdmin(<BiaUploadDialog target={target} open onOpenChange={() => {}} />);
+    const dialog = await screen.findByRole("dialog", { name: "Hasil BIA — SDY-8F3K" });
+    const button = await within(dialog).findByRole("button", { name: "Pilih foto atau PDF" });
+    button.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(opened).toHaveBeenCalledTimes(1);
+    await userEvent.keyboard(" ");
+    expect(opened).toHaveBeenCalledTimes(2);
+    await userEvent.upload(within(dialog).getByLabelText("Berkas hasil BIA"), new File(["x"], "hasil.png", { type: "image/png" }));
+    expect(await within(dialog).findByRole("status")).toHaveTextContent("hasil.png: terunggah");
+    opened.mockRestore();
+  });
 });

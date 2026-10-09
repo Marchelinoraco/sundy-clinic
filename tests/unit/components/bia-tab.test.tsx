@@ -36,6 +36,7 @@ describe("tab BIA halaman kunjungan", () => {
     vi.mocked(startBiaMeasurement).mockResolvedValue({ ok: true, data: { measurementId: "m1" } });
     renderAdmin(<BiaTab bia={biaVisit()} appointmentId="a1" />);
     expect(screen.getByText("Belum ada hasil BIA untuk kunjungan ini.")).toBeInTheDocument();
+    expect(screen.getByText(/Unggah foto atau PDF hasil timbang di bawah, lalu isi angkanya\./)).toBeInTheDocument();
     expect(screen.getByLabelText("Berkas hasil BIA")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Isi angka tanpa berkas" }));
     await waitFor(() => expect(startBiaMeasurement).toHaveBeenCalledWith("a1"));
@@ -104,5 +105,15 @@ describe("tab BIA halaman kunjungan", () => {
     expect(screen.queryByRole("button", { name: "Simpan angka BIA" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Batalkan pengukuran" })).toBeNull();
     expect(screen.getByText("Angka BIA belum diisi.")).toBeInTheDocument();
+  });
+
+  it("melaporkan angka yang diketik tetapi belum disimpan, dan berhenti melaporkan bila isian kembali sama", async () => {
+    const onUnsavedChange = vi.fn();
+    renderAdmin(<BiaTab bia={biaVisit({ active: biaMeasurement() })} appointmentId="a1" onUnsavedChange={onUnsavedChange} />);
+    expect(onUnsavedChange).toHaveBeenLastCalledWith(false);
+    await userEvent.type(screen.getByLabelText("Lemak tubuh (%)"), "28");
+    expect(onUnsavedChange).toHaveBeenLastCalledWith(true);
+    await userEvent.clear(screen.getByLabelText("Lemak tubuh (%)"));
+    expect(onUnsavedChange).toHaveBeenLastCalledWith(false);
   });
 });

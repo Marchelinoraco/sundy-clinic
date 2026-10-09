@@ -210,6 +210,26 @@ describe("EncounterForm", () => {
     await waitFor(() => expect(refresh).toHaveBeenCalled());
   });
 
+  it("dialog finalisasi memperingatkan angka BIA yang diketik tetapi belum disimpan, dan tidak menghalangi finalisasi", async () => {
+    vi.mocked(saveEncounterDraft).mockResolvedValue(saved("v2"));
+    vi.mocked(finalizeEncounter).mockResolvedValue({ ok: true, data: undefined });
+    renderForm({ biaUnsaved: true });
+
+    await type(screen.getByLabelText("Penilaian / diagnosis"), "Obesitas");
+    await userEvent.click(screen.getByRole("button", { name: "Finalisasi" }));
+    const dialog = screen.getByRole("alertdialog");
+    expect(within(dialog).getByText("Angka BIA yang Anda ketik belum disimpan. Kembali, buka tab BIA, lalu tekan Simpan angka BIA.")).toBeInTheDocument();
+    await userEvent.click(within(dialog).getByRole("button", { name: "Finalisasi" }));
+    await waitFor(() => expect(finalizeEncounter).toHaveBeenCalledTimes(1));
+  });
+
+  it("tanpa angka BIA yang belum disimpan, dialog finalisasi tidak menampilkan peringatan", async () => {
+    renderForm({ biaUnsaved: false });
+    await type(screen.getByLabelText("Penilaian / diagnosis"), "Obesitas");
+    await userEvent.click(screen.getByRole("button", { name: "Finalisasi" }));
+    expect(within(screen.getByRole("alertdialog")).queryByText(/Angka BIA yang Anda ketik/)).toBeNull();
+  });
+
   it("buang draf mengirim versi terakhir lalu kembali ke dasbor", async () => {
     vi.mocked(discardEncounterDraft).mockResolvedValue({ ok: true, data: undefined });
     renderForm();
