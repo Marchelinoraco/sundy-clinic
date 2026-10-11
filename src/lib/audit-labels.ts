@@ -19,6 +19,8 @@ const ACTION_LABEL: Record<string, string> = {
   "staff.account.reset": "mereset kata sandi staf",
   "staff.account.email": "mengganti email staf",
   "staff.password.change": "mengganti kata sandi sendiri",
+  "staff.photo.update": "mengganti foto staf",
+  "staff.photo.remove": "menghapus foto staf",
 };
 
 const ROLE_LABEL: Record<string, string> = {

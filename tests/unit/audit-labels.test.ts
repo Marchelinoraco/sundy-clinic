@@ -21,4 +21,9 @@ describe("label aksi audit", () => {
     expect(auditActionLabel("staff.account.email")).toBe("mengganti email staf");
     expect(auditActionLabel("staff.password.change")).toBe("mengganti kata sandi sendiri");
   });
+
+  it("aksi foto staf punya bahasa manusia", () => {
+    expect(auditActionLabel("staff.photo.update")).toBe("mengganti foto staf");
+    expect(auditActionLabel("staff.photo.remove")).toBe("menghapus foto staf");
+  });
 });
