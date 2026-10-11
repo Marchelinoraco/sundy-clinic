@@ -15,14 +15,19 @@ import type { StaffRole } from "@prisma/client";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
+import { BIO_MAX, SPECIALTY_MAX, roleHasPublicProfile } from "@/lib/doctor-profile";
 import { roleCanHaveLogin } from "@/lib/staff-accounts";
 import { STAFF_ROLE_LABEL } from "@/lib/staff-role";
 import { createStaffWithAccount, updateStaff, type Credentials, type StaffRow } from "@/server/staff";
 import { SelectField } from "../mui/select-field";
+import { DoctorPhotoField } from "./doctor-photo-field";
 
 const ROLES = Object.keys(STAFF_ROLE_LABEL) as StaffRole[];
 
-/** Tambah staf (dengan akun bila perannya boleh) atau ubah nama, peran, dan tampil di situs (spec kelola staf 5.1). */
+/**
+ * Tambah staf (dengan akun bila perannya boleh) atau ubah nama, peran, tampil di situs, dan, untuk dokter dan terapis,
+ * profil di halaman publik: spesialisasi, deskripsi, dan foto (spec kelola staf 5.1, spec profil dokter 5.1).
+ */
 export function StaffFormDialog({
   mode,
   row,
@@ -39,10 +44,14 @@ export function StaffFormDialog({
   const [role, setRole] = useState<StaffRole>(row?.role ?? "RESEPSIONIS");
   const [showOnWebsite, setShowOnWebsite] = useState(row?.showOnWebsite ?? false);
   const [email, setEmail] = useState("");
+  const [specialty, setSpecialty] = useState(row?.specialty ?? "");
+  const [bio, setBio] = useState(row?.bio ?? "");
+  const [photoUrl, setPhotoUrl] = useState<string | null>(row?.photoUrl ?? null);
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const title = mode === "add" ? "Tambah staf" : `Ubah — ${row?.name ?? ""}`;
   const needsEmail = mode === "add" && roleCanHaveLogin(role);
+  const hasProfile = mode === "edit" && roleHasPublicProfile(role);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -61,7 +70,8 @@ export function StaffFormDialog({
         else onClose();
         return;
       }
-      const result = await updateStaff({ id: row!.id, name, role, showOnWebsite });
+      // Profil situs hanya dikirim untuk dokter dan terapis: menyimpan staf berperan lain tidak boleh mengosongkannya.
+      const result = await updateStaff({ id: row!.id, name, role, showOnWebsite, ...(hasProfile ? { specialty, bio } : {}) });
       if (!result.ok) {
         setError(result.error);
         return;
@@ -90,6 +100,41 @@ export function StaffFormDialog({
             ))}
           </SelectField>
           <FormControlLabel control={<Switch checked={showOnWebsite} onChange={(e) => setShowOnWebsite(e.target.checked)} />} label="Tampil di situs publik" />
+          {hasProfile && (
+            <Stack component="fieldset" spacing={2} sx={{ m: 0, p: 0, border: 0, minWidth: 0 }}>
+              <Typography component="legend" variant="subtitle2" sx={{ mb: 1 }}>
+                Profil di halaman publik
+              </Typography>
+              <TextField
+                id="staf-spesialisasi"
+                label="Spesialisasi"
+                value={specialty}
+                onChange={(e) => setSpecialty(e.target.value)}
+                helperText={`${specialty.length}/${SPECIALTY_MAX}`}
+                slotProps={{ htmlInput: { maxLength: SPECIALTY_MAX } }}
+                fullWidth
+              />
+              <TextField
+                id="staf-deskripsi"
+                label="Deskripsi singkat"
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                helperText={`${bio.length}/${BIO_MAX}`}
+                multiline
+                minRows={3}
+                slotProps={{ htmlInput: { maxLength: BIO_MAX } }}
+                fullWidth
+              />
+              <DoctorPhotoField
+                staffId={row!.id}
+                photoUrl={photoUrl}
+                onChange={(next) => {
+                  setPhotoUrl(next);
+                  router.refresh();
+                }}
+              />
+            </Stack>
+          )}
           {needsEmail && (
             <TextField
               id="staf-email"

@@ -17,7 +17,9 @@ vi.mock("@/server/staff", () => ({
   setStaffActive: vi.fn(),
   resetStaffPassword: vi.fn(),
   changeStaffEmail: vi.fn(),
+  removeStaffPhoto: vi.fn(),
 }));
+vi.mock("@/components/admin/staff/send-photo", () => ({ sendStaffPhoto: vi.fn() }));
 
 const row = (patch: Partial<StaffRow>): StaffRow => ({
   id: "x",
@@ -33,7 +35,7 @@ const row = (patch: Partial<StaffRow>): StaffRow => ({
   ...patch,
 });
 const OWNER = row({ id: "s-owner", name: "Pemilik SunDY", role: "SUPER_ADMIN", email: "admin@sundyclinic.com" });
-const DOKTER = row({ id: "s-dokter", name: "Dr. Diane", role: "DOKTER" });
+const DOKTER = row({ id: "s-dokter", name: "Dr. Diane", role: "DOKTER", specialty: "Spesialis Gizi Klinik", bio: "Dokter penanggung jawab." });
 const TERAPIS = row({ id: "s-terapis", name: "Terapis Mahakeret", role: "TERAPIS" });
 const BARU = row({ id: "s-baru", name: "Rina Baru", role: "RESEPSIONIS", email: "rina@sundy.test", mustChangePassword: true });
 const OFF = row({ id: "s-off", name: "Budi Berhenti", role: "APOTEKER", email: "budi@sundy.test", isActive: false });
@@ -219,7 +221,7 @@ describe("ganti email diri sendiri", () => {
 });
 
 describe("aksi per baris", () => {
-  it("Ubah: mengirim nama, peran, dan tampil di situs", async () => {
+  it("Ubah dokter: mengirim nama, peran, tampil di situs, spesialisasi, dan deskripsi", async () => {
     vi.mocked(updateStaff).mockResolvedValue({ ok: true, data: undefined });
     const user = userEvent.setup();
     renderManager();
@@ -230,7 +232,7 @@ describe("aksi per baris", () => {
     expect(within(form).queryByLabelText("Email login")).toBeNull();
     await user.click(within(form).getByLabelText("Tampil di situs publik"));
     await user.click(within(form).getByRole("button", { name: "Simpan" }));
-    await waitFor(() => expect(updateStaff).toHaveBeenCalledWith({ id: "s-dokter", name: "Dr. Diane", role: "DOKTER", showOnWebsite: true }));
+    await waitFor(() => expect(updateStaff).toHaveBeenCalledWith({ id: "s-dokter", name: "Dr. Diane", role: "DOKTER", showOnWebsite: true, specialty: "Spesialis Gizi Klinik", bio: "Dokter penanggung jawab." }));
   });
 
   it("Buat akun: meminta email lalu menampilkan kata sandi sementara", async () => {
@@ -318,5 +320,54 @@ describe("aksi per baris", () => {
     await user.click(within(temp).getByLabelText("Saya sudah menyimpan kata sandi ini"));
     await user.click(within(temp).getByRole("button", { name: "Tutup" }));
     expect(push).toHaveBeenCalledWith("/masuk");
+  });
+
+  it("Ubah dokter: bagian profil situs berisi spesialisasi, deskripsi dengan hitungan karakter, dan foto", async () => {
+    vi.mocked(updateStaff).mockResolvedValue({ ok: true, data: undefined });
+    const user = userEvent.setup();
+    renderManager();
+    await openMenu(user, "Dr. Diane");
+    await user.click(screen.getByRole("menuitem", { name: "Ubah" }));
+    const form = await screen.findByRole("dialog", { name: "Ubah — Dr. Diane" });
+    expect(within(form).getByText("Profil di halaman publik")).toBeInTheDocument();
+    const specialty = within(form).getByLabelText("Spesialisasi");
+    const bio = within(form).getByLabelText("Deskripsi singkat");
+    expect(specialty).toHaveValue("Spesialis Gizi Klinik");
+    expect(bio).toHaveValue("Dokter penanggung jawab.");
+    expect(within(form).getByText("21/100")).toBeInTheDocument();
+    expect(within(form).getByText("24/600")).toBeInTheDocument();
+    expect(within(form).getByRole("button", { name: "Pilih foto" })).toBeInTheDocument();
+
+    await user.clear(specialty);
+    await user.type(specialty, "Spesialis Gizi");
+    expect(within(form).getByText("14/100")).toBeInTheDocument();
+    await user.clear(bio);
+    await user.click(within(form).getByRole("button", { name: "Simpan" }));
+    await waitFor(() => expect(updateStaff).toHaveBeenCalledWith({ id: "s-dokter", name: "Dr. Diane", role: "DOKTER", showOnWebsite: false, specialty: "Spesialis Gizi", bio: "" }));
+  });
+
+  it("Ubah staf berperan lain: tanpa bagian profil situs, dan specialty/bio tidak dikirim (tidak mengosongkan profil)", async () => {
+    vi.mocked(updateStaff).mockResolvedValue({ ok: true, data: undefined });
+    const user = userEvent.setup();
+    renderManager();
+    await openMenu(user, "Rina Baru");
+    await user.click(screen.getByRole("menuitem", { name: "Ubah" }));
+    const form = await screen.findByRole("dialog", { name: "Ubah — Rina Baru" });
+    expect(within(form).queryByText("Profil di halaman publik")).toBeNull();
+    expect(within(form).queryByLabelText("Spesialisasi")).toBeNull();
+    await user.click(within(form).getByRole("button", { name: "Simpan" }));
+    await waitFor(() => expect(updateStaff).toHaveBeenCalledWith({ id: "s-baru", name: "Rina Baru", role: "RESEPSIONIS", showOnWebsite: false }));
+  });
+
+  it("mengganti peran di dialog ke Dokter menampilkan bagian profil situs; ke peran lain menyembunyikannya", async () => {
+    const user = userEvent.setup();
+    renderManager();
+    await openMenu(user, "Rina Baru");
+    await user.click(screen.getByRole("menuitem", { name: "Ubah" }));
+    const form = await screen.findByRole("dialog", { name: "Ubah — Rina Baru" });
+    await user.selectOptions(within(form).getByLabelText("Peran"), "DOKTER");
+    expect(within(form).getByLabelText("Spesialisasi")).toBeInTheDocument();
+    await user.selectOptions(within(form).getByLabelText("Peran"), "APOTEKER");
+    expect(within(form).queryByLabelText("Spesialisasi")).toBeNull();
   });
 });
