@@ -4,12 +4,14 @@ import type { Prisma, StaffRole } from "@prisma/client";
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { validateBio, validateSpecialty } from "@/lib/doctor-profile";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { slugify } from "@/lib/slug";
 import { roleCanHaveLogin, staffChangeBlock, validateLoginEmail, validateStaffName } from "@/lib/staff-accounts";
 import { STAFF_ROLE_LABEL, isStaffRole } from "@/lib/staff-role";
 import { recordAudit } from "@/server/audit";
 import { requireCapability } from "@/server/session";
+import { removeStaffPhotoFor } from "@/server/staff-photo";
 import { generateTempPassword } from "@/server/temp-password";
 
 export type StaffRow = {
@@ -20,6 +22,10 @@ export type StaffRow = {
   isActive: boolean;
   email: string | null;
   mustChangePassword: boolean;
+  /** Profil di halaman publik (spec profil dokter). */
+  specialty: string | null;
+  bio: string | null;
+  photoUrl: string | null;
 };
 
 /** Kata sandi sementara hanya dikembalikan ke browser pemilik; tidak pernah disimpan, dicatat, atau dimasukkan ke audit. */
@@ -48,6 +54,7 @@ export async function uniqueStaffSlug(name: string): Promise<string> {
 function revalidateStaff() {
   safeRevalidatePath("/admin/staf");
   safeRevalidatePath("/tentang");
+  safeRevalidatePath("/");
 }
 
 export async function listStaffAccounts(): Promise<StaffRow[]> {
@@ -64,6 +71,9 @@ export async function listStaffAccounts(): Promise<StaffRow[]> {
     isActive: row.isActive,
     email: row.user?.email ?? null,
     mustChangePassword: row.user?.mustChangePassword ?? false,
+    specialty: row.specialty,
+    bio: row.bio,
+    photoUrl: row.photoUrl,
   }));
 }
 
@@ -187,13 +197,25 @@ export async function createAccountForStaff(input: { staffId: string; email: str
   });
 }
 
-export async function updateStaff(input: { id: string; name: string; role: StaffRole; showOnWebsite: boolean }): Promise<ActionResult<void>> {
+export async function updateStaff(input: {
+  id: string;
+  name: string;
+  role: StaffRole;
+  showOnWebsite: boolean;
+  /** Profil situs publik; tidak dikirim berarti tidak berubah. */
+  specialty?: string;
+  bio?: string;
+}): Promise<ActionResult<void>> {
   return runAction(async () => {
     const actor = await requireCapability("staff:manage");
     const name = validateStaffName(input?.name);
     if (!name.ok) throw new UserFacingError(name.message);
     if (!isStaffRole(input?.role)) throw new UserFacingError("Pilih peran.");
     const role = input.role;
+    const specialty = input.specialty === undefined ? undefined : validateSpecialty(input.specialty);
+    if (specialty && !specialty.ok) throw new UserFacingError(specialty.message);
+    const bio = input.bio === undefined ? undefined : validateBio(input.bio);
+    if (bio && !bio.ok) throw new UserFacingError(bio.message);
 
     const summary = await prisma.$transaction(async (tx) => {
       await lockSuperAdmins(tx);
@@ -208,9 +230,16 @@ export async function updateStaff(input: { id: string; name: string; role: Staff
         });
         if (block) throw new UserFacingError(block);
       }
-      await tx.staff.update({ where: { id: target.id }, data: { name: name.value, role, showOnWebsite: Boolean(input.showOnWebsite) } });
+      const nextSpecialty = specialty && specialty.ok ? specialty.value : target.specialty;
+      const nextBio = bio && bio.ok ? bio.value : target.bio;
+      await tx.staff.update({
+        where: { id: target.id },
+        data: { name: name.value, role, showOnWebsite: Boolean(input.showOnWebsite), specialty: nextSpecialty, bio: nextBio },
+      });
       if (target.user && name.value !== target.name) await tx.user.update({ where: { id: target.user.id }, data: { name: name.value } });
-      return role === target.role ? name.value : `${name.value} (${STAFF_ROLE_LABEL[target.role]} → ${STAFF_ROLE_LABEL[role]})`;
+      const base = role === target.role ? name.value : `${name.value} (${STAFF_ROLE_LABEL[target.role]} → ${STAFF_ROLE_LABEL[role]})`;
+      // Ringkasan audit tidak memuat isi spesialisasi atau deskripsi, hanya bahwa profil berubah.
+      return nextSpecialty !== target.specialty || nextBio !== target.bio ? `${base} · profil situs diubah` : base;
     });
 
     await recordAudit({ actor, action: "staff.update", entity: "Staff", entityId: input.id, summary });
@@ -290,5 +319,12 @@ export async function changeStaffEmail(input: { staffId: string; email: string }
     ]);
     await recordAudit({ actor, action: "staff.account.email", entity: "Staff", entityId: staff.id, summary: `${staff.name}: ${staff.user.email} → ${email.value}` });
     revalidateStaff();
+  });
+}
+
+export async function removeStaffPhoto(staffId: string): Promise<ActionResult<void>> {
+  return runAction(async () => {
+    const actor = await requireCapability("staff:manage");
+    await removeStaffPhotoFor(actor, String(staffId ?? ""));
   });
 }

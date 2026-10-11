@@ -19,7 +19,19 @@ vi.mock("@/server/staff", () => ({
   changeStaffEmail: vi.fn(),
 }));
 
-const row = (patch: Partial<StaffRow>): StaffRow => ({ id: "x", name: "X", role: "RESEPSIONIS", showOnWebsite: false, isActive: true, email: null, mustChangePassword: false, ...patch });
+const row = (patch: Partial<StaffRow>): StaffRow => ({
+  id: "x",
+  name: "X",
+  role: "RESEPSIONIS",
+  showOnWebsite: false,
+  isActive: true,
+  email: null,
+  mustChangePassword: false,
+  specialty: null,
+  bio: null,
+  photoUrl: null,
+  ...patch,
+});
 const OWNER = row({ id: "s-owner", name: "Pemilik SunDY", role: "SUPER_ADMIN", email: "admin@sundyclinic.com" });
 const DOKTER = row({ id: "s-dokter", name: "Dr. Diane", role: "DOKTER" });
 const TERAPIS = row({ id: "s-terapis", name: "Terapis Mahakeret", role: "TERAPIS" });
