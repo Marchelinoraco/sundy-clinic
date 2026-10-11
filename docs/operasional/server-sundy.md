@@ -119,6 +119,10 @@ lewat berkas 600 di Mac yang dibuka di TextEdit dan kemudian dihapus. Kedua skri
 ditandai dibatalkan. Uji pemulihan bulanan memeriksa satu berkas BIA dari backup terhadap sidik jari SHA-256 di database.
 Pantau pertumbuhannya di pemeriksaan disk rutin (`sudo du -sh /www/sundy-files`).
 
+**Foto dokter di halaman publik** ada di `/www/sundy-files/dokter/` (berkas WebP `<idStaf>-<sidikJari>.webp`, dibuat dari panel: Staf → Ubah)
+dan ikut `file-pasien.tar.gz`. Berkas ini publik lewat `/foto-dokter/<nama>`, tetapi hanya untuk staf aktif yang tampil di situs. Foto lama
+dihapus otomatis saat diganti atau dihapus; tidak ada yang perlu dibersihkan manual. Foto bawaan situs ada di repositori (`public/images/dokter`).
+
 Konfigurasi rclone: `/root/.config/rclone/rclone.conf`; URL heartbeat: `/root/.config/sundy-backup.env`.
 
 **Uji pemulihan — bulanan** (atau setelah perubahan backup):
