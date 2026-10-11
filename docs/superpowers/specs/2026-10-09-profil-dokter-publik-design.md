@@ -50,7 +50,9 @@ Nama berkas: `<idStaf>-<sidikJari8>.webp`, dengan sidik jari dari isi hasil olah
 `GET /foto-dokter/<nama>` (publik, tanpa login):
 - hanya nama berpola `^[0-9a-z]+-[0-9a-f]{8}\.webp$` yang diproses; selebihnya 404;
 - berkas hanya disajikan bila ada staf **aktif** dengan `showOnWebsite` dan `photoUrl` sama persis dengan jalur itu; foto dokter yang dinonaktifkan atau disembunyikan tidak bisa dibuka (404), dan jalur yang tidak ada di basis data tidak dibaca dari disk;
-- header `Content-Type: image/webp`, `X-Content-Type-Options: nosniff`, dan `Cache-Control: public, max-age=31536000, immutable` (aman karena nama berkas memuat sidik jari isinya).
+- header `Content-Type: image/webp`, `X-Content-Type-Options: nosniff`, dan `Cache-Control: public, max-age=300`. Cache sengaja singkat: pengoptimal gambar Next.js (`/_next/image`) dan Cloudflare menyimpan sesuai angka ini, sehingga foto dokter yang disembunyikan, dinonaktifkan, atau dihapus berhenti tersaji dalam **paling lama 5 menit**, bukan setahun. Rute `/foto-dokter/<nama>` sendiri langsung 404; hanya salinan di cache yang bertahan sampai kedaluwarsa. Untuk mencabut segera, rilis baru mengosongkan cache pengoptimal dan Cloudflare di-purge dari panelnya.
+
+**Pratinjau di panel:** `GET /admin/staf/foto/<nama>` (login dan `staff:manage`, `Cache-Control: private, no-store`, pola nama yang sama) menyajikan foto terpasang tanpa memeriksa tampil-tidaknya dokter di situs. Dialog Ubah memakainya, karena staf baru bawaannya tersembunyi dan pemilik menyiapkan profilnya dulu sebelum menampilkannya. Teks dan petunjuk di dialog menyebut bahwa foto baru tampil di situs setelah dokter ditampilkan.
 
 ### 4.5 Mengganti dan menghapus
 
@@ -71,7 +73,7 @@ Untuk staf berperan Dokter atau Terapis, dialog Ubah (halaman Staf) mendapat bag
 
 ### 5.2 Halaman publik
 
-Tidak berubah. Setelah teks atau foto berubah, `/` dan `/tentang` disegarkan (`revalidatePath`).
+Tampilan tidak berubah, kecuali deskripsi dicetak dengan `white-space: pre-line` sehingga baris baru yang diketik pemilik tampil sebagai paragraf terpisah. Setelah teks atau foto berubah, `/` dan `/tentang` disegarkan (`revalidatePath`).
 
 ## 6. Teknis
 

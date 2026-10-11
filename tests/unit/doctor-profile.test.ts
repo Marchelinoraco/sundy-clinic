@@ -6,6 +6,7 @@ import {
   SPECIALTY_MAX,
   detectPhotoKind,
   doctorPhotoName,
+  doctorPhotoPreviewUrl,
   doctorPhotoUrl,
   roleHasPublicProfile,
   validateBio,
@@ -48,6 +49,13 @@ describe("nama dan alamat foto", () => {
     expect(doctorPhotoName("/foto-dokter/../rahasia.webp")).toBeNull();
     expect(doctorPhotoName(null)).toBeNull();
     expect(doctorPhotoName(undefined)).toBeNull();
+  });
+
+  it("alamat pratinjau admin dibentuk dari foto unggahan; foto bawaan, kosong, atau tidak sah tidak punya pratinjau", () => {
+    expect(doctorPhotoPreviewUrl("/foto-dokter/cmv0abc-0a1b2c3d.webp")).toBe("/admin/staf/foto/cmv0abc-0a1b2c3d.webp");
+    expect(doctorPhotoPreviewUrl("/images/dokter/diane-1.jpg")).toBeNull();
+    expect(doctorPhotoPreviewUrl("/foto-dokter/../rahasia.webp")).toBeNull();
+    expect(doctorPhotoPreviewUrl(null)).toBeNull();
   });
 
   it("hanya dokter dan terapis yang punya profil di situs", () => {

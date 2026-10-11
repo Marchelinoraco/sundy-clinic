@@ -38,6 +38,12 @@ export function doctorPhotoName(photoUrl: string | null | undefined): string | n
   return DOCTOR_PHOTO_NAME.test(name) ? name : null;
 }
 
+/** Alamat pratinjau di panel (rute admin, tidak bergantung pada tampil-tidaknya dokter di situs); null bila bukan foto unggahan. */
+export function doctorPhotoPreviewUrl(photoUrl: string | null | undefined): string | null {
+  const name = doctorPhotoName(photoUrl);
+  return name ? `/admin/staf/foto/${name}` : null;
+}
+
 /** Hanya dokter dan terapis yang tampil di "Tim Dokter" (sama dengan `getPublicStaff`). */
 export function roleHasPublicProfile(role: StaffRole): boolean {
   return role === "DOKTER" || role === "TERAPIS";

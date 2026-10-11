@@ -128,6 +128,7 @@ export function StaffFormDialog({
               <DoctorPhotoField
                 staffId={row!.id}
                 photoUrl={photoUrl}
+                visibleOnSite={Boolean(row?.showOnWebsite && row?.isActive)}
                 onChange={(next) => {
                   setPhotoUrl(next);
                   router.refresh();

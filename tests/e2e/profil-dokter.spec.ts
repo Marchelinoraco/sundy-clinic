@@ -57,7 +57,8 @@ test("pemilik mengedit profil dokter: teks dan foto tampil di /tentang; setelah 
   const direct = await request.get(photoUrl);
   expect(direct.status()).toBe(200);
   expect(direct.headers()["content-type"]).toBe("image/webp");
-  expect(direct.headers()["cache-control"]).toContain("immutable");
+  // Cache singkat: foto dokter yang disembunyikan atau dihapus lenyap dalam hitungan menit, tidak bertahan setahun di cache gambar atau Cloudflare.
+  expect(direct.headers()["cache-control"]).toBe("public, max-age=300");
 
   // Disembunyikan dari situs: fotonya tidak bisa dibuka lagi dan dokternya hilang dari halaman.
   await page.goto("/admin/staf");
@@ -78,6 +79,10 @@ test("pemilik mengedit profil dokter: teks dan foto tampil di /tentang; setelah 
   await row.getByRole("button", { name: `Aksi lain ${name}` }).click();
   await page.getByRole("menuitem", { name: "Ubah" }).click();
   const remove = page.getByRole("dialog", { name: `Ubah — ${name}` });
+  // Dokter yang belum tampil di situs tetap punya pratinjau foto di dialog (lewat rute admin, bukan rute publik yang 404).
+  const current = remove.getByRole("img", { name: "Foto saat ini" });
+  await expect(current).toBeVisible();
+  await expect.poll(() => current.evaluate((img: HTMLImageElement) => img.naturalWidth), { timeout: 30_000 }).toBeGreaterThan(0);
   await remove.getByRole("button", { name: "Hapus foto" }).click();
   await expect(page.getByText("Foto dihapus.")).toBeVisible({ timeout: 30_000 });
   await expect(remove.getByText("Belum ada foto unggahan. Situs memakai foto bawaan bila ada.")).toBeVisible();

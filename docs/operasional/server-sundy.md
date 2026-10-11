@@ -120,7 +120,7 @@ ditandai dibatalkan. Uji pemulihan bulanan memeriksa satu berkas BIA dari backup
 Pantau pertumbuhannya di pemeriksaan disk rutin (`sudo du -sh /www/sundy-files`).
 
 **Foto dokter di halaman publik** ada di `/www/sundy-files/dokter/` (berkas WebP `<idStaf>-<sidikJari>.webp`, dibuat dari panel: Staf → Ubah)
-dan ikut `file-pasien.tar.gz`. Berkas ini publik lewat `/foto-dokter/<nama>`, tetapi hanya untuk staf aktif yang tampil di situs. Foto lama
+dan ikut `file-pasien.tar.gz`. Berkas ini publik lewat `/foto-dokter/<nama>`, tetapi hanya untuk staf aktif yang tampil di situs. Foto yang disembunyikan atau dihapus berhenti tersaji dalam paling lama 5 menit (cache pengoptimal gambar dan Cloudflare berumur 5 menit); untuk mencabut segera, rilis ulang dan purge cache Cloudflare. Foto lama
 dihapus otomatis saat diganti atau dihapus; tidak ada yang perlu dibersihkan manual. Foto bawaan situs ada di repositori (`public/images/dokter`).
 
 Konfigurasi rclone: `/root/.config/rclone/rclone.conf`; URL heartbeat: `/root/.config/sundy-backup.env`.

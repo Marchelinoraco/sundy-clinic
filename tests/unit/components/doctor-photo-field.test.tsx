@@ -1,5 +1,6 @@
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { toast } from "sonner";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DoctorPhotoField } from "@/components/admin/staff/doctor-photo-field";
 import { sendStaffPhoto } from "@/components/admin/staff/send-photo";
@@ -20,7 +21,7 @@ beforeEach(() => {
 
 describe("isian foto dokter", () => {
   it("tanpa foto: keterangan, tombol Pilih foto, tanpa Hapus foto", () => {
-    renderAdmin(<DoctorPhotoField staffId="s1" photoUrl={null} onChange={() => {}} />);
+    renderAdmin(<DoctorPhotoField visibleOnSite staffId="s1" photoUrl={null} onChange={() => {}} />);
     expect(screen.getByText("Belum ada foto unggahan. Situs memakai foto bawaan bila ada.")).toBeInTheDocument();
     expect(screen.getByText(/Foto potret \(tegak\) paling bagus, minimal 600 px\./)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Pilih foto" })).toBeInTheDocument();
@@ -28,14 +29,15 @@ describe("isian foto dokter", () => {
   });
 
   it("dengan foto: tampil di bingkai dan ada Hapus foto", () => {
-    renderAdmin(<DoctorPhotoField staffId="s1" photoUrl="/foto-dokter/s1-0a1b2c3d.webp" onChange={() => {}} />);
-    expect(screen.getByRole("img", { name: "Foto saat ini" })).toHaveAttribute("src", "/foto-dokter/s1-0a1b2c3d.webp");
+    renderAdmin(<DoctorPhotoField visibleOnSite staffId="s1" photoUrl="/foto-dokter/s1-0a1b2c3d.webp" onChange={() => {}} />);
+    // Pratinjau lewat rute admin, bukan rute publik: foto dokter yang belum tampil di situs tidak disajikan rute publik.
+    expect(screen.getByRole("img", { name: "Foto saat ini" })).toHaveAttribute("src", "/admin/staf/foto/s1-0a1b2c3d.webp");
     expect(screen.getByRole("button", { name: "Hapus foto" })).toBeInTheDocument();
   });
 
   it("memilih berkas menampilkan pratinjau dan tombol Pakai foto ini; Batal membuangnya", async () => {
     const user = userEvent.setup();
-    renderAdmin(<DoctorPhotoField staffId="s1" photoUrl="/foto-dokter/s1-0a1b2c3d.webp" onChange={() => {}} />);
+    renderAdmin(<DoctorPhotoField visibleOnSite staffId="s1" photoUrl="/foto-dokter/s1-0a1b2c3d.webp" onChange={() => {}} />);
     await user.upload(screen.getByLabelText("Berkas foto dokter"), picture());
     expect(screen.getByRole("img", { name: "Pratinjau foto baru" })).toHaveAttribute("src", "blob:pratinjau");
     expect(screen.getByText(/langsung tampil di situs saat dipakai, tanpa menunggu tombol Simpan/)).toBeInTheDocument();
@@ -51,7 +53,7 @@ describe("isian foto dokter", () => {
     vi.mocked(sendStaffPhoto).mockResolvedValue({ ok: true, photoUrl: "/foto-dokter/s1-aaaaaaaa.webp" });
     const onChange = vi.fn();
     const user = userEvent.setup();
-    renderAdmin(<DoctorPhotoField staffId="s1" photoUrl={null} onChange={onChange} />);
+    renderAdmin(<DoctorPhotoField visibleOnSite staffId="s1" photoUrl={null} onChange={onChange} />);
     const file = picture();
     await user.upload(screen.getByLabelText("Berkas foto dokter"), file);
     await user.click(screen.getByRole("button", { name: "Pakai foto ini" }));
@@ -64,7 +66,7 @@ describe("isian foto dokter", () => {
     vi.mocked(sendStaffPhoto).mockResolvedValue({ ok: false, error: "Foto terlalu kecil. Sisi terpendek minimal 600 px." });
     const onChange = vi.fn();
     const user = userEvent.setup();
-    renderAdmin(<DoctorPhotoField staffId="s1" photoUrl={null} onChange={onChange} />);
+    renderAdmin(<DoctorPhotoField visibleOnSite staffId="s1" photoUrl={null} onChange={onChange} />);
     await user.upload(screen.getByLabelText("Berkas foto dokter"), picture());
     await user.click(screen.getByRole("button", { name: "Pakai foto ini" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Foto terlalu kecil. Sisi terpendek minimal 600 px.");
@@ -76,7 +78,7 @@ describe("isian foto dokter", () => {
     vi.mocked(removeStaffPhoto).mockResolvedValueOnce({ ok: false, error: "Staf ini belum punya foto unggahan." }).mockResolvedValueOnce({ ok: true, data: undefined });
     const onChange = vi.fn();
     const user = userEvent.setup();
-    renderAdmin(<DoctorPhotoField staffId="s1" photoUrl="/foto-dokter/s1-0a1b2c3d.webp" onChange={onChange} />);
+    renderAdmin(<DoctorPhotoField visibleOnSite staffId="s1" photoUrl="/foto-dokter/s1-0a1b2c3d.webp" onChange={onChange} />);
     await user.click(screen.getByRole("button", { name: "Hapus foto" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Staf ini belum punya foto unggahan.");
     await user.click(screen.getByRole("button", { name: "Hapus foto" }));
@@ -87,12 +89,32 @@ describe("isian foto dokter", () => {
   it("tombol Pilih foto bisa dipakai lewat papan ketik (Enter dan Spasi membuka pemilih berkas)", async () => {
     const opened = vi.spyOn(HTMLInputElement.prototype, "click");
     const user = userEvent.setup();
-    renderAdmin(<DoctorPhotoField staffId="s1" photoUrl={null} onChange={() => {}} />);
+    renderAdmin(<DoctorPhotoField visibleOnSite staffId="s1" photoUrl={null} onChange={() => {}} />);
     screen.getByRole("button", { name: "Pilih foto" }).focus();
     await user.keyboard("{Enter}");
     expect(opened).toHaveBeenCalledTimes(1);
     await user.keyboard(" ");
     expect(opened).toHaveBeenCalledTimes(2);
     opened.mockRestore();
+  });
+
+  it("dokter yang belum tampil di situs: petunjuk dan toast jujur bahwa foto baru tampil setelah dokter ditampilkan", async () => {
+    vi.mocked(sendStaffPhoto).mockResolvedValue({ ok: true, photoUrl: "/foto-dokter/s1-aaaaaaaa.webp" });
+    const user = userEvent.setup();
+    renderAdmin(<DoctorPhotoField staffId="s1" photoUrl={null} visibleOnSite={false} onChange={() => {}} />);
+    await user.upload(screen.getByLabelText("Berkas foto dokter"), picture());
+    expect(screen.getByText(/Foto langsung disimpan, tetapi baru tampil di situs setelah dokter ditampilkan/)).toBeInTheDocument();
+    expect(screen.queryByText(/langsung tampil di situs saat dipakai/)).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Pakai foto ini" }));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Foto disimpan. Foto tampil di situs setelah dokter ditampilkan."));
+  });
+
+  it("dokter yang sudah tampil di situs: toast menyatakan foto sudah tampil", async () => {
+    vi.mocked(sendStaffPhoto).mockResolvedValue({ ok: true, photoUrl: "/foto-dokter/s1-aaaaaaaa.webp" });
+    const user = userEvent.setup();
+    renderAdmin(<DoctorPhotoField staffId="s1" photoUrl={null} visibleOnSite onChange={() => {}} />);
+    await user.upload(screen.getByLabelText("Berkas foto dokter"), picture());
+    await user.click(screen.getByRole("button", { name: "Pakai foto ini" }));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Foto diganti dan sudah tampil di situs."));
   });
 });

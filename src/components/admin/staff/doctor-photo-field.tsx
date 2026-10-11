@@ -7,7 +7,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { DOCTOR_PHOTO_ACCEPT, DOCTOR_PHOTO_MIN_SIDE } from "@/lib/doctor-profile";
+import { DOCTOR_PHOTO_ACCEPT, DOCTOR_PHOTO_MIN_SIDE, doctorPhotoPreviewUrl } from "@/lib/doctor-profile";
 import { removeStaffPhoto } from "@/server/staff";
 import { sendStaffPhoto } from "./send-photo";
 
@@ -24,7 +24,18 @@ function ArchPreview({ src, alt }: { src: string; alt: string }) {
  * Foto dokter di dialog Ubah (spec profil dokter 5.1). Alur: pilih berkas → pratinjau → "Pakai foto ini". Berbeda dari teks,
  * foto langsung terpublikasi saat dipakai dan tidak menunggu tombol Simpan; layar mengatakannya.
  */
-export function DoctorPhotoField({ staffId, photoUrl, onChange }: { staffId: string; photoUrl: string | null; onChange: (photoUrl: string | null) => void }) {
+export function DoctorPhotoField({
+  staffId,
+  photoUrl,
+  visibleOnSite,
+  onChange,
+}: {
+  staffId: string;
+  photoUrl: string | null;
+  /** Dokter aktif dan sudah tampil di situs (nilai tersimpan, bukan sakelar yang belum disimpan). */
+  visibleOnSite: boolean;
+  onChange: (photoUrl: string | null) => void;
+}) {
   const input = useRef<HTMLInputElement>(null);
   const [candidate, setCandidate] = useState<{ file: File; preview: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +65,7 @@ export function DoctorPhotoField({ staffId, photoUrl, onChange }: { staffId: str
       setError(result.error);
       return;
     }
-    toast.success("Foto diganti dan sudah tampil di situs.");
+    toast.success(visibleOnSite ? "Foto diganti dan sudah tampil di situs." : "Foto disimpan. Foto tampil di situs setelah dokter ditampilkan.");
     setCandidate(null);
     onChange(result.photoUrl);
   }
@@ -77,7 +88,8 @@ export function DoctorPhotoField({ staffId, photoUrl, onChange }: { staffId: str
     }
   }
 
-  const shown = candidate?.preview ?? photoUrl;
+  // Pratinjau foto terpasang lewat rute admin: rute publik menolak dokter yang belum tampil di situs.
+  const shown = candidate?.preview ?? doctorPhotoPreviewUrl(photoUrl);
   return (
     <Stack direction="row" spacing={2} sx={{ alignItems: "flex-start", flexWrap: "wrap", rowGap: 1.5 }}>
       {shown ? <ArchPreview src={shown} alt={candidate ? "Pratinjau foto baru" : "Foto saat ini"} /> : null}
@@ -88,7 +100,10 @@ export function DoctorPhotoField({ staffId, photoUrl, onChange }: { staffId: str
           </Typography>
         )}
         <Typography variant="caption" sx={{ color: "text.secondary" }}>
-          Foto potret (tegak) paling bagus, minimal {DOCTOR_PHOTO_MIN_SIDE} px. Foto langsung tampil di situs saat dipakai, tanpa menunggu tombol Simpan.
+          Foto potret (tegak) paling bagus, minimal {DOCTOR_PHOTO_MIN_SIDE} px.{" "}
+          {visibleOnSite
+            ? "Foto langsung tampil di situs saat dipakai, tanpa menunggu tombol Simpan."
+            : "Foto langsung disimpan, tetapi baru tampil di situs setelah dokter ditampilkan (nyalakan Tampil di situs publik, lalu Simpan)."}
         </Typography>
         <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", rowGap: 1 }}>
           <Button variant="outlined" size="small" disabled={busy} onClick={() => input.current?.click()}>

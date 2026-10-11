@@ -5,6 +5,7 @@ import path from "node:path";
 import sharp from "sharp";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "@/app/(admin)/admin/staf/foto/route";
+import { GET as adminPreview } from "@/app/(admin)/admin/staf/foto/[nama]/route";
 import { GET } from "@/app/(public)/foto-dokter/[nama]/route";
 import { prisma } from "@/lib/db";
 
@@ -128,7 +129,8 @@ describe("rute foto dokter", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("image/webp");
     expect(response.headers.get("x-content-type-options")).toBe("nosniff");
-    expect(response.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
+    // Cache singkat: pengoptimal gambar Next.js dan Cloudflare menyimpan sesuai angka ini, dan foto dokter yang disembunyikan atau dihapus harus lenyap dalam hitungan menit, bukan setahun.
+    expect(response.headers.get("cache-control")).toBe("public, max-age=300");
     const bytes = new Uint8Array(await response.arrayBuffer());
     expect(Buffer.from(bytes.slice(0, 4)).toString()).toBe("RIFF");
     expect(Buffer.from(bytes.slice(8, 12)).toString()).toBe("WEBP");
@@ -157,5 +159,26 @@ describe("rute foto dokter", () => {
     for (const bad of ["../x-0a1b2c3d.webp", "..%2F..%2Fetc%2Fpasswd", "abc.png", "ABC-0A1B2C3D.webp", "", "a/b-0a1b2c3d.webp"]) {
       expect((await get(bad)).status).toBe(404);
     }
+  });
+
+  it("pratinjau admin: Super Admin membuka foto dokter yang belum tampil di situs; selain itu 401/403/404; tanpa cache", async () => {
+    as("SUPER_ADMIN");
+    const { photoUrl } = await upload(await png());
+    const name = nameOf(photoUrl!);
+    await prisma.staff.update({ where: { id: doctorId }, data: { showOnWebsite: false, isActive: false } });
+    const preview = (nama: string) => adminPreview(new Request(`${ORIGIN}/admin/staf/foto/${nama}`), { params: Promise.resolve({ nama }) });
+
+    const response = await preview(name);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("image/webp");
+    expect(response.headers.get("cache-control")).toBe("private, no-store");
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect((await get(name)).status).toBe(404); // publik tetap menolak
+
+    for (const bad of ["../x-0a1b2c3d.webp", "abc.png", "zzz-0a1b2c3d.webp"]) expect((await preview(bad)).status).toBe(404);
+    as("DOKTER");
+    expect((await preview(name)).status).toBe(403);
+    as(null);
+    expect((await preview(name)).status).toBe(401);
   });
 });

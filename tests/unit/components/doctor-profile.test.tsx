@@ -39,4 +39,11 @@ describe("DoctorProfile", () => {
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 3, name: DIANE.name })).toBeInTheDocument();
   });
+
+  it("deskripsi dengan baris baru tampil sebagai paragraf terpisah, bukan digabung (pemilik mengetik beberapa baris di dialog Ubah)", () => {
+    render(<DoctorProfile person={{ ...DIANE, bio: "Paragraf satu.\nParagraf dua." }} photo={null} />);
+    const bio = screen.getByText(/Paragraf satu\./);
+    expect(bio.textContent).toBe("Paragraf satu.\nParagraf dua.");
+    expect(bio).toHaveClass("whitespace-pre-line");
+  });
 });
