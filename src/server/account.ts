@@ -3,8 +3,8 @@ import { prisma } from "@/lib/db";
 const FORMAT_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
- * Mengganti email login seorang staf. Dipanggil skrip admin
- * (`npm run change-email`), bukan dari halaman web — belum ada layar untuk ini.
+ * Mengganti email login seorang staf lewat skrip admin (`npm run change-email`), jalur pemulihan di server.
+ * Dari panel, pemilik memakai `changeStaffEmail` (src/server/staff.ts, menu Staf → Ganti email).
  *
  * Better Auth menyimpan email dalam huruf kecil, jadi keduanya dinormalkan.
  * Semua sesi akun itu dihapus agar login berikutnya memakai email baru.

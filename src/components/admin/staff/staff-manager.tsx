@@ -23,6 +23,8 @@ import { StaffEmailDialog } from "./staff-email-dialog";
 import { StaffFormDialog } from "./staff-form-dialog";
 import { TempPasswordDialog } from "./temp-password-dialog";
 
+const MENU_ID = "menu-aksi-staf";
+
 type Dialog =
   | { kind: "add" }
   | { kind: "edit"; row: StaffRow }
@@ -80,20 +82,20 @@ export function StaffManager({ rows, currentStaffId }: { rows: StaffRow[]; curre
       renderCell: ({ row }) => (
         <Box sx={{ py: 0.5, minWidth: 0 }}>
           {row.email ? <Box sx={{ overflowWrap: "anywhere" }}>{row.email}</Box> : <Box sx={{ color: "text.secondary" }}>Belum punya akun</Box>}
-          {row.mustChangePassword && (
-            <Box sx={{ mt: 0.5 }}>
-              <StatusChip label="Wajib ganti kata sandi" tone="warning" />
-            </Box>
-          )}
         </Box>
       ),
     },
     {
       field: "isActive",
       headerName: "Status",
-      minWidth: 120,
+      minWidth: 170,
       valueGetter: (_value, row) => (row.isActive ? "Aktif" : "Nonaktif"),
-      renderCell: ({ row }) => <StatusChip label={row.isActive ? "Aktif" : "Nonaktif"} tone={row.isActive ? "success" : "neutral"} />,
+      renderCell: ({ row }) => (
+        <Box sx={{ py: 0.5, display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 0.5 }}>
+          <StatusChip label={row.isActive ? "Aktif" : "Nonaktif"} tone={row.isActive ? "success" : "neutral"} />
+          {row.mustChangePassword && <StatusChip label="Wajib ganti kata sandi" tone="warning" />}
+        </Box>
+      ),
     },
     {
       field: "actions",
@@ -103,7 +105,14 @@ export function StaffManager({ rows, currentStaffId }: { rows: StaffRow[]; curre
       filterable: false,
       disableColumnMenu: true,
       renderCell: ({ row }) => (
-        <IconButton size="small" aria-label={`Aksi lain ${row.name}`} aria-haspopup="menu" onClick={(event) => setMenu({ anchor: event.currentTarget, row })}>
+        <IconButton
+          size="small"
+          aria-label={`Aksi lain ${row.name}`}
+          aria-haspopup="menu"
+          aria-expanded={menu?.row.id === row.id}
+          aria-controls={menu?.row.id === row.id ? MENU_ID : undefined}
+          onClick={(event) => setMenu({ anchor: event.currentTarget, row })}
+        >
           <MoreHoriz fontSize="small" />
         </IconButton>
       ),
@@ -124,7 +133,7 @@ export function StaffManager({ rows, currentStaffId }: { rows: StaffRow[]; curre
         <AdminDataGrid rows={rows} columns={columns} label="Daftar staf" emptyText="Belum ada staf." />
       </SectionCard>
 
-      <Menu anchorEl={menu?.anchor ?? null} open={menu !== null} onClose={() => setMenu(null)} anchorOrigin={{ vertical: "bottom", horizontal: "right" }} transformOrigin={{ vertical: "top", horizontal: "right" }}>
+      <Menu id={MENU_ID} anchorEl={menu?.anchor ?? null} open={menu !== null} onClose={() => setMenu(null)} anchorOrigin={{ vertical: "bottom", horizontal: "right" }} transformOrigin={{ vertical: "top", horizontal: "right" }}>
         {target && <MenuItem onClick={() => open({ kind: "edit", row: target })}>Ubah</MenuItem>}
         {target && !target.email && roleCanHaveLogin(target.role) && target.isActive && <MenuItem onClick={() => open({ kind: "account", row: target })}>Buat akun</MenuItem>}
         {target?.email && <MenuItem onClick={() => open({ kind: "reset", row: target })}>Reset kata sandi</MenuItem>}

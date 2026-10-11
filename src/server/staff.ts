@@ -70,15 +70,38 @@ export async function listStaffAccounts(): Promise<StaffRow[]> {
 const NOT_FOUND = "Staf tidak ditemukan.";
 const EMAIL_TAKEN = "Email ini sudah dipakai akun lain.";
 
+/** User tanpa akun dan tanpa staf yang lebih lama dari ini dianggap sisa kegagalan, bukan permintaan lain yang masih berjalan. */
+const ORPHAN_AFTER_MS = 5 * 60_000;
+
+/**
+ * Memastikan email belum dipakai. User yatim lama (pembuatan akun yang gagal di tengah, tanpa akun dan tanpa staf) dibersihkan
+ * supaya emailnya tidak "terpakai" selamanya tanpa terlihat di panel; yang baru atau yang punya akun tetap dianggap terpakai.
+ */
+async function assertEmailFree(email: string): Promise<void> {
+  const existing = await prisma.user.findFirst({ where: { email }, include: { accounts: { select: { id: true } } } });
+  if (!existing) return;
+  const orphan = !existing.staffId && existing.accounts.length === 0 && Date.now() - existing.createdAt.getTime() > ORPHAN_AFTER_MS;
+  if (!orphan) throw new UserFacingError(EMAIL_TAKEN);
+  await prisma.session.deleteMany({ where: { userId: existing.id } });
+  await prisma.user.delete({ where: { id: existing.id } });
+}
+
 /**
  * Membuat akun login untuk staf dan menautkannya. Akun baru wajib mengganti kata sandi. `signUpEmail` ikut membuat satu sesi
  * (tanpa cookie, tidak bisa dipakai siapa pun); dihapus agar tidak tersisa. Bila langkah setelah pembuatan akun gagal, akun
  * itu dibersihkan sehingga tidak ada akun tanpa staf.
  */
 async function createLogin(staff: { id: string; name: string }, email: string): Promise<Credentials> {
-  if (await prisma.user.findFirst({ where: { email } })) throw new UserFacingError(EMAIL_TAKEN);
+  await assertEmailFree(email);
   const tempPassword = generateTempPassword();
-  const created = await auth.api.signUpEmail({ body: { email, password: tempPassword, name: staff.name } });
+  let created: Awaited<ReturnType<typeof auth.api.signUpEmail>>;
+  try {
+    created = await auth.api.signUpEmail({ body: { email, password: tempPassword, name: staff.name } });
+  } catch (error) {
+    // Dua permintaan memakai email yang sama bersamaan: yang kalah ditolak indeks unik dengan galat umum Better Auth.
+    if (await prisma.user.findFirst({ where: { email } })) throw new UserFacingError(EMAIL_TAKEN);
+    throw error;
+  }
   try {
     await prisma.$transaction([
       prisma.user.update({ where: { id: created.user.id }, data: { staffId: staff.id, mustChangePassword: true } }),
@@ -100,7 +123,7 @@ async function countActiveSuperAdminsWithLogin(tx: Prisma.TransactionClient): Pr
 
 /** Mengunci baris Super Admin supaya dua pemilik yang bertindak bersamaan tidak sama-sama lolos pengaman "minimal satu". */
 async function lockSuperAdmins(tx: Prisma.TransactionClient): Promise<void> {
-  await tx.$queryRaw`SELECT "id" FROM "Staff" WHERE "role" = 'SUPER_ADMIN' FOR UPDATE`;
+  await tx.$queryRaw`SELECT "id" FROM "Staff" WHERE "role" = 'SUPER_ADMIN' ORDER BY "id" FOR UPDATE`;
 }
 
 export async function createStaffWithAccount(input: {
@@ -120,7 +143,7 @@ export async function createStaffWithAccount(input: {
     if (roleCanHaveLogin(role)) {
       const checked = validateLoginEmail(input.email);
       if (!checked.ok) throw new UserFacingError(checked.message);
-      if (await prisma.user.findFirst({ where: { email: checked.value } })) throw new UserFacingError(EMAIL_TAKEN);
+      await assertEmailFree(checked.value);
       email = checked.value;
     }
 
@@ -230,15 +253,17 @@ export async function resetStaffPassword(staffId: string): Promise<ActionResult<
     if (!staff.user) throw new UserFacingError("Staf ini belum punya akun.");
 
     const ctx = await auth.$context;
-    if (!(await ctx.internalAdapter.findCredentialAccount(staff.user.id))) {
-      throw new UserFacingError("Akun ini tidak memakai login email dan kata sandi.");
-    }
     const tempPassword = generateTempPassword();
-    await ctx.internalAdapter.updatePassword(staff.user.id, await ctx.password.hash(tempPassword));
-    await prisma.$transaction([
-      prisma.user.update({ where: { id: staff.user.id }, data: { mustChangePassword: true } }),
-      prisma.session.deleteMany({ where: { userId: staff.user.id } }),
-    ]);
+    const hash = await ctx.password.hash(tempPassword);
+    const userId = staff.user.id;
+    // Kata sandi, tanda wajib ganti, dan pencabutan sesi satu transaksi: kegagalan di tengah tidak boleh mengganti kata sandi
+    // tanpa mencabut sesi lama.
+    await prisma.$transaction(async (tx) => {
+      const { count } = await tx.account.updateMany({ where: { userId, providerId: "credential" }, data: { password: hash } });
+      if (count !== 1) throw new UserFacingError("Akun ini tidak memakai login email dan kata sandi.");
+      await tx.user.update({ where: { id: userId }, data: { mustChangePassword: true } });
+      await tx.session.deleteMany({ where: { userId } });
+    });
 
     await recordAudit({ actor, action: "staff.account.reset", entity: "Staff", entityId: staff.id, summary: `${staff.name} · ${staff.user.email}` });
     // Mereset akun sendiri mencabut sesi ini; me-refresh rute sekarang akan melempar pemilik ke /masuk sebelum sempat menyalin kata sandi.
@@ -257,7 +282,7 @@ export async function changeStaffEmail(input: { staffId: string; email: string }
     if (!staff) throw new UserFacingError(NOT_FOUND);
     if (!staff.user) throw new UserFacingError("Staf ini belum punya akun.");
     if (staff.user.email === email.value) throw new UserFacingError("Email baru sama dengan yang sekarang.");
-    if (await prisma.user.findFirst({ where: { email: email.value } })) throw new UserFacingError(EMAIL_TAKEN);
+    await assertEmailFree(email.value);
 
     await prisma.$transaction([
       prisma.user.update({ where: { id: staff.user.id }, data: { email: email.value } }),

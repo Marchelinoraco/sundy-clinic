@@ -11,7 +11,7 @@ import DialogTitle from "@mui/material/DialogTitle";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import { useState } from "react";
+import { useId, useState } from "react";
 import { toast } from "sonner";
 import type { Credentials } from "@/server/staff";
 
@@ -33,6 +33,7 @@ export function TempPasswordDialog({
   onClose: () => void;
 }) {
   const [saved, setSaved] = useState(false);
+  const descriptionId = useId();
   async function copy() {
     try {
       await navigator.clipboard.writeText(credentials.tempPassword);
@@ -43,7 +44,7 @@ export function TempPasswordDialog({
   }
 
   return (
-    <Dialog open onClose={(_, reason) => reason !== "backdropClick" && reason !== "escapeKeyDown" && onClose()} fullWidth maxWidth="xs">
+    <Dialog open onClose={(_, reason) => reason !== "backdropClick" && reason !== "escapeKeyDown" && onClose()} fullWidth maxWidth="xs" aria-describedby={descriptionId}>
       <DialogTitle>Kata sandi sementara — {name}</DialogTitle>
       <DialogContent>
         <Stack spacing={2}>
@@ -69,7 +70,7 @@ export function TempPasswordDialog({
               Salin kata sandi
             </Button>
           </Box>
-          <Alert severity="warning">Kata sandi ini hanya tampil sekali. Sampaikan ke staf; ia wajib menggantinya saat masuk pertama.</Alert>
+          <Alert id={descriptionId} severity="warning">Kata sandi ini hanya tampil sekali. Sampaikan ke staf; ia wajib menggantinya saat masuk pertama.</Alert>
           {requireConfirm && (
             <FormControlLabel control={<Checkbox checked={saved} onChange={(e) => setSaved(e.target.checked)} />} label="Saya sudah menyimpan kata sandi ini" />
           )}
