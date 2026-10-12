@@ -155,7 +155,13 @@ export type InvoiceLineRow = {
   name: string;
   quantity: number;
   unitPrice: number;
+  /** quantity × unitPrice. */
+  gross: number;
+  /** Jumlah baris setelah diskon baris. */
   amount: number;
+  discountAmount: number;
+  discountReason: string | null;
+  discountSource: "PROMO" | "MANUAL" | null;
   priceNote: string | null;
   serviceId: string | null;
   itemId: string | null;
@@ -252,6 +258,9 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
           serviceId: true,
           itemId: true,
           dispensingLineId: true,
+          discountAmount: true,
+          discountReason: true,
+          discountSource: true,
           stockUses: { select: { quantity: true, unitCost: true } },
         },
       },
@@ -266,7 +275,11 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
     name: line.name,
     quantity: line.quantity,
     unitPrice: line.unitPrice,
-    amount: line.quantity * line.unitPrice,
+    gross: line.quantity * line.unitPrice,
+    amount: line.quantity * line.unitPrice - line.discountAmount,
+    discountAmount: line.discountAmount,
+    discountReason: line.discountReason,
+    discountSource: line.discountSource,
     priceNote: line.priceNote,
     serviceId: line.serviceId,
     itemId: line.itemId,

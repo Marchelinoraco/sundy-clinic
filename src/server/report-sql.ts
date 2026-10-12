@@ -19,6 +19,8 @@ export type InvoiceAggregate = {
 type Row = Record<keyof Omit<InvoiceAggregate, "bucket">, bigint | number | null> & { bucket: string };
 
 /**
+ * Per jenis baris kotor (quantity × unitPrice); diskon = diskon baris + diskon tagihan (rencana perbaikan tagihan,
+ * keputusan 1), sehingga pendapatan = layanan + treatment + barang − diskon tidak memotong diskon baris dua kali.
  * Jumlah tagihan FINAL yang `finalizedAt`-nya di [start, end), per jenis baris, diskon, harga pokok, sisa
  * belum tertagih, dan jumlah tagihan. Diskon per tagihan: persen dibulatkan ke bawah (`subtotal × min(nilai, 100) / 100`,
  * pembagian bilangan bulat), nominal dibatasi subtotal. Sisa = max(0, total − pembayaran yang berlaku).
@@ -39,7 +41,8 @@ export async function invoiceAggregates(start: Date, end: Date, branchId: string
              COALESCE(SUM(l."quantity" * l."unitPrice") FILTER (WHERE l."kind" = 'LAYANAN'), 0) AS service,
              COALESCE(SUM(l."quantity" * l."unitPrice") FILTER (WHERE l."kind" = 'TREATMENT'), 0) AS treatment,
              COALESCE(SUM(l."quantity" * l."unitPrice") FILTER (WHERE l."kind" = 'BARANG'), 0) AS goods,
-             COALESCE(SUM(l."quantity" * l."unitPrice"), 0) AS subtotal
+             COALESCE(SUM(l."discountAmount"), 0) AS "itemDiscount",
+             COALESCE(SUM(l."quantity" * l."unitPrice" - l."discountAmount"), 0) AS subtotal
       FROM "InvoiceLine" l JOIN inv ON inv."id" = l."invoiceId"
       GROUP BY l."invoiceId"
     ),
@@ -62,7 +65,8 @@ export async function invoiceAggregates(start: Date, end: Date, branchId: string
              COALESCE(lines.treatment, 0) AS treatment,
              COALESCE(lines.goods, 0) AS goods,
              COALESCE(lines.subtotal, 0) AS subtotal,
-             CASE
+             COALESCE(lines."itemDiscount", 0) AS item,
+             COALESCE(lines."itemDiscount", 0) + CASE
                WHEN inv."discountKind" = 'PERSEN' AND inv."discountValue" > 0
                  THEN (COALESCE(lines.subtotal, 0) * LEAST(inv."discountValue", 100)) / 100
                WHEN inv."discountKind" = 'NOMINAL' AND inv."discountValue" > 0
@@ -82,7 +86,7 @@ export async function invoiceAggregates(start: Date, end: Date, branchId: string
            COALESCE(SUM(m.goods), 0) AS goods,
            COALESCE(SUM(m.discount), 0) AS discount,
            COALESCE(SUM(m.cogs), 0) AS cogs,
-           COALESCE(SUM(GREATEST(0, m.subtotal - m.discount - m.paid)), 0) AS outstanding,
+           COALESCE(SUM(GREATEST(0, m.subtotal - (m.discount - m.item) - m.paid)), 0) AS outstanding,
            COUNT(*) AS "invoiceCount"
     FROM m
     ${group}

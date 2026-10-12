@@ -31,12 +31,14 @@ export function ReceiptPaper({ receipt, className = "" }: { receipt: PublicRecei
         {receipt.lines.map((line, index) => (
           <li key={index}>
             <div>{line.name}</div>
-            <Row left={`${line.quantity} x ${formatRupiah(line.unitPrice)}`} right={formatRupiah(line.amount)} />
+            <Row left={`${line.quantity} x ${formatRupiah(line.unitPrice)}`} right={formatRupiah(line.gross)} />
+            {line.discount > 0 && <Row left="Diskon" right={`-${formatRupiah(line.discount)}`} />}
           </li>
         ))}
       </ul>
       <hr />
       <Row left="Subtotal" right={formatRupiah(receipt.subtotal)} />
+      {receipt.itemDiscount > 0 && <Row left="Diskon item" right={`-${formatRupiah(receipt.itemDiscount)}`} />}
       {receipt.discount > 0 && <Row left="Diskon" right={`-${formatRupiah(receipt.discount)}`} />}
       <Row left="Total" right={formatRupiah(receipt.total)} strong />
       {receipt.payments.map((payment, index) => (

@@ -7,7 +7,8 @@ import { minutesToTimeLabel, witaMinutesOfDay } from "./time";
 
 // Struk tagihan (spec struk WA 5–7). Murni: dipakai halaman /struk, cetak browser, dan ESC/POS.
 
-export type ReceiptLine = { name: string; quantity: number; unitPrice: number; amount: number };
+/** `gross` = quantity × unitPrice; `amount` = setelah diskon baris. */
+export type ReceiptLine = { name: string; quantity: number; unitPrice: number; gross: number; discount: number; amount: number };
 export type ReceiptPayment = { paidAt: string; method: PaymentMethodValue; amount: number };
 export type ReceiptStatus = "LUNAS" | "SEBAGIAN" | "BELUM_DIBAYAR";
 
@@ -21,7 +22,11 @@ export type PublicReceipt = {
   cashierName: string;
   customerName: string;
   lines: ReceiptLine[];
+  /** Subtotal sebelum diskon apa pun. */
   subtotal: number;
+  /** Σ diskon baris (spec perbaikan tagihan 9). */
+  itemDiscount: number;
+  /** Diskon tagihan. */
   discount: number;
   total: number;
   paid: number;
@@ -49,7 +54,7 @@ export type ReceiptSource = {
   discountValue: number;
   patient: { name: string };
   branch: { name: string; address: string };
-  lines: readonly { name: string; quantity: number; unitPrice: number }[];
+  lines: readonly { name: string; quantity: number; unitPrice: number; discountAmount?: number }[];
   payments: readonly { amount: number; method: PaymentMethodValue; paidAt: Date; revokedAt: Date | null }[];
 };
 
@@ -65,13 +70,13 @@ export function buildPublicReceipt(source: ReceiptSource): PublicReceipt | null 
     finalizedAt: source.finalizedAt,
     cashierName: source.finalizedByName ?? "-",
     customerName: source.patient.name,
-    lines: source.lines.map((line) => ({
-      name: line.name,
-      quantity: line.quantity,
-      unitPrice: line.unitPrice,
-      amount: line.quantity * line.unitPrice,
-    })),
-    subtotal: totals.subtotal,
+    lines: source.lines.map((line) => {
+      const gross = line.quantity * line.unitPrice;
+      const discount = line.discountAmount ?? 0;
+      return { name: line.name, quantity: line.quantity, unitPrice: line.unitPrice, gross, discount, amount: gross - discount };
+    }),
+    subtotal: totals.grossSubtotal,
+    itemDiscount: totals.itemDiscount,
     discount: totals.discount,
     total: totals.total,
     paid: totals.paid,
