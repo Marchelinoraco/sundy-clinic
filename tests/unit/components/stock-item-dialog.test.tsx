@@ -15,7 +15,7 @@ describe("StockItemDialog", () => {
   it("menambah barang dengan isian formulir", async () => {
     const user = userEvent.setup();
     vi.mocked(createStockItem).mockResolvedValue({ ok: true, data: { id: "i9" } });
-    renderAdmin(<StockItemDialog triggerLabel="+ Barang" />);
+    renderAdmin(<StockItemDialog triggerLabel="+ Barang" canSetPrice />);
     await user.click(screen.getByRole("button", { name: "+ Barang" }));
     expect(screen.getByRole("dialog", { name: "Tambah barang" })).toBeInTheDocument();
     await user.type(screen.getByLabelText("Kode"), "obt-001");
@@ -62,5 +62,12 @@ describe("StockItemDialog", () => {
     await user.click(screen.getByRole("button", { name: "Ubah barang" }));
     await user.click(screen.getByRole("button", { name: "Simpan" }));
     await waitFor(() => expect(updateStockItem).toHaveBeenCalledWith("i1", initial));
+  });
+
+  it("tanpa hak harga (Apoteker): isian harga jual tidak ada", async () => {
+    const user = userEvent.setup();
+    renderAdmin(<StockItemDialog triggerLabel="+ Barang" />);
+    await user.click(screen.getByRole("button", { name: "+ Barang" }));
+    expect(screen.queryByLabelText("Harga jual")).not.toBeInTheDocument();
   });
 });
