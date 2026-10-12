@@ -71,7 +71,9 @@ describe("LineDiscountDialog", () => {
     await user.type(within(dialog).getByLabelText("Alasan"), "x");
     await user.click(within(dialog).getByRole("button", { name: "Terapkan" }));
     expect(await within(dialog).findByRole("alert")).toHaveTextContent("Diskon di atas 20% diberikan oleh Admin Keuangan.");
-    await user.click(within(dialog).getByRole("button", { name: "Hapus diskon" }));
+    const clear = within(dialog).getByRole("button", { name: "Hapus diskon" });
+    await waitFor(() => expect(clear).toBeEnabled());
+    await user.click(clear);
     await waitFor(() => expect(clearLineDiscount).toHaveBeenCalledWith({ invoiceId: "inv", version: 2, lineId: "l1" }));
   });
 });
