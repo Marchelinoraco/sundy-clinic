@@ -122,7 +122,8 @@ describe("data dasbor", () => {
       // 11.00 terisi; 13.00 kosong lagi karena bookingnya dibatalkan.
       expect(lane.openSlots.map((s) => s.time)).not.toContain("11.00");
       expect(lane.openSlots.map((s) => s.time)).toContain("13.00");
-      expect(lane.openSlots[0]).toEqual({ startMinute: 690, endMinute: 720, time: "11.30" });
+      // Dokter: satu blok per jam mulai konsultasi (tiap 15 menit); 11.15 tertutup booking 11.00–11.30.
+      expect(lane.openSlots[0]).toEqual({ startMinute: 690, endMinute: 705, time: "11.30" });
       expect(schedule.offStaff).toContain("Terapis Dasbor");
     });
 

@@ -215,6 +215,18 @@ describe("jalur lain yang menghitung slot konsultasi", () => {
     expect(therapist.openSlots.slice(0, 2).map((slot) => slot.time)).toEqual(["11.00", "11.30"]);
   });
 
+  it("garis waktu dasbor: blok slot kosong dokter tidak bertumpuk walau konsultasi 30 menit", async () => {
+    const schedule = await getTodaySchedule(at(date, "08:00"));
+    const doctor = schedule.lanes.find((lane) => lane.staffId === world.doctorId)!;
+    expect(doctor.openSlots.slice(0, 2)).toEqual([
+      { startMinute: 660, endMinute: 675, time: "11.00" },
+      { startMinute: 675, endMinute: 690, time: "11.15" },
+    ]);
+    for (let i = 1; i < doctor.openSlots.length; i++) {
+      expect(doctor.openSlots[i].startMinute).toBeGreaterThanOrEqual(doctor.openSlots[i - 1].endMinute);
+    }
+  });
+
   it("situs publik: konsultasi tiap 15 menit dan jam :15 boleh ditahan; treatment tetap tiap 30 menit", async () => {
     await setConsultationMinutes(15);
     const consult = await unwrap(

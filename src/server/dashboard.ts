@@ -4,7 +4,7 @@ import { periodRanges, type DashboardPeriod, type MinuteWindow, type TimeRange }
 import { prisma } from "@/lib/db";
 import type { BookingSourceValue } from "@/lib/payment";
 import { firstName, quizLinkState } from "@/lib/quiz-link";
-import { workingWindows } from "@/lib/slot";
+import { CONSULTATION_GRID_MINUTES, workingWindows } from "@/lib/slot";
 import { addDaysToDateString, combineWitaDateAndMinutes, minutesToTimeLabel, witaDateString, witaMinutesOfDay, witaWeekday } from "@/lib/time";
 import { bookingServiceName } from "@/lib/transfer-instruction";
 import { DAY_LIST_CHANNEL } from "@/server/online-store";
@@ -150,6 +150,7 @@ export async function getTodaySchedule(now: Date = new Date()): Promise<TodaySch
     const branchId = template?.branchId ?? staff.scheduleExceptions.find((e) => e.branchId)?.branchId ?? primaryBranch?.id;
     // Dokter: slot kosong sepanjang lama konsultasi, tiap 15 menit; terapis tetap blok 30 menit.
     const slotMinutes = staff.role === "DOKTER" ? consultationMinutes : SLOT_MINUTES;
+    const blockMinutes = staff.role === "DOKTER" ? CONSULTATION_GRID_MINUTES : SLOT_MINUTES;
     const slots =
       windows.length > 0 && branchId
         ? await computeAvailability(
@@ -175,7 +176,8 @@ export async function getTodaySchedule(now: Date = new Date()): Promise<TodaySch
       }),
       openSlots: slots.map((slot) => {
         const startMinute = witaMinutesOfDay(slot.startAt);
-        return { startMinute, endMinute: startMinute + slotMinutes, time: slot.label };
+        // Satu blok per jam mulai: sepanjang grid, bukan sepanjang konsultasi, supaya blok tidak bertumpuk.
+        return { startMinute, endMinute: startMinute + Math.min(slotMinutes, blockMinutes), time: slot.label };
       }),
     });
   }

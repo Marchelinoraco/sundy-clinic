@@ -89,6 +89,9 @@ await prisma.clinicSetting.update({
 const today = witaDateString(new Date());
 const visitBranch = await prisma.branch.findUniqueOrThrow({ where: { slug: "mahakeret" } });
 const visitDoctor = await prisma.staff.findUniqueOrThrow({ where: { slug: "diane-paparang" } });
+// durasi-konsultasi.spec.ts mengubah lama konsultasi lalu mengembalikannya; putaran yang gagal di tengah
+// tidak boleh meninggalkan 15 menit untuk uji lain yang menghitung slot 30 menit.
+await prisma.service.update({ where: { slug: "konsultasi-dokter" }, data: { durationMin: 30 } });
 const visitService = await prisma.service.findUniqueOrThrow({ where: { slug: "konsultasi-dokter" } });
 for (const [index, project] of ["desktop", "mobile"].entries()) {
   const patient = await prisma.patient.create({
