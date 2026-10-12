@@ -48,9 +48,10 @@ describe("slot dan hold publik", () => {
       previousToken,
     });
 
-  it("menawarkan setiap setengah jam dari jadwal dokter", async () => {
+  it("menawarkan konsultasi tiap 15 menit dari jadwal dokter", async () => {
     const slots = await consultationSlots();
-    expect(slots).toHaveLength(16);
+    // Konsultasi 30 menit, jam mulai tiap 15 menit dari 11.00 sampai 18.30.
+    expect(slots).toHaveLength(31);
     expect(slots[0]).toMatchObject({ label: "11.00", staffId: world.doctorId, staffName: "dr. Uji Publik" });
   });
 
@@ -97,7 +98,8 @@ describe("slot dan hold publik", () => {
   });
 
   it("menolak menahan jam yang tidak ditawarkan (Review Focus 5)", async () => {
-    for (const time of ["10:00", "15:15"]) {
+    // 10.00 di luar jam kerja; 15.10 di antara grid konsultasi 15 menit.
+    for (const time of ["10:00", "15:10"]) {
       expect(await hold(time)).toEqual({ ok: false, error: "Jam ini baru saja dipilih orang lain. Pilih jam lain." });
     }
   });

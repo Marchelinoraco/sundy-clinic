@@ -2,6 +2,7 @@ import { EMPTY_BOOKING_INITIAL, parseDateParam, parseTimeParam, type BookingForm
 import { prisma } from "@/lib/db";
 import { combineWitaDateAndMinutes, minutesToTimeLabel, witaDateString, witaWeekday } from "@/lib/time";
 import { computeAvailability } from "@/server/availability";
+import { getConsultationMinutes } from "@/server/consultation-duration";
 import { getPatientSummary } from "@/server/patient";
 import { requireCapability } from "@/server/session";
 
@@ -10,9 +11,6 @@ import { requireCapability } from "@/server/session";
 export type BookingPrefillParams = { pasien?: string; tenaga?: string; tanggal?: string; jam?: string };
 
 export const SLOT_TAKEN_NOTICE = "Jam itu sudah tidak tersedia. Pilih jam lain.";
-
-/** Durasi bawaan Booking Baru (konsultasi), sama dengan slot di garis waktu dasbor. */
-const CONSULTATION_MINUTES = 30;
 
 /**
  * Isian awal hanya mengisi formulir; booking tetap dibuat lewat Buat Booking dengan
@@ -57,7 +55,10 @@ export async function resolveBookingPrefill(
     (await prisma.branch.findFirst({ where: { status: "AKTIF" }, orderBy: { sortOrder: "asc" }, select: { id: true } }))?.id ??
     null;
   const slots = branchId
-    ? await computeAvailability({ staffId: staff.id, branchId, date, durationMinutes: CONSULTATION_MINUTES }, { minLeadMinutes: 0 })
+    ? await computeAvailability(
+        { staffId: staff.id, branchId, date, durationMinutes: await getConsultationMinutes(), kind: "KONSULTASI" },
+        { minLeadMinutes: 0 },
+      )
     : [];
   const wanted = combineWitaDateAndMinutes(date, minute).getTime();
   const slot = slots.find((s) => s.startAt.getTime() === wanted) ?? null;

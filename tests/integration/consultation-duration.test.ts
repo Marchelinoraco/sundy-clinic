@@ -2,12 +2,20 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
 import { createAppointment } from "@/server/appointment";
+import { resolveBookingPrefill } from "@/server/booking-prefill";
 import { getConsultationMinutes } from "@/server/consultation-duration";
+import { getTodaySchedule } from "@/server/dashboard";
+import { getPublicSlots, holdSlot } from "@/server/public-booking";
 import { getStaffAvailabilityForAdmin, getStaffAvailabilityRange } from "@/server/schedule";
 import { getClinicConsultationMinutes, updateClinicConsultationDuration } from "@/server/service-admin";
 import { requireCapability } from "@/server/session";
 import { at, bookableDate, cleanupBookingWorld, createBookingWorld, type BookingWorld } from "./public-booking-world";
 import { unwrap } from "./unwrap";
+
+vi.mock("@/server/request-guard", () => ({
+  guardRate: vi.fn().mockResolvedValue(undefined),
+  clientIp: vi.fn().mockResolvedValue("127.0.0.1"),
+}));
 
 vi.mock("@/server/session", () => ({
   requireCapability: vi.fn().mockResolvedValue({
@@ -183,5 +191,45 @@ describe("pengaturan durasi konsultasi di Layanan & Harga", () => {
     vi.mocked(requireCapability).mockRejectedValueOnce(new Error("Tidak berhak"));
     await expect(updateClinicConsultationDuration(15)).rejects.toThrow("Tidak berhak");
     expect(await getConsultationMinutes()).toBe(30);
+  });
+});
+
+describe("jalur lain yang menghitung slot konsultasi", () => {
+  it("isian awal booking dari dasbor memakai lama konsultasi dan jam :15", async () => {
+    await setConsultationMinutes(15);
+    const { initial, notice } = await resolveBookingPrefill({ tenaga: world.doctorId, tanggal: date, jam: "11:15" });
+    expect(notice).toBeNull();
+    expect(initial.slot?.label).toBe("11.15");
+    expect(initial.slot!.endAt.getTime() - initial.slot!.startAt.getTime()).toBe(15 * 60_000);
+  });
+
+  it("garis waktu dasbor: slot kosong dokter tiap 15 menit sepanjang lama konsultasi, terapis tetap 30 menit", async () => {
+    await setConsultationMinutes(15);
+    const schedule = await getTodaySchedule(at(date, "08:00"));
+    const doctor = schedule.lanes.find((lane) => lane.staffId === world.doctorId)!;
+    const therapist = schedule.lanes.find((lane) => lane.staffId === world.therapistId)!;
+    expect(doctor.openSlots.slice(0, 2)).toEqual([
+      { startMinute: 660, endMinute: 675, time: "11.00" },
+      { startMinute: 675, endMinute: 690, time: "11.15" },
+    ]);
+    expect(therapist.openSlots.slice(0, 2).map((slot) => slot.time)).toEqual(["11.00", "11.30"]);
+  });
+
+  it("situs publik: konsultasi tiap 15 menit dan jam :15 boleh ditahan; treatment tetap tiap 30 menit", async () => {
+    await setConsultationMinutes(15);
+    const consult = await unwrap(
+      getPublicSlots({ serviceId: world.consultationId, staffId: world.doctorId, branchId: world.branchId, date, holdToken: null }),
+    );
+    expect(consult.slice(0, 2).map((slot) => slot.label)).toEqual(["11.00", "11.15"]);
+    const receipt = await unwrap(
+      holdSlot({ serviceId: world.consultationId, staffId: world.doctorId, branchId: world.branchId, startAt: at(date, "11:15").toISOString(), previousToken: null }),
+    );
+    expect(receipt).toBeTruthy();
+    await prisma.slotHold.deleteMany({ where: { staffId: world.doctorId } });
+
+    const treatment = await unwrap(
+      getPublicSlots({ serviceId: world.treatmentId, staffId: world.therapistId, branchId: world.branchId, date, holdToken: null }),
+    );
+    expect(treatment.slice(0, 2).map((slot) => slot.label)).toEqual(["11.00", "11.30"]);
   });
 });

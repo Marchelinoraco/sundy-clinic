@@ -23,7 +23,7 @@ import { bookingFeeFor, formatBankAccount } from "@/lib/payment";
 import { PRIVACY_POLICY_VERSION } from "@/lib/privacy";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { safeRevalidatePath } from "@/lib/revalidate";
-import type { SlotOption } from "@/lib/slot";
+import type { SlotKind, SlotOption } from "@/lib/slot";
 import { boundsOf, ONLINE_BRANCH_LABEL, onlineTotal, validateContactWindows, windowLines } from "@/lib/online-consultation";
 import { minutesToTimeLabel, witaDateString, witaMinutesOfDay } from "@/lib/time";
 import {
@@ -107,7 +107,7 @@ export async function getPublicSlots(input: {
     const perStaff = await Promise.all(
       staff.map(async (person) => {
         const slots = await computeAvailability(
-          { staffId: person.id, branchId: input.branchId, date: input.date, durationMinutes: service.durationMin },
+          { staffId: person.id, branchId: input.branchId, date: input.date, durationMinutes: service.durationMin, kind: slotKindOf(service) },
           { minLeadMinutes: PUBLIC_MIN_LEAD_MINUTES, holds: { excludeToken: input.holdToken } },
         );
         return slots.map((slot) => ({ ...slot, staffId: person.id, staffName: person.name }));
@@ -123,6 +123,11 @@ export async function getPublicSlots(input: {
     }
     return [...byStart.values()].sort((a, b) => a.startAt.getTime() - b.startAt.getTime());
   });
+}
+
+/** Konsultasi Dokter ditawarkan tiap 15 menit, treatment tiap 30 menit (gridMinutesFor). */
+function slotKindOf(service: { slug: string }): SlotKind {
+  return service.slug === CONSULTATION_SERVICE_SLUG ? "KONSULTASI" : "TREATMENT";
 }
 
 export async function holdSlot(input: {
@@ -157,7 +162,7 @@ export async function holdSlot(input: {
     // Hanya jam yang memang ditawarkan boleh ditahan: permintaan buatan tidak
     // bisa menahan jam di luar jadwal, di antara grid, atau kurang dari 2 jam lagi.
     const offered = await computeAvailability(
-      { staffId: staff.id, branchId: input.branchId, date, durationMinutes: service.durationMin },
+      { staffId: staff.id, branchId: input.branchId, date, durationMinutes: service.durationMin, kind: slotKindOf(service) },
       { minLeadMinutes: PUBLIC_MIN_LEAD_MINUTES, holds: { excludeToken: input.previousToken } },
     );
     const slot = offered.find((candidate) => candidate.startAt.getTime() === startAt.getTime());
@@ -450,7 +455,7 @@ export async function submitSiteBooking(input: SiteBookingInput): Promise<Action
     // termasuk jadwal, libur, dan lead time (spec 5.4).
     if (!hold || hold.expiresAt <= now) {
       const offered = await computeAvailability(
-        { staffId: staff.id, branchId: input.branchId, date: witaDateString(startAt), durationMinutes: service.durationMin },
+        { staffId: staff.id, branchId: input.branchId, date: witaDateString(startAt), durationMinutes: service.durationMin, kind: slotKindOf(service) },
         { minLeadMinutes: PUBLIC_MIN_LEAD_MINUTES, holds: { excludeToken: input.holdToken } },
       );
       const stillOpen = offered.some((slot) => slot.startAt.getTime() === startAt.getTime());
