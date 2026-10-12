@@ -1,7 +1,8 @@
 // @vitest-environment node
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
-import { createPatient } from "@/server/patient";
+import { NIK_FORMAT_ERROR } from "@/lib/nik";
+import { checkPatientNik, createPatient } from "@/server/patient";
 import { requireCapability } from "@/server/session";
 import { patientInput } from "./patient-fixture";
 import { unwrap } from "./unwrap";
@@ -176,5 +177,44 @@ describe("createPatient: data lengkap dan NIK", () => {
     vi.mocked(requireCapability).mockRejectedValueOnce(new Error("Tidak berhak"));
     await expect(createPatient(patientInput())).rejects.toThrow("Tidak berhak");
     expect(await prisma.patient.count()).toBe(1);
+  });
+});
+
+describe("checkPatientNik", () => {
+  beforeEach(reset);
+
+  it("NIK yang belum dipakai → FREE", async () => {
+    expect(await unwrap(checkPatientNik("7171010190000010"))).toEqual({ status: "FREE" });
+  });
+
+  it("NIK yang sudah dipakai → TAKEN dengan ringkasan pemilik dan tanggal lahir", async () => {
+    const owner = await unwrap(createPatient(patientInput({ nik: "7171010190000011", name: "Pemilik NIK" })));
+    const result = await unwrap(checkPatientNik("7171 0101 9000 0011"));
+    expect(result).toEqual({
+      status: "TAKEN",
+      patient: expect.objectContaining({ id: owner.id, name: "Pemilik NIK", medicalRecordNumber: owner.medicalRecordNumber }),
+      birthDateLabel: "01/01/1990",
+    });
+  });
+
+  it("hasilnya tidak memuat email atau kontak darurat pemilik", async () => {
+    await unwrap(createPatient(patientInput({ nik: "7171010190000012", email: "rahasia@example.com" })));
+    const json = JSON.stringify(await unwrap(checkPatientNik("7171010190000012")));
+    expect(json).not.toContain("rahasia@example.com");
+    expect(json).not.toContain("Budi Rahayu");
+    expect(json).not.toContain("emergency");
+  });
+
+  it("menolak NIK yang bukan 16 angka, termasuk nilai bukan teks", async () => {
+    expect(await checkPatientNik("123")).toEqual({ ok: false, error: NIK_FORMAT_ERROR });
+    expect(await checkPatientNik(null as never)).toEqual({ ok: false, error: NIK_FORMAT_ERROR });
+    expect(await checkPatientNik({} as never)).toEqual({ ok: false, error: NIK_FORMAT_ERROR });
+  });
+
+  it("memerlukan hak booking:manage", async () => {
+    await checkPatientNik("7171010190000013");
+    expect(requireCapability).toHaveBeenLastCalledWith("booking:manage");
+    vi.mocked(requireCapability).mockRejectedValueOnce(new Error("Tidak berhak"));
+    await expect(checkPatientNik("7171010190000013")).rejects.toThrow("Tidak berhak");
   });
 });

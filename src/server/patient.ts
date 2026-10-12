@@ -143,6 +143,26 @@ export async function createPatient(input: PatientRegistrationInput): Promise<Ac
   });
 }
 
+export type NikCheck =
+  | { status: "FREE" }
+  /** Kartu pasien pemilik NIK; `patient` utuh agar tombol "Pakai pasien ini" bisa langsung memakainya. */
+  | { status: "TAKEN"; patient: PatientSummary; birthDateLabel: string | null };
+
+/**
+ * Cek NIK saat resepsionis mengetik di dialog Pasien baru: sudah dipakai siapa, atau masih bebas.
+ * Hanya staf berhak; hasilnya tidak memuat data pribadi di luar ringkasan pasien.
+ */
+export async function checkPatientNik(nik: string): Promise<ActionResult<NikCheck>> {
+  return runAction<NikCheck>(async () => {
+    await requireCapability("booking:manage");
+    const normalized = normalizeNik(typeof nik === "string" ? nik : "");
+    if (!normalized) throw new UserFacingError(NIK_FORMAT_ERROR);
+    const owner = await findNikOwner(normalized);
+    if (!owner) return { status: "FREE" };
+    return { status: "TAKEN", patient: toSummary(owner), birthDateLabel: formatDateColumn(owner.birthDate) };
+  });
+}
+
 export async function listRecentPatients(limit = 50): Promise<PatientSummary[]> {
   await requireCapability("booking:manage");
   const rows = await prisma.patient.findMany({
