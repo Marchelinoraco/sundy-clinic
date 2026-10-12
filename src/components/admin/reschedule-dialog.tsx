@@ -130,6 +130,7 @@ export function RescheduleDialog({
                 staffId={target.staffId}
                 branchId={target.branchId}
                 durationMinutes={target.durationMinutes}
+                kind={target.kind}
                 today={today}
                 selected={date}
                 onSelect={(d) => {
@@ -145,6 +146,7 @@ export function RescheduleDialog({
                   branchId={target.branchId}
                   date={date}
                   durationMinutes={target.durationMinutes}
+                  kind={target.kind}
                   selected={slot}
                   onSelect={setSlot}
                   refreshKey={refreshKey}

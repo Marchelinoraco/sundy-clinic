@@ -4,7 +4,7 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Typography from "@mui/material/Typography";
 import { useEffect, useRef, useState } from "react";
-import type { SlotOption } from "@/lib/slot";
+import type { SlotKind, SlotOption } from "@/lib/slot";
 import { getStaffAvailabilityForAdmin } from "@/server/schedule";
 
 type Props = {
@@ -12,6 +12,8 @@ type Props = {
   branchId: string;
   date: string;
   durationMinutes: number;
+  /** Konsultasi ditawarkan tiap 15 menit, treatment tiap 30 menit. */
+  kind?: SlotKind;
   selected: SlotOption | null;
   onSelect: (slot: SlotOption) => void;
   /** Dinaikkan oleh form untuk memaksa muat ulang, misal setelah slot direbut booking lain. */
@@ -27,12 +29,13 @@ export function SlotPicker({
   branchId,
   date,
   durationMinutes,
+  kind,
   selected,
   onSelect,
   refreshKey,
   excludeAppointmentId,
 }: Props) {
-  const requestKey = `${staffId}|${branchId}|${date}|${durationMinutes}|${refreshKey}|${excludeAppointmentId ?? ""}`;
+  const requestKey = `${staffId}|${branchId}|${date}|${durationMinutes}|${kind ?? ""}|${refreshKey}|${excludeAppointmentId ?? ""}`;
   const [loaded, setLoaded] = useState<LoadState>({ key: "", slots: [], failed: false });
   const latestKey = useRef(requestKey);
 
@@ -43,6 +46,7 @@ export function SlotPicker({
       branchId,
       date,
       durationMinutes,
+      ...(kind ? { kind } : {}),
       ...(excludeAppointmentId ? { excludeAppointmentId } : {}),
     })
       .then((slots) => {
@@ -51,7 +55,7 @@ export function SlotPicker({
       .catch(() => {
         if (latestKey.current === requestKey) setLoaded({ key: requestKey, slots: [], failed: true });
       });
-  }, [requestKey, staffId, branchId, date, durationMinutes, excludeAppointmentId]);
+  }, [requestKey, staffId, branchId, date, durationMinutes, kind, excludeAppointmentId]);
 
   if (loaded.key !== requestKey) {
     return (

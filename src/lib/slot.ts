@@ -10,11 +10,25 @@ export type ScheduleExceptionInput = {
 export type BusyRange = { startAt: Date; endAt: Date };
 export type SlotOption = { startAt: Date; endAt: Date; label: string };
 
+/** Jarak antar jam mulai yang ditawarkan, bawaan untuk treatment. */
+export const SLOT_GRID_MINUTES = 30;
+/** Konsultasi klinik ditawarkan tiap 15 menit, berapa pun durasinya (durasinya diatur di Layanan & Harga). */
+export const CONSULTATION_GRID_MINUTES = 15;
+
+export type SlotKind = "KONSULTASI" | "TREATMENT";
+
+/** Jenis booking → jarak jam mulai. Nilai lain (mis. dari browser) dihitung treatment. */
+export function gridMinutesFor(kind: SlotKind | undefined): number {
+  return kind === "KONSULTASI" ? CONSULTATION_GRID_MINUTES : SLOT_GRID_MINUTES;
+}
+
 type GetAvailableSlotsInput = {
   /** Tanggal WITA "YYYY-MM-DD" yang diminta. */
   date: string;
   /** Durasi layanan yang dipesan, dalam menit. */
   durationMinutes: number;
+  /** Jarak antar jam mulai yang ditawarkan; bawaan SLOT_GRID_MINUTES. */
+  gridMinutes?: number;
   /** Jam kerja staf ini di cabang ini pada hari-dalam-minggu tanggal tsb, atau null bila tidak bekerja. */
   template: WorkWindow | null;
   /** Pengecualian staf ini pada tanggal ini saja. */
@@ -99,13 +113,17 @@ export function getAvailableSlots(input: GetAvailableSlotsInput): SlotOption[] {
   const seenStartMinutes = new Set<number>();
   const result: SlotOption[] = [];
 
-  const GRID_MINUTES = 30;
+  // Grid yang tidak masuk akal (0, negatif, pecahan) jatuh ke bawaan: grid 0 berarti perulangan tanpa akhir.
+  const grid =
+    input.gridMinutes !== undefined && Number.isInteger(input.gridMinutes) && input.gridMinutes > 0
+      ? input.gridMinutes
+      : SLOT_GRID_MINUTES;
 
   for (const window of freeWindows) {
     for (
       let candidate = window.startMinute;
       candidate + input.durationMinutes <= window.endMinute;
-      candidate += GRID_MINUTES
+      candidate += grid
     ) {
       if (seenStartMinutes.has(candidate)) continue;
 

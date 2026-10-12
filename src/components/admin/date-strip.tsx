@@ -6,6 +6,7 @@ import ButtonBase from "@mui/material/ButtonBase";
 import Typography from "@mui/material/Typography";
 import { useEffect, useRef, useState } from "react";
 import { formatIndonesianDate, formatShortIndonesianDate } from "@/lib/format";
+import type { SlotKind } from "@/lib/slot";
 import { combineWitaDateAndMinutes } from "@/lib/time";
 import type { DayAvailability } from "@/server/availability";
 import { getStaffAvailabilityRange } from "@/server/schedule";
@@ -17,6 +18,8 @@ type Props = {
   staffId: string;
   branchId: string;
   durationMinutes: number;
+  /** Konsultasi ditawarkan tiap 15 menit, treatment tiap 30 menit. */
+  kind?: SlotKind;
   /** Hari ini dalam WITA, dari server. */
   today: string;
   /** Tanggal terpilih ("YYYY-MM-DD"), atau "" bila belum ada. */
@@ -46,13 +49,14 @@ export function DateStrip({
   staffId,
   branchId,
   durationMinutes,
+  kind,
   today,
   selected,
   onSelect,
   refreshKey,
   excludeAppointmentId,
 }: Props) {
-  const requestKey = `${staffId}|${branchId}|${durationMinutes}|${today}|${refreshKey}|${excludeAppointmentId ?? ""}`;
+  const requestKey = `${staffId}|${branchId}|${durationMinutes}|${kind ?? ""}|${today}|${refreshKey}|${excludeAppointmentId ?? ""}`;
   const [loaded, setLoaded] = useState<LoadState>({ key: "", days: [], failed: false });
   const [showOtherDate, setShowOtherDate] = useState(false);
   const latestKey = useRef(requestKey);
@@ -63,6 +67,7 @@ export function DateStrip({
       staffId,
       branchId,
       durationMinutes,
+      ...(kind ? { kind } : {}),
       from: today,
       days: STRIP_DAYS,
       ...(excludeAppointmentId ? { excludeAppointmentId } : {}),
@@ -73,7 +78,7 @@ export function DateStrip({
       .catch(() => {
         if (latestKey.current === requestKey) setLoaded({ key: requestKey, days: [], failed: true });
       });
-  }, [requestKey, staffId, branchId, durationMinutes, today, excludeAppointmentId]);
+  }, [requestKey, staffId, branchId, durationMinutes, kind, today, excludeAppointmentId]);
 
   const ready = loaded.key === requestKey;
   const inStrip = loaded.days.some((day) => day.date === selected);

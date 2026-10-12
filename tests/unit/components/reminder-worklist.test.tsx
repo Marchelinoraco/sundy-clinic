@@ -45,6 +45,7 @@ function row(id: string, name: string, startAt: Date, patch: Partial<ReminderRow
       patientName: name,
       startAt,
       durationMinutes: 30,
+      kind: "KONSULTASI",
       staffId: "d1",
       staffName: "dr. Diane",
       branchId: "b1",

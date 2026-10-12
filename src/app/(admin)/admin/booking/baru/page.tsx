@@ -4,6 +4,7 @@ import { AppointmentForm, type BookingServiceGroup } from "@/components/admin/ap
 import { OnlineAppointmentForm } from "@/components/admin/online-appointment-form";
 import { PageBody, PageHeader } from "@/components/admin/page-layout";
 import { PageTabs } from "@/components/admin/page-tabs";
+import { DEFAULT_CONSULTATION_MINUTES } from "@/lib/booking-rules";
 import { witaDateString } from "@/lib/time";
 import { resolveBookingPrefill } from "@/server/booking-prefill";
 import { getBranches, getServiceCategoriesWithServices } from "@/server/catalog";
@@ -98,6 +99,7 @@ export default async function NewAppointmentPage({ searchParams }: { searchParam
             }))}
             treatmentGroups={treatmentGroups}
             consultationServiceId={consultation?.id ?? null}
+            consultationMinutes={consultation?.durationMin ?? DEFAULT_CONSULTATION_MINUTES}
             today={witaDateString(new Date())}
             bookingFee={setting.bookingFee}
             initial={prefill.initial}

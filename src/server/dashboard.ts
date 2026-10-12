@@ -4,12 +4,13 @@ import { periodRanges, type DashboardPeriod, type MinuteWindow, type TimeRange }
 import { prisma } from "@/lib/db";
 import type { BookingSourceValue } from "@/lib/payment";
 import { firstName, quizLinkState } from "@/lib/quiz-link";
-import { workingWindows } from "@/lib/slot";
+import { CONSULTATION_GRID_MINUTES, workingWindows } from "@/lib/slot";
 import { addDaysToDateString, combineWitaDateAndMinutes, minutesToTimeLabel, witaDateString, witaMinutesOfDay, witaWeekday } from "@/lib/time";
 import { bookingServiceName } from "@/lib/transfer-instruction";
 import { DAY_LIST_CHANNEL } from "@/server/online-store";
 import { listPendingBookings } from "@/server/appointment";
 import { computeAvailability } from "@/server/availability";
+import { getConsultationMinutes } from "@/server/consultation-duration";
 import { getReminderCounts } from "@/server/reminder";
 import { requireCapability } from "@/server/session";
 
@@ -17,7 +18,7 @@ import { requireCapability } from "@/server/session";
 // Setiap fungsi memeriksa haknya sendiri, karena bagian dasbor dimuat terpisah (spec D 4.6–4.7).
 
 const HIDDEN_STATUSES: AppointmentStatus[] = ["DIBATALKAN", "KEDALUWARSA"];
-/** Slot kosong di garis waktu memakai durasi konsultasi, sama dengan bawaan Booking Baru. */
+/** Slot kosong terapis di garis waktu; dokter memakai lama konsultasi dari Layanan & Harga. */
 const SLOT_MINUTES = 30;
 
 function dayBounds(now: Date) {
@@ -102,6 +103,7 @@ export async function getTodaySchedule(now: Date = new Date()): Promise<TodaySch
       select: {
         id: true,
         name: true,
+        role: true,
         scheduleTemplates: { where: { weekday }, select: { branchId: true, startMinute: true, endMinute: true } },
         scheduleExceptions: {
           where: { date: dateColumn },
@@ -134,6 +136,7 @@ export async function getTodaySchedule(now: Date = new Date()): Promise<TodaySch
     },
   });
 
+  const consultationMinutes = await getConsultationMinutes();
   const lanes: ScheduleLane[] = [];
   const offStaff: string[] = [];
   for (const staff of staffList) {
@@ -145,9 +148,15 @@ export async function getTodaySchedule(now: Date = new Date()): Promise<TodaySch
       continue;
     }
     const branchId = template?.branchId ?? staff.scheduleExceptions.find((e) => e.branchId)?.branchId ?? primaryBranch?.id;
+    // Dokter: slot kosong sepanjang lama konsultasi, tiap 15 menit; terapis tetap blok 30 menit.
+    const slotMinutes = staff.role === "DOKTER" ? consultationMinutes : SLOT_MINUTES;
+    const blockMinutes = staff.role === "DOKTER" ? CONSULTATION_GRID_MINUTES : SLOT_MINUTES;
     const slots =
       windows.length > 0 && branchId
-        ? await computeAvailability({ staffId: staff.id, branchId, date, durationMinutes: SLOT_MINUTES }, { minLeadMinutes: 0 })
+        ? await computeAvailability(
+            { staffId: staff.id, branchId, date, durationMinutes: slotMinutes, kind: staff.role === "DOKTER" ? "KONSULTASI" : "TREATMENT" },
+            { minLeadMinutes: 0 },
+          )
         : [];
     lanes.push({
       staffId: staff.id,
@@ -167,7 +176,8 @@ export async function getTodaySchedule(now: Date = new Date()): Promise<TodaySch
       }),
       openSlots: slots.map((slot) => {
         const startMinute = witaMinutesOfDay(slot.startAt);
-        return { startMinute, endMinute: startMinute + SLOT_MINUTES, time: slot.label };
+        // Satu blok per jam mulai: sepanjang grid, bukan sepanjang konsultasi, supaya blok tidak bertumpuk.
+        return { startMinute, endMinute: startMinute + Math.min(slotMinutes, blockMinutes), time: slot.label };
       }),
     });
   }

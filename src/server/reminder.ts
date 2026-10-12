@@ -126,6 +126,7 @@ export async function getReminderWorklist(): Promise<ReminderWorklist> {
       patientName: booking.patient!.name,
       startAt: booking.startAt,
       durationMinutes: Math.round((booking.endAt.getTime() - booking.startAt.getTime()) / 60_000),
+      kind: booking.type,
       staffId: booking.staffId,
       staffName: booking.staff.name,
       branchId: booking.branchId,

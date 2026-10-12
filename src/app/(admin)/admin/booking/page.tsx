@@ -99,6 +99,7 @@ function toRow(a: ListedAppointment, context: RowContext): BookingRow {
       patientName: patient?.name ?? a.intake?.name ?? "Tanpa nama",
       startAt: a.startAt,
       durationMinutes: Math.round((a.endAt.getTime() - a.startAt.getTime()) / 60_000),
+      kind: a.type,
       staffId: a.staffId,
       staffName: a.staff.name,
       branchId: a.branchId,

@@ -1,6 +1,7 @@
 import type { AppointmentStatusValue } from "./appointment-status";
 import type { WindowDraft } from "./online-consultation";
 import type { BookingSourceValue } from "./payment";
+import type { SlotKind } from "./slot";
 
 export type BookingAction =
   | "VERIFY"
@@ -68,6 +69,8 @@ export type RescheduleTarget = {
   patientName: string;
   startAt: Date;
   durationMinutes: number;
+  /** Konsultasi digeser ke jam tiap 15 menit; lamanya tetap lama booking ini. */
+  kind: SlotKind;
   staffId: string;
   staffName: string;
   branchId: string;

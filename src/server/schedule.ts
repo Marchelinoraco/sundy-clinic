@@ -2,7 +2,7 @@
 
 import type { ExceptionKind, ScheduleException, ScheduleTemplate, Staff } from "@prisma/client";
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
-import type { SlotOption } from "@/lib/slot";
+import type { SlotKind, SlotOption } from "@/lib/slot";
 import { prisma } from "@/lib/db";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { WEEKDAY_LABELS, type WeeklyDayInput } from "@/lib/schedule-week";
@@ -272,6 +272,7 @@ export async function getStaffAvailabilityRange(input: {
   staffId: string;
   branchId: string;
   durationMinutes: number;
+  kind?: SlotKind;
   from: string;
   days: number;
   excludeAppointmentId?: string;

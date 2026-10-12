@@ -1,4 +1,4 @@
-import { getAvailableSlots, type SlotOption } from "@/lib/slot";
+import { getAvailableSlots, gridMinutesFor, type SlotKind, type SlotOption } from "@/lib/slot";
 import { addDaysToDateString, combineWitaDateAndMinutes, witaWeekday } from "@/lib/time";
 import { prisma } from "@/lib/db";
 import { expireStaleSiteBookings } from "@/server/booking-expiry";
@@ -13,6 +13,8 @@ export type AvailabilityInput = {
   branchId: string;
   date: string;
   durationMinutes: number;
+  /** Konsultasi ditawarkan tiap 15 menit, selain itu tiap 30 menit (gridMinutesFor). */
+  kind?: SlotKind;
 };
 
 export type AvailabilityOptions = {
@@ -85,6 +87,7 @@ export async function computeAvailability(
   return getAvailableSlots({
     date: input.date,
     durationMinutes: input.durationMinutes,
+    gridMinutes: gridMinutesFor(input.kind),
     template:
       template && template.branchId === input.branchId
         ? { startMinute: template.startMinute, endMinute: template.endMinute }
@@ -119,7 +122,7 @@ const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
  * lewat). FULL: masih punya jam kerja, tetapi semuanya sudah terisi.
  */
 export async function computeAvailabilityRange(
-  input: { staffId: string; branchId: string; durationMinutes: number; from: string; days: number },
+  input: { staffId: string; branchId: string; durationMinutes: number; kind?: SlotKind; from: string; days: number },
   options: Pick<AvailabilityOptions, "minLeadMinutes" | "excludeAppointmentId">,
 ): Promise<DayAvailability[]> {
   if (!Number.isInteger(input.days) || input.days < 1 || input.days > MAX_AVAILABILITY_RANGE_DAYS) {
@@ -164,6 +167,7 @@ export async function computeAvailabilityRange(
     const day = {
       date,
       durationMinutes: input.durationMinutes,
+      gridMinutes: gridMinutesFor(input.kind),
       template:
         template && template.branchId === input.branchId
           ? { startMinute: template.startMinute, endMinute: template.endMinute }
