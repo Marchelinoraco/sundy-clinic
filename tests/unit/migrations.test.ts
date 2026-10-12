@@ -188,3 +188,16 @@ describe("migrasi wajib ganti kata sandi", () => {
   });
 });
 
+
+describe("migrasi data pasien (pendaftaran di panel)", () => {
+  const sql = readFileSync("prisma/migrations/20261012120000_data_pasien/migration.sql", "utf8");
+
+  it("hanya menambah, tanpa menghapus apa pun yang dikenal rilis sebelumnya", () => {
+    expect(sql).not.toMatch(/\bDROP\b/i);
+  });
+
+  it("menjaga pasangan kontak darurat dan bentuk email di basis data", () => {
+    expect(sql).toMatch(/patient_emergency_pair/);
+    expect(sql).toMatch(/patient_email_format/);
+  });
+});
