@@ -70,4 +70,15 @@ describe("StockItemDialog", () => {
     await user.click(screen.getByRole("button", { name: "+ Barang" }));
     expect(screen.queryByLabelText("Harga jual")).not.toBeInTheDocument();
   });
+
+  it("membuka dialog memakai data terbaru dari halaman (harga diisi Admin Keuangan sesudah halaman dimuat)", async () => {
+    const user = userEvent.setup();
+    vi.mocked(updateStockItem).mockResolvedValue({ ok: true, data: undefined });
+    const initial = { code: "OBT-001", name: "Amoxicillin", kind: "OBAT" as const, unit: "kapsul", sellPrice: null, minStock: 20, notes: "" };
+    const { rerender } = renderAdmin(<StockItemDialog itemId="i1" initial={initial} triggerLabel="Ubah barang" />);
+    rerender(<StockItemDialog itemId="i1" initial={{ ...initial, sellPrice: 2000 }} triggerLabel="Ubah barang" />);
+    await user.click(screen.getByRole("button", { name: "Ubah barang" }));
+    await user.click(screen.getByRole("button", { name: "Simpan" }));
+    await waitFor(() => expect(updateStockItem).toHaveBeenCalledWith("i1", { ...initial, sellPrice: 2000 }));
+  });
 });

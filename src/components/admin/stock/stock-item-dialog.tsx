@@ -65,6 +65,13 @@ export function StockItemDialog({
     });
   }
 
+  // Ubah barang selalu mulai dari data halaman terbaru: harga bisa diisi Admin Keuangan sesudah halaman dimuat.
+  function openDialog() {
+    if (itemId && initial) setValue(initial);
+    setError(null);
+    setOpen(true);
+  }
+
   function close() {
     setOpen(false);
     setError(null);
@@ -74,7 +81,7 @@ export function StockItemDialog({
 
   return (
     <>
-      <Button variant={itemId ? "outlined" : "contained"} onClick={() => setOpen(true)}>
+      <Button variant={itemId ? "outlined" : "contained"} onClick={openDialog}>
         {triggerLabel}
       </Button>
       <Dialog open={open} onClose={close} fullWidth maxWidth="sm">
