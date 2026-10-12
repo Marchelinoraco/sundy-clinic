@@ -44,13 +44,19 @@ async function openDialog(props: Parameters<typeof NewPatientForm>[0] = {}) {
   return { user, dialog };
 }
 
+/** Menempel teks ke isian: jauh lebih cepat dari mengetik per huruf, supaya uji tidak kena batas 5 dtk saat suite penuh. */
+async function paste(user: ReturnType<typeof userEvent.setup>, field: HTMLElement, text: string) {
+  await user.click(field);
+  await user.paste(text);
+}
+
 async function fillRest(user: ReturnType<typeof userEvent.setup>, dialog: HTMLElement) {
-  await user.type(within(dialog).getByLabelText("Nama", { exact: true }), "Siti Rahayu");
+  await paste(user, within(dialog).getByLabelText("Nama", { exact: true }), "Siti Rahayu");
   setDateField("Tanggal lahir", "1990-05-17", within(dialog));
-  await user.type(within(dialog).getByLabelText("No. HP (WhatsApp)"), "081234567890");
-  await user.type(within(dialog).getByLabelText("Nama kontak darurat"), "Budi Rahayu");
-  await user.type(within(dialog).getByLabelText("Nomor kontak darurat"), "081298765432");
-  await user.type(within(dialog).getByLabelText("Alamat"), "Jl. Sam Ratulangi 10");
+  await paste(user, within(dialog).getByLabelText("No. HP (WhatsApp)"), "081234567890");
+  await paste(user, within(dialog).getByLabelText("Nama kontak darurat"), "Budi Rahayu");
+  await paste(user, within(dialog).getByLabelText("Nomor kontak darurat"), "081298765432");
+  await paste(user, within(dialog).getByLabelText("Alamat"), "Jl. Sam Ratulangi 10");
 }
 
 describe("NewPatientForm", () => {
@@ -154,7 +160,7 @@ describe("NewPatientForm", () => {
     it("mengirim data lengkap, memanggil onCreated, dan menutup dialog", async () => {
       const onCreated = vi.fn();
       const { user, dialog } = await openDialog({ onCreated });
-      await user.type(within(dialog).getByLabelText("NIK (16 angka)"), "7171 0157 0590 0001");
+      await paste(user, within(dialog).getByLabelText("NIK (16 angka)"), "7171 0157 0590 0001");
       await fillRest(user, dialog);
       await user.click(within(dialog).getByRole("button", { name: "Buat Pasien" }));
 
@@ -177,9 +183,9 @@ describe("NewPatientForm", () => {
 
     it("email dan status pernikahan yang diisi ikut terkirim", async () => {
       const { user, dialog } = await openDialog();
-      await user.type(within(dialog).getByLabelText("NIK (16 angka)"), NIK);
+      await paste(user, within(dialog).getByLabelText("NIK (16 angka)"), NIK);
       await fillRest(user, dialog);
-      await user.type(within(dialog).getByLabelText("Email (opsional)"), "siti@example.com");
+      await paste(user, within(dialog).getByLabelText("Email (opsional)"), "siti@example.com");
       await user.selectOptions(within(dialog).getByLabelText("Status pernikahan (opsional)"), "MENIKAH");
       await user.click(within(dialog).getByRole("button", { name: "Buat Pasien" }));
       await waitFor(() => expect(createPatient).toHaveBeenCalled());
@@ -216,7 +222,7 @@ describe("NewPatientForm", () => {
     it("galat dari server tampil di dalam dialog dan dialog tetap terbuka", async () => {
       vi.mocked(createPatient).mockResolvedValue({ ok: false, error: "NIK ini sudah terdaftar atas nama Maria Wenas (SDY-2026-0007)." });
       const { user, dialog } = await openDialog();
-      await user.type(within(dialog).getByLabelText("NIK (16 angka)"), NIK);
+      await paste(user, within(dialog).getByLabelText("NIK (16 angka)"), NIK);
       await fillRest(user, dialog);
       await user.click(within(dialog).getByRole("button", { name: "Buat Pasien" }));
       expect(await within(dialog).findByText("NIK ini sudah terdaftar atas nama Maria Wenas (SDY-2026-0007).")).toBeInTheDocument();
