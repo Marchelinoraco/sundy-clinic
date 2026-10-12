@@ -28,6 +28,8 @@ vi.mock("@/server/invoice-drafts", () => ({
   addInvoiceItem: mocks.addInvoiceItem,
   addFreeLine: mocks.addFreeLine,
   refreshCatalogPrices: mocks.refreshCatalogPrices,
+  setLineDiscount: vi.fn(),
+  clearLineDiscount: vi.fn(),
 }));
 vi.mock("@/server/invoice-lifecycle", () => ({ finalizeInvoice: mocks.finalizeInvoice, cancelInvoice: mocks.cancelInvoice }));
 
@@ -172,5 +174,18 @@ describe("editor draf tagihan", () => {
     expect(screen.getByLabelText("Harga Vitamin C")).toBeEnabled();
     expect(screen.getByLabelText("Jumlah Konsultasi Gizi")).toBeEnabled();
     expect(screen.getByRole("button", { name: "Hapus Konsultasi Gizi" })).toBeInTheDocument();
+  });
+
+  it("ringkasan memisahkan Diskon item; setiap baris punya tombol Diskon dan catatan diskonnya", () => {
+    const discounted = detail();
+    discounted.lines[0] = { ...discounted.lines[0], discountAmount: 10_000, amount: 140_000, discountReason: "Pelanggan lama", discountSource: "MANUAL" };
+    discounted.totals = invoiceTotals({ status: "DRAF", discountKind: null, discountValue: 0, lines: discounted.lines, payments: [] });
+    renderAdmin(<InvoiceDraftEditor detail={discounted} items={items} canExceedDiscount={false} />);
+    const summary = screen.getByRole("region", { name: "Ringkasan tagihan" });
+    expect(summary).toHaveTextContent("SubtotalRp 200.000");
+    expect(summary).toHaveTextContent("Diskon item-Rp 10.000");
+    expect(summary).toHaveTextContent("TotalRp 190.000");
+    expect(screen.getByRole("button", { name: "Diskon Konsultasi Gizi" })).toBeInTheDocument();
+    expect(screen.getByText(/Diskon −Rp 10\.000 · Pelanggan lama/)).toBeInTheDocument();
   });
 });

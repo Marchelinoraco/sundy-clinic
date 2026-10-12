@@ -19,6 +19,7 @@ import { CancelInvoiceDialog } from "./cancel-invoice-dialog";
 import { FinalDiscountDialog } from "./final-discount-dialog";
 import { InvoiceNotesForm } from "./invoice-notes-form";
 import { InvoicePaymentDialog } from "./invoice-payment-dialog";
+import { LineDiscountNote } from "./line-discount-dialog";
 import { PrintButton } from "./print-button";
 import { ReceiptPrintButton } from "./receipt-print-button";
 import { ReceiptResetDialog } from "./receipt-reset-dialog";
@@ -104,10 +105,18 @@ export function InvoiceFinalView({
                       {INVOICE_LINE_KIND_LABEL[line.kind]}
                       {line.priceNote && ` · ${line.priceNote}`}
                     </Typography>
+                    <LineDiscountNote line={line} />
                   </TableCell>
                   <TableCell align="right">{line.quantity}</TableCell>
                   <TableCell align="right">{formatRupiah(line.unitPrice)}</TableCell>
-                  <TableCell align="right">{formatRupiah(line.amount)}</TableCell>
+                  <TableCell align="right">
+                    {line.discountAmount > 0 && (
+                      <Typography variant="caption" component="div" sx={{ textDecoration: "line-through", color: "text.secondary" }}>
+                        {formatRupiah(line.gross)}
+                      </Typography>
+                    )}
+                    {formatRupiah(line.amount)}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -118,8 +127,14 @@ export function InvoiceFinalView({
           <Stack spacing={0.5}>
             <Stack direction="row" sx={row}>
               <span>Subtotal</span>
-              <span>{formatRupiah(totals.subtotal)}</span>
+              <span>{formatRupiah(totals.grossSubtotal)}</span>
             </Stack>
+            {totals.itemDiscount > 0 && (
+              <Stack direction="row" sx={row}>
+                <span>Diskon item</span>
+                <span>-{formatRupiah(totals.itemDiscount)}</span>
+              </Stack>
+            )}
             {totals.discount > 0 && (
               <Box>
                 <Stack direction="row" sx={row}>

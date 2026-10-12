@@ -1,7 +1,6 @@
 // @vitest-environment node
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
-import { witaDateString } from "@/lib/time";
 import { addFreeLine, addInvoiceItem, clearLineDiscount, createDirectSale, createInvoiceFromVisit, refreshCatalogPrices, setInvoiceDiscount, setLineDiscount, updateInvoiceLine } from "@/server/invoice-drafts";
 import { cleanupBillingWorld, createBillingWorld, finalVisit, seedDispensing, type BillingWorld } from "./invoice-world";
 import { unwrap } from "./unwrap";
@@ -20,7 +19,6 @@ vi.mock("@/server/session", async () => {
 
 const SLUG = "diskon-baris";
 const WA = "6281200009502";
-const today = witaDateString(new Date());
 let world: BillingWorld;
 
 const lineOf = async (invoiceId: string, name: string) => prisma.invoiceLine.findFirstOrThrow({ where: { invoiceId, name } });
@@ -38,8 +36,8 @@ async function setPromo(itemId: string, promo: { kind: "PERSEN" | "NOMINAL"; val
 /** Penjualan langsung: produk 2 × Rp150.000 + baris layanan Rp100.000. */
 async function draft() {
   const { id } = await unwrap(createDirectSale({ patientId: world.patientId, branchId: world.branchId }));
-  let version = (await unwrap(addInvoiceItem({ invoiceId: id, version: 1, itemId: world.productId, quantity: 2 }))).version;
-  version = (await unwrap(addFreeLine({ invoiceId: id, version, kind: "LAYANAN", name: "Layanan Diskon", quantity: 1, unitPrice: 100_000 }))).version;
+  const { version } = await unwrap(addInvoiceItem({ invoiceId: id, version: 1, itemId: world.productId, quantity: 2 }));
+  await unwrap(addFreeLine({ invoiceId: id, version, kind: "LAYANAN", name: "Layanan Diskon", quantity: 1, unitPrice: 100_000 }));
   return id;
 }
 

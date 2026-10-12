@@ -7,7 +7,7 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useState } from "react";
-import { DISCOUNT_KIND_LABEL, DISCOUNT_LIMIT_PERCENT, validateDiscount, type DiscountKindValue } from "@/lib/invoice";
+import { DISCOUNT_KIND_LABEL, DISCOUNT_LIMIT_PERCENT, manualItemDiscount, validateDiscount, type DiscountKindValue } from "@/lib/invoice";
 import { setInvoiceDiscount } from "@/server/invoice-drafts";
 import type { InvoiceDetail } from "@/server/invoice-read";
 import { SelectField } from "../mui/select-field";
@@ -33,7 +33,12 @@ export function DiscountForm({
 
   function apply() {
     const input = { kind: kind || null, value: value === "" ? 0 : Number(value), reason };
-    const checked = validateDiscount(input, { subtotal: detail.totals.subtotal, canExceed });
+    const checked = validateDiscount(input, {
+      subtotal: detail.totals.subtotal,
+      grossSubtotal: detail.totals.grossSubtotal,
+      otherLimited: manualItemDiscount(detail.lines),
+      canExceed,
+    });
     if (!checked.ok) return fail(checked.message);
     run(() => setInvoiceDiscount({ invoiceId: detail.id, version: detail.version, ...input }));
   }
@@ -73,7 +78,7 @@ export function DiscountForm({
         </Box>
         {!canExceed && (
           <Typography variant="caption" component="p" sx={{ color: "text.secondary" }}>
-            Diskon di atas {DISCOUNT_LIMIT_PERCENT}% dari subtotal hanya bisa diberikan Admin Keuangan.
+            Diskon item manual ditambah diskon tagihan di atas {DISCOUNT_LIMIT_PERCENT}% dari subtotal hanya bisa diberikan Admin Keuangan.
           </Typography>
         )}
         <Stack direction="row" spacing={1}>

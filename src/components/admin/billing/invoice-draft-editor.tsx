@@ -35,6 +35,7 @@ import { AddItemDialog } from "./add-item-dialog";
 import { CancelInvoiceDialog } from "./cancel-invoice-dialog";
 import { DiscountForm } from "./discount-form";
 import { InvoiceNotesForm } from "./invoice-notes-form";
+import { LineDiscountDialog, LineDiscountNote } from "./line-discount-dialog";
 
 /** Jalankan aksi server: tampilkan kesalahan apa adanya, muat ulang halaman bila berhasil. */
 export function useInvoiceAction() {
@@ -88,6 +89,7 @@ function LineRow({ detail, line, disabled, run, fail }: {
         <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>
           {INVOICE_LINE_KIND_LABEL[line.kind]}
         </Typography>
+        <LineDiscountNote line={line} />
         {line.fromDispensing && (
           <Box component="span" sx={{ mt: 0.5, display: "inline-flex", alignItems: "center", gap: 0.5, fontSize: "0.75rem", color: "text.secondary" }}>
             {/* Ikon MUI disembunyikan dari pembaca layar secara bawaan; label ini dipertahankan seperti ikon lama. */}
@@ -117,9 +119,17 @@ function LineRow({ detail, line, disabled, run, fail }: {
       <TableCell sx={{ width: 160 }}>
         <RupiahInput aria-label={`Harga ${line.name}`} value={unitPrice} onChange={setUnitPrice} />
       </TableCell>
-      <TableCell align="right">{formatRupiah(line.amount)}</TableCell>
+      <TableCell align="right">
+        {line.discountAmount > 0 && (
+          <Typography variant="caption" component="div" sx={{ textDecoration: "line-through", color: "text.secondary" }}>
+            {formatRupiah(line.gross)}
+          </Typography>
+        )}
+        {formatRupiah(line.amount)}
+      </TableCell>
       <TableCell align="right">
         <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end" }}>
+          <LineDiscountDialog invoiceId={detail.id} version={detail.version} line={line} disabled={disabled} />
           <Button type="button" size="small" variant="outlined" disabled={disabled} onClick={save} aria-label={`Simpan baris ${line.name}`}>
             Simpan
           </Button>
@@ -218,8 +228,14 @@ export function InvoiceDraftEditor({
         <Stack spacing={0.5}>
           <Stack direction="row" sx={{ justifyContent: "space-between" }}>
             <span>Subtotal</span>
-            <span>{formatRupiah(totals.subtotal)}</span>
+            <span>{formatRupiah(totals.grossSubtotal)}</span>
           </Stack>
+          {totals.itemDiscount > 0 && (
+            <Stack direction="row" sx={{ justifyContent: "space-between" }}>
+              <span>Diskon item</span>
+              <span>-{formatRupiah(totals.itemDiscount)}</span>
+            </Stack>
+          )}
           {totals.discount > 0 && (
             <Stack direction="row" sx={{ justifyContent: "space-between" }}>
               <span>Diskon</span>

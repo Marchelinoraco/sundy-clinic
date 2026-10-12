@@ -169,4 +169,20 @@ describe("tampilan tagihan final", () => {
     expect(container.querySelector(".struk-tanpa-cetak")).toBeNull();
     expect(container.querySelector(".struk-hanya-cetak")).toBeNull();
   });
+
+  it("baris berdiskon: catatan promo, harga kotor dicoret, ringkasan memisahkan Diskon item", () => {
+    const base = finalDetail();
+    const lines: InvoiceDetail["lines"] = [
+      base.lines[0],
+      { ...base.lines[1], discountAmount: 5000, amount: 45000, discountReason: "Promo: Oktober", discountSource: "PROMO" },
+    ];
+    const detail = finalDetail({ lines, totals: invoiceTotals({ status: "FINAL", discountKind: null, discountValue: 0, lines, payments: [payment] }) });
+    renderAdmin(<InvoiceFinalView detail={detail} today="2026-10-07" canManage canCorrect={false} canSeeCost={false} />);
+    const summary = screen.getByRole("region", { name: "Ringkasan tagihan" });
+    expect(summary).toHaveTextContent("SubtotalRp 200.000");
+    expect(summary).toHaveTextContent("Diskon item-Rp 5.000");
+    expect(summary).toHaveTextContent("TotalRp 195.000");
+    expect(screen.getByText(/Diskon −Rp 5\.000 · Promo: Oktober/)).toBeInTheDocument();
+    expect(screen.getByText("Rp 50.000")).toHaveStyle({ textDecoration: "line-through" });
+  });
 });
