@@ -91,6 +91,7 @@ const base: BookingRow = {
     patientName: "Siti Rahayu",
     startAt: combineWitaDateAndMinutes(TODAY, 15 * 60),
     durationMinutes: 30,
+    kind: "KONSULTASI",
     staffId: "d1",
     staffName: "Dr. Diane",
     branchId: "b1",

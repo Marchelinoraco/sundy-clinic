@@ -26,6 +26,7 @@ const TARGET: RescheduleTarget = {
   patientName: "Maria Wenas",
   startAt: combineWitaDateAndMinutes(TODAY, 11 * 60),
   durationMinutes: 30,
+  kind: "KONSULTASI",
   staffId: "d1",
   staffName: "dr. Diane",
   branchId: "b1",
@@ -75,6 +76,7 @@ describe("RescheduleDialog", () => {
       staffId: "d1",
       branchId: "b1",
       durationMinutes: 30,
+      kind: "KONSULTASI",
       from: TODAY,
       days: 14,
       excludeAppointmentId: "a1",
@@ -90,6 +92,7 @@ describe("RescheduleDialog", () => {
       branchId: "b1",
       date: "2026-10-06",
       durationMinutes: 30,
+      kind: "KONSULTASI",
       excludeAppointmentId: "a1",
     });
 

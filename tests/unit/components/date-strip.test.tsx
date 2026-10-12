@@ -63,6 +63,13 @@ describe("DateStrip", () => {
     });
   });
 
+  it("meneruskan jenis booking supaya konsultasi dihitung tiap 15 menit", async () => {
+    vi.mocked(getStaffAvailabilityRange).mockResolvedValue(strip([]));
+    renderStrip({ kind: "KONSULTASI", durationMinutes: 15 });
+    await screen.findAllByRole("button", { name: /— / });
+    expect(getStaffAvailabilityRange).toHaveBeenCalledWith(expect.objectContaining({ durationMinutes: 15, kind: "KONSULTASI" }));
+  });
+
   it("menandai tanggal yang sedang dipilih", async () => {
     vi.mocked(getStaffAvailabilityRange).mockResolvedValue(strip([]));
     renderStrip({ selected: "2026-10-06" });

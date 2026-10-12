@@ -43,6 +43,8 @@ type Props = {
   treatmentGroups: BookingServiceGroup[];
   /** Baris layanan "Konsultasi Dokter", agar konsultasi tetap tercatat sebagai layanan. */
   consultationServiceId: string | null;
+  /** Lama konsultasi dari layanan Konsultasi Dokter (Layanan & Harga); jam mulainya ditawarkan tiap 15 menit. */
+  consultationMinutes: number;
   /** Tanggal hari ini dalam WITA, dihitung di server agar tidak bergantung jam perangkat. */
   today: string;
   /** Biaya booking dari Pengaturan, untuk ringkasan. Biaya yang tersimpan disalin server saat booking dibuat. */
@@ -55,8 +57,6 @@ type Props = {
 
 type BookingKind = "KONSULTASI" | "TREATMENT";
 
-const CONSULTATION_MINUTES = 30;
-
 /**
  * Booking Baru (spec C1 bagian 3–4): langkah di kiri boleh diisi dalam urutan
  * apa pun; ringkasan di kanan menempel saat menggulir, lalu menampilkan panel
@@ -67,6 +67,7 @@ export function AppointmentForm({
   staff,
   treatmentGroups,
   consultationServiceId,
+  consultationMinutes,
   today,
   bookingFee,
   initial,
@@ -90,7 +91,7 @@ export function AppointmentForm({
   const treatment = treatmentGroups
     .flatMap((g) => g.services)
     .find((s) => s.id === serviceId);
-  const durationMinutes = kind === "KONSULTASI" ? CONSULTATION_MINUTES : treatment?.durationMin;
+  const durationMinutes = kind === "KONSULTASI" ? consultationMinutes : treatment?.durationMin;
   const needsDoctor = kind === "KONSULTASI" || treatment?.requiresDoctor === true;
   const eligibleStaff = staff.filter((s) => !needsDoctor || s.role === "DOKTER");
 
@@ -358,6 +359,7 @@ export function AppointmentForm({
               staffId={effectiveStaffId}
               branchId={branchId}
               durationMinutes={durationMinutes!}
+              kind={kind}
               today={today}
               selected={date}
               onSelect={(d) => {
@@ -381,6 +383,7 @@ export function AppointmentForm({
               branchId={branchId}
               date={date}
               durationMinutes={durationMinutes!}
+              kind={kind}
               selected={slot}
               onSelect={setSlot}
               refreshKey={refreshKey}

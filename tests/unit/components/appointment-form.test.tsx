@@ -38,13 +38,14 @@ const MARIA: PatientSummary = {
   nextBookingAt: null,
 };
 
-function renderForm() {
+function renderForm(consultationMinutes = 30) {
   return renderAdmin(
     <AppointmentForm
       branches={[{ id: "b1", name: "SunDY Mahakeret" }]}
       staff={[{ id: "d1", name: "dr. Diane", role: "DOKTER" }]}
       treatmentGroups={[]}
       consultationServiceId="svc-konsultasi"
+      consultationMinutes={consultationMinutes}
       today={TODAY}
       bookingFee={100000}
     />,
@@ -92,10 +93,22 @@ describe("AppointmentForm", () => {
       staffId: "d1",
       branchId: "b1",
       durationMinutes: 30,
+      kind: "KONSULTASI",
       from: TODAY,
       days: 14,
     });
     expect(screen.getByText("Pilih tanggal dulu.")).toBeInTheDocument();
+  });
+
+  it("lama konsultasi mengikuti layanan Konsultasi Dokter (mis. 15 menit)", async () => {
+    const user = userEvent.setup();
+    renderForm(15);
+    await screen.findByRole("group", { name: "Pilih tanggal" });
+    expect(getStaffAvailabilityRange).toHaveBeenCalledWith(expect.objectContaining({ durationMinutes: 15, kind: "KONSULTASI" }));
+    await user.click(await screen.findByRole("button", { name: "Senin, 5 Oktober 2026 — 2 jam kosong" }));
+    await waitFor(() =>
+      expect(getStaffAvailabilityForAdmin).toHaveBeenCalledWith(expect.objectContaining({ durationMinutes: 15, kind: "KONSULTASI" })),
+    );
   });
 
   it("ringkasan terisi bertahap, lalu Buat Booking menampilkan panel dengan instruksi transfer", async () => {
@@ -201,6 +214,7 @@ describe("AppointmentForm", () => {
         staff={[{ id: "d1", name: "dr. Diane", role: "DOKTER" }]}
         treatmentGroups={[]}
         consultationServiceId="svc-konsultasi"
+        consultationMinutes={30}
         today={TODAY}
         bookingFee={100000}
         initial={{ patient: MARIA, kind: "KONSULTASI", staffId: "d1", branchId: "b1", date: TODAY, slot: SLOT }}
@@ -220,6 +234,7 @@ describe("AppointmentForm", () => {
         staff={[{ id: "d1", name: "dr. Diane", role: "DOKTER" }]}
         treatmentGroups={[]}
         consultationServiceId="svc-konsultasi"
+        consultationMinutes={30}
         today={TODAY}
         bookingFee={100000}
         notice="Jam itu sudah tidak tersedia. Pilih jam lain."
