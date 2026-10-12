@@ -24,6 +24,13 @@ vi.mock("@/server/invoice-payments", () => ({
 }));
 vi.mock("@/server/invoice-lifecycle", () => ({ cancelInvoice: mocks.cancelInvoice, finalizeInvoice: vi.fn() }));
 vi.mock("@/server/receipt", () => ({ getReceiptMessage: vi.fn(), resetReceiptLink: vi.fn(), recordReceiptPrint: vi.fn() }));
+vi.mock("@/components/admin/billing/receipt-printer", () => ({
+  loadPrinterSettings: vi.fn(() => null),
+  savePrinterSettings: vi.fn(),
+  listPrinters: vi.fn(async () => []),
+  printRaw: vi.fn(),
+  PrinterError: class extends Error {},
+}));
 
 const payment: InvoicePaymentRow = {
   id: "pay1",
@@ -141,6 +148,7 @@ describe("tampilan tagihan final", () => {
     );
     expect(screen.getByRole("button", { name: "Kirim struk via WA" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ganti tautan" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cetak struk" })).toBeInTheDocument();
     expect(container.querySelector(".struk-hanya-cetak")).not.toBeNull();
     expect(container.querySelector(".struk-tanpa-cetak")).not.toBeNull();
   });

@@ -18,6 +18,7 @@ import { CancelInvoiceDialog } from "./cancel-invoice-dialog";
 import { FinalDiscountDialog } from "./final-discount-dialog";
 import { InvoicePaymentDialog } from "./invoice-payment-dialog";
 import { PrintButton } from "./print-button";
+import { ReceiptPrintButton } from "./receipt-print-button";
 import { ReceiptResetDialog } from "./receipt-reset-dialog";
 import { ReceiptSendDialog } from "./receipt-send-dialog";
 import { RevokeInvoicePaymentDialog } from "./revoke-invoice-payment-dialog";
@@ -64,7 +65,8 @@ export function InvoiceFinalView({
 
         <Stack direction="row" spacing={1} useFlexGap className="print:hidden" sx={{ flexWrap: "wrap", justifyContent: "flex-end" }}>
           <PrintButton />
-          {canSendReceipt && <ReceiptSendDialog invoiceId={detail.id} />}
+          {canSendReceipt && receipt && <ReceiptPrintButton invoiceId={detail.id} receipt={receipt} />}
+        {canSendReceipt && <ReceiptSendDialog invoiceId={detail.id} />}
           {canSendReceipt && <ReceiptResetDialog invoiceId={detail.id} />}
           {canDiscount && (
             <FinalDiscountDialog invoiceId={detail.id} subtotal={totals.subtotal} currentDiscount={totals.discount} paid={totals.paid} />
