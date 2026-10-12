@@ -29,6 +29,7 @@ import {
   transferDeadlines,
 } from "@/server/booking-expiry";
 import { getClinicSetting } from "@/server/clinic-setting";
+import { getConsultationMinutes } from "@/server/consultation-duration";
 import { isExclusionViolation } from "@/server/db-errors";
 import { DAY_LIST_CHANNEL } from "@/server/online-store";
 import { quizLinkFor } from "@/server/quiz-link-code";
@@ -101,6 +102,14 @@ export async function createAppointment(input: {
       throw new UserFacingError(
         `${service?.name ?? "Konsultasi"} harus ditangani dokter, bukan ${staff.name}.`,
       );
+    }
+    // Lama konsultasi diatur di Layanan & Harga; jam dari browser yang tidak cocok (mis. halaman
+    // lama yang masih terbuka saat durasi diubah) ditolak, bukan disimpan dengan lama yang salah.
+    if (input.type === "KONSULTASI") {
+      const minutes = await getConsultationMinutes();
+      if (input.endAt.getTime() - input.startAt.getTime() !== minutes * 60_000) {
+        throw new UserFacingError(`Lama konsultasi harus ${minutes} menit. Pilih ulang jamnya.`);
+      }
     }
 
     const created = await createWithSlotGuard(() =>

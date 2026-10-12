@@ -3,10 +3,12 @@
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { prisma } from "@/lib/db";
+import { CONSULTATION_SERVICE_SLUG, isConsultationDuration } from "@/lib/booking-rules";
 import { formatRupiah } from "@/lib/format";
 import { ONLINE_SERVICE_SLUG } from "@/lib/online-consultation";
 import { validatePriceChange, type PriceInput } from "@/lib/price-validation";
 import { recordAudit } from "@/server/audit";
+import { getConsultationMinutes } from "@/server/consultation-duration";
 import { requireCapability } from "@/server/session";
 
 export async function updateServicePrice(
@@ -96,5 +98,36 @@ export async function updateOnlineService(input: OnlineServiceSettings): Promise
     safeRevalidatePath("/admin/layanan");
     safeRevalidatePath("/daftar");
     safeRevalidatePath("/admin/booking/baru");
+  });
+}
+
+/** Lama konsultasi klinik untuk kartu di Layanan & Harga. */
+export async function getClinicConsultationMinutes(): Promise<number> {
+  await requireCapability("content:manage");
+  return getConsultationMinutes();
+}
+
+/**
+ * Mengubah lama konsultasi klinik (layanan Konsultasi Dokter). Jam mulai konsultasi tetap
+ * ditawarkan tiap 15 menit; booking yang sudah ada tidak diubah.
+ */
+export async function updateClinicConsultationDuration(minutes: number): Promise<ActionResult> {
+  return runAction(async () => {
+    const actor = await requireCapability("content:manage");
+    if (!isConsultationDuration(minutes)) throw new UserFacingError("Durasi harus 15, 30, 45, atau 60 menit.");
+
+    const before = await prisma.service.findUnique({ where: { slug: CONSULTATION_SERVICE_SLUG } });
+    if (!before) throw new UserFacingError("Layanan Konsultasi Dokter belum ada.");
+    const updated = await prisma.service.update({ where: { id: before.id }, data: { durationMin: minutes } });
+    await recordAudit({
+      actor,
+      action: "service.consultation.update",
+      entity: "Service",
+      entityId: updated.id,
+      summary: `${updated.name}: ${before.durationMin} menit -> ${minutes} menit`,
+    });
+    safeRevalidatePath("/admin/layanan");
+    safeRevalidatePath("/admin/booking/baru");
+    safeRevalidatePath("/admin");
   });
 }
