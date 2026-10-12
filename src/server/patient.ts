@@ -24,6 +24,7 @@ import { recordAudit, recordAuditThrottled } from "@/server/audit";
 import { placeLabel } from "@/lib/online-consultation";
 import {
   firstRegistrationError,
+  MARITAL_STATUS_LABEL,
   validatePatientRegistration,
   type PatientRegistrationInput,
 } from "@/lib/patient-registration";
@@ -251,6 +252,10 @@ export type PatientDetail = {
   /** NIK, atau alasan belum ada NIK (spec check-in 3.4). Tidak pernah dikirim ke situs publik. */
   nik: string | null;
   nikMissingReason: NikMissingReasonValue | null;
+  email: string | null;
+  /** Nama dan nomor terisi bersamaan (CHECK patient_emergency_pair); null untuk pasien lama. */
+  emergencyContact: { name: string; phone: string } | null;
+  maritalStatusLabel: string | null;
   /** Pasien rangkap: booking dan isiannya sudah dipindah ke pasien ini (spec check-in 3.3). */
   mergedInto: { id: string; medicalRecordNumber: string; name: string } | null;
   programStatus: "AKTIF" | "SELESAI" | "TIDAK_AKTIF";
@@ -313,6 +318,10 @@ export async function getPatientDetail(id: string): Promise<PatientDetail | null
       paperRecordNumber: true,
       nik: true,
       nikMissingReason: true,
+      email: true,
+      emergencyContactName: true,
+      emergencyContactPhone: true,
+      maritalStatus: true,
       mergedInto: { select: { id: true, medicalRecordNumber: true, name: true } },
       programStatus: true,
       lastVisitAt: true,
@@ -391,6 +400,12 @@ export async function getPatientDetail(id: string): Promise<PatientDetail | null
     paperRecordNumber: patient.paperRecordNumber,
     nik: patient.nik,
     nikMissingReason: patient.nikMissingReason,
+    email: patient.email,
+    emergencyContact:
+      patient.emergencyContactName && patient.emergencyContactPhone
+        ? { name: patient.emergencyContactName, phone: patient.emergencyContactPhone }
+        : null,
+    maritalStatusLabel: patient.maritalStatus ? MARITAL_STATUS_LABEL[patient.maritalStatus] : null,
     mergedInto: patient.mergedInto,
     programStatus: patient.programStatus,
     lastVisitAt: patient.lastVisitAt,

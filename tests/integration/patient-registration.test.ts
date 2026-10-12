@@ -2,7 +2,7 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
 import { NIK_FORMAT_ERROR } from "@/lib/nik";
-import { checkPatientNik, createPatient } from "@/server/patient";
+import { checkPatientNik, createPatient, getPatientDetail } from "@/server/patient";
 import { requireCapability } from "@/server/session";
 import { patientInput } from "./patient-fixture";
 import { unwrap } from "./unwrap";
@@ -216,5 +216,29 @@ describe("checkPatientNik", () => {
     expect(requireCapability).toHaveBeenLastCalledWith("booking:manage");
     vi.mocked(requireCapability).mockRejectedValueOnce(new Error("Tidak berhak"));
     await expect(checkPatientNik("7171010190000013")).rejects.toThrow("Tidak berhak");
+  });
+});
+
+describe("getPatientDetail: data pendaftaran", () => {
+  beforeEach(reset);
+
+  it("memuat email, kontak darurat, dan status pernikahan", async () => {
+    const created = await unwrap(
+      createPatient(patientInput({ nik: "7171010190000020", email: "Siti@Example.com", maritalStatus: "CERAI_HIDUP" })),
+    );
+    const detail = await getPatientDetail(created.id);
+    expect(detail).toMatchObject({
+      email: "siti@example.com",
+      emergencyContact: { name: "Budi Rahayu", phone: "6281298765432" },
+      maritalStatusLabel: "Cerai hidup",
+    });
+  });
+
+  it("pasien lama tanpa data baru → null semua", async () => {
+    const legacy = await prisma.patient.create({
+      data: { medicalRecordNumber: "SDY-2026-9201", name: "Pasien Lama", whatsapp: "6281200009201" },
+    });
+    const detail = await getPatientDetail(legacy.id);
+    expect(detail).toMatchObject({ email: null, emergencyContact: null, maritalStatusLabel: null });
   });
 });
