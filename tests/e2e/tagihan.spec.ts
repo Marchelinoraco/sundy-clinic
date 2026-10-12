@@ -2,6 +2,7 @@ import { expect, test, type TestInfo } from "@playwright/test";
 import { E2E_APOTEKER, E2E_KEUANGAN, E2E_RESEPSIONIS } from "./credentials";
 import { isiTanggal, pilihOpsi } from "./helpers/mui";
 import { signIn } from "./helpers/quiz";
+import { buatPasienBaru } from "./helpers/pasien-baru";
 
 // Satu cerita berurutan per proyek (desktop/ponsel, data masing-masing):
 // Apoteker menyiapkan stok → Resepsionis menagih penjualan langsung (barang, baris layanan, diskon),
@@ -61,9 +62,7 @@ test("resepsionis menagih penjualan langsung, memfinalkan, dan menerima pembayar
   await page.getByRole("button", { name: "+ Penjualan langsung" }).click();
   const saleDialog = page.getByRole("dialog", { name: "Penjualan langsung" });
   await saleDialog.getByRole("button", { name: "+ Pasien Baru" }).click();
-  await saleDialog.getByLabel("Nama", { exact: true }).fill(`Pelanggan Tagihan ${t}`);
-  await saleDialog.getByLabel("Nomor WhatsApp").fill(t === "M" ? "6281200007702" : "6281200007701");
-  await saleDialog.getByRole("button", { name: "Buat Pasien" }).click();
+  await buatPasienBaru(page, { name: `Pelanggan Tagihan ${t}`, whatsapp: t === "M" ? "6281200007702" : "6281200007701" });
   await expect(page).toHaveURL(/\/admin\/tagihan\/[^/?]+$/, { timeout: 30_000 });
   invoicePath = new URL(page.url()).pathname;
 

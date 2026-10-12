@@ -7,9 +7,9 @@ import IconButton from "@mui/material/IconButton";
  * Tombol silang di pojok kanan atas dialog. Dialog shadcn lama selalu punya tombol ini (bernama "Close");
  * dipertahankan supaya dialog tetap bisa ditutup dengan satu ketukan di ponsel. Taruh di dalam <Dialog>.
  */
-export function DialogCloseButton({ onClick }: { onClick: () => void }) {
+export function DialogCloseButton({ onClick, disabled = false }: { onClick: () => void; disabled?: boolean }) {
   return (
-    <IconButton aria-label="Close" onClick={onClick} size="small" sx={{ position: "absolute", top: 8, right: 8 }}>
+    <IconButton aria-label="Close" onClick={onClick} disabled={disabled} size="small" sx={{ position: "absolute", top: 8, right: 8 }}>
       <CloseIcon fontSize="small" />
     </IconButton>
   );

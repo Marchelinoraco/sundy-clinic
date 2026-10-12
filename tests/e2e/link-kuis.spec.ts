@@ -3,6 +3,7 @@ import { E2E_ADMIN } from "./credentials";
 import { choose, fillFormRecall, inGroup, next, signIn, tick, upcomingWeekday } from "./helpers/quiz";
 import { E2E_BASE_URL } from "./test-env";
 import { isiTanggal } from "./helpers/mui";
+import { buatPasienBaru } from "./helpers/pasien-baru";
 
 // Satu cerita per proyek: admin mencatat booking WA untuk pasien baru, customer mengisi kuis
 // lewat link dari instruksi transfer. Jadwalnya Rabu (desktop) atau Kamis (ponsel) sepekan
@@ -31,9 +32,7 @@ test("customer mengisi kuis lewat link dari instruksi transfer", async ({ page, 
   await signIn(page, E2E_ADMIN);
   await page.goto("/admin/booking/baru");
   await page.getByRole("button", { name: "+ Pasien Baru" }).click();
-  await page.getByLabel("Nama", { exact: true }).fill(patientName);
-  await page.getByLabel("Nomor WhatsApp").fill(`0812${suffix}55`);
-  await page.getByRole("button", { name: "Buat Pasien" }).click();
+  await buatPasienBaru(page, { name: patientName, whatsapp: `0812${suffix}55` });
   await expect(page.getByRole("button", { name: "Ganti pasien" })).toBeVisible({ timeout: 30_000 });
 
   await expect(page.locator("#booking-staff option:checked")).toContainText("Diane");
@@ -100,10 +99,11 @@ test("customer mengisi kuis lewat link dari instruksi transfer", async ({ page, 
   await expect(customer.locator("main").getByText(/pasien|berobat/i)).toHaveCount(0);
   await next(customer);
 
-  await customer.getByLabel("Tanggal lahir").fill("1994-03-21");
+  // Resepsionis sudah mengisi tanggal lahir dan alamat saat mendaftarkan pasien: kuis hanya menanyakan yang kosong.
   await inGroup(customer, "Jenis kelamin", "Perempuan");
   await customer.getByLabel("Pekerjaan").fill("Wiraswasta");
-  await customer.getByLabel("Alamat").fill("Jl. Link E2E No. 3, Manado");
+  await expect(customer.getByLabel("Tanggal lahir")).toHaveCount(0);
+  await expect(customer.getByLabel("Alamat")).toHaveCount(0);
   await customer.getByRole("checkbox", { name: /Kebijakan Privasi/ }).check();
   await customer.getByRole("checkbox", { name: /mentransfer biaya booking/ }).check();
   await customer.getByRole("button", { name: "Kirim" }).click();

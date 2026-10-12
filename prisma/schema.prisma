@@ -346,35 +346,41 @@ model PatientNumberCounter {
 
 /// Tidak terikat cabang — pasien yang pindah cabang tetap satu rekam medis.
 model Patient {
-  invoices            Invoice[]
-  biaMeasurements     BiaMeasurement[]
-  id                  String               @id @default(cuid())
-  medicalRecordNumber String               @unique
-  name                String
-  whatsapp            String
-  birthDate           DateTime?            @db.Date
-  gender              Gender?
-  occupation          String?
-  address             String?
-  allergies           String?
-  medicalHistory      String?
+  invoices              Invoice[]
+  biaMeasurements       BiaMeasurement[]
+  id                    String               @id @default(cuid())
+  medicalRecordNumber   String               @unique
+  name                  String
+  whatsapp              String
+  birthDate             DateTime?            @db.Date
+  gender                Gender?
+  occupation            String?
+  address               String?
+  allergies             String?
+  medicalHistory        String?
   /// Catatan penting dari dokter (mis. "takut jarum"), tampil sebagai peringatan
   /// di setiap kunjungan. Hanya untuk record:read.
-  importantNotes      String?
+  importantNotes        String?
   /// Nomor rekam medis kertas lama, agar front office tahu ada berkas di lemari.
-  paperRecordNumber   String?
-  programStatus       PatientProgramStatus @default(AKTIF)
-  activePackageId     String?
-  lastVisitAt         DateTime?
+  paperRecordNumber     String?
+  programStatus         PatientProgramStatus @default(AKTIF)
+  activePackageId       String?
+  lastVisitAt           DateTime?
   /// NIK 16 angka, ditanyakan resepsionis saat check-in. Tidak pernah tampil di situs,
   /// pesan WA, atau link (spec rekam medis bagian 2). Bentuk dan keunikannya dijaga basis data.
-  nik                 String?              @unique
+  nik                   String?              @unique
   /// Alasan "Belum ada NIK"; tidak pernah terisi bersamaan dengan nik (CHECK patient_nik_or_reason).
-  nikMissingReason    NikMissingReason?
+  nikMissingReason      NikMissingReason?
+  /// Email pasien (opsional), disimpan huruf kecil. Dikumpulkan resepsionis saat mendaftarkan pasien di panel.
+  email                 String?
+  /// Kontak darurat: nama dan nomor terisi bersamaan atau kosong bersamaan (CHECK patient_emergency_pair).
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  maritalStatus         MaritalStatus?
   /// Pasien rangkap: booking dan isiannya sudah dipindah ke pasien ini (spec bagian 3.3).
-  mergedIntoId        String?
-  mergedInto          Patient?             @relation("PatientMerge", fields: [mergedIntoId], references: [id])
-  mergedFrom          Patient[]            @relation("PatientMerge")
+  mergedIntoId          String?
+  mergedInto            Patient?             @relation("PatientMerge", fields: [mergedIntoId], references: [id])
+  mergedFrom            Patient[]            @relation("PatientMerge")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -584,6 +590,13 @@ enum NikMissingReason {
   WARGA_ASING
   ANAK
   LUPA_KTP
+}
+
+enum MaritalStatus {
+  BELUM_MENIKAH
+  MENIKAH
+  CERAI_HIDUP
+  CERAI_MATI
 }
 
 enum FoodRecallStatus {

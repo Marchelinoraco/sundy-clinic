@@ -1,6 +1,7 @@
 import { expect, test, type Browser, type Page, type TestInfo } from "@playwright/test";
 import { E2E_ADMIN } from "./credentials";
 import { E2E_BASE_URL } from "./test-env";
+import { buatPasienBaru } from "./helpers/pasien-baru";
 
 // Setiap uji di berkas ini memesan slot dr. Diane. Dijalankan berurutan agar
 // tidak saling merebut slot, dan tiap proyek (desktop/ponsel) memakai hari
@@ -45,9 +46,7 @@ async function newSignedInPage(browser: Browser, testInfo: TestInfo) {
 
 async function createPatientInForm(page: Page, name: string, whatsapp: string) {
   await page.getByRole("button", { name: "+ Pasien Baru" }).click();
-  await page.getByLabel("Nama", { exact: true }).fill(name);
-  await page.getByLabel("Nomor WhatsApp").fill(whatsapp);
-  await page.getByRole("button", { name: "Buat Pasien" }).click();
+  await buatPasienBaru(page, { name, whatsapp });
   await expect(page.getByRole("button", { name: "Ganti pasien" })).toBeVisible({ timeout: 30_000 });
 }
 

@@ -95,6 +95,13 @@ export function PatientDetailView({
             <Field label="Tanggal lahir" value={birth} />
             <Field label="Jenis kelamin" value={patient.genderLabel} />
             <Field label="Pekerjaan" value={patient.occupation} />
+            <Field label="Email" value={patient.email} />
+            <Field label="Status pernikahan" value={patient.maritalStatusLabel} />
+            <Field
+              label="Kontak darurat"
+              value={patient.emergencyContact ? `${patient.emergencyContact.name} · ${patient.emergencyContact.phone}` : null}
+              wide
+            />
             <Field label="Alamat" value={patient.address} wide />
           </Box>
           <Box sx={{ mt: 1.5, pt: 1.5, borderTop: 1, borderColor: "divider", display: "grid", gap: 1.5, fontSize: "0.875rem", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" } }}>

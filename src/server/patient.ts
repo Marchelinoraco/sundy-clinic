@@ -22,6 +22,13 @@ import { safeRevalidatePath } from "@/lib/revalidate";
 import { normalizeWhatsapp } from "@/lib/whatsapp";
 import { recordAudit, recordAuditThrottled } from "@/server/audit";
 import { placeLabel } from "@/lib/online-consultation";
+import {
+  firstRegistrationError,
+  MARITAL_STATUS_LABEL,
+  validatePatientRegistration,
+  type PatientRegistrationInput,
+} from "@/lib/patient-registration";
+import { witaDateString } from "@/lib/time";
 import { isUniqueViolation } from "@/server/db-errors";
 import { insertPatient } from "@/server/patient-store";
 import { requireCapability } from "@/server/session";
@@ -80,47 +87,80 @@ function toSummary(row: SummaryRow): PatientSummary {
   };
 }
 
-export async function createPatient(input: {
-  name: string;
-  whatsapp: string;
-  birthDate?: string;
-  gender?: "L" | "P";
-  occupation?: string;
-  address?: string;
-}): Promise<ActionResult<PatientSummary>> {
+/** Pemilik NIK (pasien mana pun yang memegangnya) lengkap dengan bentuk ringkasan dan tanggal lahir. */
+async function findNikOwner(nik: string) {
+  return prisma.patient.findFirst({
+    where: { nik },
+    select: { ...summarySelect(new Date()), birthDate: true },
+  });
+}
+
+function nikTakenMessage(owner: { name: string; medicalRecordNumber: string }): string {
+  return `NIK ini sudah terdaftar atas nama ${owner.name} (${owner.medicalRecordNumber}).`;
+}
+
+/**
+ * Pendaftaran pasien oleh resepsionis (spec pendaftaran pasien di panel). Semua isian divalidasi
+ * SEBELUM nomor rekam medis dialokasikan, dan penyimpanan berjalan dalam satu transaksi: nomor urut
+ * yang sempat diambil ikut batal bila NIK ternyata direbut pendaftar lain di antara pemeriksaan dan simpan.
+ */
+export async function createPatient(input: PatientRegistrationInput): Promise<ActionResult<PatientSummary>> {
   return runAction(async () => {
     const actor = await requireCapability("booking:manage");
 
-    // Divalidasi SEBELUM nomor rekam medis dialokasikan: nomor urut yang
-    // sudah diambil tidak pernah dikembalikan, jadi input yang ditolak
-    // tidak boleh sempat memakannya.
-    const name = input.name.trim();
-    if (!name) throw new UserFacingError("Nama pasien wajib diisi.");
-    const whatsapp = normalizeWhatsapp(input.whatsapp);
-    if (!whatsapp) {
-      throw new UserFacingError("Nomor WhatsApp tidak sah. Contoh: 081234567890.");
+    const checked = validatePatientRegistration(input ?? {}, witaDateString(new Date()));
+    if (!checked.ok) throw new UserFacingError(firstRegistrationError(checked.errors));
+    const data = checked.value;
+
+    if (data.nik) {
+      const owner = await findNikOwner(data.nik);
+      if (owner) throw new UserFacingError(nikTakenMessage(owner));
     }
 
-    const patient = await insertPatient(prisma, {
-      name,
-      whatsapp,
-      birthDate: input.birthDate ? new Date(`${input.birthDate}T00:00:00Z`) : null,
-      gender: input.gender,
-      occupation: input.occupation,
-      address: input.address,
-    });
+    let patient;
+    try {
+      patient = await prisma.$transaction((tx) => insertPatient(tx, data));
+    } catch (error) {
+      // Dua pendaftar bersamaan: indeks unik Patient_nik_key menolak yang kedua, bukan galat umum.
+      if (isUniqueViolation(error) && data.nik) {
+        const owner = await findNikOwner(data.nik);
+        if (owner) throw new UserFacingError(nikTakenMessage(owner));
+      }
+      throw error;
+    }
 
     await recordAudit({
       actor,
       action: "patient.create",
       entity: "Patient",
       entityId: patient.id,
+      // Tanpa NIK, email, dan kontak darurat: catatan audit hanya memuat nama dan nomor rekam medis.
       summary: `${patient.name} (${patient.medicalRecordNumber})`,
     });
 
     safeRevalidatePath("/admin/pasien");
     // Pasien yang baru dibuat belum punya booking.
     return toSummary({ ...patient, appointments: [] });
+  });
+}
+
+export type NikCheck =
+  | { status: "FREE" }
+  /** Kartu pasien pemilik NIK; `patient` utuh agar tombol "Pakai pasien ini" bisa langsung memakainya. */
+  | { status: "TAKEN"; patient: PatientSummary; birthDateLabel: string | null };
+
+/**
+ * Cek NIK saat resepsionis mengetik di dialog Pasien baru: sudah dipakai siapa, atau masih bebas.
+ * Hanya staf berhak; hasilnya tidak memuat data pribadi di luar ringkasan pasien.
+ */
+export async function checkPatientNik(nik: string): Promise<ActionResult<NikCheck>> {
+  return runAction<NikCheck>(async () => {
+    await requireCapability("booking:manage");
+    const normalized = normalizeNik(typeof nik === "string" ? nik : "");
+    if (!normalized) throw new UserFacingError(NIK_FORMAT_ERROR);
+    const owner = await findNikOwner(normalized);
+    if (!owner) return { status: "FREE" };
+    return { status: "TAKEN", patient: toSummary(owner), birthDateLabel: formatDateColumn(owner.birthDate) };
   });
 }
 
@@ -212,6 +252,10 @@ export type PatientDetail = {
   /** NIK, atau alasan belum ada NIK (spec check-in 3.4). Tidak pernah dikirim ke situs publik. */
   nik: string | null;
   nikMissingReason: NikMissingReasonValue | null;
+  email: string | null;
+  /** Nama dan nomor terisi bersamaan (CHECK patient_emergency_pair); null untuk pasien lama. */
+  emergencyContact: { name: string; phone: string } | null;
+  maritalStatusLabel: string | null;
   /** Pasien rangkap: booking dan isiannya sudah dipindah ke pasien ini (spec check-in 3.3). */
   mergedInto: { id: string; medicalRecordNumber: string; name: string } | null;
   programStatus: "AKTIF" | "SELESAI" | "TIDAK_AKTIF";
@@ -274,6 +318,10 @@ export async function getPatientDetail(id: string): Promise<PatientDetail | null
       paperRecordNumber: true,
       nik: true,
       nikMissingReason: true,
+      email: true,
+      emergencyContactName: true,
+      emergencyContactPhone: true,
+      maritalStatus: true,
       mergedInto: { select: { id: true, medicalRecordNumber: true, name: true } },
       programStatus: true,
       lastVisitAt: true,
@@ -352,6 +400,12 @@ export async function getPatientDetail(id: string): Promise<PatientDetail | null
     paperRecordNumber: patient.paperRecordNumber,
     nik: patient.nik,
     nikMissingReason: patient.nikMissingReason,
+    email: patient.email,
+    emergencyContact:
+      patient.emergencyContactName && patient.emergencyContactPhone
+        ? { name: patient.emergencyContactName, phone: patient.emergencyContactPhone }
+        : null,
+    maritalStatusLabel: patient.maritalStatus ? MARITAL_STATUS_LABEL[patient.maritalStatus] : null,
     mergedInto: patient.mergedInto,
     programStatus: patient.programStatus,
     lastVisitAt: patient.lastVisitAt,

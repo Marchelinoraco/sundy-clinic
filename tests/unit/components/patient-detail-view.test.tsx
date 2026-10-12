@@ -25,6 +25,9 @@ const patient: PatientDetail = {
   paperRecordNumber: "RM-0457",
   nik: "7171015705900001",
   nikMissingReason: null,
+  email: "siti@example.com",
+  emergencyContact: { name: "Budi Rahayu", phone: "6281298765432" },
+  maritalStatusLabel: "Menikah",
   mergedInto: null,
   record: { allergies: "Amoxicillin", medicalHistory: null, importantNotes: "Takut jarum" },
   appointments: [
@@ -190,5 +193,21 @@ describe("PatientDetailView (spec D 5.3)", () => {
   it("tanpa data BIA (resepsionis): tidak ada tab BIA", () => {
     renderAdmin(<PatientDetailView patient={patient} canReadRecords={false} canWriteRecords={false} />);
     expect(screen.queryByRole("link", { name: /^BIA/ })).toBeNull();
+  });
+
+  it("kartu Data diri menampilkan email, kontak darurat, dan status pernikahan", () => {
+    renderAdmin(<PatientDetailView patient={patient} canReadRecords canWriteRecords />);
+    expect(screen.getByText("Email").parentElement).toHaveTextContent("siti@example.com");
+    expect(screen.getByText("Kontak darurat").parentElement).toHaveTextContent("Budi Rahayu · 6281298765432");
+    expect(screen.getByText("Status pernikahan").parentElement).toHaveTextContent("Menikah");
+  });
+
+  it("pasien lama tanpa data baru menampilkan strip, bukan kosong", () => {
+    renderAdmin(
+      <PatientDetailView patient={{ ...patient, email: null, emergencyContact: null, maritalStatusLabel: null }} canReadRecords canWriteRecords />,
+    );
+    for (const label of ["Email", "Kontak darurat", "Status pernikahan"]) {
+      expect(screen.getByText(label).parentElement).toHaveTextContent("—");
+    }
   });
 });
