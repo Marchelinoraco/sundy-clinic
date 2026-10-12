@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { E2E_ADMIN, E2E_RESEPSIONIS } from "./credentials";
 import { signIn } from "./helpers/quiz";
+import { buatPasienBaru } from "./helpers/pasien-baru";
 
 test.describe.configure({ mode: "serial" });
 test.setTimeout(180_000);
@@ -52,9 +53,10 @@ test("slot kosong di garis waktu membuka Booking Baru yang sudah terisi", async 
   if (testInfo.project.name === "mobile") return;
 
   await page.getByRole("button", { name: "+ Pasien Baru" }).click();
-  await page.getByLabel("Nama", { exact: true }).fill(`Pasien Dasbor ${Date.now().toString().slice(-6)}`);
-  await page.getByLabel("Nomor WhatsApp").fill(`0813${Date.now().toString().slice(-8)}`);
-  await page.getByRole("button", { name: "Buat Pasien" }).click();
+  await buatPasienBaru(page, {
+    name: `Pasien Dasbor ${Date.now().toString().slice(-6)}`,
+    whatsapp: `0813${Date.now().toString().slice(-8)}`,
+  });
   await expect(page.getByRole("button", { name: "Ganti pasien" })).toBeVisible({ timeout: 30_000 });
   await page.getByRole("button", { name: "Buat Booking" }).click();
   await expect(page.getByRole("heading", { name: /Booking SDY-[A-Z0-9]{4} dibuat/ })).toBeVisible({ timeout: 30_000 });

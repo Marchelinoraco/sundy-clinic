@@ -55,7 +55,7 @@ test("pencarian pasien tanpa hasil tidak menghalangi + Pasien Baru", async ({ pa
   await dialog.getByLabel("Cari pasien (nama, WhatsApp, atau nomor RM)").fill("zzzz tidak ada pasien");
   await expect(page.getByText("Tidak ada pasien yang cocok.")).toBeVisible({ timeout: 30_000 });
   await dialog.getByRole("button", { name: "+ Pasien Baru" }).click();
-  await expect(dialog.getByLabel("Nomor WhatsApp")).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole("dialog", { name: "Pasien baru" }).getByLabel("No. HP (WhatsApp)")).toBeVisible({ timeout: 10_000 });
 });
 
 test("jadwal: buka hari Minggu untuk terapis, simpan, lalu tutup lagi", async ({ page }, testInfo) => {
