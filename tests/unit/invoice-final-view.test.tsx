@@ -39,6 +39,10 @@ const payment: InvoicePaymentRow = {
   method: "TUNAI",
   paidAt: "2026-10-07",
   reference: "KW-1",
+  destinationLabel: null,
+  senderBank: null,
+  senderAccountName: null,
+  senderAccountNumber: null,
   staffName: "Resepsionis Uji",
   createdAt: new Date("2026-10-07T03:00:00Z"),
   revokedAt: null,
@@ -128,7 +132,7 @@ describe("tampilan tagihan final", () => {
 
   it("dialog pembayaran: nominal di atas sisa ditolak di layar; yang sah dikirim", async () => {
     mocks.recordInvoicePayment.mockResolvedValue({ ok: true, data: { id: "pay2" } });
-    renderAdmin(<InvoicePaymentDialog invoiceId="inv1" limit={160000} finalizedDate="2026-10-07" today="2026-10-07" />);
+    renderAdmin(<InvoicePaymentDialog invoiceId="inv1" limit={160000} finalizedDate="2026-10-07" today="2026-10-07" bankAccounts={[]} />);
     await userEvent.click(screen.getByRole("button", { name: "Catat pembayaran" }));
     const dialog = await screen.findByRole("dialog");
     const amount = within(dialog).getByLabelText("Nominal");

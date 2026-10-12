@@ -4,6 +4,7 @@ import { runAction, UserFacingError, type ActionResult } from "@/lib/action-resu
 import { prisma } from "@/lib/db";
 import { formatRupiah } from "@/lib/format";
 import { discountAmount, invoiceSubtotal, invoiceTotals, validateDiscount, validateInvoicePayment, type DiscountKindValue, type InvoicePaymentInput } from "@/lib/invoice";
+import { formatBankAccount } from "@/lib/payment";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { dateOnly, PAYMENT_METHOD_LABEL, validateReason } from "@/lib/stock";
 import { witaDateString } from "@/lib/time";
@@ -39,6 +40,16 @@ export async function recordInvoicePayment(input: InvoicePaymentInput): Promise<
       const checked = validateInvoicePayment(input, { today, finalizedDate: witaDateString(invoice.finalizedAt), limit: balance });
       if (!checked.ok) throw new UserFacingError(checked.message);
       const payment = checked.value;
+      let destination: { clinicBankAccountId: string; destinationLabel: string } | null = null;
+      if (payment.transfer) {
+        const account = await tx.clinicBankAccount.findUnique({ where: { id: payment.transfer.clinicBankAccountId } });
+        if (!account) throw new UserFacingError("Rekening tujuan tidak ditemukan.");
+        if (!account.isActive) throw new UserFacingError("Rekening tujuan tidak aktif.");
+        destination = {
+          clinicBankAccountId: account.id,
+          destinationLabel: formatBankAccount({ bankName: account.bankName, bankAccountNumber: account.accountNumber, bankAccountHolder: account.accountHolder })!,
+        };
+      }
       const created = await tx.invoicePayment.create({
         data: {
           invoiceId,
@@ -46,6 +57,10 @@ export async function recordInvoicePayment(input: InvoicePaymentInput): Promise<
           method: payment.method,
           paidAt: dateOnly(payment.paidAt),
           reference: payment.reference,
+          ...(destination ?? {}),
+          senderBank: payment.transfer?.senderBank ?? null,
+          senderAccountName: payment.transfer?.senderAccountName ?? null,
+          senderAccountNumber: payment.transfer?.senderAccountNumber ?? null,
           staffId: actor.staffId,
           staffName: actor.name,
         },

@@ -11,6 +11,7 @@ import { ReceiptPaper } from "@/components/receipt/receipt-paper";
 import { formatDateWithYear, formatRupiah } from "@/lib/format";
 import { INVOICE_LINE_KIND_LABEL } from "@/lib/invoice";
 import type { PublicReceipt } from "@/lib/receipt";
+import type { ClinicBankAccountView } from "@/server/clinic-bank";
 import { dateLabel, PAYMENT_METHOD_LABEL } from "@/lib/stock";
 import type { InvoiceDetail } from "@/server/invoice-read";
 import { SectionCard } from "../page-layout";
@@ -33,6 +34,7 @@ export function InvoiceFinalView({
   canSeeCost,
   receipt = null,
   canEditNotes = false,
+  bankAccounts = [],
 }: {
   detail: InvoiceDetail;
   today: string;
@@ -43,6 +45,8 @@ export function InvoiceFinalView({
   receipt?: PublicReceipt | null;
   /** Catatan internal boleh diubah (invoice:manage atau invoice:correct). */
   canEditNotes?: boolean;
+  /** Rekening klinik aktif untuk dialog pembayaran transfer. */
+  bankAccounts?: ClinicBankAccountView[];
 }) {
   const { totals } = detail;
   const isFinal = detail.status === "FINAL";
@@ -151,7 +155,7 @@ export function InvoiceFinalView({
         <SectionCard
           title="Pembayaran"
           flush
-          actions={canPay ? <InvoicePaymentDialog invoiceId={detail.id} limit={totals.balance} finalizedDate={finalizedDate} today={today} /> : undefined}
+          actions={canPay ? <InvoicePaymentDialog invoiceId={detail.id} limit={totals.balance} finalizedDate={finalizedDate} today={today} bankAccounts={bankAccounts} /> : undefined}
         >
           {detail.payments.length === 0 ? (
             <Typography variant="body2" sx={{ p: 2, color: "text.secondary" }}>
@@ -169,7 +173,14 @@ export function InvoiceFinalView({
                   >
                     <Box component="span" sx={payment.revokedAt ? { color: "text.secondary", textDecoration: "line-through" } : undefined}>
                       {dateLabel(payment.paidAt)} · {formatRupiah(payment.amount)} · {PAYMENT_METHOD_LABEL[payment.method]}
-                      {payment.reference && ` · ${payment.reference}`}
+                      {payment.reference && ` · Ref. ${payment.reference}`}
+                      {payment.destinationLabel && (
+                        <Box component="span" sx={{ display: "block", fontSize: "0.75rem" }}>
+                          Ke {payment.destinationLabel}
+                          {(payment.senderBank || payment.senderAccountName || payment.senderAccountNumber) &&
+                            ` · Dari ${[payment.senderBank, payment.senderAccountNumber, payment.senderAccountName && `a.n. ${payment.senderAccountName}`].filter(Boolean).join(" ")}`}
+                        </Box>
+                      )}
                       <Box component="span" sx={{ display: "block", fontSize: "0.75rem" }}>
                         {payment.staffName}
                       </Box>

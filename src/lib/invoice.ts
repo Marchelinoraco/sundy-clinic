@@ -342,8 +342,17 @@ export type InvoicePaymentInput = {
   method: PaymentMethodValue;
   paidAt: string;
   reference: string;
+  /** Hanya untuk TRANSFER (spec perbaikan tagihan 8). */
+  clinicBankAccountId?: string;
+  senderBank?: string;
+  senderAccountName?: string;
+  senderAccountNumber?: string;
 };
-export type ValidInvoicePayment = Omit<InvoicePaymentInput, "reference"> & { reference: string | null };
+export type PaymentTransfer = { clinicBankAccountId: string; senderBank: string | null; senderAccountName: string | null; senderAccountNumber: string | null };
+export type ValidInvoicePayment = Omit<InvoicePaymentInput, "reference" | "clinicBankAccountId" | "senderBank" | "senderAccountName" | "senderAccountNumber"> & {
+  reference: string | null;
+  transfer: PaymentTransfer | null;
+};
 
 /**
  * Pembayaran customer (spec tagihan 4.4). `limit` = sisa tagihan saat ini, dihitung server
@@ -364,6 +373,17 @@ export function validateInvoicePayment(
   const reference = cleanText(raw.reference);
   if (reference === null) return fail(INVALID_FORM);
   if (reference.length > 100) return fail("Referensi paling banyak 100 karakter.");
+  let transfer: PaymentTransfer | null = null;
+  if (raw.method === "TRANSFER") {
+    if (typeof raw.clinicBankAccountId !== "string" || !raw.clinicBankAccountId) return fail("Pilih rekening tujuan.");
+    const senderBank = cleanText(raw.senderBank);
+    const senderAccountName = cleanText(raw.senderAccountName);
+    const senderAccountNumber = cleanText(raw.senderAccountNumber);
+    if (senderBank === null || senderAccountName === null || senderAccountNumber === null) return fail(INVALID_FORM);
+    if (senderBank.length > 80 || senderAccountName.length > 80) return fail("Isian pengirim paling banyak 80 karakter.");
+    if (senderAccountNumber && !/^[\d*\s-]{3,30}$/.test(senderAccountNumber)) return fail("Nomor rekening pengirim hanya angka (boleh * untuk yang disamarkan).");
+    transfer = { clinicBankAccountId: raw.clinicBankAccountId, senderBank: senderBank || null, senderAccountName: senderAccountName || null, senderAccountNumber: senderAccountNumber || null };
+  }
   return {
     ok: true,
     value: {
@@ -372,6 +392,7 @@ export function validateInvoicePayment(
       method: raw.method as PaymentMethodValue,
       paidAt: raw.paidAt,
       reference: reference || null,
+      transfer,
     },
   };
 }

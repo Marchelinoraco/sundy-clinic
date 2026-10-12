@@ -7,6 +7,7 @@ import { InvoiceStatusBadge } from "@/components/admin/billing/invoice-status-ba
 import { PageBody, PageHeader } from "@/components/admin/page-layout";
 import { can } from "@/lib/permissions";
 import { getInvoiceDetail, listBillingItems } from "@/server/invoice-read";
+import { listActiveClinicBankAccounts } from "@/server/clinic-bank";
 import { getInvoiceReceipt } from "@/server/receipt";
 import { requireCapability } from "@/server/session";
 import { witaDateString } from "@/lib/time";
@@ -20,6 +21,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   const canManage = can(staff.role, "invoice:manage");
   const canEditNotes = canManage || can(staff.role, "invoice:correct");
   const receipt = detail.status === "DRAF" ? null : await getInvoiceReceipt(detail.id);
+  const bankAccounts = detail.status === "FINAL" && canManage ? await listActiveClinicBankAccounts() : [];
 
   return (
     <>
@@ -55,6 +57,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             canSeeCost={can(staff.role, "stock:read")}
             receipt={receipt}
             canEditNotes={canEditNotes}
+            bankAccounts={bankAccounts}
           />
         )}
       </PageBody>

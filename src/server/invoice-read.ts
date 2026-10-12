@@ -179,6 +179,11 @@ export type InvoicePaymentRow = {
   method: PaymentMethodValue;
   paidAt: string;
   reference: string | null;
+  /** Transfer bank: salinan rekening tujuan klinik dan data pengirim (spec perbaikan tagihan 8). */
+  destinationLabel: string | null;
+  senderBank: string | null;
+  senderAccountName: string | null;
+  senderAccountNumber: string | null;
   staffName: string;
   createdAt: Date;
   revokedAt: Date | null;
@@ -324,6 +329,10 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
       method: payment.method,
       paidAt: dateOnlyString(payment.paidAt),
       reference: payment.reference,
+      destinationLabel: payment.destinationLabel,
+      senderBank: payment.senderBank,
+      senderAccountName: payment.senderAccountName,
+      senderAccountNumber: payment.senderAccountNumber,
       staffName: payment.staffName,
       createdAt: payment.createdAt,
       revokedAt: payment.revokedAt,
