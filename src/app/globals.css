@@ -472,3 +472,88 @@ h3 {
     background: #fff !important;
   }
 }
+
+/* Struk tagihan (spec struk WA 6, 7.3): kertas putih bergaya struk kasir, di layar dan saat dicetak.
+   Warna tetap (bukan token tema) karena meniru kertas struk dan dipakai halaman publik maupun panel. */
+.struk-halaman {
+  padding: 2rem 1rem 3rem;
+}
+.struk-kertas {
+  width: 100%;
+  max-width: 22rem;
+  margin-inline: auto;
+  padding: 1rem;
+  background: #fff;
+  color: #111;
+  border: 1px dashed #bdbdbd;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+.struk-kertas hr {
+  border: 0;
+  border-top: 1px dashed #9e9e9e;
+  margin: 0.5rem 0;
+}
+.struk-baris {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.struk-baris > span:last-child {
+  text-align: right;
+  white-space: nowrap;
+}
+.struk-daftar {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+.struk-tengah {
+  text-align: center;
+}
+.struk-penutup {
+  margin-top: 0.75rem;
+}
+.struk-pesan {
+  padding: 4rem 1rem;
+  text-align: center;
+}
+.struk-tombol {
+  margin-top: 1rem;
+  padding: 0.5rem 1.5rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+.struk-hanya-cetak {
+  display: none;
+}
+@page struk {
+  size: 80mm auto;
+  margin: 3mm;
+}
+@media print {
+  .struk-hanya-cetak {
+    display: block !important;
+  }
+  .struk-kertas {
+    page: struk;
+    max-width: none;
+    border: 0;
+    padding: 0;
+    font-size: 9pt;
+  }
+  .struk-tanpa-cetak,
+  body:has(.struk-kertas) footer,
+  body:has(.struk-kertas) .whatsapp-fab {
+    display: none !important;
+  }
+  .struk-halaman {
+    padding: 0;
+  }
+}
