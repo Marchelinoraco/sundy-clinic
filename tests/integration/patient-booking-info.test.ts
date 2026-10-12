@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import type { AppointmentStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { createPatient, findPatientsByWhatsapp, listRecentPatients, searchPatients } from "@/server/patient";
+import { patientInput } from "./patient-fixture";
 import { unwrap } from "./unwrap";
 
 vi.mock("@/server/session", () => ({
@@ -90,7 +91,7 @@ describe("info booking di pencarian pasien", () => {
   });
 
   it("pasien baru: belum pernah berkunjung dan tanpa booking", async () => {
-    const created = await unwrap(createPatient({ name: "Pasien Infobaru", whatsapp: NEW_WA }));
+    const created = await unwrap(createPatient(patientInput({ name: "Pasien Infobaru", whatsapp: NEW_WA })));
     expect(created).toMatchObject({ lastVisitAt: null, nextBookingAt: null });
     const recent = await listRecentPatients();
     expect(recent.find((p) => p.id === created.id)).toMatchObject({ lastVisitAt: null, nextBookingAt: null });

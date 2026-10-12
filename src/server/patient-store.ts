@@ -1,4 +1,4 @@
-import type { Gender, Patient, Prisma, PrismaClient } from "@prisma/client";
+import type { Gender, MaritalStatus, NikMissingReason, Patient, Prisma, PrismaClient } from "@prisma/client";
 import { formatMedicalRecordNumber } from "@/lib/medical-record-number";
 
 type Db = Prisma.TransactionClient | PrismaClient;
@@ -35,6 +35,12 @@ export async function insertPatient(
     gender?: Gender | null;
     occupation?: string | null;
     address?: string | null;
+    email?: string | null;
+    emergencyContactName?: string | null;
+    emergencyContactPhone?: string | null;
+    maritalStatus?: MaritalStatus | null;
+    nik?: string | null;
+    nikMissingReason?: NikMissingReason | null;
   },
 ): Promise<Patient> {
   const year = new Date().getFullYear();

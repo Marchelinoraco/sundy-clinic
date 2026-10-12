@@ -22,6 +22,12 @@ import { safeRevalidatePath } from "@/lib/revalidate";
 import { normalizeWhatsapp } from "@/lib/whatsapp";
 import { recordAudit, recordAuditThrottled } from "@/server/audit";
 import { placeLabel } from "@/lib/online-consultation";
+import {
+  firstRegistrationError,
+  validatePatientRegistration,
+  type PatientRegistrationInput,
+} from "@/lib/patient-registration";
+import { witaDateString } from "@/lib/time";
 import { isUniqueViolation } from "@/server/db-errors";
 import { insertPatient } from "@/server/patient-store";
 import { requireCapability } from "@/server/session";
@@ -80,41 +86,54 @@ function toSummary(row: SummaryRow): PatientSummary {
   };
 }
 
-export async function createPatient(input: {
-  name: string;
-  whatsapp: string;
-  birthDate?: string;
-  gender?: "L" | "P";
-  occupation?: string;
-  address?: string;
-}): Promise<ActionResult<PatientSummary>> {
+/** Pemilik NIK (pasien mana pun yang memegangnya) lengkap dengan bentuk ringkasan dan tanggal lahir. */
+async function findNikOwner(nik: string) {
+  return prisma.patient.findFirst({
+    where: { nik },
+    select: { ...summarySelect(new Date()), birthDate: true },
+  });
+}
+
+function nikTakenMessage(owner: { name: string; medicalRecordNumber: string }): string {
+  return `NIK ini sudah terdaftar atas nama ${owner.name} (${owner.medicalRecordNumber}).`;
+}
+
+/**
+ * Pendaftaran pasien oleh resepsionis (spec pendaftaran pasien di panel). Semua isian divalidasi
+ * SEBELUM nomor rekam medis dialokasikan, dan penyimpanan berjalan dalam satu transaksi: nomor urut
+ * yang sempat diambil ikut batal bila NIK ternyata direbut pendaftar lain di antara pemeriksaan dan simpan.
+ */
+export async function createPatient(input: PatientRegistrationInput): Promise<ActionResult<PatientSummary>> {
   return runAction(async () => {
     const actor = await requireCapability("booking:manage");
 
-    // Divalidasi SEBELUM nomor rekam medis dialokasikan: nomor urut yang
-    // sudah diambil tidak pernah dikembalikan, jadi input yang ditolak
-    // tidak boleh sempat memakannya.
-    const name = input.name.trim();
-    if (!name) throw new UserFacingError("Nama pasien wajib diisi.");
-    const whatsapp = normalizeWhatsapp(input.whatsapp);
-    if (!whatsapp) {
-      throw new UserFacingError("Nomor WhatsApp tidak sah. Contoh: 081234567890.");
+    const checked = validatePatientRegistration(input ?? {}, witaDateString(new Date()));
+    if (!checked.ok) throw new UserFacingError(firstRegistrationError(checked.errors));
+    const data = checked.value;
+
+    if (data.nik) {
+      const owner = await findNikOwner(data.nik);
+      if (owner) throw new UserFacingError(nikTakenMessage(owner));
     }
 
-    const patient = await insertPatient(prisma, {
-      name,
-      whatsapp,
-      birthDate: input.birthDate ? new Date(`${input.birthDate}T00:00:00Z`) : null,
-      gender: input.gender,
-      occupation: input.occupation,
-      address: input.address,
-    });
+    let patient;
+    try {
+      patient = await prisma.$transaction((tx) => insertPatient(tx, data));
+    } catch (error) {
+      // Dua pendaftar bersamaan: indeks unik Patient_nik_key menolak yang kedua, bukan galat umum.
+      if (isUniqueViolation(error) && data.nik) {
+        const owner = await findNikOwner(data.nik);
+        if (owner) throw new UserFacingError(nikTakenMessage(owner));
+      }
+      throw error;
+    }
 
     await recordAudit({
       actor,
       action: "patient.create",
       entity: "Patient",
       entityId: patient.id,
+      // Tanpa NIK, email, dan kontak darurat: catatan audit hanya memuat nama dan nomor rekam medis.
       summary: `${patient.name} (${patient.medicalRecordNumber})`,
     });
 
