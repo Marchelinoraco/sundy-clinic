@@ -230,6 +230,39 @@ describe("NewPatientForm", () => {
     });
   });
 
+  describe("temuan tinjauan akhir", () => {
+    it("galat isian membawa fokus ke isian pertama yang bermasalah dan menandai NIK merah", async () => {
+      const { user, dialog } = await openDialog();
+      await paste(user, within(dialog).getByLabelText("NIK (16 angka)"), "717101570590000"); // 15 angka
+      await fillRest(user, dialog);
+      await user.click(within(dialog).getByRole("button", { name: "Buat Pasien" }));
+      const nik = within(dialog).getByLabelText("NIK (16 angka)");
+      await waitFor(() => expect(nik).toHaveFocus());
+      expect(nik).toHaveAttribute("aria-invalid", "true");
+      expect(nik).toHaveAccessibleDescription("NIK harus 16 angka.");
+      expect(createPatient).not.toHaveBeenCalled();
+    });
+
+    it("fokus pindah ke isian lain bila NIK sudah benar", async () => {
+      const { user, dialog } = await openDialog();
+      await paste(user, within(dialog).getByLabelText("NIK (16 angka)"), NIK);
+      await fillRest(user, dialog);
+      await user.clear(within(dialog).getByLabelText("Alamat"));
+      await user.click(within(dialog).getByRole("button", { name: "Buat Pasien" }));
+      await waitFor(() => expect(within(dialog).getByLabelText("Alamat")).toHaveFocus());
+    });
+
+    it("tombol silang tidak bisa dipakai selama menyimpan", async () => {
+      vi.mocked(createPatient).mockImplementation(() => new Promise(() => {}));
+      const { user, dialog } = await openDialog();
+      await paste(user, within(dialog).getByLabelText("NIK (16 angka)"), NIK);
+      await fillRest(user, dialog);
+      await user.click(within(dialog).getByRole("button", { name: "Buat Pasien" }));
+      await waitFor(() => expect(within(dialog).getByRole("button", { name: "Menyimpan…" })).toBeDisabled());
+      expect(within(dialog).getByRole("button", { name: "Close" })).toBeDisabled();
+    });
+  });
+
   it("peringatan nomor WhatsApp yang sama tetap ada, dengan 'Pakai pasien ini'", async () => {
     vi.mocked(findPatientsByWhatsapp).mockResolvedValue([OWNER]);
     const onPickExisting = vi.fn();

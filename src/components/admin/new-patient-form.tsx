@@ -7,15 +7,15 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
-import FormHelperText from "@mui/material/FormHelperText";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { nikMismatchWarning, normalizeNik } from "@/lib/nik";
 import {
   BIRTH_DATE_MIN,
   MARITAL_STATUS_LABEL,
+  REGISTRATION_FIELDS,
   validatePatientRegistration,
   type PatientRegistrationInput,
   type RegistrationErrors,
@@ -59,6 +59,9 @@ const EMPTY: Draft = {
   maritalStatus: "",
 };
 
+/** Elemen yang bisa difokus di dalam satu isian (bukan pilihan radio NIK atau input tersembunyi pemilih tanggal). */
+const FOCUSABLE = 'input:not([type="radio"]):not([type="hidden"]):not([aria-hidden="true"]), select, textarea, [role="spinbutton"]';
+
 type NikResult = "FREE" | "ERROR" | { patient: PatientSummary; birthDateLabel: string | null };
 
 function toInput(draft: Draft): PatientRegistrationInput {
@@ -88,6 +91,16 @@ export function NewPatientForm({ onCreated, onPickExisting }: Props) {
   // Transition terpisah: pemeriksaan duplikat terpicu saat kolom nomor kehilangan fokus — tepat ketika admin
   // mengklik "Buat Pasien". Bila berbagi `pending`, tombol itu sudah nonaktif saat kliknya mendarat.
   const [, startDuplicateCheck] = useTransition();
+  // Galat isian bisa berada di luar layar (dialog menggulir di ponsel): fokus dibawa ke isian bermasalah pertama.
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [focusRequest, setFocusRequest] = useState<{ field: RegistrationField; seq: number } | null>(null);
+
+  useEffect(() => {
+    if (!focusRequest) return;
+    const container = contentRef.current?.querySelector<HTMLElement>(`[data-field="${focusRequest.field}"]`);
+    container?.scrollIntoView?.({ block: "center" });
+    container?.querySelector<HTMLElement>(FOCUSABLE)?.focus();
+  }, [focusRequest]);
 
   const typedNik = draft.nik.mode === "NIK" ? normalizeNik(draft.nik.value) : null;
 
@@ -164,6 +177,8 @@ export function NewPatientForm({ onCreated, onPickExisting }: Props) {
     if (!validation.ok) {
       setErrors(validation.errors);
       setServerError(null);
+      const first = REGISTRATION_FIELDS.find((field) => validation.errors[field]);
+      if (first) setFocusRequest((request) => ({ field: first, seq: (request?.seq ?? 0) + 1 }));
       return;
     }
     setErrors({});
@@ -209,18 +224,18 @@ export function NewPatientForm({ onCreated, onPickExisting }: Props) {
         scroll="paper"
       >
         <DialogTitle sx={{ pr: 6 }}>Pasien baru</DialogTitle>
-        <DialogCloseButton onClick={close} />
+        <DialogCloseButton onClick={close} disabled={pending} />
         {/* Tanpa elemen <form>: dialog ini dipakai di dalam dialog/halaman lain, dan event submit React menggelembung lewat portal. */}
-        <DialogContent dividers>
+        <DialogContent dividers ref={contentRef}>
           <Stack spacing={2}>
-            <div>
-              <NikInput draft={draft.nik} onChange={(nik) => update({ nik })} warning={nikWarning} />
-              {errors.nik && <FormHelperText error>{errors.nik}</FormHelperText>}
+            <div data-field="nik">
+              <NikInput draft={draft.nik} onChange={(nik) => update({ nik })} warning={nikWarning} error={errors.nik} />
             </div>
             <NikCheckPanel state={nikState} onPickExisting={onPickExisting ? handlePickExisting : undefined} />
 
             <TextField
               id="new-patient-name"
+              data-field="name"
               label="Nama"
               value={draft.name}
               onChange={(e) => update({ name: e.target.value })}
@@ -228,19 +243,22 @@ export function NewPatientForm({ onCreated, onPickExisting }: Props) {
               helperText={errors.name}
               fullWidth
             />
-            <DateField
-              id="new-patient-birth-date"
-              label="Tanggal lahir"
-              value={draft.birthDate}
-              onChange={(birthDate) => update({ birthDate })}
-              min={BIRTH_DATE_MIN}
-              max={today}
-              error={!!errors.birthDate}
-              helperText={errors.birthDate}
-              fullWidth
-            />
+            <Box data-field="birthDate">
+              <DateField
+                id="new-patient-birth-date"
+                label="Tanggal lahir"
+                value={draft.birthDate}
+                onChange={(birthDate) => update({ birthDate })}
+                min={BIRTH_DATE_MIN}
+                max={today}
+                error={!!errors.birthDate}
+                helperText={errors.birthDate}
+                fullWidth
+              />
+            </Box>
             <TextField
               id="new-patient-whatsapp"
+              data-field="whatsapp"
               label="No. HP (WhatsApp)"
               value={draft.whatsapp}
               onChange={(e) => update({ whatsapp: e.target.value })}
@@ -277,6 +295,7 @@ export function NewPatientForm({ onCreated, onPickExisting }: Props) {
             {/* type="text" + inputMode: validasi bawaan peramban tidak ikut campur; aturannya di validatePatientRegistration. */}
             <TextField
               id="new-patient-email"
+              data-field="email"
               label="Email (opsional)"
               value={draft.email}
               onChange={(e) => update({ email: e.target.value })}
@@ -289,6 +308,7 @@ export function NewPatientForm({ onCreated, onPickExisting }: Props) {
             <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "minmax(0, 1fr)", sm: "repeat(2, minmax(0, 1fr))" } }}>
               <TextField
                 id="new-patient-emergency-name"
+                data-field="emergencyContactName"
                 label="Nama kontak darurat"
                 value={draft.emergencyContactName}
                 onChange={(e) => update({ emergencyContactName: e.target.value })}
@@ -298,6 +318,7 @@ export function NewPatientForm({ onCreated, onPickExisting }: Props) {
               />
               <TextField
                 id="new-patient-emergency-phone"
+                data-field="emergencyContactPhone"
                 label="Nomor kontak darurat"
                 value={draft.emergencyContactPhone}
                 onChange={(e) => update({ emergencyContactPhone: e.target.value })}
@@ -310,6 +331,7 @@ export function NewPatientForm({ onCreated, onPickExisting }: Props) {
             </Box>
             <TextField
               id="new-patient-address"
+              data-field="address"
               label="Alamat"
               value={draft.address}
               onChange={(e) => update({ address: e.target.value })}
@@ -319,21 +341,23 @@ export function NewPatientForm({ onCreated, onPickExisting }: Props) {
               minRows={2}
               fullWidth
             />
-            <SelectField
-              id="new-patient-marital-status"
-              label="Status pernikahan (opsional)"
-              value={draft.maritalStatus}
-              onChange={(maritalStatus) => update({ maritalStatus })}
-              error={!!errors.maritalStatus}
-              helperText={errors.maritalStatus}
-            >
-              <option value="">— Tidak diisi —</option>
-              {Object.entries(MARITAL_STATUS_LABEL).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </SelectField>
+            <Box data-field="maritalStatus">
+              <SelectField
+                id="new-patient-marital-status"
+                label="Status pernikahan (opsional)"
+                value={draft.maritalStatus}
+                onChange={(maritalStatus) => update({ maritalStatus })}
+                error={!!errors.maritalStatus}
+                helperText={errors.maritalStatus}
+              >
+                <option value="">— Tidak diisi —</option>
+                {Object.entries(MARITAL_STATUS_LABEL).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </SelectField>
+            </Box>
 
             {serverError && <Alert severity="error">{serverError}</Alert>}
           </Stack>

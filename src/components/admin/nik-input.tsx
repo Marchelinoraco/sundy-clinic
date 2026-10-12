@@ -17,11 +17,14 @@ export function NikInput({
   draft,
   onChange,
   warning,
+  error,
 }: {
   draft: NikDraft;
   onChange: (draft: NikDraft) => void;
   /** Peringatan kecocokan dengan tanggal lahir/jenis kelamin; tidak menghalangi. */
   warning?: string | null;
+  /** Galat isian NIK/alasan: isian ditandai merah dan pesannya terhubung lewat aria-describedby. */
+  error?: string | null;
 }) {
   const id = useId();
   return (
@@ -47,6 +50,8 @@ export function NikInput({
             value={draft.value}
             onChange={(e) => onChange({ mode: "NIK", value: e.target.value })}
             slotProps={{ htmlInput: { inputMode: "numeric" } }}
+            error={!!error}
+            helperText={error ?? undefined}
             fullWidth
           />
           {warning && (
@@ -61,6 +66,8 @@ export function NikInput({
           label="Alasan"
           value={draft.reason}
           onChange={(value) => onChange({ mode: "MISSING", reason: value as NikMissingReasonValue | "" })}
+          error={!!error}
+          helperText={error ?? undefined}
         >
           <option value="">Pilih alasan</option>
           {Object.entries(NIK_MISSING_REASONS).map(([value, label]) => (
