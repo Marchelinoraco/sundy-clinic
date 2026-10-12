@@ -210,3 +210,18 @@ describe("migrasi tautan struk", () => {
     expect(sql).toMatch(/ADD COLUMN\s+"receiptLinkVersion" INTEGER NOT NULL DEFAULT 0/);
   });
 });
+
+describe("migrasi perbaikan tagihan", () => {
+  const sql = readFileSync("prisma/migrations/20261013120000_perbaikan_tagihan/migration.sql", "utf8");
+
+  it("hanya menambah", () => {
+    expect(sql).not.toMatch(/\bDROP\b/i);
+  });
+
+  it("menjaga diskon baris, promo, dan rekening tujuan di basis data, lalu menyalin rekening Pengaturan", () => {
+    for (const name of ["invoice_line_discount_range", "invoice_line_discount_reason", "stock_item_promo_shape", "invoice_payment_destination_pair"]) {
+      expect(sql, name).toMatch(new RegExp(`ADD CONSTRAINT "${name}" CHECK`));
+    }
+    expect(sql).toMatch(/INSERT INTO "ClinicBankAccount"[\s\S]*FROM "ClinicSetting"/);
+  });
+});
