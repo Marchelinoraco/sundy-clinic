@@ -1,9 +1,9 @@
 # Desain — Perbaikan Tagihan: Diskon per Item, Catatan Internal, Rekening Klinik, dan Rincian Transfer
 
-- **Versi:** 1.0
+- **Versi:** 1.1 (harga jual dan promo barang hanya oleh Admin Keuangan dan Super Admin)
 - **Tanggal:** 13 Oktober 2026
 - **Status:** Menunggu tinjauan pemilik
-- **Sub-proyek:** 1 dari 5 (urutan disepakati: tagihan → deposit dan paket → harga modal dan margin → menu Karyawan gaji dan komisi → impor Kluto)
+- **Sub-proyek:** 1 dari 6 (urutan disepakati: tagihan → deposit dan paket → harga modal dan margin (termasuk harga beli diisi Admin Keuangan) → menu Karyawan gaji dan komisi → impor Kluto; resep terstruktur, yaitu dokter memilih obat dari stok, menyusul dengan urutan yang ditentukan nanti)
 - **Menyentuh:** tabel `InvoiceLine`, `InvoicePayment`, `StockItem` (kolom baru), tabel baru `ClinicBankAccount`; aturan total tagihan (`src/lib/invoice.ts`), draf dan pembayaran tagihan, laporan pendapatan (`src/server/report-sql.ts`), struk (`src/lib/receipt.ts`, ESC/POS, halaman `/struk`), halaman Stok dan Pengaturan. Alur booking, kunjungan, resep, dan penyerahan obat tidak berubah.
 
 ## 1. Latar belakang & tujuan
@@ -16,7 +16,7 @@ Tujuan:
 3. **Daftar rekening klinik** di Pengaturan.
 4. **Rincian pembayaran transfer bank:** rekening tujuan klinik dan data pengirim.
 
-Bukan tujuan: deposit dan paket treatment (sub-proyek 2), harga modal dan margin (sub-proyek 3), komisi dan gaji (sub-proyek 4), diskon bawaan untuk layanan/treatment (sudah ada lewat harga coret dan harga berlaku di Layanan & Harga), mengubah instruksi transfer biaya booking, dan rincian transfer untuk pembayaran hutang ke supplier.
+Bukan tujuan: harga beli barang masuk oleh Admin Keuangan (sub-proyek 3), resep terstruktur, deposit dan paket treatment (sub-proyek 2), harga modal dan margin (sub-proyek 3), komisi dan gaji (sub-proyek 4), diskon bawaan untuk layanan/treatment (sudah ada lewat harga coret dan harga berlaku di Layanan & Harga), mengubah instruksi transfer biaya booking, dan rincian transfer untuk pembayaran hutang ke supplier.
 
 ## 2. Keputusan
 
@@ -30,6 +30,7 @@ Bukan tujuan: deposit dan paket treatment (sub-proyek 2), harga modal dan margin
 | T6 | Catatan tagihan | **Hanya internal**; tidak pernah di struk atau tautan struk. |
 | T7 | Rekening klinik | **Lebih dari satu**, dikelola di Pengaturan. |
 | T8 | Isian transfer wajib | **Hanya rekening tujuan**; bank pengirim, nama pemilik, nomor rekening pengirim, dan nomor referensi opsional. |
+| T9 | Siapa mengisi harga | **Harga jual dan promo barang hanya Admin Keuangan dan Super Admin** (hak baru `price:manage`). Apoteker tetap menambah barang dan mengubah data lain, tanpa harga. Harga beli dari faktur pindah ke Admin Keuangan di sub-proyek 3. |
 
 ## 3. Data
 
@@ -139,8 +140,9 @@ Baris berdiskon menampilkan jumlah kotor, lalu "Diskon −Rp… · {alasan}" (pe
 - `src/server/invoice-notes.ts`: `updateInvoiceNotes({ invoiceId, notes })`.
 - `src/server/clinic-bank.ts`: daftar, tambah, ubah, aktif/nonaktif.
 - `src/server/invoice-payments.ts` dan `validateInvoicePayment`: isian transfer.
-- `src/server/stock-catalog.ts`: simpan promo barang (`stock:manage`, audit `stock-item.promo`).
-- Layar: dialog diskon baris di editor draf, kotak catatan, bagian rekening klinik di Pengaturan, isian transfer di dialog pembayaran, isian promo di formulir barang Stok.
+- `src/lib/permissions.ts`: hak baru `price:manage` untuk `SUPER_ADMIN` dan `ADMIN_KEUANGAN`.
+- `src/server/stock-catalog.ts`: membuat dan mengubah barang (`stock:manage`) **tidak lagi menerima harga jual**: barang baru dibuat tanpa harga jual, dan harga jual yang dikirim pemegang `stock:manage` tanpa `price:manage` diabaikan dengan galat "Harga jual diisi Admin Keuangan." Aksi baru `setStockItemPrice({ itemId, sellPrice, promo })` (`price:manage`, audit `stock-item.price` dengan harga lama → baru dan ringkasan promo).
+- Layar: dialog diskon baris di editor draf, kotak catatan, bagian rekening klinik di Pengaturan, isian transfer di dialog pembayaran, dan di halaman Stok aksi **"Harga & promo"** per barang untuk `price:manage` (harga jual + promo). Isian harga jual di formulir barang Apoteker dihapus; daftar barang tetap menampilkan harga jual untuk semua yang bisa melihat Stok.
 
 ## 11. Keamanan dan privasi
 
@@ -152,10 +154,17 @@ Baris berdiskon menampilkan jumlah kotor, lalu "Diskon −Rp… · {alasan}" (pe
 
 - **Unit:** jumlah baris dan total dengan diskon item + diskon tagihan (nominal/persen, pembulatan, batas gross); batas gabungan (PROMO tidak dihitung, MANUAL dihitung, tepat 20% sah, 20% + Rp1 ditolak); promo berlaku per tanggal (sebelum, pada hari mulai/selesai, sesudah, sisi kosong); validasi rekening dan isian transfer; struk dan ESC/POS dengan diskon baris; komponen dialog diskon, kotak catatan, isian transfer, bagian rekening.
 - **Integrasi:** promo terpasang saat barang ditambah dan saat penyerahan Apoteker, dihitung ulang saat jumlah berubah, diperbarui oleh "Perbarui harga katalog"; diskon manual melampaui batas ditolak untuk resepsionis dan diterima Admin Keuangan; finalisasi menolak draf yang melampaui batas; laporan pendapatan per jenis memakai jumlah setelah diskon; transfer tanpa rekening tujuan atau dengan rekening nonaktif ditolak; salinan rekening tujuan tidak berubah setelah rekening diedit; catatan tidak ada di struk publik; migrasi menyalin rekening `ClinicSetting`; CHECK basis data (diskon > gross, diskon tanpa alasan, promo tidak lengkap).
-- **E2E:** Apoteker memasang promo barang; resepsionis menambah barang (diskon promo terpasang), memberi diskon manual pada baris lain, melihat penolakan di atas 20%, mengisi catatan, memfinalkan, lalu mencatat pembayaran transfer ke rekening klinik dengan data pengirim; struk menampilkan diskon baris. Super Admin menambah rekening di Pengaturan. Desktop dan ponsel.
+- **Hak harga:** Apoteker tidak bisa mengubah harga jual (server menolak, isian tidak tampil); Admin Keuangan mengisi harga jual dan promo; resepsionis tidak melihat aksi "Harga & promo".
+- **E2E:** Admin Keuangan mengisi harga jual dan memasang promo barang; resepsionis menambah barang (diskon promo terpasang), memberi diskon manual pada baris lain, melihat penolakan di atas 20%, mengisi catatan, memfinalkan, lalu mencatat pembayaran transfer ke rekening klinik dengan data pengirim; struk menampilkan diskon baris. Super Admin menambah rekening di Pengaturan. Desktop dan ponsel.
+
+## 12a. Harga jual dan promo (Admin Keuangan)
+
+- Halaman Stok bisa dibuka Admin Keuangan (sudah: `stock:read`). Setiap baris barang mendapat aksi **"Harga & promo"** untuk pemegang `price:manage`: harga jual (boleh kosong = belum dijual) dan promo (nama, nominal per unit atau persen, tanggal mulai/selesai opsional, atau tanpa promo).
+- Barang baru dari Apoteker belum punya harga jual; menambahkannya ke tagihan sudah ditolak sejak awal ("Barang ini belum punya harga jual."), dan penyerahan obat tetap ditolak di tagihan dengan pesan yang ada ("Harga jual … belum diisi."). Daftar barang menandai barang tanpa harga jual agar Admin Keuangan tahu yang perlu diisi.
+- Dasbor Admin Keuangan tidak berubah di sub-proyek ini.
 
 ## 13. Rilis dan risiko
 
 - Migrasi hanya menambah kolom, satu enum, dan satu tabel, ditambah satu penyalinan data rekening; `deploy.sh kembali` aman (rilis lama mengabaikan kolom baru; diskon baris yang sudah dibuat tidak terbaca rilis lama, sehingga total di rilis lama akan lebih besar dari seharusnya untuk tagihan yang memakai diskon baris — bila kembali ke rilis lama, tagihan dengan diskon baris perlu dicek).
 - Laporan bulan berjalan berubah angkanya hanya untuk tagihan yang memakai diskon baris; tagihan lama tidak berubah.
-- Diskon bawaan dikelola `stock:manage` (Super Admin dan Apoteker), sama dengan harga jual barang. Bila pemilik ingin hanya Super Admin yang boleh memasang promo, itu satu perubahan hak.
+- Setelah rilis, Apoteker tidak lagi bisa mengubah harga jual. Harga jual yang sudah ada tidak berubah. Barang yang ditambahkan Apoteker setelah rilis menunggu harga dari Admin Keuangan sebelum bisa ditagih.
