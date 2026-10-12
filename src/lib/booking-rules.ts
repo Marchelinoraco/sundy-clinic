@@ -9,6 +9,14 @@ export const PATIENT_CHANGE_CUTOFF_MINUTES = 120;
 
 /** Pasien baru selalu memesan layanan ini (K9). */
 export const CONSULTATION_SERVICE_SLUG = "konsultasi-dokter";
+/** Pilihan durasi konsultasi klinik di Layanan & Harga; bawaan bila layanannya belum ada. */
+export const CONSULTATION_DURATIONS = [15, 30, 45, 60] as const;
+export const DEFAULT_CONSULTATION_MINUTES = 30;
+
+export function isConsultationDuration(value: unknown): value is (typeof CONSULTATION_DURATIONS)[number] {
+  return typeof value === "number" && (CONSULTATION_DURATIONS as readonly number[]).includes(value);
+}
+
 /** Layanan kategori ini tidak ditawarkan sebagai treatment untuk pasien Aesthetic lama. */
 export const SLIMMING_CATEGORY_SLUG = "slimming";
 

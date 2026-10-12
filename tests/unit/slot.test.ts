@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getAvailableSlots, workingWindows } from "@/lib/slot";
+import { getAvailableSlots, gridMinutesFor, workingWindows } from "@/lib/slot";
 
 // 11.00-19.00 WITA = 660-1140 menit sejak tengah malam.
 const FULL_DAY: import("@/lib/slot").WorkWindow = { startMinute: 660, endMinute: 1140 };
@@ -215,5 +215,58 @@ describe("workingWindows", () => {
       workingWindows({ template: FULL_DAY, exceptions: [{ kind: "LIBUR", startMinute: null, endMinute: null }], isHoliday: false }),
     ).toEqual([]);
     expect(workingWindows({ template: null, exceptions: [], isHoliday: false })).toEqual([]);
+  });
+});
+
+describe("getAvailableSlots — grid jam mulai (durasi konsultasi)", () => {
+  const base = {
+    date: "2026-09-24",
+    template: FULL_DAY,
+    exceptions: [],
+    isHoliday: false,
+    busy: [],
+    now: FAR_FUTURE_NOW,
+    minLeadMinutes: 120,
+  };
+
+  it("grid 15 menit menawarkan jam mulai tiap 15 menit", () => {
+    const slots = getAvailableSlots({ ...base, durationMinutes: 15, gridMinutes: 15 });
+    expect(slots.slice(0, 3).map((s) => s.label)).toEqual(["11.00", "11.15", "11.30"]);
+    expect(slots.at(-1)!.label).toBe("18.45");
+    expect(slots).toHaveLength(32); // (1140-660)/15
+    expect(slots[0].endAt.getTime() - slots[0].startAt.getTime()).toBe(15 * 60_000);
+  });
+
+  it("tanpa gridMinutes tetap tiap 30 menit seperti sebelumnya", () => {
+    const slots = getAvailableSlots({ ...base, durationMinutes: 15 });
+    expect(slots.slice(0, 2).map((s) => s.label)).toEqual(["11.00", "11.30"]);
+  });
+
+  it("konsultasi 30 menit pada grid 15 boleh mulai di :15 dan tidak melewati jam kerja", () => {
+    const slots = getAvailableSlots({ ...base, durationMinutes: 30, gridMinutes: 15 });
+    expect(slots.slice(0, 2).map((s) => s.label)).toEqual(["11.00", "11.15"]);
+    expect(slots.at(-1)!.label).toBe("18.30");
+  });
+
+  it("booking 30 menit yang sudah ada tetap menutup dua jam mulai 15 menit", () => {
+    const busy = [{ startAt: new Date("2026-09-24T03:00:00Z"), endAt: new Date("2026-09-24T03:30:00Z") }]; // 11.00–11.30 WITA
+    const slots = getAvailableSlots({ ...base, busy, durationMinutes: 15, gridMinutes: 15 });
+    expect(slots[0].label).toBe("11.30");
+  });
+
+  it("grid yang tidak masuk akal (0, negatif, bukan angka) kembali ke 30 menit, bukan perulangan tanpa akhir", () => {
+    for (const gridMinutes of [0, -15, Number.NaN, 7.5]) {
+      const slots = getAvailableSlots({ ...base, durationMinutes: 30, gridMinutes });
+      expect(slots, String(gridMinutes)).toHaveLength(16);
+    }
+  });
+});
+
+describe("gridMinutesFor", () => {
+  it("konsultasi tiap 15 menit, selain itu tiap 30 menit", () => {
+    expect(gridMinutesFor("KONSULTASI")).toBe(15);
+    expect(gridMinutesFor("TREATMENT")).toBe(30);
+    expect(gridMinutesFor(undefined)).toBe(30);
+    expect(gridMinutesFor("lain" as never)).toBe(30);
   });
 });
