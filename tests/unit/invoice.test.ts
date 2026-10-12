@@ -43,7 +43,7 @@ describe("subtotal, diskon, dan total", () => {
   const base: InvoiceInput = { status: "FINAL", discountKind: null, discountValue: 0, lines, payments: [] };
 
   it("total, dibayar, sisa, dan status tampil", () => {
-    expect(invoiceTotals(base)).toEqual({ subtotal: 204000, discount: 0, total: 204000, paid: 0, balance: 204000, display: "BELUM_DIBAYAR" });
+    expect(invoiceTotals(base)).toEqual({ grossSubtotal: 204000, itemDiscount: 0, subtotal: 204000, discount: 0, total: 204000, paid: 0, balance: 204000, display: "BELUM_DIBAYAR" });
     const partial = { ...base, discountKind: "NOMINAL" as const, discountValue: 4000, payments: [{ amount: 50000, revokedAt: null }] };
     expect(invoiceTotals(partial)).toMatchObject({ discount: 4000, total: 200000, paid: 50000, balance: 150000, display: "SEBAGIAN" });
     const paid = { ...base, payments: [{ amount: 204000, revokedAt: null }] };

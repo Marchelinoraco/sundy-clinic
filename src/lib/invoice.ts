@@ -60,31 +60,67 @@ function cleanText(value: unknown): string | null {
 
 // ---- Hitung ------------------------------------------------------------------------------
 
-export function invoiceSubtotal(lines: readonly { quantity: number; unitPrice: number }[]): number {
-  return lines.reduce((sum, line) => sum + line.quantity * line.unitPrice, 0);
+export type LineDiscountSourceValue = "PROMO" | "MANUAL";
+
+/** Baris untuk hitungan: kolom diskon boleh tidak ada (baris lama, atau pemilih kolom lama). */
+export type TotalsLine = { quantity: number; unitPrice: number; discountAmount?: number; discountSource?: LineDiscountSourceValue | null };
+
+export function lineGross(line: TotalsLine): number {
+  return line.quantity * line.unitPrice;
 }
 
-/** Diskon dalam rupiah: persen dibulatkan ke bawah, nominal tidak melebihi subtotal. */
+/** Jumlah baris setelah diskon baris (spec perbaikan tagihan 4). */
+export function lineAmount(line: TotalsLine): number {
+  return lineGross(line) - (line.discountAmount ?? 0);
+}
+
+/** Subtotal bersih: Σ jumlah baris setelah diskon baris. Diskon tagihan dihitung dari angka ini. */
+export function invoiceSubtotal(lines: readonly TotalsLine[]): number {
+  return lines.reduce((sum, line) => sum + lineAmount(line), 0);
+}
+
+/** Σ harga baris sebelum diskon apa pun; dasar batas 20% resepsionis. */
+export function invoiceGrossSubtotal(lines: readonly TotalsLine[]): number {
+  return lines.reduce((sum, line) => sum + lineGross(line), 0);
+}
+
+/** Σ diskon baris yang diketik staf; diskon promo tidak termasuk (spec T4). */
+export function manualItemDiscount(lines: readonly TotalsLine[]): number {
+  return lines.reduce((sum, line) => sum + (line.discountSource === "MANUAL" ? (line.discountAmount ?? 0) : 0), 0);
+}
+
+/** Diskon persen dibulatkan ke bawah, nominal tidak melebihi subtotal. */
 export function discountAmount(subtotal: number, kind: DiscountKindValue | null, value: number): number {
   if (!kind || value <= 0) return 0;
   return kind === "PERSEN" ? Math.floor((subtotal * Math.min(value, 100)) / 100) : Math.min(value, subtotal);
 }
 
-/** Diskon terbesar yang boleh diberikan resepsionis. */
-export function discountLimit(subtotal: number): number {
-  return Math.floor((subtotal * DISCOUNT_LIMIT_PERCENT) / 100);
+/** Batas diskon resepsionis dari subtotal kotor. */
+export function discountLimit(grossSubtotal: number): number {
+  return Math.floor((grossSubtotal * DISCOUNT_LIMIT_PERCENT) / 100);
+}
+
+/** Diskon yang dibatasi 20%: Σ diskon baris manual + diskon tagihan (spec T2). */
+export function limitedDiscount(invoice: { discountKind: DiscountKindValue | null; discountValue: number; lines: readonly TotalsLine[] }): number {
+  return manualItemDiscount(invoice.lines) + discountAmount(invoiceSubtotal(invoice.lines), invoice.discountKind, invoice.discountValue);
 }
 
 export type InvoiceInput = {
   status: InvoiceStatusValue;
   discountKind: DiscountKindValue | null;
   discountValue: number;
-  lines: readonly { quantity: number; unitPrice: number }[];
+  lines: readonly TotalsLine[];
   payments: readonly { amount: number; revokedAt: Date | null }[];
 };
 
 export type InvoiceTotals = {
+  /** Σ harga baris sebelum diskon. */
+  grossSubtotal: number;
+  /** Σ diskon baris (promo dan manual). */
+  itemDiscount: number;
+  /** Subtotal setelah diskon baris. */
   subtotal: number;
+  /** Diskon tagihan. */
   discount: number;
   total: number;
   paid: number;
@@ -93,17 +129,20 @@ export type InvoiceTotals = {
   display: InvoiceDisplayStatus;
 };
 
-/** Total, dibayar, sisa, dan status tampil (spec tagihan 3.2). Pembayaran yang dibatalkan tidak dihitung. */
+/** Total, dibayar, sisa, dan status tampil (spec tagihan 3.2, perbaikan tagihan 4). Pembayaran yang dibatalkan tidak dihitung. */
 export function invoiceTotals(invoice: InvoiceInput): InvoiceTotals {
+  const grossSubtotal = invoiceGrossSubtotal(invoice.lines);
   const subtotal = invoiceSubtotal(invoice.lines);
+  const itemDiscount = grossSubtotal - subtotal;
   const discount = discountAmount(subtotal, invoice.discountKind, invoice.discountValue);
   const total = subtotal - discount;
   const paid = invoice.payments.reduce((sum, payment) => (payment.revokedAt ? sum : sum + payment.amount), 0);
-  if (invoice.status === "DIBATALKAN") return { subtotal, discount, total, paid, balance: 0, display: "DIBATALKAN" };
+  const base = { grossSubtotal, itemDiscount, subtotal, discount, total, paid };
+  if (invoice.status === "DIBATALKAN") return { ...base, balance: 0, display: "DIBATALKAN" };
   const balance = total - paid;
-  if (invoice.status === "DRAF") return { subtotal, discount, total, paid, balance, display: "DRAF" };
+  if (invoice.status === "DRAF") return { ...base, balance, display: "DRAF" };
   const display = balance <= 0 ? "LUNAS" : paid > 0 ? "SEBAGIAN" : "BELUM_DIBAYAR";
-  return { subtotal, discount, total, paid, balance, display };
+  return { ...base, balance, display };
 }
 
 /** "TG-2026-0001". */
@@ -249,10 +288,14 @@ export type DiscountInput = { kind: DiscountKindValue | null; value: number; rea
 export type ValidDiscount = { kind: DiscountKindValue | null; value: number; reason: string | null };
 
 /**
- * Diskon tagihan (spec tagihan 3.2, TG9). Jenis kosong atau nilai 0 menghapus diskon.
- * `canExceed`: pelaku boleh memberi diskon di atas batas resepsionis (Admin Keuangan, Super Admin).
+ * Diskon tagihan (spec tagihan 3.2, TG9; perbaikan tagihan T2). Jenis kosong atau nilai 0 menghapus diskon.
+ * `subtotal`: subtotal bersih (dasar diskon). `grossSubtotal`: dasar batas 20% (bawaan = subtotal).
+ * `otherLimited`: diskon baris manual yang sudah ada (bawaan 0). `canExceed`: Admin Keuangan/Super Admin.
  */
-export function validateDiscount(raw: unknown, ctx: { subtotal: number; canExceed: boolean }): Validation<ValidDiscount> {
+export function validateDiscount(
+  raw: unknown,
+  ctx: { subtotal: number; canExceed: boolean; grossSubtotal?: number; otherLimited?: number },
+): Validation<ValidDiscount> {
   if (!isObject(raw)) return fail(INVALID_FORM);
   const kind = raw.kind === "NOMINAL" || raw.kind === "PERSEN" ? raw.kind : null;
   if (raw.kind !== null && raw.kind !== undefined && kind === null) return fail(INVALID_FORM);
@@ -266,10 +309,29 @@ export function validateDiscount(raw: unknown, ctx: { subtotal: number; canExcee
   if (reason === null) return fail(INVALID_FORM);
   if (!reason) return fail("Isi alasan diskon.");
   if (reason.length > 300) return fail("Alasan paling banyak 300 karakter.");
-  if (!ctx.canExceed && discountAmount(ctx.subtotal, kind, amount) > discountLimit(ctx.subtotal)) {
+  const limit = discountLimit(ctx.grossSubtotal ?? ctx.subtotal);
+  if (!ctx.canExceed && (ctx.otherLimited ?? 0) + discountAmount(ctx.subtotal, kind, amount) > limit) {
     return fail(`Diskon di atas ${DISCOUNT_LIMIT_PERCENT}% diberikan oleh Admin Keuangan.`);
   }
   return { ok: true, value: { kind, value: amount, reason } };
+}
+
+export type LineDiscountInput = { kind: DiscountKindValue; value: number; reason: string };
+
+/** Diskon manual satu baris (spec perbaikan tagihan 5.2): nominal untuk seluruh baris, atau persen dibulatkan ke bawah. Batas 20% diperiksa server. */
+export function validateLineDiscount(raw: unknown, ctx: { gross: number }): Validation<{ amount: number; reason: string }> {
+  if (!isObject(raw)) return fail(INVALID_FORM);
+  if (raw.kind !== "NOMINAL" && raw.kind !== "PERSEN") return fail("Pilih jenis diskon.");
+  if (raw.kind === "PERSEN" && !isWhole(raw.value, 1, 100)) return fail("Persen diskon harus 1 sampai 100.");
+  if (raw.kind === "NOMINAL" && !isWhole(raw.value, 1, MAX_AMOUNT)) return fail("Nominal diskon harus bilangan bulat lebih dari 0.");
+  const amount = raw.kind === "PERSEN" ? Math.floor((ctx.gross * (raw.value as number)) / 100) : (raw.value as number);
+  if (amount > ctx.gross) return fail("Diskon tidak boleh melebihi harga baris.");
+  if (amount === 0) return fail("Diskon terlalu kecil untuk baris ini.");
+  const reason = cleanText(raw.reason);
+  if (reason === null) return fail(INVALID_FORM);
+  if (!reason) return fail("Isi alasan diskon.");
+  if (reason.length > 200) return fail("Alasan paling banyak 200 karakter.");
+  return { ok: true, value: { amount, reason } };
 }
 
 export type InvoicePaymentInput = {

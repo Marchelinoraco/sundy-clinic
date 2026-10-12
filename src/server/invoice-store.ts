@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { UserFacingError } from "@/lib/action-result";
-import { discountAmount, discountLimit, DISCOUNT_LIMIT_PERCENT, invoiceSubtotal } from "@/lib/invoice";
+import { discountLimit, DISCOUNT_LIMIT_PERCENT, invoiceGrossSubtotal, limitedDiscount } from "@/lib/invoice";
 
 // Tanpa "use server": pembantu server untuk tagihan, tidak dipanggil browser.
 
@@ -11,7 +11,7 @@ export const TOTALS_SELECT = {
   status: true,
   discountKind: true,
   discountValue: true,
-  lines: { select: { quantity: true, unitPrice: true } },
+  lines: { select: { quantity: true, unitPrice: true, discountAmount: true, discountSource: true } },
   payments: { select: { amount: true, revokedAt: true } },
 } as const;
 
@@ -49,34 +49,29 @@ export async function touchDraft(tx: Prisma.TransactionClient, invoiceId: string
 }
 
 /**
- * Menjalankan perubahan baris, lalu menolaknya bila membuat diskon resepsionis melewati batas
- * (spec tagihan TG9): diskon nominal yang tadinya ≤ 20% bisa jadi lebih besar setelah baris
- * dihapus. Diskon yang sudah di atas batas (disetujui Admin Keuangan) boleh tetap, tetapi
- * tidak boleh membesar, baik nilainya maupun porsinya terhadap subtotal.
+ * Menjalankan perubahan draf, lalu menolaknya bila diskon yang dibatasi (diskon baris manual + diskon
+ * tagihan, spec perbaikan tagihan T2) melewati 20% dari subtotal kotor. Diskon yang sudah di atas batas
+ * (disetujui Admin Keuangan) boleh tetap, tetapi tidak boleh membesar, baik nilainya maupun porsinya.
  */
 export async function guardDiscount(
   tx: Prisma.TransactionClient,
   invoiceId: string,
   canExceed: boolean,
   mutate: () => Promise<void>,
+  message = `Perubahan ini membuat diskon melebihi ${DISCOUNT_LIMIT_PERCENT}%. Ubah diskon dulu atau minta Admin Keuangan.`,
 ): Promise<void> {
   const read = async () => {
     const invoice = await tx.invoice.findUniqueOrThrow({
       where: { id: invoiceId },
-      select: { discountKind: true, discountValue: true, lines: { select: { quantity: true, unitPrice: true } } },
+      select: { discountKind: true, discountValue: true, lines: { select: { quantity: true, unitPrice: true, discountAmount: true, discountSource: true } } },
     });
-    const subtotal = invoiceSubtotal(invoice.lines);
-    const amount = discountAmount(subtotal, invoice.discountKind, invoice.discountValue);
-    return { subtotal, amount, within: amount <= discountLimit(subtotal) };
+    const gross = invoiceGrossSubtotal(invoice.lines);
+    const amount = limitedDiscount(invoice);
+    return { gross, amount, within: amount <= discountLimit(gross) };
   };
   const before = await read();
   await mutate();
   const after = await read();
-  // Porsi membesar: amount/subtotal naik (dibandingkan silang agar tanpa pembagian).
-  const grew = after.amount > before.amount || after.amount * before.subtotal > before.amount * after.subtotal;
-  if (!canExceed && !after.within && (before.within || grew)) {
-    throw new UserFacingError(
-      `Perubahan ini membuat diskon melebihi ${DISCOUNT_LIMIT_PERCENT}%. Ubah diskon dulu atau minta Admin Keuangan.`,
-    );
-  }
+  const grew = after.amount > before.amount || after.amount * before.gross > before.amount * after.gross;
+  if (!canExceed && !after.within && (before.within || grew)) throw new UserFacingError(message);
 }
