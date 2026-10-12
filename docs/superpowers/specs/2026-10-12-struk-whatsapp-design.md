@@ -80,7 +80,7 @@ Tagihan final mendapat tombol **"Cetak struk"** (peran `invoice:manage`). Tombol
   Isinya sama dengan halaman struk publik (bagian 6), tanpa data yang dilarang di sana.
 - **Galat dan pesannya:**
   - QZ Tray tidak berjalan: "QZ Tray tidak tersambung. Buka QZ Tray di komputer ini lalu coba lagi."
-  - Printer tersimpan tidak ditemukan: "Printer \"{nama}\" tidak ditemukan. Pilih printer lagi." Dialog pengaturan langsung dibuka.
+  - Printer tersimpan tidak ditemukan: "Printer «{nama}» tidak ditemukan. Pilih printer lagi." Dialog pengaturan langsung dibuka.
   - Pencetakan gagal: pesan galat dari QZ Tray ditampilkan apa adanya.
 
   Tidak ada yang tersimpan di server saat mencetak, kecuali catatan audit `invoice.receipt-print` (nomor tagihan saja).
