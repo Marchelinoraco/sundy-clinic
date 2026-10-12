@@ -153,6 +153,40 @@ lewat stdin; `cek-situs.sh` membuang kredensial dari URL yang dicetaknya; backup
 | Sertifikat | diperpanjang aaPanel otomatis; cek sisa hari di aaPanel → situs → SSL |
 | fail2ban | `sudo fail2ban-client status sshd` — IP yang diblokir wajar (bot) |
 
+## 9a. Printer struk (QZ Tray)
+
+Tombol "Cetak struk" di tagihan final mengirim struk ke printer thermal lewat QZ Tray di komputer kasir
+(spec `docs/superpowers/specs/2026-10-12-struk-whatsapp-design.md` bagian 7). Supaya QZ Tray tidak bertanya
+"izinkan?" setiap mencetak, situs menandatangani permintaan dengan kunci di server.
+
+**Membuat kunci (sekali, lewat SSH):**
+
+```bash
+sudo -u sundyapp -H bash -c '
+  mkdir -p /www/sundy/shared/qz && chmod 700 /www/sundy/shared/qz && cd /www/sundy/shared/qz &&
+  openssl req -x509 -newkey rsa:2048 -sha256 -days 3650 -nodes \
+    -keyout private-key.pem -out digital-certificate.txt -subj "/CN=SunDY Clinic/O=SunDY Clinic" &&
+  chmod 600 private-key.pem && chmod 644 digital-certificate.txt'
+```
+
+Lalu tambahkan ke `/www/sundy/shared/.env` dan restart aplikasi (`pm2 restart sundy` sebagai `sundyapp`):
+
+```
+QZ_PRIVATE_KEY_FILE=/www/sundy/shared/qz/private-key.pem
+QZ_CERTIFICATE_FILE=/www/sundy/shared/qz/digital-certificate.txt
+```
+
+Isi `private-key.pem` tidak pernah disalin ke chat, git, atau komputer lain. Folder `qz/` tidak ikut backup
+harian; bila hilang, buat kunci baru dan pasang ulang sertifikatnya di semua komputer kasir.
+
+**Di setiap komputer kasir (pemilik, sekali):**
+1. Salin isi `digital-certificate.txt` (sertifikat publik, boleh dibagikan) ke berkas
+   `C:\Program Files\QZ Tray\override.crt` (perlu hak administrator Windows).
+2. Keluar dari QZ Tray (ikon di baki sistem → Exit), lalu buka lagi.
+3. Di SunDY: buka tagihan final → "Pengaturan printer" → pilih printer dan lebar kertas → Simpan.
+
+Versi QZ Tray minimal 2.1. Tanpa kunci di server, "Cetak struk" tetap jalan dengan dialog izin QZ Tray.
+
 ## 10. Riwayat pembersihan (Plan 0 Task 14)
 
 28 Sep 2026: pemilik menghapus proyek Vercel dan **seluruh proyek Neon SunDY** (lebih awal dari rencana satu

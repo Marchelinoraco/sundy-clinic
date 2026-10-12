@@ -5,6 +5,7 @@ import { InvoiceFinalView } from "@/components/admin/billing/invoice-final-view"
 import { InvoicePaymentDialog } from "@/components/admin/billing/invoice-payment-dialog";
 import { invoiceTotals } from "@/lib/invoice";
 import type { InvoiceDetail, InvoicePaymentRow } from "@/server/invoice-read";
+import { RECEIPT } from "../fixtures/receipt";
 import { renderAdmin } from "./helpers/render-admin";
 
 const mocks = vi.hoisted(() => ({
@@ -22,6 +23,14 @@ vi.mock("@/server/invoice-payments", () => ({
   applyFinalDiscount: mocks.applyFinalDiscount,
 }));
 vi.mock("@/server/invoice-lifecycle", () => ({ cancelInvoice: mocks.cancelInvoice, finalizeInvoice: vi.fn() }));
+vi.mock("@/server/receipt", () => ({ getReceiptMessage: vi.fn(), resetReceiptLink: vi.fn(), recordReceiptPrint: vi.fn() }));
+vi.mock("@/components/admin/billing/receipt-printer", () => ({
+  loadPrinterSettings: vi.fn(() => null),
+  savePrinterSettings: vi.fn(),
+  listPrinters: vi.fn(async () => []),
+  printRaw: vi.fn(),
+  PrinterError: class extends Error {},
+}));
 
 const payment: InvoicePaymentRow = {
   id: "pay1",
@@ -131,5 +140,28 @@ describe("tampilan tagihan final", () => {
     await userEvent.type(amount, "160000");
     await userEvent.click(within(dialog).getByRole("button", { name: "Simpan" }));
     await waitFor(() => expect(mocks.recordInvoicePayment).toHaveBeenCalledWith(expect.objectContaining({ invoiceId: "inv1", amount: 160000, method: "TUNAI" })));
+  });
+
+  it("tagihan final + invoice:manage: Kirim struk via WA dan Ganti tautan; struk khusus cetak terpasang", () => {
+    const { container } = renderAdmin(
+      <InvoiceFinalView detail={finalDetail()} receipt={RECEIPT} today="2026-10-07" canManage canCorrect={false} canSeeCost={false} />,
+    );
+    expect(screen.getByRole("button", { name: "Kirim struk via WA" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ganti tautan" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cetak struk" })).toBeInTheDocument();
+    expect(container.querySelector(".struk-hanya-cetak")).not.toBeNull();
+    expect(container.querySelector(".struk-tanpa-cetak")).not.toBeNull();
+  });
+
+  it("tanpa invoice:manage tidak ada aksi struk", () => {
+    renderAdmin(<InvoiceFinalView detail={finalDetail()} receipt={RECEIPT} today="2026-10-07" canManage={false} canCorrect canSeeCost={false} />);
+    expect(screen.queryByRole("button", { name: "Kirim struk via WA" })).not.toBeInTheDocument();
+  });
+
+  it("tagihan dibatalkan (tanpa struk): isi halaman tetap tercetak, tidak disembunyikan", () => {
+    const cancelled = finalDetail({ status: "DIBATALKAN", cancelledAt: new Date("2026-10-08T03:00:00Z"), cancelledByName: "Keuangan", cancelReason: "Salah input" });
+    const { container } = renderAdmin(<InvoiceFinalView detail={cancelled} receipt={null} today="2026-10-07" canManage canCorrect canSeeCost={false} />);
+    expect(container.querySelector(".struk-tanpa-cetak")).toBeNull();
+    expect(container.querySelector(".struk-hanya-cetak")).toBeNull();
   });
 });

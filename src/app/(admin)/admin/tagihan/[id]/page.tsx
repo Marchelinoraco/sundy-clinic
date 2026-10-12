@@ -7,6 +7,7 @@ import { InvoiceStatusBadge } from "@/components/admin/billing/invoice-status-ba
 import { PageBody, PageHeader } from "@/components/admin/page-layout";
 import { can } from "@/lib/permissions";
 import { getInvoiceDetail, listBillingItems } from "@/server/invoice-read";
+import { getInvoiceReceipt } from "@/server/receipt";
 import { requireCapability } from "@/server/session";
 import { witaDateString } from "@/lib/time";
 
@@ -17,17 +18,20 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   const detail = await getInvoiceDetail((await params).id);
   if (!detail) notFound();
   const canManage = can(staff.role, "invoice:manage");
+  const receipt = detail.status === "DRAF" ? null : await getInvoiceReceipt(detail.id);
 
   return (
     <>
       <AdminHeader title="Tagihan" />
       <PageBody>
-        <PageHeader
-          title={detail.number ? `Tagihan ${detail.number}` : "Tagihan (draf)"}
-          trail={[{ label: "Tagihan", href: "/admin/tagihan" }, { label: detail.number ?? "Draf" }]}
-          description={`${detail.patient.name} · ${detail.patient.medicalRecordNumber} · ${detail.branchName}`}
-          actions={<InvoiceStatusBadge status={detail.totals.display} />}
-        />
+        <div className={receipt ? "struk-tanpa-cetak" : undefined}>
+          <PageHeader
+            title={detail.number ? `Tagihan ${detail.number}` : "Tagihan (draf)"}
+            trail={[{ label: "Tagihan", href: "/admin/tagihan" }, { label: detail.number ?? "Draf" }]}
+            description={`${detail.patient.name} · ${detail.patient.medicalRecordNumber} · ${detail.branchName}`}
+            actions={<InvoiceStatusBadge status={detail.totals.display} />}
+          />
+        </div>
         {detail.status === "DRAF" ? (
           canManage ? (
             <InvoiceDraftEditor detail={detail} items={await listBillingItems(detail.branchId)} canExceedDiscount={can(staff.role, "invoice:correct")} />
@@ -43,6 +47,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             canManage={canManage}
             canCorrect={can(staff.role, "invoice:correct")}
             canSeeCost={can(staff.role, "stock:read")}
+            receipt={receipt}
           />
         )}
       </PageBody>

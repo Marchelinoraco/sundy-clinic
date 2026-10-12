@@ -67,3 +67,6 @@ public/uploads/
 
 # Mockup brainstorming (companion visual superpowers)
 .superpowers/
+
+# Ekspor pelanggan dari POS Kluto: data pribadi, tidak boleh masuk git.
+/impor-kluto/
