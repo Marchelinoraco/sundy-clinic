@@ -1,5 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { UserFacingError } from "@/lib/action-result";
+import { promoDiscount } from "@/lib/stock-promo";
+import { witaDateString } from "@/lib/time";
 import { lockInvoiceRow } from "@/server/invoice-store";
 
 // Tanpa "use server": pembantu server untuk penyerahan, tidak dipanggil browser.
@@ -67,6 +69,9 @@ export type HandedLine = {
   encounterTreatmentId: null;
   itemId: string;
   dispensingLineId: string;
+  discountAmount: number;
+  discountReason: string | null;
+  discountSource: "PROMO" | null;
 };
 
 /** Baris tagihan dari penyerahan SELESAI (harga jual katalog saat ini); kosong untuk status lain. Panggil setelah baris dikunci. */
@@ -76,15 +81,21 @@ export async function handedInvoiceLines(tx: Prisma.TransactionClient, dispensin
     select: { status: true, lines: { orderBy: { sortOrder: "asc" }, select: { id: true, itemId: true, itemName: true, quantity: true } } },
   });
   if (!dispensing || dispensing.status !== "SELESAI") return [];
-  const prices = new Map(
-    (await tx.stockItem.findMany({ where: { id: { in: dispensing.lines.map((l) => l.itemId) } }, select: { id: true, sellPrice: true } })).map((item) => [
-      item.id,
-      item.sellPrice,
-    ]),
+  const items = new Map(
+    (
+      await tx.stockItem.findMany({
+        where: { id: { in: dispensing.lines.map((l) => l.itemId) } },
+        select: { id: true, sellPrice: true, promoName: true, promoKind: true, promoValue: true, promoStartsOn: true, promoEndsOn: true },
+      })
+    ).map((item) => [item.id, item]),
   );
+  const today = witaDateString(new Date());
   return dispensing.lines.map((line) => {
-    const unitPrice = prices.get(line.itemId);
+    const item = items.get(line.itemId);
+    const unitPrice = item?.sellPrice;
     if (unitPrice === null || unitPrice === undefined) throw new UserFacingError(`Harga jual ${line.itemName} belum diisi.`);
+    // Promo barang terpasang juga pada obat dari penyerahan Apoteker (spec perbaikan tagihan 5.1).
+    const promo = promoDiscount(item!, { quantity: line.quantity, unitPrice }, today);
     return {
       kind: "BARANG" as const,
       name: line.itemName,
@@ -94,6 +105,9 @@ export async function handedInvoiceLines(tx: Prisma.TransactionClient, dispensin
       encounterTreatmentId: null,
       itemId: line.itemId,
       dispensingLineId: line.id,
+      discountAmount: promo?.amount ?? 0,
+      discountReason: promo?.reason ?? null,
+      discountSource: promo ? ("PROMO" as const) : null,
     };
   });
 }
