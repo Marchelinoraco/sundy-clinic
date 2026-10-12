@@ -1028,12 +1028,14 @@ model InvoiceNumberCounter {
 
 /// Tagihan customer. Draf bisa diubah; Final terkunci dan memotong stok; Dibatalkan tetap tercatat.
 model Invoice {
-  id      String        @id @default(cuid())
+  id                 String        @id @default(cuid())
   /// "TG-2026-0001"; kosong selama draf (CHECK invoice_status_fields).
-  number  String?       @unique
-  status  InvoiceStatus @default(DRAF)
+  number             String?       @unique
+  status             InvoiceStatus @default(DRAF)
   /// Naik setiap perubahan draf; menolak suntingan bersamaan dari halaman yang usang.
-  version Int           @default(1)
+  version            Int           @default(1)
+  /// Versi tautan struk publik (spec struk WA 3–4). "Ganti tautan" menaikkannya; kode lama tidak sah lagi.
+  receiptLinkVersion Int           @default(0)
 
   patientId     String
   patient       Patient      @relation(fields: [patientId], references: [id], onDelete: Restrict)

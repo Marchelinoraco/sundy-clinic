@@ -201,3 +201,12 @@ describe("migrasi data pasien (pendaftaran di panel)", () => {
     expect(sql).toMatch(/patient_email_format/);
   });
 });
+
+describe("migrasi tautan struk", () => {
+  const sql = readFileSync("prisma/migrations/20261013090000_tautan_struk/migration.sql", "utf8");
+
+  it("hanya menambah satu kolom berbawaan 0", () => {
+    expect(sql).not.toMatch(/\bDROP\b/i);
+    expect(sql).toMatch(/ADD COLUMN\s+"receiptLinkVersion" INTEGER NOT NULL DEFAULT 0/);
+  });
+});
