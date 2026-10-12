@@ -2,7 +2,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
 import { addFreeLine, addInvoiceItem, clearLineDiscount, createDirectSale, createInvoiceFromVisit, refreshCatalogPrices, setInvoiceDiscount, setLineDiscount, updateInvoiceLine } from "@/server/invoice-drafts";
-import { cleanupBillingWorld, createBillingWorld, finalVisit, seedDispensing, type BillingWorld } from "./invoice-world";
+import { billingBatch, cleanupBillingWorld, createBillingWorld, finalVisit, seedDispensing, type BillingWorld } from "./invoice-world";
+import { finalizeInvoice } from "@/server/invoice-lifecycle";
 import { unwrap } from "./unwrap";
 
 type Role = "SUPER_ADMIN" | "RESEPSIONIS" | "ADMIN_KEUANGAN";
@@ -159,4 +160,15 @@ describe("diskon manual dan batas gabungan 20%", () => {
     const audit = await prisma.auditLog.findFirstOrThrow({ where: { action: "invoice.update", entityId: id, summary: { startsWith: "Diskon baris" } } });
     expect(audit.summary).toBe("Diskon baris Layanan Diskon: Rp 10.000 (Uji)");
   });
+
+describe("finalisasi tagihan berdiskon baris", () => {
+  it("audit invoice.finalize mencatat total setelah diskon item", async () => {
+    await billingBatch(world, { invoiceNumber: `${SLUG}-FAKTUR-1`, itemId: world.productId, quantity: 5, expiryDate: "2099-12-31" });
+    await setPromo(world.productId, { kind: "PERSEN", value: 10 });
+    const id = await draft();
+    const { number } = await unwrap(finalizeInvoice({ invoiceId: id, version: await versionOf(id) }));
+    const audit = await prisma.auditLog.findFirstOrThrow({ where: { action: "invoice.finalize", entityId: id } });
+    expect(audit.summary).toBe(`${number}: Rp 370.000`);
+  });
+});
 });

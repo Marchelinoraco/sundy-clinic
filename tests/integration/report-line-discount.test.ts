@@ -50,8 +50,8 @@ describe("laporan dengan diskon baris (Review Focus 5)", () => {
       discountKind: "PERSEN",
       discountValue: 5,
       lines: [
-        { quantity: 2, unitPrice: 150_000, discountAmount: 30_000 },
-        { quantity: 1, unitPrice: 100_000, discountAmount: 10_000 },
+        { quantity: 2, unitPrice: 150_000, discountAmount: 30_000, discountSource: "PROMO" },
+        { quantity: 1, unitPrice: 100_000, discountAmount: 10_000, discountSource: "MANUAL" },
       ],
       payments: [],
     }).total;

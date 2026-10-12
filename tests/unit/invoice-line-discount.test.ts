@@ -21,9 +21,9 @@ describe("total dengan diskon baris", () => {
     expect(totals).toMatchObject({ grossSubtotal: 400_000, itemDiscount: 40_000, subtotal: 360_000, discount: 18_000, total: 342_000, balance: 342_000 });
   });
 
-  it("baris tanpa diskon tetap seperti dulu (kolom lama tanpa discountAmount)", () => {
-    expect(lineAmount({ quantity: 3, unitPrice: 1000 })).toBe(3000);
-    expect(invoiceSubtotal([{ quantity: 3, unitPrice: 1000 }])).toBe(3000);
+  it("baris tanpa diskon tetap seperti dulu", () => {
+    expect(lineAmount({ quantity: 3, unitPrice: 1000, discountAmount: 0, discountSource: null })).toBe(3000);
+    expect(invoiceSubtotal([{ quantity: 3, unitPrice: 1000, discountAmount: 0, discountSource: null }])).toBe(3000);
   });
 
   it("subtotal bersih, kotor, dan diskon manual saja", () => {

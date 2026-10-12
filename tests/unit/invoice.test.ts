@@ -21,8 +21,8 @@ const day = (value: string) => new Date(`${value}T00:00:00Z`);
 
 describe("subtotal, diskon, dan total", () => {
   const lines = [
-    { quantity: 1, unitPrice: 200000 },
-    { quantity: 2, unitPrice: 2000 },
+    { quantity: 1, unitPrice: 200000, discountAmount: 0, discountSource: null },
+    { quantity: 2, unitPrice: 2000, discountAmount: 0, discountSource: null },
   ];
 
   it("subtotal = Σ jumlah × harga", () => {

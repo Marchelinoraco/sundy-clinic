@@ -1,6 +1,6 @@
 import { CLINIC_NAME } from "./clinic";
 import { formatDateWithYear, formatRupiah } from "./format";
-import { invoiceTotals, type DiscountKindValue, type InvoiceStatusValue } from "./invoice";
+import { invoiceTotals, type DiscountKindValue, type InvoiceStatusValue, type LineDiscountSourceValue } from "./invoice";
 import { firstName } from "./quiz-link";
 import { dateOnlyString, type PaymentMethodValue } from "./stock";
 import { minutesToTimeLabel, witaMinutesOfDay } from "./time";
@@ -54,7 +54,7 @@ export type ReceiptSource = {
   discountValue: number;
   patient: { name: string };
   branch: { name: string; address: string };
-  lines: readonly { name: string; quantity: number; unitPrice: number; discountAmount?: number }[];
+  lines: readonly { name: string; quantity: number; unitPrice: number; discountAmount: number; discountSource: LineDiscountSourceValue | null }[];
   payments: readonly { amount: number; method: PaymentMethodValue; paidAt: Date; revokedAt: Date | null }[];
 };
 
@@ -72,7 +72,7 @@ export function buildPublicReceipt(source: ReceiptSource): PublicReceipt | null 
     customerName: source.patient.name,
     lines: source.lines.map((line) => {
       const gross = line.quantity * line.unitPrice;
-      const discount = line.discountAmount ?? 0;
+      const discount = line.discountAmount;
       return { name: line.name, quantity: line.quantity, unitPrice: line.unitPrice, gross, discount, amount: gross - discount };
     }),
     subtotal: totals.grossSubtotal,

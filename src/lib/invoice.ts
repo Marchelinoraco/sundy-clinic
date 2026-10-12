@@ -65,7 +65,7 @@ function cleanText(value: unknown): string | null {
 export type LineDiscountSourceValue = "PROMO" | "MANUAL";
 
 /** Baris untuk hitungan: kolom diskon boleh tidak ada (baris lama, atau pemilih kolom lama). */
-export type TotalsLine = { quantity: number; unitPrice: number; discountAmount?: number; discountSource?: LineDiscountSourceValue | null };
+export type TotalsLine = { quantity: number; unitPrice: number; discountAmount: number; discountSource: LineDiscountSourceValue | null };
 
 export function lineGross(line: TotalsLine): number {
   return line.quantity * line.unitPrice;

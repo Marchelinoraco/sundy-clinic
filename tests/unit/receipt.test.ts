@@ -21,8 +21,8 @@ function source(patch: Partial<ReceiptSource> = {}): ReceiptSource {
     patient: { name: "Priscillya Jenitha Chiantoery" },
     branch: { name: "SunDY Mahakeret", address: "Jl. Mahakeret 1, Manado" },
     lines: [
-      { name: "Paket Lux", quantity: 1, unitPrice: 1_500_000 },
-      { name: "Paket S 0.3", quantity: 1, unitPrice: 1_600_000 },
+      { name: "Paket Lux", quantity: 1, unitPrice: 1_500_000, discountAmount: 0, discountSource: null },
+      { name: "Paket S 0.3", quantity: 1, unitPrice: 1_600_000, discountAmount: 0, discountSource: null },
     ],
     payments: [{ amount: 3_100_000, method: "QRIS", paidAt: new Date("2026-10-12T00:00:00Z"), revokedAt: null }],
     ...patch,
@@ -88,8 +88,8 @@ describe("buildPublicReceipt", () => {
     const receipt = buildPublicReceipt(
       source({
         lines: [
-          { name: "Serum", quantity: 2, unitPrice: 150_000, discountAmount: 30_000 },
-          { name: "Facial", quantity: 1, unitPrice: 100_000, discountAmount: 0 },
+          { name: "Serum", quantity: 2, unitPrice: 150_000, discountAmount: 30_000, discountSource: "PROMO" },
+          { name: "Facial", quantity: 1, unitPrice: 100_000, discountAmount: 0, discountSource: null },
         ],
         discountKind: "PERSEN",
         discountValue: 5,
