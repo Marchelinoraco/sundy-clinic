@@ -34,6 +34,7 @@ import { AddFreeLineDialog } from "./add-free-line-dialog";
 import { AddItemDialog } from "./add-item-dialog";
 import { CancelInvoiceDialog } from "./cancel-invoice-dialog";
 import { DiscountForm } from "./discount-form";
+import { InvoiceNotesForm } from "./invoice-notes-form";
 
 /** Jalankan aksi server: tampilkan kesalahan apa adanya, muat ulang halaman bila berhasil. */
 export function useInvoiceAction() {
@@ -141,7 +142,17 @@ function LineRow({ detail, line, disabled, run, fail }: {
 }
 
 /** Editor tagihan draf (spec tagihan 4.2–4.3): baris, barang, baris bebas, diskon, lalu finalkan. */
-export function InvoiceDraftEditor({ detail, items, canExceedDiscount }: { detail: InvoiceDetail; items: BillingItem[]; canExceedDiscount: boolean }) {
+export function InvoiceDraftEditor({
+  detail,
+  items,
+  canExceedDiscount,
+  canEditNotes = true,
+}: {
+  detail: InvoiceDetail;
+  items: BillingItem[];
+  canExceedDiscount: boolean;
+  canEditNotes?: boolean;
+}) {
   const { run, error, setError, pending } = useInvoiceAction();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const { totals } = detail;
@@ -200,6 +211,8 @@ export function InvoiceDraftEditor({ detail, items, canExceedDiscount }: { detai
       </TableContainer>
 
       <DiscountForm detail={detail} canExceed={canExceedDiscount} run={run} fail={setError} disabled={pending} />
+
+      <InvoiceNotesForm invoiceId={detail.id} notes={detail.notes} canEdit={canEditNotes} />
 
       <Box component="section" aria-label="Ringkasan tagihan" sx={{ alignSelf: "flex-end", width: "100%", maxWidth: 320, fontSize: "0.875rem" }}>
         <Stack spacing={0.5}>

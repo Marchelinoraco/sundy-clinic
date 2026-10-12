@@ -21,6 +21,8 @@ export type InvoiceView = "PERLU_DITAGIH" | "DRAF" | "BELUM_LUNAS" | "LUNAS" | "
 export const DISCOUNT_LIMIT_PERCENT = 20;
 /** Kunjungan final lebih lama dari ini tidak lagi masuk "Perlu ditagih". */
 export const BILLABLE_DAYS = 30;
+/** Panjang catatan internal tagihan (spec perbaikan tagihan 6). */
+export const INVOICE_NOTES_MAX = 500;
 
 export const INVOICE_STATUS_LABEL: Record<InvoiceDisplayStatus, string> = {
   DRAF: "Draf",

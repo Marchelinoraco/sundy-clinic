@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   refreshCatalogPrices: vi.fn(),
   cancelInvoice: vi.fn(),
 }));
+vi.mock("@/server/invoice-notes", () => ({ updateInvoiceNotes: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mocks.refresh, push: mocks.push }) }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/server/invoice-drafts", () => ({

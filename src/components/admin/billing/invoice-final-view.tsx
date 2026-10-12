@@ -16,6 +16,7 @@ import type { InvoiceDetail } from "@/server/invoice-read";
 import { SectionCard } from "../page-layout";
 import { CancelInvoiceDialog } from "./cancel-invoice-dialog";
 import { FinalDiscountDialog } from "./final-discount-dialog";
+import { InvoiceNotesForm } from "./invoice-notes-form";
 import { InvoicePaymentDialog } from "./invoice-payment-dialog";
 import { PrintButton } from "./print-button";
 import { ReceiptPrintButton } from "./receipt-print-button";
@@ -31,6 +32,7 @@ export function InvoiceFinalView({
   canCorrect,
   canSeeCost,
   receipt = null,
+  canEditNotes = false,
 }: {
   detail: InvoiceDetail;
   today: string;
@@ -39,6 +41,8 @@ export function InvoiceFinalView({
   canSeeCost: boolean;
   /** Struk untuk dikirim dan dicetak (spec struk WA 5–7); null untuk tagihan dibatalkan. */
   receipt?: PublicReceipt | null;
+  /** Catatan internal boleh diubah (invoice:manage atau invoice:correct). */
+  canEditNotes?: boolean;
 }) {
   const { totals } = detail;
   const isFinal = detail.status === "FINAL";
@@ -183,6 +187,7 @@ export function InvoiceFinalView({
             </Box>
           )}
         </SectionCard>
+        <InvoiceNotesForm invoiceId={detail.id} notes={detail.notes} canEdit={canEditNotes} />
       </Stack>
       {receipt && <ReceiptPaper receipt={receipt} className="struk-hanya-cetak" />}
     </>

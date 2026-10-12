@@ -18,6 +18,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   const detail = await getInvoiceDetail((await params).id);
   if (!detail) notFound();
   const canManage = can(staff.role, "invoice:manage");
+  const canEditNotes = canManage || can(staff.role, "invoice:correct");
   const receipt = detail.status === "DRAF" ? null : await getInvoiceReceipt(detail.id);
 
   return (
@@ -34,7 +35,12 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
         </div>
         {detail.status === "DRAF" ? (
           canManage ? (
-            <InvoiceDraftEditor detail={detail} items={await listBillingItems(detail.branchId)} canExceedDiscount={can(staff.role, "invoice:correct")} />
+            <InvoiceDraftEditor
+              detail={detail}
+              items={await listBillingItems(detail.branchId)}
+              canExceedDiscount={can(staff.role, "invoice:correct")}
+              canEditNotes={canEditNotes}
+            />
           ) : (
             <Typography role="status" variant="body2" sx={{ color: "text.secondary" }}>
               Tagihan ini masih draf; hanya resepsionis yang bisa mengubahnya.
@@ -48,6 +54,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             canCorrect={can(staff.role, "invoice:correct")}
             canSeeCost={can(staff.role, "stock:read")}
             receipt={receipt}
+            canEditNotes={canEditNotes}
           />
         )}
       </PageBody>
