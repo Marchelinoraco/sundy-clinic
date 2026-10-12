@@ -157,4 +157,11 @@ describe("tampilan tagihan final", () => {
     renderAdmin(<InvoiceFinalView detail={finalDetail()} receipt={RECEIPT} today="2026-10-07" canManage={false} canCorrect canSeeCost={false} />);
     expect(screen.queryByRole("button", { name: "Kirim struk via WA" })).not.toBeInTheDocument();
   });
+
+  it("tagihan dibatalkan (tanpa struk): isi halaman tetap tercetak, tidak disembunyikan", () => {
+    const cancelled = finalDetail({ status: "DIBATALKAN", cancelledAt: new Date("2026-10-08T03:00:00Z"), cancelledByName: "Keuangan", cancelReason: "Salah input" });
+    const { container } = renderAdmin(<InvoiceFinalView detail={cancelled} receipt={null} today="2026-10-07" canManage canCorrect canSeeCost={false} />);
+    expect(container.querySelector(".struk-tanpa-cetak")).toBeNull();
+    expect(container.querySelector(".struk-hanya-cetak")).toBeNull();
+  });
 });

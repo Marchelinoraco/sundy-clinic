@@ -52,7 +52,8 @@ export function InvoiceFinalView({
 
   return (
     <>
-      <Stack spacing={3} className="struk-tanpa-cetak">
+      {/* Isi tagihan disembunyikan saat dicetak hanya bila ada struk penggantinya (tagihan dibatalkan tetap tercetak utuh). */}
+      <Stack spacing={3} className={receipt ? "struk-tanpa-cetak" : undefined}>
         {detail.cancelledAt && (
           <Typography
             role="status"

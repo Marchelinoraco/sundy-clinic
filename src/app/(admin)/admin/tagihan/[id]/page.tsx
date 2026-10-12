@@ -24,7 +24,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
     <>
       <AdminHeader title="Tagihan" />
       <PageBody>
-        <div className={detail.status === "DRAF" ? undefined : "struk-tanpa-cetak"}>
+        <div className={receipt ? "struk-tanpa-cetak" : undefined}>
           <PageHeader
             title={detail.number ? `Tagihan ${detail.number}` : "Tagihan (draf)"}
             trail={[{ label: "Tagihan", href: "/admin/tagihan" }, { label: detail.number ?? "Draf" }]}

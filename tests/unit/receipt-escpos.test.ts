@@ -86,4 +86,15 @@ describe("buildEscPosReceipt", () => {
     expect(text).not.toMatch(/^Sisa/m);
     expect(text).toContain("LUNAS");
   });
+
+  it("nama pelanggan dan kasir yang panjang tetap muat di 58 mm dan tidak terpotong isinya", () => {
+    const longName = "Maria Fransiska Theresia Wulandari Simanjuntak";
+    const longCashier = "Resepsionis Pagi Cabang Mahakeret Manado";
+    const lines = printedLines(buildEscPosReceipt({ ...RECEIPT, customerName: longName, cashierName: longCashier }, 58));
+    for (const line of lines) expect(line.length, JSON.stringify(line)).toBeLessThanOrEqual(32);
+    const joined = lines.map((line) => line.trim()).join(" ");
+    expect(joined).toContain("Maria Fransiska Theresia");
+    expect(joined).toContain("Wulandari Simanjuntak");
+    expect(joined).toContain("Kasir");
+  });
 });

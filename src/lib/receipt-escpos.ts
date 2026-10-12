@@ -57,7 +57,8 @@ export function wrapText(text: string, columns: number): string[] {
 /** Kiri dibungkus, kanan rata kanan di baris terakhir (atau baris sendiri bila tidak muat). */
 function twoColumns(left: string, right: string, columns: number): string[] {
   const room = columns - right.length - 1;
-  if (room < 4) return [...wrapText(left, columns), right.padStart(columns)];
+  // Nilai kanan yang panjang (mis. nama pelanggan) dibungkus sendiri, rata kanan, di bawah labelnya.
+  if (room < 4) return [...wrapText(left, columns), ...wrapText(right, columns).map((line) => line.padStart(columns))];
   const wrapped = wrapText(left, room);
   const last = wrapped.pop() ?? "";
   return [...wrapped, `${last.padEnd(columns - right.length)}${right}`];
