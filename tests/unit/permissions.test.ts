@@ -167,4 +167,10 @@ describe("hak akses hasil BIA (spec hasil BIA 5)", () => {
   it("Resepsionis tetap tidak membaca rekam medis", () => {
     expect(can("RESEPSIONIS", "record:read")).toBe(false);
   });
+
+  it("harga jual dan promo barang hanya Super Admin dan Admin Keuangan", () => {
+    expect(can("SUPER_ADMIN", "price:manage")).toBe(true);
+    expect(can("ADMIN_KEUANGAN", "price:manage")).toBe(true);
+    for (const role of ["APOTEKER", "RESEPSIONIS", "DOKTER", "TERAPIS"] as const) expect(can(role, "price:manage")).toBe(false);
+  });
 });
