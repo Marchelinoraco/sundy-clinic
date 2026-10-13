@@ -59,6 +59,47 @@ describe("lapisan query katalog", () => {
     await prisma.service.update({ where: { slug: "botox" }, data: { isActive: true } });
   });
 
+  it("memakai nama dan slug layanan situs, harga dan durasi dari layanan internal, tanpa kolom biaya", async () => {
+    const hifu = await prisma.service.findUniqueOrThrow({ where: { slug: "hifu-wajah" } });
+    const promo = await prisma.siteService.create({
+      data: { slug: "hifu-promo-uji", name: "HIFU Promo Uji", categoryId: hifu.categoryId, serviceId: hifu.id, sortOrder: 99 },
+    });
+    try {
+      const service = await getServiceBySlug("hifu-promo-uji");
+      expect(service).toMatchObject({ id: promo.id, name: "HIFU Promo Uji", serviceId: hifu.id, promoPrice: 499000, normalPrice: 749000, durationMin: hifu.durationMin });
+      expect(service).not.toHaveProperty("materialCost");
+      expect(service).not.toHaveProperty("commissionValue");
+      expect(await getAllServiceSlugs()).toContain("hifu-promo-uji");
+    } finally {
+      await prisma.siteService.delete({ where: { id: promo.id } });
+    }
+  });
+
+  it("menyembunyikan layanan situs nonaktif walau layanan internalnya aktif", async () => {
+    await prisma.siteService.update({ where: { slug: "lip-laser" }, data: { isActive: false } });
+    try {
+      expect(await getServiceBySlug("lip-laser")).toBeNull();
+      expect(await getAllServiceSlugs()).not.toContain("lip-laser");
+      const laser = (await getServiceCategoriesWithServices()).find((c) => c.slug === "laser");
+      expect(laser?.services.map((s) => s.slug)).not.toContain("lip-laser");
+    } finally {
+      await prisma.siteService.update({ where: { slug: "lip-laser" }, data: { isActive: true } });
+    }
+  });
+
+  it("item khusus internal tidak pernah tampil di situs", async () => {
+    const facial = await prisma.serviceCategory.findUniqueOrThrow({ where: { slug: "facial" } });
+    const internal = await prisma.service.create({ data: { slug: "addon-khusus-internal-uji", name: "Add-on Khusus Internal Uji", promoPrice: 10_000, categoryId: facial.id } });
+    try {
+      expect(await getAllServiceSlugs()).not.toContain("addon-khusus-internal-uji");
+      const before = await countActiveServices();
+      expect((await getServiceCategoriesWithServices()).flatMap((c) => c.services).some((s) => s.name === "Add-on Khusus Internal Uji")).toBe(false);
+      expect(before).toBe((await getServiceCategoriesWithServices()).reduce((total, c) => total + c.services.length, 0));
+    } finally {
+      await prisma.service.delete({ where: { id: internal.id } });
+    }
+  });
+
   it("mengambil satu layanan beserta kategorinya", async () => {
     const service = await getServiceBySlug("hifu-wajah");
     expect(service?.name).toBe("HIFU Wajah");
