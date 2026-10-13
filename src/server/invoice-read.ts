@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { marginOf } from "@/lib/costing";
 import { prisma } from "@/lib/db";
 import type { DispensingStatusValue } from "@/lib/dispensing";
 import {
@@ -179,8 +180,11 @@ export type InvoiceLineRow = {
   packageUse: { patientPackageItemId: string; packageName: string } | null;
   /** Keterangan paket di bawah nama baris (isi dan masa berlaku, atau sesi paket yang dipakai). */
   packageNote: string | null;
-  /** Harga pokok baris barang; null bila pengguna tidak memegang stock:read atau bukan barang. */
-  cost: number | null;
+  /**
+   * Modal dan margin baris (spec harga modal 7), null bagi peran tanpa price:manage. `stockCost` hanya untuk barang,
+   * null bila ada harga beli yang belum diisi; `cost` = harga pokok barang + bahan + alat + komisi.
+   */
+  costing: { stockCost: number | null; materialCost: number; toolCost: number; commission: number; cost: number; margin: number } | null;
 };
 
 export type InvoicePaymentRow = {
@@ -230,9 +234,19 @@ export type InvoiceDetail = {
   payments: InvoicePaymentRow[];
   /** Pernah ada pembayaran (termasuk yang dibatalkan): pembatalan tagihan butuh invoice:correct. */
   everPaid: boolean;
-  /** Σ harga pokok baris barang; null bila pengguna tidak memegang stock:read. */
-  cost: number | null;
+  /** Ringkasan margin tagihan (spec harga modal 7); null bagi peran tanpa price:manage. `revenue` = total tagihan. */
+  margin: { revenue: number; stockCost: number; materialCost: number; toolCost: number; commission: number; margin: number; missingStockCost: boolean } | null;
 };
+
+/** Ringkasan margin dari `costing` setiap baris (spec harga modal 7). */
+function marginSummary(lines: readonly InvoiceLineRow[], revenue: number, missingStockCost: boolean): NonNullable<InvoiceDetail["margin"]> {
+  const sum = (pick: (c: NonNullable<InvoiceLineRow["costing"]>) => number) => lines.reduce((total, line) => total + (line.costing ? pick(line.costing) : 0), 0);
+  const stockCost = sum((c) => c.stockCost ?? 0);
+  const materialCost = sum((c) => c.materialCost);
+  const toolCost = sum((c) => c.toolCost);
+  const commission = sum((c) => c.commission);
+  return { revenue, stockCost, materialCost, toolCost, commission, margin: marginOf({ revenue, stockCost, materialCost, toolCost, commission }), missingStockCost };
+}
 
 export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null> {
   const actor = await requireCapability("invoice:read");
@@ -276,6 +290,9 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
           discountAmount: true,
           discountReason: true,
           discountSource: true,
+          materialCost: true,
+          toolCost: true,
+          commissionAmount: true,
           treatmentPackageId: true,
           patientPackageItemId: true,
           performerId: true,
@@ -289,6 +306,22 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
   });
   if (!invoice) return null;
   const notes = await packageLineNotes(prisma, invoice.lines, { draft: invoice.status === "DRAF" });
+
+  const totals = invoiceTotals({
+    status: invoice.status,
+    discountKind: invoice.discountKind,
+    discountValue: invoice.discountValue,
+    lines: invoice.lines,
+    payments: invoice.payments,
+  });
+  const costingOf = (line: (typeof invoice.lines)[number]) => {
+    if (!withCost) return null;
+    const stockCost =
+      line.kind === "BARANG" ? (line.stockUses.some((use) => use.unitCost === null) ? null : line.stockUses.reduce((sum, use) => sum + use.quantity * use.unitCost!, 0)) : null;
+    const amount = line.quantity * line.unitPrice - line.discountAmount;
+    const cost = (stockCost ?? 0) + line.materialCost + line.toolCost + line.commissionAmount;
+    return { stockCost, materialCost: line.materialCost, toolCost: line.toolCost, commission: line.commissionAmount, cost, margin: amount - cost };
+  };
 
   const lines = invoice.lines.map((line) => ({
     id: line.id,
@@ -311,7 +344,7 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
     fromDispensing: line.dispensingLineId !== null,
     performerId: line.performerId,
     performerName: line.performerName,
-    cost: withCost && line.kind === "BARANG" ? line.stockUses.reduce((sum, use) => sum + use.quantity * (use.unitCost ?? 0), 0) : null,
+    costing: costingOf(line),
   }));
   return {
     id: invoice.id,
@@ -328,13 +361,7 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
     discountValue: invoice.discountValue,
     discountReason: invoice.discountReason,
     discountByName: invoice.discountByName,
-    totals: invoiceTotals({
-      status: invoice.status,
-      discountKind: invoice.discountKind,
-      discountValue: invoice.discountValue,
-      lines: invoice.lines,
-      payments: invoice.payments,
-    }),
+    totals,
     notes: invoice.notes,
     createdByName: invoice.createdByName,
     createdAt: invoice.createdAt,
@@ -361,7 +388,7 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
       revokeReason: payment.revokeReason,
     })),
     everPaid: invoice.payments.length > 0,
-    cost: withCost ? lines.reduce((sum, line) => sum + (line.cost ?? 0), 0) : null,
+    margin: withCost ? marginSummary(lines, totals.total, invoice.lines.some((line) => line.kind === "BARANG" && line.stockUses.some((use) => use.unitCost === null))) : null,
   };
 }
 

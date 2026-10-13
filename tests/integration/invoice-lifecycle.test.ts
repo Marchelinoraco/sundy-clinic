@@ -94,10 +94,10 @@ describe("finalkan dan batalkan tagihan", () => {
     const detail = await getInvoiceDetail(id);
     expect(detail).toMatchObject({ status: "FINAL", number, totals: { total: 12000, display: "BELUM_DIBAYAR" } });
     expect(detail?.finalizedAt).not.toBeNull();
-    expect(detail?.cost).toBeNull();
+    expect(detail?.margin).toBeNull();
     actor.role = "ADMIN_KEUANGAN";
-    expect((await getInvoiceDetail(id))?.cost).toBe(4 * 1000 + 2 * 1500);
-    expect((await getInvoiceDetail(id))?.lines[0].cost).toBe(7000);
+    expect((await getInvoiceDetail(id))?.margin?.stockCost).toBe(4 * 1000 + 2 * 1500);
+    expect((await getInvoiceDetail(id))?.lines[0].costing?.stockCost).toBe(7000);
   });
 
   it("nomor tagihan naik satu demi satu", async () => {

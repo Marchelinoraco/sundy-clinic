@@ -74,14 +74,14 @@ describe("harga beli dan harga pokok hanya untuk hak harga (Review Focus 5)", ()
   it("Resepsionis: tagihan tanpa harga pokok", async () => {
     actor.role = "RESEPSIONIS";
     const detail = (await getInvoiceDetail(invoiceId))!;
-    expect(detail.cost).toBeNull();
-    expect(detail.lines.every((line) => line.cost === null)).toBe(true);
+    expect(detail.margin).toBeNull();
+    expect(detail.lines.every((line) => line.costing === null)).toBe(true);
   });
 
   it("Admin Keuangan: semua angka tampil", async () => {
     actor.role = "ADMIN_KEUANGAN";
     expect((await getPurchaseDetail(purchaseId))!).toMatchObject({ canSeeCost: true, total: 45_000 });
-    expect((await getInvoiceDetail(invoiceId))!.cost).toBe(9000);
+    expect((await getInvoiceDetail(invoiceId))!.margin!.stockCost).toBe(9000);
     expect((await listStockItems({ branchId: world.branchId })).find((row) => row.id === world.productId)!.value).toBe(36_000);
   });
 });

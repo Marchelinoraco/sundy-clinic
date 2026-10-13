@@ -53,8 +53,8 @@ const payment: InvoicePaymentRow = {
 
 function finalDetail(patch: Partial<InvoiceDetail> = {}): InvoiceDetail {
   const lines: InvoiceDetail["lines"] = [
-    { id: "l1", kind: "LAYANAN", name: "Konsultasi Gizi", quantity: 1, unitPrice: 150000, gross: 150000, amount: 150000, discountAmount: 0, discountReason: null, discountSource: null, priceNote: null, serviceId: "s1", itemId: null, catalogLinked: true, fromDispensing: false, performerId: null, performerName: null, treatmentPackageId: null, packageUse: null, packageNote: null, cost: null },
-    { id: "l2", kind: "BARANG", name: "Vitamin C", quantity: 2, unitPrice: 25000, gross: 50000, amount: 50000, discountAmount: 0, discountReason: null, discountSource: null, priceNote: null, serviceId: null, itemId: "it1", catalogLinked: true, fromDispensing: false, performerId: null, performerName: null, treatmentPackageId: null, packageUse: null, packageNote: null, cost: null },
+    { id: "l1", kind: "LAYANAN", name: "Konsultasi Gizi", quantity: 1, unitPrice: 150000, gross: 150000, amount: 150000, discountAmount: 0, discountReason: null, discountSource: null, priceNote: null, serviceId: "s1", itemId: null, catalogLinked: true, fromDispensing: false, performerId: null, performerName: null, treatmentPackageId: null, packageUse: null, packageNote: null, costing: null },
+    { id: "l2", kind: "BARANG", name: "Vitamin C", quantity: 2, unitPrice: 25000, gross: 50000, amount: 50000, discountAmount: 0, discountReason: null, discountSource: null, priceNote: null, serviceId: null, itemId: "it1", catalogLinked: true, fromDispensing: false, performerId: null, performerName: null, treatmentPackageId: null, packageUse: null, packageNote: null, costing: null },
   ];
   const payments = patch.payments ?? [payment];
   return {
@@ -84,7 +84,7 @@ function finalDetail(patch: Partial<InvoiceDetail> = {}): InvoiceDetail {
     lines,
     payments,
     everPaid: payments.length > 0,
-    cost: null,
+    margin: null,
     ...patch,
   };
 }
@@ -123,12 +123,17 @@ describe("tampilan tagihan final", () => {
     expect(screen.queryByRole("button", { name: "Catat pembayaran" })).toBeNull();
   });
 
-  it("harga pokok hanya tampil bila diizinkan", () => {
-    const withCost = finalDetail({ cost: 30000 });
-    const { rerender } = renderAdmin(<InvoiceFinalView detail={withCost} today="2026-10-07" canManage canCorrect={false} canSeeCost={false} />);
-    expect(screen.queryByText(/Harga pokok/)).toBeNull();
-    rerender(<InvoiceFinalView detail={withCost} today="2026-10-07" canManage canCorrect={false} canSeeCost />);
-    expect(screen.getByText(/Harga pokok/)).toBeInTheDocument();
+  it("margin hanya tampil bila diizinkan", () => {
+    const withMargin = finalDetail({ margin: { revenue: 160_000, stockCost: 9000, materialCost: 40_000, toolCost: 10_000, commission: 25_000, margin: 76_000, missingStockCost: true } });
+    const { rerender } = renderAdmin(<InvoiceFinalView detail={withMargin} today="2026-10-07" canManage canCorrect={false} canSeeCost={false} />);
+    expect(screen.queryByRole("region", { name: "Margin" })).not.toBeInTheDocument();
+    rerender(<InvoiceFinalView detail={withMargin} today="2026-10-07" canManage canCorrect={false} canSeeCost />);
+    const margin = screen.getByRole("region", { name: "Margin" });
+    expect(margin).toHaveTextContent("Harga pokok barangRp 9.000");
+    expect(margin).toHaveTextContent("Bahan dan alatRp 50.000");
+    expect(margin).toHaveTextContent("KomisiRp 25.000");
+    expect(margin).toHaveTextContent("MarginRp 76.000");
+    expect(margin).toHaveTextContent("Harga pokok belum lengkap: menunggu harga beli.");
   });
 
   it("dialog pembayaran: nominal di atas sisa ditolak di layar; yang sah dikirim", async () => {

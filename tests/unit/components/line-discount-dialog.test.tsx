@@ -31,7 +31,7 @@ const LINE: InvoiceLineRow = {
   treatmentPackageId: null,
   packageUse: null,
   packageNote: null,
-  cost: null,
+  costing: null,
 };
 
 beforeEach(() => vi.clearAllMocks());

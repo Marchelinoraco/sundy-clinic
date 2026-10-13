@@ -111,6 +111,11 @@ export function InvoiceFinalView({
                       </Typography>
                     )}
                     <LineDiscountNote line={line} />
+                    {canSeeCost && line.costing && line.costing.cost > 0 && (
+                      <Typography variant="caption" component="div" className="print:hidden" sx={{ color: "text.secondary" }}>
+                        modal {formatRupiah(line.costing.cost)} · margin {formatRupiah(line.costing.margin)}
+                      </Typography>
+                    )}
                     {line.packageNote && (
                       <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>
                         {line.packageNote}
@@ -169,13 +174,24 @@ export function InvoiceFinalView({
               <span>Sisa</span>
               <span>{formatRupiah(totals.balance)}</span>
             </Stack>
-            {canSeeCost && detail.cost !== null && (
-              <Typography variant="caption" component="p" className="print:hidden" sx={{ pt: 1, color: "text.secondary" }}>
-                Harga pokok barang {formatRupiah(detail.cost)}
-              </Typography>
-            )}
           </Stack>
         </Box>
+
+        {canSeeCost && detail.margin && (
+          <Box component="section" aria-label="Margin" className="print:hidden" sx={{ alignSelf: "flex-end", width: "100%", maxWidth: 320, fontSize: "0.875rem", pt: 1, borderTop: 1, borderColor: "divider" }}>
+            <Stack spacing={0.5}>
+              <Stack direction="row" sx={row}><span>Harga pokok barang</span><span>{formatRupiah(detail.margin.stockCost)}</span></Stack>
+              <Stack direction="row" sx={row}><span>Bahan dan alat</span><span>{formatRupiah(detail.margin.materialCost + detail.margin.toolCost)}</span></Stack>
+              <Stack direction="row" sx={row}><span>Komisi</span><span>{formatRupiah(detail.margin.commission)}</span></Stack>
+              <Stack direction="row" sx={{ ...row, fontWeight: 600 }}><span>Margin</span><span>{formatRupiah(detail.margin.margin)}</span></Stack>
+              {detail.margin.missingStockCost && (
+                <Typography variant="caption" component="p" sx={{ color: "warning.main" }}>
+                  Harga pokok belum lengkap: menunggu harga beli.
+                </Typography>
+              )}
+            </Stack>
+          </Box>
+        )}
 
         <SectionCard
           title="Pembayaran"
