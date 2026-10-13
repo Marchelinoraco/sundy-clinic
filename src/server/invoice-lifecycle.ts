@@ -3,6 +3,7 @@
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
 import { prisma } from "@/lib/db";
 import { HOLD_MESSAGE } from "@/lib/dispensing";
+import { lineCosts } from "@/lib/costing";
 import { fefoPlan, formatInvoiceNumber, invoiceTotals, type BatchStock } from "@/lib/invoice";
 import { can } from "@/lib/permissions";
 import { safeRevalidatePath } from "@/lib/revalidate";
@@ -48,7 +49,7 @@ export async function finalizeInvoice(input: { invoiceId: string; version: numbe
           patientId: true,
           branch: { select: { name: true } },
           ...TOTALS_SELECT,
-          lines: { orderBy: { sortOrder: "asc" }, select: { id: true, kind: true, name: true, itemId: true, quantity: true, unitPrice: true, discountAmount: true, discountSource: true, treatmentPackageId: true, patientPackageItemId: true } },
+          lines: { orderBy: { sortOrder: "asc" }, select: { id: true, kind: true, name: true, itemId: true, quantity: true, unitPrice: true, discountAmount: true, discountSource: true, treatmentPackageId: true, patientPackageItemId: true, serviceId: true, performerId: true } },
         },
       });
       if (!invoice) throw new UserFacingError("Tagihan tidak ditemukan.");
@@ -101,6 +102,19 @@ export async function finalizeInvoice(input: { invoiceId: string; version: numbe
               staffName: actor.name,
             },
           });
+        }
+      }
+
+      // Salinan biaya dan komisi baris treatment (spec harga modal 6, M9–M10): dibaca dari katalog saat final.
+      const treatmentLines = invoice.lines.filter((line) => line.kind === "TREATMENT" && line.serviceId);
+      if (treatmentLines.length > 0) {
+        const services = await tx.service.findMany({
+          where: { id: { in: treatmentLines.map((line) => line.serviceId!) } },
+          select: { id: true, promoPrice: true, materialCost: true, toolCost: true, commissionKind: true, commissionValue: true },
+        });
+        for (const line of treatmentLines) {
+          const costs = lineCosts({ quantity: line.quantity, hasPerformer: line.performerId !== null, service: services.find((s) => s.id === line.serviceId) ?? null });
+          await tx.invoiceLine.update({ where: { id: line.id }, data: costs });
         }
       }
 
