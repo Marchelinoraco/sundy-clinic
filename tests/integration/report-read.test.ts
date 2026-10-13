@@ -335,7 +335,7 @@ describe("laporan untung-rugi", () => {
           else if (line.kind === "TREATMENT") expected.treatment += amount;
           else if (line.kind === "PAKET") expected.package += amount;
           else expected.goods += amount;
-          for (const use of line.stockUses) expected.cogs += use.quantity * use.unitCost;
+          for (const use of line.stockUses) expected.cogs += use.quantity * (use.unitCost ?? 0);
         }
         expected.discount += discountAmount(subtotal, invoice.discountKind, invoice.discountValue);
         expected.outstanding += Math.max(0, invoiceTotals(invoice).balance);

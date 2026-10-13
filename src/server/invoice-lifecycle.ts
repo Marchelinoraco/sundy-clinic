@@ -22,7 +22,7 @@ function revalidateLifecycle(invoiceId: string) {
   safeRevalidatePath(`/admin/tagihan/${invoiceId}`);
 }
 
-type LiveBatch = BatchStock & { unitCost: number };
+type LiveBatch = BatchStock & { unitCost: number | null };
 
 /**
  * Finalkan tagihan (spec tagihan 4.3), dalam satu transaksi: stok baris barang diambil dari

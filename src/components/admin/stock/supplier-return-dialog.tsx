@@ -24,7 +24,7 @@ import { validateReturn } from "@/lib/stock";
 import { createSupplierReturn } from "@/server/stock-movements";
 import { DialogCloseButton } from "../mui/dialog-close-button";
 
-type ReturnLine = { batchId: string; label: string; remaining: number; unitCost: number; unit: string };
+type ReturnLine = { batchId: string; label: string; remaining: number; unitCost: number | null; unit: string };
 
 /** Retur ke supplier dari halaman faktur (spec stok 5.5). Nilai retur mengurangi hutang faktur ini. */
 export function SupplierReturnDialog({ invoiceId, lines }: { invoiceId: string; lines: ReturnLine[] }) {
@@ -38,7 +38,7 @@ export function SupplierReturnDialog({ invoiceId, lines }: { invoiceId: string; 
   const picked = lines
     .map((line) => ({ line, quantity: Number(quantities[line.batchId] ?? "") }))
     .filter(({ quantity }) => quantity !== 0 && !Number.isNaN(quantity));
-  const total = picked.reduce((sum, { line, quantity }) => (Number.isInteger(quantity) && quantity > 0 ? sum + quantity * line.unitCost : sum), 0);
+  const total = picked.reduce((sum, { line, quantity }) => (Number.isInteger(quantity) && quantity > 0 ? sum + quantity * (line.unitCost ?? 0) : sum), 0);
 
   function save() {
     const over = picked.find(({ line, quantity }) => quantity > line.remaining);
@@ -101,7 +101,7 @@ export function SupplierReturnDialog({ invoiceId, lines }: { invoiceId: string; 
                       <TableCell>
                         {line.label}
                         <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>
-                          sisa {line.remaining} {line.unit} · {formatRupiah(line.unitCost)} per {line.unit}
+                          sisa {line.remaining} {line.unit} {line.unitCost !== null && <> · {formatRupiah(line.unitCost)} per {line.unit}</>}
                         </Typography>
                       </TableCell>
                       <TableCell align="right" sx={{ width: 128 }}>

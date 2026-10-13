@@ -108,7 +108,7 @@ export async function createSupplierReturn(input: ReturnInput): Promise<ActionRe
         if (!(await takeFromBatch(tx, batch.id, line.quantity))) {
           throw new UserFacingError(`Sisa ${batch.item.name} (batch ${batch.batchNumber ?? "-"}) tidak cukup untuk diretur.`);
         }
-        lines.push({ batchId: batch.id, quantity: line.quantity, unitCost: batch.unitCost, amount: line.quantity * batch.unitCost });
+        lines.push({ batchId: batch.id, quantity: line.quantity, unitCost: batch.unitCost ?? 0, amount: line.quantity * (batch.unitCost ?? 0) });
         itemIds.add(batch.itemId);
       }
       const total = lines.reduce((sum, line) => sum + line.amount, 0);

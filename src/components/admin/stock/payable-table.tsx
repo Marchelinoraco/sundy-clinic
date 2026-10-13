@@ -43,7 +43,7 @@ const COLUMNS: GridColDef<PayableRow>[] = [
     align: "right",
     headerAlign: "right",
     width: 130,
-    renderCell: ({ row }) => formatRupiah(row.total),
+    renderCell: ({ row }) => (row.total === null ? "—" : formatRupiah(row.total)),
   },
   {
     field: "paid",

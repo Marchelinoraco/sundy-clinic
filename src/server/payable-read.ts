@@ -22,7 +22,7 @@ export type PayableRow = {
   invoiceNumber: string;
   invoiceDate: string;
   dueDate: string;
-  total: number;
+  total: number | null;
   paid: number;
   returned: number;
   refunded: number;

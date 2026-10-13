@@ -98,7 +98,7 @@ export default async function PurchasePage({ params }: { params: Promise<{ id: s
             <div>
               <dt>Total</dt>
               <Box component="dd" sx={{ fontSize: "1.125rem", fontWeight: 600 }}>
-                {formatRupiah(detail.total)}
+                {detail.total === null ? "—" : formatRupiah(detail.total)}
               </Box>
             </div>
             <div>
@@ -122,7 +122,7 @@ export default async function PurchasePage({ params }: { params: Promise<{ id: s
             invoiceDate={detail.invoiceDate}
             dueDate={detail.dueDate}
             today={witaDateString(new Date())}
-            total={detail.total}
+            total={detail.total ?? 0}
             summary={detail.summary}
             payments={detail.payments}
             cancelled={detail.cancelledAt !== null}
@@ -157,8 +157,8 @@ export default async function PurchasePage({ params }: { params: Promise<{ id: s
                     <TableCell align="right">
                       {line.quantity} {line.unit}
                     </TableCell>
-                    <TableCell align="right">{formatRupiah(line.unitCost)}</TableCell>
-                    <TableCell align="right">{formatRupiah(line.amount)}</TableCell>
+                    <TableCell align="right">{line.unitCost === null ? "—" : formatRupiah(line.unitCost)}</TableCell>
+                    <TableCell align="right">{line.amount === null ? "—" : formatRupiah(line.amount)}</TableCell>
                     <TableCell align="right">
                       {line.batchRemaining} {line.unit}
                     </TableCell>

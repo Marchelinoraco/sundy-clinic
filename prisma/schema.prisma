@@ -158,26 +158,32 @@ model ServiceCategory {
 }
 
 model Service {
-  id             String  @id @default(cuid())
-  slug           String  @unique
-  name           String
-  description    String?
+  id              String        @id @default(cuid())
+  slug            String        @unique
+  name            String
+  description     String?
   /// Harga sebelum promo dalam rupiah penuh. null bila tidak ada harga coret.
-  normalPrice    Int?
+  normalPrice     Int?
   /// Harga yang berlaku dalam rupiah penuh.
-  promoPrice     Int
+  promoPrice      Int
   /// Satuan harga yang tampil setelah angka, misal "/ unit" atau "/ 5 titik".
-  priceNote      String?
-  durationMin    Int     @default(30)
-  imageUrl       String?
+  priceNote       String?
+  durationMin     Int           @default(30)
+  imageUrl        String?
   /// Ditampilkan di bagian "Our Signature Treatment" pada beranda.
-  isSignature    Boolean @default(false)
-  isActive       Boolean @default(true)
-  sortOrder      Int     @default(0)
+  isSignature     Boolean       @default(false)
+  isActive        Boolean       @default(true)
+  sortOrder       Int           @default(0)
   /// Menentukan antrean staf mana yang terpakai saat layanan ini dipesan:
   /// true wajib staf berperan DOKTER, false boleh DOKTER atau TERAPIS.
   /// Usulan awal — lihat keputusan D10 pada PRD, perlu dikonfirmasi pemilik.
-  requiresDoctor Boolean @default(false)
+  requiresDoctor  Boolean       @default(false)
+  /// Biaya operasional per sesi (spec harga modal 5), diisi Admin Keuangan. CHECK service_cost_values.
+  materialCost    Int           @default(0)
+  toolCost        Int           @default(0)
+  /// Komisi pelaksana per sesi: NOMINAL = rupiah, PERSEN = persen dari harga katalog; kosong = tanpa komisi.
+  commissionKind  DiscountKind?
+  commissionValue Int           @default(0)
 
   categoryId String
   category   ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
@@ -891,7 +897,10 @@ model PurchaseInvoice {
   invoiceDate     DateTime  @db.Date
   dueDate         DateTime  @db.Date
   /// Jumlah baris (jumlah × harga beli), dihitung server saat faktur dibuat.
-  total           Int
+  total           Int?
+  /// Kapan dan oleh siapa harga beli dilengkapi (spec harga modal 4); kosong selama "Menunggu harga".
+  pricedAt        DateTime?
+  pricedByName    String?
   notes           String?
   createdById     String
   createdByName   String
@@ -916,7 +925,7 @@ model PurchaseLine {
   itemId      String
   item        StockItem       @relation(fields: [itemId], references: [id], onDelete: Restrict)
   quantity    Int
-  unitCost    Int
+  unitCost    Int?
   batchNumber String?
   expiryDate  DateTime?       @db.Date
   sortOrder   Int             @default(0)
@@ -937,7 +946,7 @@ model StockBatch {
   purchaseLine      PurchaseLine @relation(fields: [purchaseLineId], references: [id], onDelete: Restrict)
   batchNumber       String?
   expiryDate        DateTime?    @db.Date
-  unitCost          Int
+  unitCost          Int?
   quantityReceived  Int
   quantityRemaining Int
   createdAt         DateTime     @default(now())
@@ -1130,6 +1139,13 @@ model InvoiceLine {
   /// Paket customer yang lahir dari baris PAKET ini saat tagihan difinalkan.
   purchasedPackage     PatientPackage?       @relation("PackagePurchase")
   packageEntries       PackageSessionEntry[] @relation("PackageEntryLine")
+  /// Pelaksana treatment (spec harga modal 6); disalin dari catatan kunjungan atau dipilih resepsionis.
+  performerId          String?
+  performerName        String?
+  /// Salinan biaya saat final (total baris = biaya per sesi × jumlah) dan komisi pelaksana. CHECK invoice_line_cost_values.
+  materialCost         Int                   @default(0)
+  toolCost             Int                   @default(0)
+  commissionAmount     Int                   @default(0)
 
   stockUses InvoiceStockUse[]
 
@@ -1146,7 +1162,7 @@ model InvoiceStockUse {
   batchId  String
   quantity Int
   /// Disalin dari batch saat stok diambil.
-  unitCost Int
+  unitCost Int?
 
   @@index([lineId])
 }

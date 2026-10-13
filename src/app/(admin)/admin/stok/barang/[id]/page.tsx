@@ -107,7 +107,7 @@ export default async function StockItemPage({ params }: { params: Promise<{ id: 
                       <TableCell align="right">
                         {batch.quantityRemaining} {item.unit}
                       </TableCell>
-                      <TableCell align="right">{formatRupiah(batch.unitCost)}</TableCell>
+                      <TableCell align="right">{batch.unitCost === null ? "—" : formatRupiah(batch.unitCost)}</TableCell>
                       <TableCell>
                         <TextLink href={`/admin/stok/masuk/${batch.invoiceId}`}>{batch.invoiceNumber}</TextLink>
                         <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>

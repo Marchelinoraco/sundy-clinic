@@ -114,7 +114,7 @@ export function dateLabel(value: string | null): string {
 // ---- Hutang -----------------------------------------------------------------------------------
 
 export type PayableInput = {
-  total: number;
+  total: number | null;
   cancelledAt: Date | null;
   dueDate: Date;
   payments: readonly { kind: SupplierPaymentKindValue; amount: number; revokedAt: Date | null }[];
@@ -142,7 +142,7 @@ export function payableSummary(invoice: PayableInput, today: string): PayableSum
   }
   const returned = invoice.returns.reduce((sum, r) => sum + r.total, 0);
   // Faktur dibatalkan tidak berhutang (spec stok 6.4).
-  const balance = invoice.cancelledAt ? 0 : invoice.total - paid - returned + refunded;
+  const balance = invoice.cancelledAt ? 0 : (invoice.total ?? 0) - paid - returned + refunded;
   const status: PayableStatus = invoice.cancelledAt
     ? "DIBATALKAN"
     : balance === 0
@@ -202,7 +202,7 @@ export type StockFlags = {
 
 /** Tanda stok satu barang di satu cabang (spec stok 4.2). `today` adalah tanggal WITA. */
 export function stockFlags(
-  batches: readonly { quantityRemaining: number; expiryDate: Date | null; unitCost: number }[],
+  batches: readonly { quantityRemaining: number; expiryDate: Date | null; unitCost: number | null }[],
   minStock: number,
   today: string,
 ): StockFlags {
@@ -215,7 +215,7 @@ export function stockFlags(
   for (const batch of batches) {
     if (batch.quantityRemaining <= 0) continue;
     onHand += batch.quantityRemaining;
-    value += batch.quantityRemaining * batch.unitCost;
+    value += batch.quantityRemaining * (batch.unitCost ?? 0);
     const expiry = batch.expiryDate ? dateOnlyString(batch.expiryDate) : null;
     if (expiry !== null && expiry < today) {
       expired = true;

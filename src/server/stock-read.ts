@@ -75,7 +75,7 @@ export type StockBatchRow = {
   batchNumber: string | null;
   expiryDate: string | null;
   expired: boolean;
-  unitCost: number;
+  unitCost: number | null;
   quantityReceived: number;
   quantityRemaining: number;
   invoiceId: string;

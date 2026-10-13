@@ -304,7 +304,7 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
     packageUse: line.patientPackageItemId ? { patientPackageItemId: line.patientPackageItemId, packageName: line.patientPackageItem?.patientPackage.name ?? "" } : null,
     packageNote: notes.get(line.id) ?? null,
     fromDispensing: line.dispensingLineId !== null,
-    cost: withCost && line.kind === "BARANG" ? line.stockUses.reduce((sum, use) => sum + use.quantity * use.unitCost, 0) : null,
+    cost: withCost && line.kind === "BARANG" ? line.stockUses.reduce((sum, use) => sum + use.quantity * (use.unitCost ?? 0), 0) : null,
   }));
   return {
     id: invoice.id,

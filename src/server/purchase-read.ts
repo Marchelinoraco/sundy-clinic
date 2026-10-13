@@ -20,7 +20,7 @@ export type PurchaseRow = {
   invoiceNumber: string;
   supplierName: string;
   branchName: string;
-  total: number;
+  total: number | null;
   lineCount: number;
   status: PayableStatus;
   overdue: boolean;
@@ -66,8 +66,8 @@ export type PurchaseLineRow = {
   itemName: string;
   unit: string;
   quantity: number;
-  unitCost: number;
-  amount: number;
+  unitCost: number | null;
+  amount: number | null;
   batchNumber: string | null;
   expiryDate: string | null;
   batchId: string;
@@ -104,7 +104,7 @@ export type PurchaseDetail = {
   invoiceNumber: string;
   invoiceDate: string;
   dueDate: string;
-  total: number;
+  total: number | null;
   notes: string | null;
   createdByName: string;
   createdAt: Date;
@@ -203,7 +203,7 @@ export async function getPurchaseDetail(id: string): Promise<PurchaseDetail | nu
       unit: line.item.unit,
       quantity: line.quantity,
       unitCost: line.unitCost,
-      amount: line.quantity * line.unitCost,
+      amount: line.unitCost === null ? null : line.quantity * line.unitCost,
       batchNumber: line.batchNumber,
       expiryDate: line.expiryDate ? dateOnlyString(line.expiryDate) : null,
       batchId: line.batch?.id ?? "",

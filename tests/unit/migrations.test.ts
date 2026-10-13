@@ -242,3 +242,18 @@ describe("migrasi paket treatment", () => {
     }
   });
 });
+
+describe("migrasi harga modal", () => {
+  const sql = readFileSync("prisma/migrations/20261015090000_harga_modal/migration.sql", "utf8");
+
+  it("hanya menambah dan melonggarkan NOT NULL harga beli", () => {
+    expect(sql.replace(/DROP NOT NULL/g, "")).not.toMatch(/\bDROP\b/i);
+    for (const table of ["PurchaseLine", "StockBatch", "InvoiceStockUse"]) expect(sql, table).toContain(`ALTER TABLE "${table}" ALTER COLUMN "unitCost" DROP NOT NULL`);
+    expect(sql).toMatch(/ALTER TABLE "PurchaseInvoice"[^;]*ALTER COLUMN "total" DROP NOT NULL/);
+  });
+
+  it("menjaga biaya dan pelaksana di basis data, dan mengisi pelaksana tagihan lama dari catatan kunjungan", () => {
+    for (const name of ["service_cost_values", "invoice_line_cost_values"]) expect(sql, name).toMatch(new RegExp(`ADD CONSTRAINT "${name}" CHECK`));
+    expect(sql).toMatch(/UPDATE "InvoiceLine"[\s\S]*FROM "EncounterTreatment"/);
+  });
+});
