@@ -50,6 +50,18 @@ function toPublicService(service: {
   };
 }
 
+/** Satu pilihan per layanan internal, bernama layanan situs yang urutannya paling awal (spec layanan situs 4.1). */
+function siteTreatments(rows: { name: string; service: Parameters<typeof toPublicService>[0] }[]): PublicService[] {
+  const seen = new Set<string>();
+  const options: PublicService[] = [];
+  for (const row of rows) {
+    if (seen.has(row.service.id)) continue;
+    seen.add(row.service.id);
+    options.push(toPublicService({ ...row.service, name: row.name }));
+  }
+  return options;
+}
+
 /**
  * Data halaman /daftar sebelum pasien memilih apa pun. Modul biasa yang
  * dipanggil server component — tidak terbuka sebagai server action. Tidak
@@ -59,14 +71,18 @@ export async function getBookingOptions(): Promise<BookingOptions> {
   const [branches, consultation, treatments, staff, setting, onlineService] = await Promise.all([
     prisma.branch.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, name: true, status: true } }),
     prisma.service.findUniqueOrThrow({ where: { slug: CONSULTATION_SERVICE_SLUG }, select: SERVICE_SELECT }),
-    prisma.service.findMany({
+    // Treatment yang ditawarkan adalah layanan situs (nama promosi) yang layanan internalnya aktif (spec layanan situs 4.1).
+    prisma.siteService.findMany({
       where: {
         isActive: true,
-        slug: { notIn: [CONSULTATION_SERVICE_SLUG, ONLINE_SERVICE_SLUG] },
-        category: { slug: { not: SLIMMING_CATEGORY_SLUG } },
+        service: {
+          isActive: true,
+          slug: { notIn: [CONSULTATION_SERVICE_SLUG, ONLINE_SERVICE_SLUG] },
+          category: { slug: { not: SLIMMING_CATEGORY_SLUG } },
+        },
       },
-      orderBy: [{ category: { sortOrder: "asc" } }, { sortOrder: "asc" }],
-      select: SERVICE_SELECT,
+      orderBy: [{ category: { sortOrder: "asc" } }, { sortOrder: "asc" }, { name: "asc" }],
+      select: { name: true, service: { select: SERVICE_SELECT } },
     }),
     prisma.staff.findMany({
       where: { isActive: true, role: { in: ["DOKTER", "TERAPIS"] } },
@@ -86,7 +102,7 @@ export async function getBookingOptions(): Promise<BookingOptions> {
   return {
     branches,
     consultation: toPublicService(consultation),
-    treatments: treatments.map(toPublicService),
+    treatments: siteTreatments(treatments),
     staff: staff.map((person) => ({
       id: person.id,
       name: person.name,

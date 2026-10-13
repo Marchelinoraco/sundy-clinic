@@ -87,6 +87,14 @@ export async function createBookingWorld(slug: string): Promise<BookingWorld> {
     },
   });
 
+  // Treatment hanya bisa dipesan lewat situs bila punya layanan situs aktif (spec layanan situs 4.1).
+  await prisma.siteService.createMany({
+    data: [
+      { slug: `${slug}-facial`, name: "Facial Uji", categoryId: aesthetic.id, serviceId: treatment.id },
+      { slug: `${slug}-meso`, name: "Meso Uji", categoryId: slimming.id, serviceId: slimmingTreatment.id },
+    ],
+  });
+
   return {
     branchId: branch.id,
     doctorId: doctor.id,

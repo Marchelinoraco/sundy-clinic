@@ -257,6 +257,19 @@ describe("Kirim pendaftaran situs", () => {
     expect(result).toMatchObject({ ok: false });
   });
 
+  it("menolak treatment khusus internal walau permintaannya dirakit sendiri (spec layanan situs 4.1)", async () => {
+    const facial = await prisma.service.findUniqueOrThrow({ where: { id: world.treatmentId } });
+    const internal = await prisma.service.create({
+      data: { slug: `${SLUG}-addon`, name: "Add-on Internal Uji", promoPrice: 50_000, durationMin: 30, categoryId: facial.categoryId },
+    });
+    const result = await holdSlot({ serviceId: internal.id, staffId: world.therapistId, branchId: world.branchId, startAt: at(date, "15:00").toISOString(), previousToken: null });
+    expect(result).toEqual({ ok: false, error: "Layanan ini tidak tersedia untuk booking." });
+
+    await prisma.siteService.updateMany({ where: { serviceId: world.treatmentId }, data: { isActive: false } });
+    const hidden = await holdSlot({ serviceId: world.treatmentId, staffId: world.therapistId, branchId: world.branchId, startAt: at(date, "15:00").toISOString(), previousToken: null });
+    expect(hidden).toEqual({ ok: false, error: "Layanan ini tidak tersedia untuk booking." });
+  });
+
   it("isian versi 2 customer lama tidak mengisi tanggal aktivitas kemarin (food recall pindah ke klinik)", async () => {
     const token = await holdFor("14:30");
     await unwrap(

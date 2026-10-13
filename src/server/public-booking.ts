@@ -66,11 +66,14 @@ async function loadServiceAndBranch(serviceId: string, branchId: string) {
         requiresDoctor: true,
         isActive: true,
         category: { select: { slug: true } },
+        siteServices: { where: { isActive: true }, select: { id: true }, take: 1 },
       },
     }),
     prisma.branch.findUnique({ where: { id: branchId }, select: { status: true } }),
   ]);
-  if (!service?.isActive) throw new UserFacingError("Layanan ini tidak tersedia untuk booking.");
+  // Treatment hanya dipesan lewat layanan situs yang aktif; item khusus internal tidak bisa dipesan pasien (spec layanan situs 4.1).
+  const listedOnSite = service?.slug === CONSULTATION_SERVICE_SLUG || (service?.siteServices.length ?? 0) > 0;
+  if (!service?.isActive || !listedOnSite) throw new UserFacingError("Layanan ini tidak tersedia untuk booking.");
   if (branch?.status !== "AKTIF") throw new UserFacingError("Cabang ini belum menerima booking.");
   return service;
 }
