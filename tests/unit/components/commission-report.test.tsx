@@ -13,7 +13,7 @@ describe("CommissionReportView", () => {
     renderAdmin(
       <CommissionReportView
         rows={rows}
-        details={[{ finalizedAt: new Date("2026-10-05T03:00:00Z"), invoiceId: "i1", invoiceNumber: "TG-2026-0001", customerName: "Ani", treatment: "Facial", quantity: 2, commission: 50_000, performerName: "Rina" }]}
+        details={[{ finalizedAt: new Date("2026-10-05T03:00:00Z"), invoiceId: "i1", invoiceNumber: "TG-2026-0001", customerName: "Ani", treatment: "Facial", quantity: 2, commission: 50_000, performerName: "Rina", paidMonth: "2026-10" }]}
         selected="t1"
         hrefFor={(id) => `/admin/laporan?tab=komisi&pelaksana=${id}`}
         downloadHref="/admin/laporan/unduh?jenis=komisi"
@@ -26,5 +26,7 @@ describe("CommissionReportView", () => {
     const detail = screen.getByRole("table", { name: "Rincian komisi Rina" });
     expect(detail).toHaveTextContent("TG-2026-0001");
     expect(detail).toHaveTextContent("Rp 50.000");
+    expect(screen.getByRole("columnheader", { name: "Dibayar" })).toBeInTheDocument();
+    expect(screen.getByText("Penggajian 2026-10")).toBeInTheDocument();
   });
 });

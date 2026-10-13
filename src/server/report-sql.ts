@@ -211,6 +211,8 @@ export type CommissionDetailRow = {
   quantity: number;
   commission: number;
   performerName: string;
+  /** Bulan penggajian yang sudah membayar komisi baris ini (spec karyawan 5); null = belum dibayar. */
+  paidMonth: string | null;
 };
 
 /** Komisi per pelaksana (spec harga modal 7): baris TREATMENT berpelaksana dari tagihan FINAL di [start, end). Nama terbaru per pelaksana. */
@@ -232,8 +234,11 @@ export async function commissionDetails(start: Date, end: Date, branchId: string
   const performer = performerId ? Prisma.sql`AND l."performerId" = ${performerId}` : Prisma.empty;
   const rows = await prisma.$queryRaw<(Omit<CommissionDetailRow, "quantity" | "commission"> & { quantity: bigint | number; commission: bigint | number })[]>`
     SELECT i."finalizedAt" AS "finalizedAt", i."id" AS "invoiceId", i."number" AS "invoiceNumber", p."name" AS "customerName",
-           l."name" AS treatment, l."quantity" AS quantity, l."commissionAmount" AS commission, l."performerName" AS "performerName"
+           l."name" AS treatment, l."quantity" AS quantity, l."commissionAmount" AS commission, l."performerName" AS "performerName",
+           pp."month" AS "paidMonth"
     FROM "InvoiceLine" l JOIN "Invoice" i ON i."id" = l."invoiceId" JOIN "Patient" p ON p."id" = i."patientId"
+    LEFT JOIN "PayrollItem" pi ON pi."id" = l."payrollItemId" AND pi."paidAt" IS NOT NULL
+    LEFT JOIN "PayrollPeriod" pp ON pp."id" = pi."periodId"
     WHERE i."status" = 'FINAL' AND i."finalizedAt" >= ${start} AND i."finalizedAt" < ${end} ${branch} ${performer}
       AND l."kind" = 'TREATMENT' AND l."performerId" IS NOT NULL
     ORDER BY l."performerName", i."finalizedAt", i."number"`;

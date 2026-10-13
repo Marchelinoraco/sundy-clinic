@@ -79,6 +79,7 @@ export function CommissionReportView({
                 <TableCell>Treatment</TableCell>
                 <TableCell align="right">Jumlah</TableCell>
                 <TableCell align="right">Komisi</TableCell>
+                <TableCell>Dibayar</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -92,6 +93,7 @@ export function CommissionReportView({
                   <TableCell>{detail.treatment}</TableCell>
                   <TableCell align="right">{detail.quantity}</TableCell>
                   <TableCell align="right">{formatRupiah(detail.commission)}</TableCell>
+                  <TableCell>{detail.paidMonth ? `Penggajian ${detail.paidMonth}` : "Belum"}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

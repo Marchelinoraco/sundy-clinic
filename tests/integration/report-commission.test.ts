@@ -82,4 +82,25 @@ describe("laporan komisi pelaksana", () => {
     expect(csv).toContain("Pelaksana,Tanggal,Tagihan,Customer,Treatment,Jumlah,Komisi (Rp)");
     expect(csv).toContain("dr. Uji");
   });
+  it("rincian menandai baris yang komisinya sudah dibayar penggajian (spec karyawan 5)", async () => {
+    const employee = await prisma.employee.create({ data: { name: `${SLUG} Rina`, position: "Terapis", joinedOn: new Date("2026-01-01T00:00:00Z") } });
+    const payrollPeriod = await prisma.payrollPeriod.create({ data: { month: "2094-01", createdById: "s", createdByName: "Uji" } });
+    const item = await prisma.payrollItem.create({
+      data: { periodId: payrollPeriod.id, employeeId: employee.id, employeeName: "Rina", position: "Terapis", baseSalary: 0, allowance: 0, paidAt: new Date("2094-01-31T00:00:00Z"), paidById: "s", paidByName: "Uji" },
+    });
+    const line = await prisma.invoiceLine.findFirstOrThrow({ where: { invoice: { status: "FINAL", patientId: world.patientId }, performerId: world.therapistId, quantity: 2 } });
+    await prisma.invoiceLine.update({ where: { id: line.id }, data: { payrollItemId: item.id } });
+    try {
+      const { details } = await getCommissionReport({ period: period(), branchId: world.branchId, performerId: world.therapistId });
+      expect(details!.map((d) => [d.quantity, d.paidMonth]).sort()).toEqual([
+        [1, null],
+        [2, "2094-01"],
+      ]);
+    } finally {
+      await prisma.invoiceLine.update({ where: { id: line.id }, data: { payrollItemId: null } });
+      await prisma.payrollItem.delete({ where: { id: item.id } });
+      await prisma.payrollPeriod.delete({ where: { id: payrollPeriod.id } });
+      await prisma.employee.delete({ where: { id: employee.id } });
+    }
+  });
 });
