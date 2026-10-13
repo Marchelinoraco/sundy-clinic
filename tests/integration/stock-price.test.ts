@@ -58,6 +58,8 @@ describe("harga jual dan promo barang", () => {
   it("Super Admin boleh mengisi harga lewat formulir barang; promo dikosongkan lewat aksi harga", async () => {
     actor.role = "SUPER_ADMIN";
     await unwrap(updateStockItem(itemId, { ...base, sellPrice: 160_000 }));
+    const audit = await prisma.auditLog.findFirst({ where: { action: "stock-item.price", entityId: itemId }, orderBy: { createdAt: "desc" } });
+    expect(audit?.summary).toMatch(/harga Rp 150\.000 → Rp 160\.000/);
     await unwrap(setStockItemPrice({ itemId, sellPrice: 160_000, promo: noPromo }));
     expect(await prisma.stockItem.findUniqueOrThrow({ where: { id: itemId } })).toMatchObject({ sellPrice: 160_000, promoKind: null, promoValue: 0, promoName: null });
   });

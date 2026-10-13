@@ -53,6 +53,8 @@ export async function createStockItem(input: StockItemInput): Promise<ActionResu
   });
 }
 
+const priceText = (value: number | null) => (value === null ? "belum diisi" : formatRupiah(value));
+
 export async function updateStockItem(id: string, input: StockItemInput): Promise<ActionResult<void>> {
   return runAction(async () => {
     const actor = await requireCapability("stock:manage");
@@ -70,6 +72,16 @@ export async function updateStockItem(id: string, input: StockItemInput): Promis
       throw error;
     }
     await recordAudit({ actor, action: "stock-item.update", entity: "StockItem", entityId: existing.id, summary: `${item.code} ${item.name}` });
+    // Harga yang diubah Super Admin lewat formulir barang tetap tercatat sebagai perubahan harga (spec perbaikan tagihan 10).
+    if (priceAllowed && item.sellPrice !== existing.sellPrice) {
+      await recordAudit({
+        actor,
+        action: "stock-item.price",
+        entity: "StockItem",
+        entityId: existing.id,
+        summary: `${item.code}: harga ${priceText(existing.sellPrice)} → ${priceText(item.sellPrice)}`,
+      });
+    }
     revalidateStock(existing.id);
   });
 }
@@ -147,13 +159,12 @@ export async function setStockItemPrice(input: { itemId: string; sellPrice: numb
     const existing = await prisma.stockItem.findUnique({ where: { id: String(input?.itemId ?? "") }, select: { id: true, code: true, sellPrice: true } });
     if (!existing) throw new UserFacingError("Barang tidak ditemukan.");
     await prisma.stockItem.update({ where: { id: existing.id }, data: { sellPrice, ...promo.value } });
-    const price = (value: number | null) => (value === null ? "belum diisi" : formatRupiah(value));
     await recordAudit({
       actor,
       action: "stock-item.price",
       entity: "StockItem",
       entityId: existing.id,
-      summary: `${existing.code}: harga ${price(existing.sellPrice)} → ${price(sellPrice)}; ${promoLabel(promo.value) ?? "tanpa promo"}`,
+      summary: `${existing.code}: harga ${priceText(existing.sellPrice)} → ${priceText(sellPrice)}; ${promoLabel(promo.value) ?? "tanpa promo"}`,
     });
     revalidateStock(existing.id);
   });
