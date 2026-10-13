@@ -8,6 +8,7 @@ import { recordAudit } from "@/server/audit";
 import { revalidateSitePages } from "@/server/catalog-revalidate";
 import { isUniqueViolation } from "@/server/db-errors";
 import { requireCapability } from "@/server/session";
+import { removeSiteServicePhotoFor } from "@/server/site-service-photo";
 
 const SLUG_TAKEN = "Alamat (slug) sudah dipakai layanan situs lain.";
 const NOT_FOUND = "Layanan situs tidak ditemukan.";
@@ -75,5 +76,12 @@ export async function setSiteServiceActive(input: { id: string; active: boolean 
     await prisma.siteService.update({ where: { id: row.id }, data: { isActive: active } });
     await recordAudit({ actor, action: active ? "site_service.activate" : "site_service.deactivate", entity: "SiteService", entityId: row.id, summary: row.name });
     revalidateSitePages([row.slug]);
+  });
+}
+
+export async function removeSiteServicePhoto(id: string): Promise<ActionResult> {
+  return runAction(async () => {
+    const actor = await requireCapability("catalog:manage");
+    await removeSiteServicePhotoFor(actor, id);
   });
 }
