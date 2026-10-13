@@ -25,8 +25,8 @@ export function MarginReportView({ report }: { report: MarginReport }) {
   const goodsMargin = marginOf({ ...report.goods, materialCost: 0, toolCost: 0, commission: 0 });
   const treatmentCost = report.treatment.materialCost + report.treatment.toolCost + report.treatment.commission;
   const treatmentMargin = marginOf({ ...report.treatment, stockCost: 0 });
-  const totalMargin = goodsMargin + treatmentMargin + report.packageRevenue - report.invoiceDiscount;
-  const empty = report.goods.revenue === 0 && report.treatment.revenue === 0 && report.packageRevenue === 0 && report.byTreatment.length === 0;
+  const totalMargin = goodsMargin + treatmentMargin + report.packageRevenue + report.serviceRevenue - report.invoiceDiscount;
+  const empty = report.goods.revenue === 0 && report.treatment.revenue === 0 && report.packageRevenue === 0 && report.serviceRevenue === 0 && report.byTreatment.length === 0;
   if (empty) return <EmptyState>Belum ada transaksi di periode ini.</EmptyState>;
 
   return (
@@ -62,6 +62,13 @@ export function MarginReportView({ report }: { report: MarginReport }) {
               <TableCell align="right">{formatRupiah(report.packageRevenue)}</TableCell>
               <TableCell align="right">—</TableCell>
               <TableCell align="right">{formatRupiah(report.packageRevenue)}</TableCell>
+              <TableCell align="right">—</TableCell>
+            </TableRow>
+            <TableRow>
+              <TableCell>Layanan</TableCell>
+              <TableCell align="right">{formatRupiah(report.serviceRevenue)}</TableCell>
+              <TableCell align="right">—</TableCell>
+              <TableCell align="right">{formatRupiah(report.serviceRevenue)}</TableCell>
               <TableCell align="right">—</TableCell>
             </TableRow>
             <TableRow>

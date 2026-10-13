@@ -140,6 +140,8 @@ export type MarginReport = {
   goods: MarginGroup;
   treatment: MarginGroup;
   packageRevenue: number;
+  /** Layanan (konsultasi) tanpa biaya; ikut dihitung supaya diskon tagihan sebanding dengan pendapatannya (tinjauan harga modal). */
+  serviceRevenue: number;
   invoiceDiscount: number;
   byItem: { name: string; quantity: number; revenue: number; cost: number }[];
   byTreatment: { name: string; quantity: number; revenue: number; materialCost: number; toolCost: number; commission: number }[];
@@ -192,6 +194,7 @@ export async function marginAggregates(start: Date, end: Date, branchId: string 
     goods: { ...goods, materialCost: 0, toolCost: 0, commission: 0 },
     treatment: { ...group("TREATMENT"), stockCost: 0 },
     packageRevenue: group("PAKET").revenue,
+    serviceRevenue: group("LAYANAN").revenue,
     invoiceDiscount: num(discounts[0]?.discount ?? 0),
     byItem: items.map((row) => ({ name: row.name, quantity: num(row.quantity), revenue: num(row.revenue), cost: num(row.cost) })),
     byTreatment: treatments.map((row) => ({ name: row.name, quantity: num(row.quantity), revenue: num(row.revenue), materialCost: num(row.material), toolCost: num(row.tool), commission: num(row.commission) })),

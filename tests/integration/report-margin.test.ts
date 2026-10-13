@@ -45,6 +45,7 @@ beforeAll(async () => {
       { kind: "TREATMENT", name: "Facial Uji", quantity: 2, unitPrice: 250_000, discountAmount: 50_000, discountReason: "Member", discountSource: "MANUAL", serviceId: world.treatmentId, materialCost: 80_000, toolCost: 20_000, commissionAmount: 50_000, performerId: world.therapistId, performerName: "Terapis Uji" },
       { kind: "BARANG", name: "Serum C", quantity: 2, unitPrice: 150_000, itemId: world.productId, stockUses: { create: [{ batchId: batch.id, quantity: 2, unitCost: 2000 }] } },
       { kind: "PAKET", name: "Paket Margin", quantity: 1, unitPrice: 600_000, treatmentPackageId: packageId },
+      { kind: "LAYANAN", name: "Konsultasi Dokter", quantity: 1, unitPrice: 150_000, serviceId: world.consultationId },
     ],
     { discountKind: "NOMINAL", discountValue: 30_000, discountReason: "Promo", discountByName: "Uji" },
   );
@@ -61,6 +62,7 @@ describe("laporan margin", () => {
     expect(report.goods).toEqual({ revenue: 300_000, stockCost: 4000, materialCost: 0, toolCost: 0, commission: 0 });
     expect(report.treatment).toEqual({ revenue: 450_000, stockCost: 0, materialCost: 80_000, toolCost: 20_000, commission: 50_000 });
     expect(report.packageRevenue).toBe(600_000);
+    expect(report.serviceRevenue).toBe(150_000);
     expect(report.invoiceDiscount).toBe(30_000);
     expect(report.byItem).toEqual([{ name: "Serum C", quantity: 2, revenue: 300_000, cost: 4000 }]);
     expect(report.byTreatment).toEqual([{ name: "Facial Uji", quantity: 2, revenue: 450_000, materialCost: 80_000, toolCost: 20_000, commission: 50_000 }]);
