@@ -185,7 +185,14 @@ export function ServicePriceTable({ categories, categoryOptions }: { categories:
                 </TableHead>
                 <TableBody>
                   {category.services.map((service) => (
-                    <PriceRow key={service.id} service={service} hidden={!matches(service)} categoryOptions={categoryOptions} />
+                    <PriceRow
+                      // Harga tersimpan ikut kunci: setelah "Ubah" menyimpan harga baru, baris dipasang ulang dari nilai baru,
+                      // sehingga Simpan inline tidak mengirim harga lama (review akhir layanan situs).
+                      key={`${service.id}-${service.promoPrice}-${service.normalPrice ?? ""}`}
+                      service={service}
+                      hidden={!matches(service)}
+                      categoryOptions={categoryOptions}
+                    />
                   ))}
                 </TableBody>
               </Table>

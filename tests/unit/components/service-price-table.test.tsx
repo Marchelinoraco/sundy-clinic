@@ -117,4 +117,19 @@ describe("ServicePriceTable (spec D 5.4)", () => {
     expect(addon).toHaveTextContent("Nonaktif");
     expect(within(addon).getByRole("button", { name: "Aktifkan Add-on Masker" })).toBeInTheDocument();
   });
+
+  it("harga baru dari dialog Ubah langsung tampil di baris, sehingga Simpan inline tidak mengembalikan harga lama (review akhir)", async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderAdmin(<ServicePriceTable categories={CATEGORIES} categoryOptions={[]} />);
+    const updated: PriceCategory[] = CATEGORIES.map((category) => ({
+      ...category,
+      services: category.services.map((s) => (s.id === "s1" ? { ...s, promoPrice: 150000 } : s)),
+    }));
+    rerender(<ServicePriceTable categories={updated} categoryOptions={[]} />);
+    expect(screen.getByRole("textbox", { name: "Harga berlaku Relaxing Facial" })).toHaveValue("Rp 150.000");
+    await user.clear(screen.getByRole("textbox", { name: "Harga coret Relaxing Facial" }));
+    await user.type(screen.getByRole("textbox", { name: "Harga coret Relaxing Facial" }), "200000");
+    await user.click(within(screen.getByRole("row", { name: /Relaxing Facial/ })).getByRole("button", { name: "Simpan" }));
+    await waitFor(() => expect(updateServicePrice).toHaveBeenCalledWith({ id: "s1", normalPrice: 200000, promoPrice: 150000 }));
+  });
 });

@@ -68,4 +68,11 @@ describe("baris treatment dari katalog internal (spec layanan situs 6)", () => {
     actor.role = "ADMIN_KEUANGAN";
     await expect(addServiceLine({ invoiceId: id, version: await versionOf(id), serviceId: addonId, quantity: 1 })).rejects.toThrow("forbidden: invoice:manage");
   });
+
+  it("Konsultasi Dokter dari katalog menjadi baris LAYANAN, sama seperti dari kunjungan (review akhir)", async () => {
+    const consultation = await prisma.service.findUniqueOrThrow({ where: { slug: "konsultasi-dokter" } });
+    const { id } = await unwrap(createDirectSale({ patientId: world.patientId, branchId: world.branchId }));
+    await unwrap(addServiceLine({ invoiceId: id, version: await versionOf(id), serviceId: consultation.id, quantity: 1 }));
+    expect(await prisma.invoiceLine.findFirstOrThrow({ where: { invoiceId: id, serviceId: consultation.id } })).toMatchObject({ kind: "LAYANAN", unitPrice: consultation.promoPrice });
+  });
 });

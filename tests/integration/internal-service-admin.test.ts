@@ -67,6 +67,7 @@ describe("aksi layanan internal (spec layanan situs 5.1)", () => {
     const input = { id: consultation.id, name: consultation.name, categoryId: consultation.categoryId, promoPrice: consultation.promoPrice, normalPrice: consultation.normalPrice, durationMin: 90, requiresDoctor: true };
     expect(await updateInternalService(input)).toEqual({ ok: false, error: "Durasi Konsultasi Dokter harus 15, 30, 45, atau 60 menit." });
     expect(await setServiceActive({ id: consultation.id, active: false })).toEqual({ ok: false, error: "Konsultasi Dokter tidak bisa dinonaktifkan." });
+    expect(await updateInternalService({ ...input, durationMin: 30, requiresDoctor: false })).toEqual({ ok: false, error: "Konsultasi Dokter selalu ditangani dokter." });
 
     const online = await prisma.service.findUnique({ where: { slug: "konsultasi-online" } });
     if (online) {

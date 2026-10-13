@@ -2,6 +2,7 @@
 
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
 import { prisma } from "@/lib/db";
+import { CONSULTATION_SERVICE_SLUG } from "@/lib/booking-rules";
 import { ONLINE_SERVICE_SLUG } from "@/lib/online-consultation";
 import {
   invoiceGrossSubtotal,
@@ -269,7 +270,16 @@ export async function addServiceLine(input: { invoiceId: string; version: number
       const next = await touchDraft(tx, invoiceId, input.version);
       await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
         await tx.invoiceLine.create({
-          data: { invoiceId, kind: "TREATMENT", name: service.name, quantity, unitPrice: service.promoPrice, serviceId: service.id, sortOrder: await nextSortOrder(tx, invoiceId) },
+          // Konsultasi Dokter tetap baris LAYANAN, sama dengan baris dari kunjungan (visitLines), supaya laporan per jenis konsisten.
+          data: {
+            invoiceId,
+            kind: service.slug === CONSULTATION_SERVICE_SLUG ? "LAYANAN" : "TREATMENT",
+            name: service.name,
+            quantity,
+            unitPrice: service.promoPrice,
+            serviceId: service.id,
+            sortOrder: await nextSortOrder(tx, invoiceId),
+          },
         });
       });
       return next;

@@ -124,6 +124,8 @@ export async function updateInternalService(input: { id: string } & InternalServ
     if (before.slug === CONSULTATION_SERVICE_SLUG && !isConsultationDuration(value.durationMin)) {
       throw new UserFacingError("Durasi Konsultasi Dokter harus 15, 30, 45, atau 60 menit.");
     }
+    // Tanpa ini, terapis ikut ditawarkan untuk konsultasi di /daftar (review akhir layanan situs).
+    if (before.slug === CONSULTATION_SERVICE_SLUG && !value.requiresDoctor) throw new UserFacingError("Konsultasi Dokter selalu ditangani dokter.");
     await assertCategory(value.categoryId);
     await assertUniqueName(value.name, before.id);
 
