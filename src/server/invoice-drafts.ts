@@ -16,6 +16,7 @@ import {
   type DiscountKindValue,
 } from "@/lib/invoice";
 import { formatRupiah } from "@/lib/format";
+import { dateLabel, dateOnlyString } from "@/lib/stock";
 import { can } from "@/lib/permissions";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { promoDiscount } from "@/lib/stock-promo";
@@ -24,6 +25,7 @@ import { recordAudit } from "@/server/audit";
 import { isExclusionViolation } from "@/server/db-errors";
 import { handedInvoiceLines, lockDispensingRow } from "@/server/dispensing-store";
 import { guardDiscount, touchDraft } from "@/server/invoice-store";
+import { remainingByItem } from "@/server/package-store";
 import { requireCapability } from "@/server/session";
 
 const DISPENSED_QUANTITY = "Jumlah obat dari penyerahan tidak bisa diubah. Minta Apoteker membuka kembali penyerahan.";
@@ -31,6 +33,9 @@ const PROMO_SELECT = { promoName: true, promoKind: true, promoValue: true, promo
 const OVER_LIMIT = "Diskon di atas 20% diberikan oleh Admin Keuangan.";
 const NO_DISCOUNT = { discountAmount: 0, discountReason: null, discountSource: null } as const;
 const PACKAGE_QUANTITY = "Jumlah paket selalu 1. Tambahkan baris paket lagi untuk paket berikutnya.";
+const NOT_PACKAGE_LINE = "Hanya baris treatment dari katalog yang bisa memakai sesi paket.";
+const PACKAGE_PRICE = "Baris sesi paket selalu Rp 0. Klik Lepas paket untuk menagih harga biasa.";
+const PACKAGE_DISCOUNT = "Baris sesi paket tidak bisa diberi diskon.";
 const DISPENSED_REMOVE = "Obat dari penyerahan tidak bisa dihapus. Minta Apoteker membuka kembali penyerahan.";
 
 function revalidateInvoices(invoiceId?: string) {
@@ -266,6 +271,79 @@ export async function addPackageLine(input: { invoiceId: string; version: number
 }
 
 /**
+ * Tandai baris treatment sebagai sesi paket customer (spec paket 6): Rp 0 tanpa diskon. Sisa dicek perkiraan di sini
+ * (dikurangi draf lain); yang mengikat adalah pengecekan saat finalisasi.
+ */
+export async function applyPackageSession(input: { invoiceId: string; version: number; lineId: string; patientPackageItemId: string }): Promise<EditResult> {
+  return runAction(async () => {
+    const actor = await requireCapability("invoice:manage");
+    const invoiceId = String(input?.invoiceId ?? "");
+
+    const result = await prisma.$transaction(async (tx) => {
+      const version = await touchDraft(tx, invoiceId, input.version);
+      const invoice = await tx.invoice.findUniqueOrThrow({ where: { id: invoiceId }, select: { patientId: true } });
+      const line = await tx.invoiceLine.findFirst({
+        where: { id: String(input.lineId ?? ""), invoiceId },
+        select: { id: true, name: true, kind: true, quantity: true, serviceId: true, dispensingLineId: true },
+      });
+      if (!line) throw new UserFacingError("Baris tidak ditemukan.");
+      if (line.kind !== "TREATMENT" || !line.serviceId || line.dispensingLineId) throw new UserFacingError(NOT_PACKAGE_LINE);
+      const item = await tx.patientPackageItem.findUnique({
+        where: { id: String(input.patientPackageItemId ?? "") },
+        select: { id: true, serviceId: true, patientPackage: { select: { name: true, patientId: true, status: true, expiresOn: true } } },
+      });
+      if (!item) throw new UserFacingError("Paket tidak ditemukan.");
+      const pkg = item.patientPackage;
+      if (pkg.patientId !== invoice.patientId) throw new UserFacingError("Paket ini milik customer lain.");
+      if (pkg.status !== "AKTIF") throw new UserFacingError(`Paket ${pkg.name} sudah dibatalkan.`);
+      const expires = dateOnlyString(pkg.expiresOn);
+      if (expires < witaDateString(new Date())) {
+        throw new UserFacingError(`Paket ${pkg.name} sudah kedaluwarsa ${dateLabel(expires)}. Lepas paket atau minta Admin Keuangan memperpanjang.`);
+      }
+      if (item.serviceId !== line.serviceId) throw new UserFacingError(`Paket ${pkg.name} tidak berisi treatment ${line.name}.`);
+      const left = (await remainingByItem(tx, [item.id])).get(item.id) ?? 0;
+      const pending = await tx.invoiceLine.aggregate({ where: { patientPackageItemId: item.id, id: { not: line.id }, invoice: { status: "DRAF" } }, _sum: { quantity: true } });
+      const available = left - (pending._sum.quantity ?? 0);
+      if (available < line.quantity) {
+        throw new UserFacingError(`Sesi ${line.name} di paket ${pkg.name} tinggal ${Math.max(0, available)}. Lepas paket atau kurangi jumlahnya.`);
+      }
+      await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
+        await tx.invoiceLine.update({ where: { id: line.id }, data: { unitPrice: 0, priceNote: null, ...NO_DISCOUNT, patientPackageItemId: item.id } });
+      });
+      return { version, summary: `Pakai sesi paket ${pkg.name} untuk ${line.name}` };
+    });
+
+    await recordAudit({ actor, action: "invoice.update", entity: "Invoice", entityId: invoiceId, summary: result.summary });
+    revalidateInvoices(invoiceId);
+    return { version: result.version };
+  });
+}
+
+/** Lepas paket dari baris (rencana paket keputusan 8): harga kembali ke harga katalog layanan. */
+export async function releasePackageSession(input: { invoiceId: string; version: number; lineId: string }): Promise<EditResult> {
+  return runAction(async () => {
+    const actor = await requireCapability("invoice:manage");
+    const invoiceId = String(input?.invoiceId ?? "");
+
+    const result = await prisma.$transaction(async (tx) => {
+      const version = await touchDraft(tx, invoiceId, input.version);
+      const line = await tx.invoiceLine.findFirst({ where: { id: String(input.lineId ?? ""), invoiceId }, select: { id: true, name: true, serviceId: true, patientPackageItemId: true } });
+      if (!line) throw new UserFacingError("Baris tidak ditemukan.");
+      if (!line.patientPackageItemId) throw new UserFacingError("Baris ini tidak memakai sesi paket.");
+      const price = line.serviceId ? ((await tx.service.findUnique({ where: { id: line.serviceId }, select: { promoPrice: true } }))?.promoPrice ?? 0) : 0;
+      await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
+        await tx.invoiceLine.update({ where: { id: line.id }, data: { unitPrice: price, priceNote: null, patientPackageItemId: null } });
+      });
+      return { version, summary: `Lepas paket dari ${line.name}` };
+    });
+
+    await recordAudit({ actor, action: "invoice.update", entity: "Invoice", entityId: invoiceId, summary: result.summary });
+    revalidateInvoices(invoiceId);
+    return { version: result.version };
+  });
+}
+
+/**
  * Ubah jumlah dan harga satu baris draf. Harga baris katalog yang diubah dari harga semula dan
  * dari harga katalog sekarang wajib catatan; mengembalikannya ke harga katalog menghapus catatan.
  */
@@ -299,11 +377,13 @@ export async function updateInvoiceLine(input: {
           discountSource: true,
           kind: true,
           treatmentPackageId: true,
+          patientPackageItemId: true,
         },
       });
       if (!line) throw new UserFacingError("Baris tidak ditemukan.");
       if (line.dispensingLineId && input.quantity !== line.quantity) throw new UserFacingError(DISPENSED_QUANTITY);
       if (line.kind === "PAKET" && input.quantity !== 1) throw new UserFacingError(PACKAGE_QUANTITY);
+      if (line.patientPackageItemId && input.unitPrice !== 0) throw new UserFacingError(PACKAGE_PRICE);
 
       const catalogPrice = line.itemId
         ? (await tx.stockItem.findUnique({ where: { id: line.itemId }, select: { sellPrice: true } }))?.sellPrice ?? null
@@ -379,7 +459,7 @@ export async function refreshCatalogPrices(input: { invoiceId: string; version: 
     const result = await prisma.$transaction(async (tx) => {
       const version = await touchDraft(tx, invoiceId, input.version);
       const lines = await tx.invoiceLine.findMany({
-        where: { invoiceId, OR: [{ itemId: { not: null } }, { serviceId: { not: null } }, { treatmentPackageId: { not: null } }] },
+        where: { invoiceId, patientPackageItemId: null, OR: [{ itemId: { not: null } }, { serviceId: { not: null } }, { treatmentPackageId: { not: null } }] },
         select: { id: true, quantity: true, unitPrice: true, itemId: true, serviceId: true, treatmentPackageId: true, discountAmount: true, discountSource: true },
       });
       const today = witaDateString(new Date());
@@ -485,8 +565,9 @@ export async function setLineDiscount(input: {
     const invoiceId = String(input?.invoiceId ?? "");
     const result = await prisma.$transaction(async (tx) => {
       const version = await touchDraft(tx, invoiceId, input.version);
-      const line = await tx.invoiceLine.findFirst({ where: { id: String(input.lineId ?? ""), invoiceId }, select: { id: true, name: true, quantity: true, unitPrice: true } });
+      const line = await tx.invoiceLine.findFirst({ where: { id: String(input.lineId ?? ""), invoiceId }, select: { id: true, name: true, quantity: true, unitPrice: true, patientPackageItemId: true } });
       if (!line) throw new UserFacingError("Baris tidak ditemukan.");
+      if (line.patientPackageItemId) throw new UserFacingError(PACKAGE_DISCOUNT);
       const checked = validateLineDiscount(input, { gross: line.quantity * line.unitPrice });
       if (!checked.ok) throw new UserFacingError(checked.message);
       await guardDiscount(

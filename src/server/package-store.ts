@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { UserFacingError } from "@/lib/action-result";
 import { dateLabel, dateOnlyString } from "@/lib/stock";
-import { packageContentsLabel, packageExpiresOn } from "@/lib/treatment-package";
+import { packageContentsLabel, packageExpiresOn, sessionNote } from "@/lib/treatment-package";
 
 // Tanpa "use server": pembantu server paket treatment (spec paket 5–8), dipanggil di dalam transaksi tagihan
 // atau dengan klien prisma biasa untuk tampilan.
@@ -38,6 +38,22 @@ export async function packageLineNotes(db: Db, lines: readonly PackageNoteLine[]
       }
       const pkg = catalog.find((row) => row.id === line.treatmentPackageId);
       if (pkg) notes.set(line.id, `${packageContentsLabel(pkg.items.map((item) => ({ name: item.service.name, sessions: item.sessions })))} · berlaku ${pkg.validDays} hari`);
+    }
+  }
+  // Baris sesi: "Sesi paket {nama} · sisa n dari m", sisa sesudah semua draf yang menandai item itu (rencana paket keputusan 10).
+  const useLines = lines.filter((line) => line.patientPackageItemId);
+  if (useLines.length > 0) {
+    const ids = [...new Set(useLines.map((line) => line.patientPackageItemId!))];
+    const [items, sums, pending] = await Promise.all([
+      db.patientPackageItem.findMany({ where: { id: { in: ids } }, select: { id: true, sessions: true, patientPackage: { select: { name: true } } } }),
+      db.packageSessionEntry.groupBy({ by: ["patientPackageItemId"], where: { patientPackageItemId: { in: ids } }, _sum: { delta: true } }),
+      db.invoiceLine.groupBy({ by: ["patientPackageItemId"], where: { patientPackageItemId: { in: ids }, invoice: { status: "DRAF" } }, _sum: { quantity: true } }),
+    ]);
+    for (const line of useLines) {
+      const item = items.find((row) => row.id === line.patientPackageItemId);
+      if (!item) continue;
+      const left = (sums.find((row) => row.patientPackageItemId === item.id)?._sum.delta ?? 0) - (pending.find((row) => row.patientPackageItemId === item.id)?._sum.quantity ?? 0);
+      notes.set(line.id, sessionNote({ packageName: item.patientPackage.name, remaining: Math.max(0, left), sessions: item.sessions }));
     }
   }
   return notes;
@@ -119,4 +135,61 @@ export async function cancelPurchasedPackages(tx: Db, invoiceId: string, actor: 
     .map(({ item, left }) => ({ patientPackageItemId: item.id, kind: "BATAL_PAKET" as const, delta: -left, staffId: actor.staffId, staffName: actor.name }));
   if (entries.length > 0) await tx.packageSessionEntry.createMany({ data: entries });
   await tx.patientPackage.updateMany({ where: { id: { in: ids } }, data: { status: "DIBATALKAN" } });
+}
+
+/**
+ * Finalisasi tagihan pemakaian (spec paket 6): paket dikunci, lalu setiap baris sesi dicek (milik customer ini,
+ * aktif, belum kedaluwarsa, sisa cukup) dan dicatat PAKAI. Gagal satu, seluruh finalisasi batal.
+ */
+export async function consumePackageSessions(
+  tx: Db,
+  invoice: { patientId: string; lines: readonly { id: string; name: string; quantity: number; patientPackageItemId: string | null }[] },
+  actor: Actor,
+  today: string,
+): Promise<void> {
+  const uses = invoice.lines.filter((line) => line.patientPackageItemId);
+  if (uses.length === 0) return;
+  const itemIds = uses.map((line) => line.patientPackageItemId!);
+  const owners = await tx.patientPackageItem.findMany({ where: { id: { in: itemIds } }, select: { id: true, serviceName: true, patientPackageId: true } });
+  await lockPatientPackages(tx, owners.map((item) => item.patientPackageId));
+  const packages = await tx.patientPackage.findMany({
+    where: { id: { in: owners.map((item) => item.patientPackageId) } },
+    select: { id: true, name: true, patientId: true, status: true, expiresOn: true },
+  });
+  const remaining = await remainingByItem(tx, itemIds);
+  for (const line of uses) {
+    const item = owners.find((row) => row.id === line.patientPackageItemId);
+    const pkg = item ? packages.find((row) => row.id === item.patientPackageId) : undefined;
+    if (!item || !pkg) throw new UserFacingError(`Paket untuk baris ${line.name} tidak ditemukan. Lepas paket lalu coba lagi.`);
+    if (pkg.patientId !== invoice.patientId) throw new UserFacingError("Paket ini milik customer lain.");
+    if (pkg.status !== "AKTIF") throw new UserFacingError(`Paket ${pkg.name} sudah dibatalkan. Lepas paket dari baris ${line.name}.`);
+    const expires = dateOnlyString(pkg.expiresOn);
+    if (expires < today) throw new UserFacingError(`Paket ${pkg.name} sudah kedaluwarsa ${dateLabel(expires)}. Lepas paket atau minta Admin Keuangan memperpanjang.`);
+    const left = remaining.get(item.id) ?? 0;
+    if (left < line.quantity) throw new UserFacingError(`Sesi ${item.serviceName} di paket ${pkg.name} tinggal ${left}. Lepas paket atau kurangi jumlahnya.`);
+    remaining.set(item.id, left - line.quantity);
+    await tx.packageSessionEntry.create({
+      data: { patientPackageItemId: item.id, kind: "PAKAI", delta: -line.quantity, invoiceLineId: line.id, staffId: actor.staffId, staffName: actor.name },
+    });
+  }
+}
+
+/** Tagihan pemakaian dibatalkan: setiap PAKAI dikembalikan lewat BATAL_PAKAI, walau paketnya sudah kedaluwarsa (spec paket 7). */
+export async function restoreUsedSessions(tx: Db, invoiceId: string, actor: Actor): Promise<void> {
+  const used = await tx.packageSessionEntry.findMany({
+    where: { kind: "PAKAI", invoiceLine: { invoiceId } },
+    select: { patientPackageItemId: true, delta: true, invoiceLineId: true, item: { select: { patientPackageId: true } } },
+  });
+  if (used.length === 0) return;
+  await lockPatientPackages(tx, used.map((entry) => entry.item.patientPackageId));
+  await tx.packageSessionEntry.createMany({
+    data: used.map((entry) => ({
+      patientPackageItemId: entry.patientPackageItemId,
+      kind: "BATAL_PAKAI" as const,
+      delta: -entry.delta,
+      invoiceLineId: entry.invoiceLineId,
+      staffId: actor.staffId,
+      staffName: actor.name,
+    })),
+  });
 }
