@@ -40,6 +40,7 @@ import {
 import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
 import { discardEncounterDraft, finalizeEncounter, saveEncounterDraft } from "@/server/encounter";
 import { SelectField } from "./mui/select-field";
+import { PrescriptionFields } from "./prescription-fields";
 import { useDraftAutosave, type AutosaveStatus } from "./use-draft-autosave";
 
 function statusText(status: AutosaveStatus): string {
@@ -355,6 +356,14 @@ export function EncounterForm(props: EncounterFormProps) {
 
       <Section id="bagian-p" title="P — Plan">
         <NoteField label={TEXT_FIELDS.plan} value={draft.plan} onChange={(v) => setText("plan", v)} />
+      </Section>
+
+      <Section id="bagian-resep" title="Resep">
+        <PrescriptionFields
+          rows={draft.prescriptions}
+          medicines={options.medicines}
+          onChange={(prescriptions) => update({ ...draft, prescriptions })}
+        />
       </Section>
 
       <Section id="bagian-treatment" title="Treatment yang dilakukan">

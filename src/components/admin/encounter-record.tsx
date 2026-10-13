@@ -64,6 +64,36 @@ export function EncounterRecord({ encounter }: { encounter: EncounterDetail }) {
         <RecordText label={TEXT_FIELDS.plan} value={draft.plan} />
         {encounter.pharmacyNote && <RecordText label={PHARMACY_NOTE_LABEL} value={encounter.pharmacyNote} />}
       </Part>
+      <Part id="bagian-resep" title="Resep">
+        {encounter.prescriptions.length === 0 ? (
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            Tidak ada resep di kunjungan ini.
+          </Typography>
+        ) : (
+          <TableContainer>
+            <Table size="small" aria-label="Resep">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Obat</TableCell>
+                  <TableCell align="right">Jumlah</TableCell>
+                  <TableCell>Aturan pakai</TableCell>
+                  <TableCell>Penagihan</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {encounter.prescriptions.map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell>{row.itemName}</TableCell>
+                    <TableCell align="right">{row.quantity}</TableCell>
+                    <TableCell>{row.usage}</TableCell>
+                    <TableCell>{row.billing ?? "—"}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </Part>
       <Part id="bagian-treatment" title="Treatment yang dilakukan">
         {encounter.treatments.length === 0 ? (
           <Typography variant="body2" sx={{ color: "text.secondary" }}>
