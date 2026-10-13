@@ -124,6 +124,13 @@ describe("tampilan tagihan final", () => {
     expect(screen.queryByRole("button", { name: "Catat pembayaran" })).toBeNull();
   });
 
+  it("Cetak etiket hanya bila ada baris dari resep dokter (spec resep dokter 5)", () => {
+    const { rerender } = renderAdmin(<InvoiceFinalView detail={finalDetail()} today="2026-10-07" canManage canCorrect={false} canSeeCost={false} />);
+    expect(screen.queryByRole("link", { name: "Cetak etiket" })).toBeNull();
+    rerender(<InvoiceFinalView detail={finalDetail({ hasPrescription: true })} today="2026-10-07" canManage canCorrect={false} canSeeCost={false} />);
+    expect(screen.getByRole("link", { name: "Cetak etiket" })).toHaveAttribute("href", `/admin/tagihan/${finalDetail().id}/etiket`);
+  });
+
   it("margin hanya tampil bila diizinkan", () => {
     const withMargin = finalDetail({ margin: { revenue: 160_000, stockCost: 9000, materialCost: 40_000, toolCost: 10_000, commission: 25_000, margin: 76_000, missingStockCost: true } });
     const { rerender } = renderAdmin(<InvoiceFinalView detail={withMargin} today="2026-10-07" canManage canCorrect={false} canSeeCost={false} />);

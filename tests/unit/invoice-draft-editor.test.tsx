@@ -181,6 +181,24 @@ describe("editor draf tagihan", () => {
     expect(screen.getByRole("button", { name: "Hapus Konsultasi Gizi" })).toBeInTheDocument();
   });
 
+  it("baris dari resep dokter: label, aturan pakai, tombol Kurangi, dan tautan Cetak etiket (spec resep dokter 4–5)", () => {
+    const base = detail();
+    const lines = base.lines.map((line) =>
+      line.id === "l2" ? { ...line, fromDispensing: true, prescription: { prescribedQuantity: 2, usage: "3 x 1 sesudah makan" } } : line,
+    );
+    renderAdmin(<InvoiceDraftEditor detail={{ ...base, lines, hasPrescription: true }} items={items} canExceedDiscount={false} />);
+    expect(screen.getByLabelText("Dari resep dokter")).toBeInTheDocument();
+    expect(screen.getByText(/Dari resep dokter · 3 x 1 sesudah makan/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Kurangi Vitamin C" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Hapus Vitamin C" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Cetak etiket" })).toHaveAttribute("href", "/admin/tagihan/inv1/etiket");
+  });
+
+  it("tanpa baris resep dokter tidak ada Cetak etiket", () => {
+    renderAdmin(<InvoiceDraftEditor detail={detail()} items={items} canExceedDiscount={false} />);
+    expect(screen.queryByRole("link", { name: "Cetak etiket" })).toBeNull();
+  });
+
   it("ringkasan memisahkan Diskon item; setiap baris punya tombol Diskon dan catatan diskonnya", () => {
     const discounted = detail();
     discounted.lines[0] = { ...discounted.lines[0], discountAmount: 10_000, amount: 140_000, discountReason: "Pelanggan lama", discountSource: "MANUAL" };

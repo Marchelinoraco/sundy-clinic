@@ -31,6 +31,7 @@ import { finalizeInvoice } from "@/server/invoice-lifecycle";
 import type { BillingItem, InvoiceDetail, InvoiceLineRow } from "@/server/invoice-read";
 import type { SellablePackage } from "@/server/treatment-package-catalog";
 import { DialogCloseButton } from "../mui/dialog-close-button";
+import { LinkButton } from "../mui/links";
 import { RupiahInput } from "../rupiah-input";
 import { AddFreeLineDialog } from "./add-free-line-dialog";
 import type { InternalServiceOption } from "@/server/internal-catalog";
@@ -226,6 +227,11 @@ export function InvoiceDraftEditor({
         >
           Segarkan harga katalog
         </Button>
+        {detail.hasPrescription && (
+          <LinkButton href={`/admin/tagihan/${detail.id}/etiket`} variant="outlined">
+            Cetak etiket
+          </LinkButton>
+        )}
       </Stack>
 
       {notice && (

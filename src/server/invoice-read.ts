@@ -452,3 +452,28 @@ export async function unpaidOverview(): Promise<{ count: number; balance: number
   }
   return { count, balance };
 }
+export type PrescriptionLabelData = { patientName: string; startAt: Date; doctorName: string; lines: { name: string; quantity: number; usage: string }[] };
+
+/** Etiket obat dari tagihan (spec resep dokter 5): hanya baris dari resep dokter; tanpa harga dan tanpa data klinis. */
+export async function getInvoicePrescriptionLabel(invoiceId: string): Promise<PrescriptionLabelData | null> {
+  await requireCapability("invoice:read");
+  const invoice = await prisma.invoice.findUnique({
+    where: { id: String(invoiceId ?? "") },
+    select: {
+      patient: { select: { name: true } },
+      appointment: { select: { startAt: true, staff: { select: { name: true } } } },
+      lines: {
+        where: { dispensingLine: { dispensing: { source: "DOKTER" } } },
+        orderBy: { sortOrder: "asc" },
+        select: { name: true, quantity: true, dispensingLine: { select: { usage: true } } },
+      },
+    },
+  });
+  if (!invoice || !invoice.appointment || invoice.lines.length === 0) return null;
+  return {
+    patientName: invoice.patient.name,
+    startAt: invoice.appointment.startAt,
+    doctorName: invoice.appointment.staff.name,
+    lines: invoice.lines.map((l) => ({ name: l.name, quantity: l.quantity, usage: l.dispensingLine?.usage ?? "" })),
+  };
+}

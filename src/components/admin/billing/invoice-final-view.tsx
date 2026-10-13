@@ -14,6 +14,7 @@ import type { PublicReceipt } from "@/lib/receipt";
 import type { ClinicBankAccountView } from "@/server/clinic-bank";
 import { dateLabel, PAYMENT_METHOD_LABEL } from "@/lib/stock";
 import type { InvoiceDetail } from "@/server/invoice-read";
+import { LinkButton } from "../mui/links";
 import { SectionCard } from "../page-layout";
 import { CancelInvoiceDialog } from "./cancel-invoice-dialog";
 import { FinalDiscountDialog } from "./final-discount-dialog";
@@ -75,6 +76,11 @@ export function InvoiceFinalView({
 
         <Stack direction="row" spacing={1} useFlexGap className="print:hidden" sx={{ flexWrap: "wrap", justifyContent: "flex-end" }}>
           <PrintButton />
+          {detail.hasPrescription && (
+            <LinkButton href={`/admin/tagihan/${detail.id}/etiket`} variant="outlined">
+              Cetak etiket
+            </LinkButton>
+          )}
           {canSendReceipt && receipt && <ReceiptPrintButton invoiceId={detail.id} receipt={receipt} />}
         {canSendReceipt && <ReceiptSendDialog invoiceId={detail.id} />}
           {canSendReceipt && <ReceiptResetDialog invoiceId={detail.id} />}
