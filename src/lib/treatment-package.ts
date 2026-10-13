@@ -112,3 +112,13 @@ export function validateExtension(raw: unknown, ctx: { currentExpiresOn: string 
   if (reason.length > PACKAGE_REASON_MAX) return fail(`Alasan paling banyak ${PACKAGE_REASON_MAX} karakter.`);
   return { ok: true, value: { expiresOn: input.expiresOn, reason } };
 }
+
+/** Kotak info editor draf (spec paket 6): satu teks per paket, urutan seperti `options`. */
+export function packageOptionsSummary(options: readonly PackageOption[]): string[] {
+  const groups = new Map<string, PackageOption[]>();
+  for (const option of options) groups.set(option.patientPackageId, [...(groups.get(option.patientPackageId) ?? []), option]);
+  return [...groups.values()].map((items) => {
+    const sessions = items.map((item) => `${item.remaining} ${item.serviceName}`).join(", ");
+    return `${items[0].packageName} (sisa ${sessions}; berlaku s.d. ${dateLabel(items[0].expiresOn)})`;
+  });
+}

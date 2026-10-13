@@ -30,6 +30,8 @@ vi.mock("@/server/invoice-drafts", () => ({
   refreshCatalogPrices: mocks.refreshCatalogPrices,
   setLineDiscount: vi.fn(),
   addPackageLine: vi.fn(),
+  applyPackageSession: vi.fn(),
+  releasePackageSession: vi.fn(),
   clearLineDiscount: vi.fn(),
 }));
 vi.mock("@/server/invoice-lifecycle", () => ({ finalizeInvoice: mocks.finalizeInvoice, cancelInvoice: mocks.cancelInvoice }));
@@ -188,5 +190,26 @@ describe("editor draf tagihan", () => {
     expect(summary).toHaveTextContent("TotalRp 190.000");
     expect(screen.getByRole("button", { name: "Diskon Konsultasi Gizi" })).toBeInTheDocument();
     expect(screen.getByText(/Diskon −Rp 10\.000 · Pelanggan lama/)).toBeInTheDocument();
+  });
+  it("customer berpaket: kotak info; baris sesi tampil Rp 0 tanpa tombol diskon", () => {
+    const withPackage = detail();
+    withPackage.lines[0] = {
+      ...withPackage.lines[0],
+      kind: "TREATMENT",
+      unitPrice: 0,
+      gross: 0,
+      amount: 0,
+      packageUse: { patientPackageItemId: "i1", packageName: "Facial 5x" },
+      packageNote: "Sesi paket Facial 5x · sisa 2 dari 5",
+    };
+    const options = [
+      { patientPackageItemId: "i1", patientPackageId: "p1", packageName: "Facial 5x", serviceId: "s1", serviceName: "Konsultasi Gizi", sessions: 5, remaining: 2, startsOn: "2026-10-01", expiresOn: "2027-03-30" },
+    ];
+    renderAdmin(<InvoiceDraftEditor detail={withPackage} items={items} canExceedDiscount={false} packageOptions={options} />);
+    expect(screen.getByRole("alert", { name: "Paket customer" })).toHaveTextContent("Customer punya paket aktif: Facial 5x (sisa 2 Konsultasi Gizi; berlaku s.d. 30 Mar 2027).");
+    expect(screen.getByText("Sesi paket Facial 5x · sisa 2 dari 5")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: `Lepas paket ${withPackage.lines[0].name}` })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: `Diskon ${withPackage.lines[0].name}` })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(`Harga ${withPackage.lines[0].name}`)).not.toBeInTheDocument();
   });
 });

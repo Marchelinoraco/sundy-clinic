@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { formatRupiah } from "@/lib/format";
 import { dispensingNotice } from "@/lib/dispensing";
 import { INVOICE_LINE_KIND_LABEL, validateLineEdit } from "@/lib/invoice";
+import { packageOptionsSummary, type PackageOption } from "@/lib/treatment-package";
 import type { ActionResult } from "@/lib/action-result";
 import { removeInvoiceLine, refreshCatalogPrices, updateInvoiceLine } from "@/server/invoice-drafts";
 import { finalizeInvoice } from "@/server/invoice-lifecycle";
@@ -34,6 +35,7 @@ import { RupiahInput } from "../rupiah-input";
 import { AddFreeLineDialog } from "./add-free-line-dialog";
 import { AddItemDialog } from "./add-item-dialog";
 import { AddPackageDialog } from "./add-package-dialog";
+import { PackageSessionButton } from "./package-session-button";
 import { CancelInvoiceDialog } from "./cancel-invoice-dialog";
 import { DiscountForm } from "./discount-form";
 import { InvoiceNotesForm } from "./invoice-notes-form";
@@ -63,9 +65,10 @@ export function useInvoiceAction() {
   return { run, error, setError, pending };
 }
 
-function LineRow({ detail, line, disabled, run, fail }: {
+function LineRow({ detail, line, options, disabled, run, fail }: {
   detail: InvoiceDetail;
   line: InvoiceLineRow;
+  options: readonly PackageOption[];
   disabled: boolean;
   run: ReturnType<typeof useInvoiceAction>["run"];
   fail: (message: string) => void;
@@ -76,7 +79,7 @@ function LineRow({ detail, line, disabled, run, fail }: {
   const priceChanged = unitPrice !== line.unitPrice;
 
   function save() {
-    const input = { quantity: quantity ?? Number.NaN, unitPrice: unitPrice ?? Number.NaN, priceNote: note };
+    const input = { quantity: quantity ?? Number.NaN, unitPrice: line.packageUse ? 0 : (unitPrice ?? Number.NaN), priceNote: note };
     const checked = validateLineEdit(input, { needsNote: line.catalogLinked && priceChanged });
     if (!checked.ok) return fail(checked.message);
     run(() => updateInvoiceLine({ invoiceId: detail.id, version: detail.version, lineId: line.id, ...input }), () => toast.success("Baris disimpan."));
@@ -124,7 +127,7 @@ function LineRow({ detail, line, disabled, run, fail }: {
         />
       </TableCell>
       <TableCell sx={{ width: 160 }}>
-        <RupiahInput aria-label={`Harga ${line.name}`} value={unitPrice} onChange={setUnitPrice} />
+        {line.packageUse ? formatRupiah(0) : <RupiahInput aria-label={`Harga ${line.name}`} value={unitPrice} onChange={setUnitPrice} />}
       </TableCell>
       <TableCell align="right">
         {line.discountAmount > 0 && (
@@ -136,7 +139,8 @@ function LineRow({ detail, line, disabled, run, fail }: {
       </TableCell>
       <TableCell align="right">
         <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end" }}>
-          <LineDiscountDialog invoiceId={detail.id} version={detail.version} line={line} disabled={disabled} />
+          <PackageSessionButton invoiceId={detail.id} version={detail.version} line={line} options={options} disabled={disabled} />
+          {!line.packageUse && <LineDiscountDialog invoiceId={detail.id} version={detail.version} line={line} disabled={disabled} />}
           <Button type="button" size="small" variant="outlined" disabled={disabled} onClick={save} aria-label={`Simpan baris ${line.name}`}>
             Simpan
           </Button>
@@ -165,12 +169,14 @@ export function InvoiceDraftEditor({
   canExceedDiscount,
   canEditNotes = true,
   packages = [],
+  packageOptions = [],
 }: {
   detail: InvoiceDetail;
   items: BillingItem[];
   canExceedDiscount: boolean;
   canEditNotes?: boolean;
   packages?: SellablePackage[];
+  packageOptions?: PackageOption[];
 }) {
   const { run, error, setError, pending } = useInvoiceAction();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -205,6 +211,12 @@ export function InvoiceDraftEditor({
         </Typography>
       )}
 
+      {packageOptions.length > 0 && (
+        <Alert severity="info" aria-label="Paket customer">
+          Customer punya paket aktif: {packageOptionsSummary(packageOptions).join("; ")}.
+        </Alert>
+      )}
+
       <TableContainer>
         <Table size="small">
           <TableHead>
@@ -224,7 +236,7 @@ export function InvoiceDraftEditor({
                 </TableCell>
               </TableRow>
             ) : (
-              detail.lines.map((line) => <LineRow key={`${line.id}-${detail.version}`} detail={detail} line={line} disabled={pending} run={run} fail={setError} />)
+              detail.lines.map((line) => <LineRow key={`${line.id}-${detail.version}`} detail={detail} line={line} options={packageOptions} disabled={pending} run={run} fail={setError} />)
             )}
           </TableBody>
         </Table>

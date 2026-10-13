@@ -3,6 +3,7 @@ import {
   packageContentsLabel,
   packageExpiresOn,
   packageOptionsFor,
+  packageOptionsSummary,
   packageState,
   sessionNote,
   validateExtension,
@@ -87,5 +88,18 @@ describe("validateExtension", () => {
     expect(validateExtension({ expiresOn: "2101-01-01", reason: "x" }, ctx)).toEqual({ ok: false, message: "Tanggal berlaku tidak sah." });
     expect(validateExtension({ expiresOn: "2027-01-01", reason: " " }, ctx)).toEqual({ ok: false, message: "Isi alasan perpanjangan." });
     expect(validateExtension({ expiresOn: "2027-01-01", reason: "x".repeat(201) }, ctx)).toEqual({ ok: false, message: "Alasan paling banyak 200 karakter." });
+  });
+});
+
+describe("packageOptionsSummary", () => {
+  it("satu teks per paket, treatment digabung, kedaluwarsa tertulis", () => {
+    const base = { patientPackageId: "p1", packageName: "Paket Glowing", sessions: 3, startsOn: "2026-10-01", expiresOn: "2027-04-12" };
+    expect(
+      packageOptionsSummary([
+        { ...base, patientPackageItemId: "i1", serviceId: "s1", serviceName: "Facial", remaining: 2 },
+        { ...base, patientPackageItemId: "i2", serviceId: "s2", serviceName: "Peeling", remaining: 1 },
+        { ...base, patientPackageId: "p2", packageName: "Meso 2x", patientPackageItemId: "i3", serviceId: "s3", serviceName: "Meso", remaining: 2, expiresOn: "2026-12-31" },
+      ]),
+    ).toEqual(["Paket Glowing (sisa 2 Facial, 1 Peeling; berlaku s.d. 12 Apr 2027)", "Meso 2x (sisa 2 Meso; berlaku s.d. 31 Des 2026)"]);
   });
 });

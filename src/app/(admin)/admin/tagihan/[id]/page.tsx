@@ -11,6 +11,7 @@ import { listActiveClinicBankAccounts } from "@/server/clinic-bank";
 import { getInvoiceReceipt } from "@/server/receipt";
 import { requireCapability } from "@/server/session";
 import { listSellablePackages } from "@/server/treatment-package-catalog";
+import { listPackageOptions } from "@/server/patient-package-read";
 import { witaDateString } from "@/lib/time";
 
 export const metadata = { title: "Tagihan" };
@@ -44,6 +45,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
               canExceedDiscount={can(staff.role, "invoice:correct")}
               canEditNotes={canEditNotes}
               packages={await listSellablePackages()}
+              packageOptions={await listPackageOptions(detail.patient.id)}
             />
           ) : (
             <InvoiceDraftReadOnly invoiceId={detail.id} notes={detail.notes} canEditNotes={canEditNotes} />
