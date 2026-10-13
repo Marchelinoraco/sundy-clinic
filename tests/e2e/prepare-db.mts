@@ -20,6 +20,11 @@ await prisma.scheduleTemplate.deleteMany({ where: { weekday: 0, staff: { name: "
 await prisma.expense.deleteMany();
 await prisma.recurringExpense.deleteMany();
 await prisma.expenseCategory.deleteMany({ where: { name: { startsWith: "E2E" } } });
+// Penggajian dan karyawan uji (spec karyawan): bulan penggajian unik global, jadi dikosongkan setiap putaran.
+await prisma.invoiceLine.updateMany({ where: { payrollItemId: { not: null } }, data: { payrollItemId: null } });
+await prisma.payrollItem.deleteMany();
+await prisma.payrollPeriod.deleteMany();
+await prisma.employee.deleteMany();
 // Tagihan (tagihan.spec.ts) merujuk booking dan pasien, jadi dibuang lebih dulu.
 // Paket treatment (paket.spec.ts): buku sesi dan paket customer lebih dulu, karena merujuk baris tagihan.
 await prisma.packageSessionEntry.deleteMany();

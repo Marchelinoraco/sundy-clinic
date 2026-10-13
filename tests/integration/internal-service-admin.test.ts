@@ -31,6 +31,13 @@ async function clean() {
 beforeAll(async () => {
   await clean();
   categoryId = (await prisma.serviceCategory.create({ data: { slug: SLUG, name: "Kategori Aksi", sortOrder: 97 } })).id;
+  // Uji lain (schema.test) mengosongkan katalog; Konsultasi Dokter disiapkan sendiri seperti dunia uji booking.
+  const slimming = await prisma.serviceCategory.upsert({ where: { slug: "slimming" }, update: {}, create: { slug: "slimming", name: "Slimming & Wellness" } });
+  await prisma.service.upsert({
+    where: { slug: "konsultasi-dokter" },
+    update: { isActive: true, requiresDoctor: true, durationMin: 30 },
+    create: { slug: "konsultasi-dokter", name: "Konsultasi Dokter", promoPrice: 200000, durationMin: 30, requiresDoctor: true, categoryId: slimming.id },
+  });
 });
 beforeEach(() => {
   actor.role = "ADMIN_KEUANGAN";
