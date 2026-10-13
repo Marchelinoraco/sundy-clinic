@@ -107,6 +107,7 @@ export type RawReport = {
   service: number;
   treatment: number;
   goods: number;
+  package: number;
   discount: number;
   upfrontFee: number;
   upfrontOnline: number;
@@ -123,6 +124,7 @@ export type ReportTotals = {
   service: number;
   treatment: number;
   goods: number;
+  package: number;
   discount: number;
   upfront: number;
   revenue: number;
@@ -155,7 +157,7 @@ export type ReportView = {
 /** Rumus spec laporan 3.1–3.3. Pembayaran hutang supplier hanya masuk arus kas, tidak mengurangi laba. */
 export function summarizeReport(raw: RawReport): ReportView {
   const upfront = raw.upfrontFee + raw.upfrontOnline;
-  const revenue = raw.service + raw.treatment + raw.goods - raw.discount + upfront;
+  const revenue = raw.service + raw.treatment + raw.goods + raw.package - raw.discount + upfront;
   const expenses = raw.expenses.reduce((sum, row) => sum + row.amount, 0);
   const grossProfit = revenue - raw.cogs;
   const supplier = raw.supplierPaid - raw.supplierRefunded;
@@ -166,6 +168,7 @@ export function summarizeReport(raw: RawReport): ReportView {
       service: raw.service,
       treatment: raw.treatment,
       goods: raw.goods,
+      package: raw.package,
       discount: raw.discount,
       upfront,
       revenue,
@@ -241,6 +244,7 @@ export function reportCsvRows(meta: { period: ReportPeriod; branchName: string }
     ["Layanan", totals.service],
     ["Treatment", totals.treatment],
     ["Obat dan produk", totals.goods],
+    ["Paket", totals.package],
     ["Diskon", -totals.discount],
     ["Biaya booking (di muka)", view.upfrontFee],
     ["Konsultasi Online (di muka)", view.upfrontOnline],

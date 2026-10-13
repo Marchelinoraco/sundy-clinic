@@ -82,6 +82,7 @@ const RAW: RawReport = {
   service: 1_000_000,
   treatment: 500_000,
   goods: 300_000,
+  package: 0,
   discount: 100_000,
   upfrontFee: 200_000,
   upfrontOnline: 250_000,
@@ -134,7 +135,7 @@ describe("rumus laporan", () => {
   });
 
   it("rugi: pengeluaran tanpa pendapatan; label Rugi bila negatif dan Laba bila nol atau positif", () => {
-    const empty: RawReport = { ...RAW, service: 0, treatment: 0, goods: 0, discount: 0, upfrontFee: 0, upfrontOnline: 0, cogs: 0, outstanding: 0, invoiceCount: 0, customerPaid: 0, supplierPaid: 0, supplierRefunded: 0 };
+    const empty: RawReport = { ...RAW, service: 0, treatment: 0, goods: 0, package: 0, discount: 0, upfrontFee: 0, upfrontOnline: 0, cogs: 0, outstanding: 0, invoiceCount: 0, customerPaid: 0, supplierPaid: 0, supplierRefunded: 0 };
     const view = summarizeReport(empty);
     expect(view.totals.netProfit).toBe(-1_000_000);
     expect(profitLabel(view.totals.netProfit)).toBe("Rugi");
@@ -206,5 +207,29 @@ describe("CSV", () => {
     expect(rows).toContainEqual(["Kas bersih", 1_950_000 - 250_000 - 1000]);
     expect(flat).toContain("'=HACK()");
     expect(flat).not.toMatch(/(^|,|\r\n)=HACK/);
+  });
+});
+
+describe("pendapatan paket", () => {
+  it("paket masuk pendapatan dan CSV", () => {
+    const raw: RawReport = {
+      service: 100_000,
+      treatment: 0,
+      goods: 0,
+      package: 900_000,
+      discount: 50_000,
+      upfrontFee: 0,
+      upfrontOnline: 0,
+      cogs: 0,
+      outstanding: 0,
+      invoiceCount: 2,
+      expenses: [],
+      customerPaid: 0,
+      supplierPaid: 0,
+      supplierRefunded: 0,
+    };
+    const view = summarizeReport(raw);
+    expect(view.totals).toMatchObject({ package: 900_000, revenue: 950_000 });
+    expect(reportCsvRows({ period: { from: "2026-10-01", to: "2026-10-31" }, branchName: "Semua cabang" }, view)).toContainEqual(["Paket", 900_000]);
   });
 });

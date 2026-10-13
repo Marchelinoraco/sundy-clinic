@@ -6,6 +6,7 @@ import { PageBody, PageHeader, SectionCard } from "@/components/admin/page-layou
 import { CashFlowCard } from "@/components/admin/report/cash-flow-card";
 import { ReportDetail } from "@/components/admin/report/report-detail";
 import { ReportFilter } from "@/components/admin/report/report-filter";
+import { PackageSessionsTable } from "@/components/admin/report/package-sessions-table";
 import { ReportSummary } from "@/components/admin/report/report-summary";
 import { TrendChart } from "@/components/admin/report/trend-chart";
 import { isReportPreset, periodLabel, presetPeriod, validatePeriod, type ReportPeriod, type ReportPreset } from "@/lib/report";
@@ -67,6 +68,9 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
             <CashFlowCard cash={report.current.cash} />
           </SectionCard>
         </Box>
+        <SectionCard title="Sesi paket terpakai" description="Sesi dari paket customer yang dipakai di tagihan final periode ini; pendapatannya sudah dihitung saat paket dijual." flush>
+          <PackageSessionsTable rows={report.packageSessions} />
+        </SectionCard>
         <SectionCard title="Tren 12 bulan">
           <TrendChart points={report.trend} />
         </SectionCard>

@@ -10,6 +10,7 @@ export type InvoiceAggregate = {
   service: number;
   treatment: number;
   goods: number;
+  package: number;
   discount: number;
   cogs: number;
   outstanding: number;
@@ -20,7 +21,7 @@ type Row = Record<keyof Omit<InvoiceAggregate, "bucket">, bigint | number | null
 
 /**
  * Per jenis baris kotor (quantity × unitPrice); diskon = diskon baris + diskon tagihan (rencana perbaikan tagihan,
- * keputusan 1), sehingga pendapatan = layanan + treatment + barang − diskon tidak memotong diskon baris dua kali.
+ * keputusan 1), sehingga pendapatan = layanan + treatment + barang + paket − diskon tidak memotong diskon baris dua kali.
  * Jumlah tagihan FINAL yang `finalizedAt`-nya di [start, end), per jenis baris, diskon, harga pokok, sisa
  * belum tertagih, dan jumlah tagihan. Diskon per tagihan: persen dibulatkan ke bawah (`subtotal × min(nilai, 100) / 100`,
  * pembagian bilangan bulat), nominal dibatasi subtotal. Sisa = max(0, total − pembayaran yang berlaku).
@@ -41,6 +42,7 @@ export async function invoiceAggregates(start: Date, end: Date, branchId: string
              COALESCE(SUM(l."quantity" * l."unitPrice") FILTER (WHERE l."kind" = 'LAYANAN'), 0) AS service,
              COALESCE(SUM(l."quantity" * l."unitPrice") FILTER (WHERE l."kind" = 'TREATMENT'), 0) AS treatment,
              COALESCE(SUM(l."quantity" * l."unitPrice") FILTER (WHERE l."kind" = 'BARANG'), 0) AS goods,
+             COALESCE(SUM(l."quantity" * l."unitPrice") FILTER (WHERE l."kind" = 'PAKET'), 0) AS package,
              COALESCE(SUM(l."discountAmount"), 0) AS "itemDiscount",
              COALESCE(SUM(l."quantity" * l."unitPrice" - l."discountAmount"), 0) AS subtotal
       FROM "InvoiceLine" l JOIN inv ON inv."id" = l."invoiceId"
@@ -64,6 +66,7 @@ export async function invoiceAggregates(start: Date, end: Date, branchId: string
              COALESCE(lines.service, 0) AS service,
              COALESCE(lines.treatment, 0) AS treatment,
              COALESCE(lines.goods, 0) AS goods,
+             COALESCE(lines.package, 0) AS package,
              COALESCE(lines.subtotal, 0) AS subtotal,
              COALESCE(lines."itemDiscount", 0) AS item,
              COALESCE(lines."itemDiscount", 0) + CASE
@@ -84,6 +87,7 @@ export async function invoiceAggregates(start: Date, end: Date, branchId: string
            COALESCE(SUM(m.service), 0) AS service,
            COALESCE(SUM(m.treatment), 0) AS treatment,
            COALESCE(SUM(m.goods), 0) AS goods,
+           COALESCE(SUM(m.package), 0) AS package,
            COALESCE(SUM(m.discount), 0) AS discount,
            COALESCE(SUM(m.cogs), 0) AS cogs,
            COALESCE(SUM(GREATEST(0, m.subtotal - (m.discount - m.item) - m.paid)), 0) AS outstanding,
@@ -97,11 +101,31 @@ export async function invoiceAggregates(start: Date, end: Date, branchId: string
     service: Number(row.service ?? 0),
     treatment: Number(row.treatment ?? 0),
     goods: Number(row.goods ?? 0),
+    package: Number(row.package ?? 0),
     discount: Number(row.discount ?? 0),
     cogs: Number(row.cogs ?? 0),
     outstanding: Number(row.outstanding ?? 0),
     invoiceCount: Number(row.invoiceCount ?? 0),
   }));
+}
+
+/**
+ * Sesi paket terpakai per treatment (rencana paket keputusan 5): Σ −delta baris PAKAI yang tagihan pemakaiannya
+ * masih FINAL dengan `finalizedAt` di [start, end), menurut cabang tagihan pemakaian.
+ */
+export async function packageSessionsUsed(start: Date, end: Date, branchId: string | null): Promise<{ name: string; sessions: number }[]> {
+  const branch = branchId ? Prisma.sql`AND i."branchId" = ${branchId}` : Prisma.empty;
+  const rows = await prisma.$queryRaw<{ name: string; sessions: bigint | number }[]>`
+    SELECT ppi."serviceName" AS name, SUM(-e."delta") AS sessions
+    FROM "PackageSessionEntry" e
+    JOIN "PatientPackageItem" ppi ON ppi."id" = e."patientPackageItemId"
+    JOIN "InvoiceLine" l ON l."id" = e."invoiceLineId"
+    JOIN "Invoice" i ON i."id" = l."invoiceId"
+    WHERE e."kind" = 'PAKAI' AND i."status" = 'FINAL' AND i."finalizedAt" >= ${start} AND i."finalizedAt" < ${end} ${branch}
+    GROUP BY ppi."serviceName"
+    ORDER BY 2 DESC, 1
+  `;
+  return rows.map((row) => ({ name: row.name, sessions: Number(row.sessions) }));
 }
 
 /** Jumlah pengeluaran yang tidak dibatalkan per bulan ("YYYY-MM"), untuk tren. `branchId` null = semua cabang. */

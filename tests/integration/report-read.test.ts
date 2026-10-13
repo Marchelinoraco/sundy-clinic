@@ -226,6 +226,7 @@ describe("laporan untung-rugi", () => {
       service: 1_200_000,
       treatment: 500_000,
       goods: 300_000,
+      package: 0,
       discount: 100_000,
       upfront: 450_000, // biaya booking 200.000 + Konsultasi Online 250.000
       revenue: 2_350_000,
@@ -322,7 +323,7 @@ describe("laporan untung-rugi", () => {
       },
     });
     for (const month of ["2035-02", "2035-03", "2035-04", "2035-06"]) {
-      const expected = { service: 0, treatment: 0, goods: 0, discount: 0, cogs: 0, outstanding: 0 };
+      const expected = { service: 0, treatment: 0, goods: 0, package: 0, discount: 0, cogs: 0, outstanding: 0 };
       for (const invoice of invoices) {
         const key = new Date(invoice.finalizedAt!.getTime() + 8 * 3600_000).toISOString().slice(0, 7);
         if (key !== month) continue;
@@ -332,6 +333,7 @@ describe("laporan untung-rugi", () => {
           subtotal += amount;
           if (line.kind === "LAYANAN") expected.service += amount;
           else if (line.kind === "TREATMENT") expected.treatment += amount;
+          else if (line.kind === "PAKET") expected.package += amount;
           else expected.goods += amount;
           for (const use of line.stockUses) expected.cogs += use.quantity * use.unitCost;
         }

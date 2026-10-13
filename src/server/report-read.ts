@@ -17,7 +17,7 @@ import {
 } from "@/lib/report";
 import { dateOnly } from "@/lib/stock";
 import { witaDateString } from "@/lib/time";
-import { expensesByMonth, invoiceAggregates } from "@/server/report-sql";
+import { expensesByMonth, invoiceAggregates, packageSessionsUsed } from "@/server/report-sql";
 import { ensureRecurringExpenses } from "@/server/expense-store";
 import { requireCapability } from "@/server/session";
 
@@ -43,6 +43,7 @@ export async function collectReport(period: ReportPeriod, branchId: string | nul
     service: total?.service ?? 0,
     treatment: total?.treatment ?? 0,
     goods: total?.goods ?? 0,
+    package: total?.package ?? 0,
     discount: total?.discount ?? 0,
     upfrontFee: upfront.reduce((sum, entry) => sum + entry.fee, 0),
     upfrontOnline: upfront.reduce((sum, entry) => sum + entry.online, 0),
@@ -112,6 +113,8 @@ export type ProfitReport = {
   previous: ReportView;
   comparison: Comparison;
   trend: TrendPoint[];
+  /** Sesi paket terpakai per treatment di periode berjalan (spec paket 8). */
+  packageSessions: { name: string; sessions: number }[];
 };
 
 /** Laporan satu periode dan cabang, dengan pembanding dan tren 12 bulan (spec laporan 3, 7). */
@@ -129,10 +132,12 @@ export async function getProfitReport(filter: { period: ReportPeriod; branchId: 
 
   const previous = previousPeriod(checked.value);
   const months = trendMonths(witaDateString(now));
-  const [current, before, trend] = await Promise.all([
+  const { start, end } = periodInstants(checked.value);
+  const [current, before, trend, packageSessions] = await Promise.all([
     collectReport(checked.value, filter.branchId),
     collectReport(previous, filter.branchId),
     collectTrend(months, filter.branchId),
+    packageSessionsUsed(start, end, filter.branchId),
   ]);
   const currentView = summarizeReport(current);
   const previousView = summarizeReport(before);
@@ -145,6 +150,7 @@ export async function getProfitReport(filter: { period: ReportPeriod; branchId: 
     previous: previousView,
     comparison: compareReports(currentView.totals, previousView.totals),
     trend,
+    packageSessions,
   };
 }
 
@@ -176,6 +182,7 @@ async function collectTrend(months: string[], branchId: string | null): Promise<
       service: row?.service ?? 0,
       treatment: row?.treatment ?? 0,
       goods: row?.goods ?? 0,
+      package: row?.package ?? 0,
       discount: row?.discount ?? 0,
       upfrontFee: upfrontOf.get(month)?.fee ?? 0,
       upfrontOnline: upfrontOf.get(month)?.online ?? 0,

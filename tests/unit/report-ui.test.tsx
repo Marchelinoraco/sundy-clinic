@@ -9,7 +9,7 @@ import { compareReports, summarizeReport, type RawReport } from "@/lib/report";
 import { renderAdmin } from "./helpers/render-admin";
 
 const RAW: RawReport = {
-  service: 1_000_000, treatment: 500_000, goods: 300_000, discount: 100_000, upfrontFee: 200_000, upfrontOnline: 250_000,
+  service: 1_000_000, treatment: 500_000, goods: 300_000, package: 0, discount: 100_000, upfrontFee: 200_000, upfrontOnline: 250_000,
   cogs: 120_000, outstanding: 50_000, invoiceCount: 12,
   expenses: [
     { categoryId: "k1", name: "Sewa", isActive: true, amount: 400_000 },
