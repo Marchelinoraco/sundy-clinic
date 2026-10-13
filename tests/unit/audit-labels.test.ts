@@ -26,4 +26,14 @@ describe("label aksi audit", () => {
     expect(auditActionLabel("staff.photo.update")).toBe("mengganti foto staf");
     expect(auditActionLabel("staff.photo.remove")).toBe("menghapus foto staf");
   });
+
+  it("aksi katalog layanan punya bahasa manusia", () => {
+    expect(auditActionLabel("service.create")).toBe("menambah layanan internal");
+    expect(auditActionLabel("service.update")).toBe("mengubah layanan internal");
+    expect(auditActionLabel("site_service.create")).toBe("menambah layanan situs");
+    expect(auditActionLabel("site_service.update")).toBe("mengubah layanan situs");
+    expect(auditActionLabel("site_service.activate")).toBe("mengaktifkan layanan situs");
+    expect(auditActionLabel("site_service.deactivate")).toBe("menonaktifkan layanan situs");
+    expect(auditActionLabel("site_service.photo")).toBe("mengganti foto layanan situs");
+  });
 });

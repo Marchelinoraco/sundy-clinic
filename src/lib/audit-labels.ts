@@ -21,6 +21,13 @@ const ACTION_LABEL: Record<string, string> = {
   "staff.password.change": "mengganti kata sandi sendiri",
   "staff.photo.update": "mengganti foto staf",
   "staff.photo.remove": "menghapus foto staf",
+  "service.create": "menambah layanan internal",
+  "service.update": "mengubah layanan internal",
+  "site_service.create": "menambah layanan situs",
+  "site_service.update": "mengubah layanan situs",
+  "site_service.activate": "mengaktifkan layanan situs",
+  "site_service.deactivate": "menonaktifkan layanan situs",
+  "site_service.photo": "mengganti foto layanan situs",
 };
 
 const ROLE_LABEL: Record<string, string> = {

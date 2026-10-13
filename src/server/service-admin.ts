@@ -8,7 +8,10 @@ import { serviceCostSummary, validateServiceCost, type ServiceCostInput } from "
 import { formatRupiah } from "@/lib/format";
 import { ONLINE_SERVICE_SLUG } from "@/lib/online-consultation";
 import { validatePriceChange, type PriceInput } from "@/lib/price-validation";
+import { validateInternalService, type InternalServiceInput } from "@/lib/service-catalog";
+import { slugify } from "@/lib/slug";
 import { recordAudit } from "@/server/audit";
+import { revalidateServicePages } from "@/server/catalog-revalidate";
 import { getConsultationMinutes } from "@/server/consultation-duration";
 import { requireCapability } from "@/server/session";
 
@@ -38,9 +41,7 @@ export async function updateServicePrice(
 
     // Halaman publik di-prerender. Tanpa ini, harga baru tidak muncul sampai
     // deploy berikutnya.
-    safeRevalidatePath("/layanan");
-    safeRevalidatePath(`/layanan/${after.slug}`);
-    safeRevalidatePath("/");
+    await revalidateServicePages(after.id);
   });
 }
 
@@ -58,22 +59,98 @@ export async function updateServiceCost(input: { id: string } & ServiceCostInput
   });
 }
 
-export async function setServiceActive(id: string, isActive: boolean): Promise<void> {
-  const actor = await requireCapability("content:manage");
+const SERVICE_NOT_FOUND = "Layanan tidak ditemukan.";
 
-  const updated = await prisma.service.update({ where: { id }, data: { isActive } });
+/** Layanan yang boleh diubah lewat katalog internal: semua kecuali Konsultasi Online, yang punya kartunya sendiri. */
+async function findEditableService(id: unknown) {
+  const service = await prisma.service.findUnique({ where: { id: String(id ?? "") }, select: { id: true, slug: true, name: true } });
+  if (!service || service.slug === ONLINE_SERVICE_SLUG) throw new UserFacingError(SERVICE_NOT_FOUND);
+  return service;
+}
 
-  await recordAudit({
-    actor,
-    action: isActive ? "service.activate" : "service.deactivate",
-    entity: "Service",
-    entityId: id,
-    summary: updated.name,
+async function assertCategory(categoryId: string) {
+  const category = await prisma.serviceCategory.findUnique({ where: { id: categoryId }, select: { id: true } });
+  if (!category) throw new UserFacingError("Pilih kategori.");
+}
+
+/** Nama unik tanpa membedakan huruf besar/kecil, supaya pilihan di tagihan tidak kembar (spec layanan situs 2.1). */
+async function assertUniqueName(name: string, exceptId: string | null) {
+  const clash = await prisma.service.findFirst({
+    where: { name: { equals: name, mode: "insensitive" }, ...(exceptId ? { id: { not: exceptId } } : {}) },
+    select: { id: true },
   });
+  if (clash) throw new UserFacingError("Nama layanan sudah dipakai layanan lain.");
+}
 
-  safeRevalidatePath("/layanan");
-  safeRevalidatePath(`/layanan/${updated.slug}`);
-  safeRevalidatePath("/");
+/** Slug internal dibuat sekali dari nama, tidak pernah tampil, dan tidak berubah sesudahnya. */
+async function uniqueServiceSlug(name: string): Promise<string> {
+  const base = slugify(name) || "layanan";
+  for (let n = 1; ; n++) {
+    const slug = n === 1 ? base : `${base}-${n}`;
+    if (!(await prisma.service.findUnique({ where: { slug }, select: { id: true } }))) return slug;
+  }
+}
+
+/** Tambah layanan internal (spec layanan situs 5.1); belum tampil di situs sampai ada layanan situs yang menautkannya. */
+export async function createInternalService(input: InternalServiceInput): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const actor = await requireCapability("catalog:manage");
+    const checked = validateInternalService(input);
+    if (!checked.ok) throw new UserFacingError(checked.message);
+    const value = checked.value;
+    await assertCategory(value.categoryId);
+    await assertUniqueName(value.name, null);
+
+    const created = await prisma.service.create({ data: { ...value, slug: await uniqueServiceSlug(value.name) }, select: { id: true, name: true } });
+    await recordAudit({
+      actor,
+      action: "service.create",
+      entity: "Service",
+      entityId: created.id,
+      summary: `${created.name}: ${formatRupiah(value.promoPrice)}, ${value.durationMin} menit`,
+    });
+    await revalidateServicePages(created.id);
+    return { id: created.id };
+  });
+}
+
+export async function updateInternalService(input: { id: string } & InternalServiceInput): Promise<ActionResult> {
+  return runAction(async () => {
+    const actor = await requireCapability("catalog:manage");
+    const checked = validateInternalService(input);
+    if (!checked.ok) throw new UserFacingError(checked.message);
+    const value = checked.value;
+    const before = await findEditableService(input?.id);
+    if (before.slug === CONSULTATION_SERVICE_SLUG && !isConsultationDuration(value.durationMin)) {
+      throw new UserFacingError("Durasi Konsultasi Dokter harus 15, 30, 45, atau 60 menit.");
+    }
+    await assertCategory(value.categoryId);
+    await assertUniqueName(value.name, before.id);
+
+    await prisma.service.update({ where: { id: before.id }, data: value });
+    await recordAudit({
+      actor,
+      action: "service.update",
+      entity: "Service",
+      entityId: before.id,
+      summary: before.name === value.name ? value.name : `${before.name} -> ${value.name}`,
+    });
+    await revalidateServicePages(before.id);
+  });
+}
+
+/** Aktif/nonaktif layanan internal; menonaktifkan ikut menyembunyikan layanan situs yang menautkannya (spec layanan situs 3). */
+export async function setServiceActive(input: { id: string; active: boolean }): Promise<ActionResult> {
+  return runAction(async () => {
+    const actor = await requireCapability("catalog:manage");
+    const service = await findEditableService(input?.id);
+    const active = input?.active === true;
+    if (!active && service.slug === CONSULTATION_SERVICE_SLUG) throw new UserFacingError("Konsultasi Dokter tidak bisa dinonaktifkan.");
+
+    await prisma.service.update({ where: { id: service.id }, data: { isActive: active } });
+    await recordAudit({ actor, action: active ? "service.activate" : "service.deactivate", entity: "Service", entityId: service.id, summary: service.name });
+    await revalidateServicePages(service.id);
+  });
 }
 
 export type OnlineServiceSettings = { price: number; durationMin: number; active: boolean };
