@@ -1,5 +1,6 @@
 "use server";
 
+import type { Prisma } from "@prisma/client";
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
 import { prisma } from "@/lib/db";
 import { isMonthString } from "@/lib/expense";
@@ -112,14 +113,23 @@ const workRecord = (e: { joinedOn: Date; status: "AKTIF" | "BERHENTI"; leftOn: D
 });
 
 /** Baris belum dibayar beserta bulan dan staf tertautnya; selain itu galat yang bisa dibaca pengguna. */
-async function unpaidItem(itemId: unknown) {
-  const item = await prisma.payrollItem.findUnique({
-    where: { id: String(itemId ?? "") },
-    select: { id: true, paidAt: true, employeeName: true, period: { select: { month: true } }, employee: { select: { baseSalary: true, allowance: true, staffId: true } } },
+const UNPAID_SELECT = { id: true, paidAt: true, employeeName: true, period: { select: { month: true } }, employee: { select: { baseSalary: true, allowance: true, staffId: true } } } as const;
+type UnpaidItem = Prisma.PayrollItemGetPayload<{ select: typeof UNPAID_SELECT }>;
+
+/**
+ * Ubah baris yang belum dibayar di bawah kunci karyawan yang sama dengan pembayaran, lalu periksa ulang `paidAt`: perubahan yang
+ * berbalapan dengan "Tandai dibayar" tidak pernah mengenai baris yang baru dibayar (review akhir, Important 3).
+ */
+async function withUnpaidItem<T>(itemId: unknown, change: (tx: Prisma.TransactionClient, item: UnpaidItem) => Promise<T>): Promise<{ item: UnpaidItem; result: T }> {
+  const head = await prisma.payrollItem.findUnique({ where: { id: String(itemId ?? "") }, select: { id: true, employeeId: true } });
+  if (!head) throw new UserFacingError(ITEM_NOT_FOUND);
+  return prisma.$transaction(async (tx) => {
+    await lockEmployee(tx, head.employeeId);
+    const item = await tx.payrollItem.findUnique({ where: { id: head.id }, select: UNPAID_SELECT });
+    if (!item) throw new UserFacingError(ITEM_NOT_FOUND);
+    if (item.paidAt) throw new UserFacingError(ITEM_PAID);
+    return { item, result: await change(tx, item) };
   });
-  if (!item) throw new UserFacingError(ITEM_NOT_FOUND);
-  if (item.paidAt) throw new UserFacingError(ITEM_PAID);
-  return item;
 }
 
 export async function createPayrollPeriod(input: { month: string }): Promise<ActionResult<{ month: string }>> {
@@ -158,7 +168,12 @@ export async function deletePayrollPeriod(input: { month: string }): Promise<Act
     const period = await prisma.payrollPeriod.findUnique({ where: { month: String(input?.month ?? "") }, select: { id: true, month: true, items: { select: { paidAt: true, voidedPayments: true } } } });
     if (!period) throw new UserFacingError(PERIOD_NOT_FOUND);
     if (period.items.some((i) => i.paidAt || i.voidedPayments > 0)) throw new UserFacingError("Penggajian yang pernah dibayar tidak bisa dihapus.");
-    await prisma.$transaction([prisma.payrollItem.deleteMany({ where: { periodId: period.id } }), prisma.payrollPeriod.delete({ where: { id: period.id } })]);
+    await prisma.$transaction(async (tx) => {
+      // Hanya baris yang tidak pernah dibayar; bila pembayaran menyelinap sejak pemeriksaan di atas, seluruhnya dibatalkan.
+      await tx.payrollItem.deleteMany({ where: { periodId: period.id, paidAt: null, voidedPayments: 0 } });
+      if ((await tx.payrollItem.count({ where: { periodId: period.id } })) > 0) throw new UserFacingError("Penggajian yang pernah dibayar tidak bisa dihapus.");
+      await tx.payrollPeriod.delete({ where: { id: period.id } });
+    });
     await recordAudit({ actor, action: "payroll.update", entity: "PayrollPeriod", entityId: period.month, summary: `Penggajian ${period.month} dihapus` });
     revalidatePayroll(period.month);
   });
@@ -195,8 +210,7 @@ export async function addPayrollItem(input: { month: string; employeeId: string 
 export async function removePayrollItem(input: { itemId: string }): Promise<ActionResult> {
   return runAction(async () => {
     const actor = await requireCapability("payroll:manage");
-    const item = await unpaidItem(input?.itemId);
-    await prisma.payrollItem.delete({ where: { id: item.id } });
+    const { item } = await withUnpaidItem(input?.itemId, (tx, row) => tx.payrollItem.delete({ where: { id: row.id } }));
     await recordAudit({ actor, action: "payroll.update", entity: "PayrollItem", entityId: item.id, summary: `Keluarkan ${item.employeeName} dari penggajian ${item.period.month}` });
     revalidatePayroll(item.period.month);
   });
@@ -205,10 +219,12 @@ export async function removePayrollItem(input: { itemId: string }): Promise<Acti
 export async function updatePayrollAmounts(input: { itemId: string; baseSalary: number; allowance: number; note: string }): Promise<ActionResult> {
   return runAction(async () => {
     const actor = await requireCapability("payroll:manage");
-    const item = await unpaidItem(input?.itemId);
-    const checked = validateAmounts(input, { baseSalary: item.employee.baseSalary, allowance: item.employee.allowance });
-    if (!checked.ok) throw new UserFacingError(checked.message);
-    await prisma.payrollItem.update({ where: { id: item.id }, data: { baseSalary: checked.value.baseSalary, allowance: checked.value.allowance, amountNote: checked.value.note } });
+    const { item, result: checked } = await withUnpaidItem(input?.itemId, async (tx, row) => {
+      const valid = validateAmounts(input, { baseSalary: row.employee.baseSalary, allowance: row.employee.allowance });
+      if (!valid.ok) throw new UserFacingError(valid.message);
+      await tx.payrollItem.update({ where: { id: row.id }, data: { baseSalary: valid.value.baseSalary, allowance: valid.value.allowance, amountNote: valid.value.note } });
+      return valid;
+    });
     await recordAudit({
       actor,
       action: "payroll.update",
@@ -223,10 +239,9 @@ export async function updatePayrollAmounts(input: { itemId: string; baseSalary: 
 export async function addPayrollAdjustment(input: { itemId: string } & AdjustmentInput): Promise<ActionResult> {
   return runAction(async () => {
     const actor = await requireCapability("payroll:manage");
-    const item = await unpaidItem(input?.itemId);
     const checked = validateAdjustment(input);
     if (!checked.ok) throw new UserFacingError(checked.message);
-    await prisma.payrollAdjustment.create({ data: { itemId: item.id, ...checked.value, createdByName: actor.name } });
+    const { item } = await withUnpaidItem(input?.itemId, (tx, row) => tx.payrollAdjustment.create({ data: { itemId: row.id, ...checked.value, createdByName: actor.name } }));
     const sign = checked.value.kind === "BONUS" ? "+" : "−";
     await recordAudit({ actor, action: "payroll.update", entity: "PayrollItem", entityId: item.id, summary: `${item.employeeName} ${item.period.month}: ${checked.value.note} ${sign}${formatRupiah(checked.value.amount)}` });
     revalidatePayroll(item.period.month);
@@ -238,9 +253,8 @@ export async function removePayrollAdjustment(input: { adjustmentId: string }): 
     const actor = await requireCapability("payroll:manage");
     const adjustment = await prisma.payrollAdjustment.findUnique({ where: { id: String(input?.adjustmentId ?? "") }, select: { id: true, itemId: true, note: true, invoiceLineId: true } });
     if (!adjustment) throw new UserFacingError("Penyesuaian tidak ditemukan.");
-    const item = await unpaidItem(adjustment.itemId);
     if (adjustment.invoiceLineId) throw new UserFacingError("Koreksi otomatis tidak bisa dihapus.");
-    await prisma.payrollAdjustment.delete({ where: { id: adjustment.id } });
+    const { item } = await withUnpaidItem(adjustment.itemId, (tx) => tx.payrollAdjustment.delete({ where: { id: adjustment.id } }));
     await recordAudit({ actor, action: "payroll.update", entity: "PayrollItem", entityId: item.id, summary: `${item.employeeName} ${item.period.month}: hapus ${adjustment.note}` });
     revalidatePayroll(item.period.month);
   });
@@ -260,7 +274,7 @@ async function ensureCategory(name: string): Promise<string> {
   }
 }
 
-export async function payPayrollItem(input: { itemId: string; paidOn: string }): Promise<ActionResult> {
+export async function payPayrollItem(input: { itemId: string; paidOn: string; expectedTotal?: number }): Promise<ActionResult> {
   return runAction(async () => {
     const actor = await requireCapability("payroll:manage");
     if (!isDateString(input?.paidOn)) throw new UserFacingError("Isi tanggal bayar.");
@@ -271,10 +285,11 @@ export async function payPayrollItem(input: { itemId: string; paidOn: string }):
 
     const summary = await prisma.$transaction(async (tx) => {
       await lockEmployee(tx, head.employeeId);
-      const item = await tx.payrollItem.findUniqueOrThrow({
+      const item = await tx.payrollItem.findUnique({
         where: { id: head.id },
         select: { id: true, paidAt: true, employeeName: true, baseSalary: true, allowance: true, period: { select: { month: true } }, employee: { select: { staffId: true, branchId: true } } },
       });
+      if (!item) throw new UserFacingError(ITEM_NOT_FOUND);
       if (item.paidAt) throw new UserFacingError(ITEM_PAID);
       await syncCommissionCorrections(tx, { id: item.id, staffId: item.employee.staffId }, actor.name);
       const adjustments = await tx.payrollAdjustment.findMany({ where: { itemId: item.id }, select: { kind: true, amount: true } });
@@ -282,6 +297,10 @@ export async function payPayrollItem(input: { itemId: string; paidOn: string }):
       const amounts = { baseSalary: item.baseSalary, allowance: item.allowance, commission: open?.commission ?? 0, ...adjustmentTotals(adjustments) };
       const total = payrollTotal(amounts);
       if (total < 0) throw new UserFacingError("Potongan melebihi gaji.");
+      // Yang dibayar harus sama dengan yang dilihat admin saat menekan Bayar (review akhir, Important 1).
+      if (typeof input.expectedTotal === "number" && input.expectedTotal !== total) {
+        throw new UserFacingError("Total berubah sejak halaman dibuka. Muat ulang halaman lalu periksa lagi.");
+      }
       const split = expenseSplit(amounts);
       const note = `Penggajian ${item.period.month} · ${item.employeeName}`;
       const expense = (categoryId: string, amount: number) =>
@@ -329,10 +348,11 @@ export async function voidPayrollPayment(input: { itemId: string; reason: string
 
     const summary = await prisma.$transaction(async (tx) => {
       await lockEmployee(tx, head.employeeId);
-      const item = await tx.payrollItem.findUniqueOrThrow({
+      const item = await tx.payrollItem.findUnique({
         where: { id: head.id },
         select: { id: true, paidAt: true, employeeName: true, total: true, salaryExpenseId: true, commissionExpenseId: true, period: { select: { month: true } } },
       });
+      if (!item) throw new UserFacingError(ITEM_NOT_FOUND);
       if (!item.paidAt) throw new UserFacingError("Baris ini belum dibayar.");
       const expenseIds = [item.salaryExpenseId, item.commissionExpenseId].filter((id): id is string => id !== null);
       await tx.expense.updateMany({
@@ -340,6 +360,14 @@ export async function voidPayrollPayment(input: { itemId: string; reason: string
         data: { voidedAt: new Date(), voidedByName: actor.name, voidReason: `Pembatalan penggajian: ${reason.value}` },
       });
       const claimed = (await tx.invoiceLine.findMany({ where: { payrollItemId: item.id }, select: { id: true } })).map((l) => l.id);
+      // Koreksi dari klaim ini yang sudah dibayar di bulan lain: melepas klaim akan memotong karyawan dua kali (review akhir, Important 2).
+      const paidCorrection = await tx.payrollAdjustment.findFirst({
+        where: { invoiceLineId: { in: claimed }, item: { paidAt: { not: null } } },
+        select: { item: { select: { period: { select: { month: true } } } } },
+      });
+      if (paidCorrection) {
+        throw new UserFacingError(`Koreksi komisi dari pembayaran ini sudah dibayar di penggajian ${paidCorrection.item.period.month}; batalkan pembayaran itu dulu.`);
+      }
       // Koreksi yang lahir dari klaim ini dan belum dibayar tidak berlaku lagi (Review Focus 3).
       await tx.payrollAdjustment.deleteMany({ where: { invoiceLineId: { in: claimed }, item: { paidAt: null } } });
       await tx.invoiceLine.updateMany({ where: { payrollItemId: item.id }, data: { payrollItemId: null } });

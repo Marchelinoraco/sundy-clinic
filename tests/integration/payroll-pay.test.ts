@@ -2,7 +2,9 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
 import { witaDateString } from "@/lib/time";
-import { addPayrollAdjustment, createPayrollPeriod, payPayrollItem, voidPayrollPayment } from "@/server/payroll-actions";
+import { voidExpense } from "@/server/expense-actions";
+import { addPayrollAdjustment, createPayrollPeriod, payPayrollItem, removePayrollItem, voidPayrollPayment } from "@/server/payroll-actions";
+import { getPayrollPeriod } from "@/server/payroll-read";
 import { expensesByMonth } from "@/server/report-sql";
 import { cleanupPayrollWorld, commissionInvoice, createPayrollWorld, type PayrollWorld } from "./payroll-world";
 import { unwrap } from "./unwrap";
@@ -133,5 +135,67 @@ describe("batalkan pembayaran (spec karyawan 4.4)", () => {
     expect(await prisma.payrollAdjustment.count({ where: { invoiceLineId: lineId } })).toBe(0);
     await unwrap(payPayrollItem({ itemId: february.id, paidOn: today }));
     expect((await itemOf("2093-02")).deductionTotal).toBe(0);
+  });
+});
+
+describe("perbaikan review akhir", () => {
+  it("koreksi yang muncul sesudah penggajian dibuat langsung tampil, dan total kedaluwarsa ditolak (Important 1)", async () => {
+    const { invoiceId } = await commissionInvoice(world, 90_000);
+    await unwrap(createPayrollPeriod({ month: "2093-01" }));
+    await unwrap(payPayrollItem({ itemId: (await itemOf("2093-01")).id, paidOn: today }));
+    await unwrap(createPayrollPeriod({ month: "2093-02" }));
+    await prisma.invoice.update({ where: { id: invoiceId }, data: { status: "DIBATALKAN" } });
+
+    const row = (await getPayrollPeriod("2093-02"))!.items.find((i) => i.employeeId === world.employeeId)!;
+    expect(row.deductionTotal).toBe(90_000);
+    expect(row.total).toBe(3_410_000);
+    const february = await itemOf("2093-02");
+    expect(await payPayrollItem({ itemId: february.id, paidOn: today, expectedTotal: 3_500_000 })).toEqual({
+      ok: false,
+      error: "Total berubah sejak halaman dibuka. Muat ulang halaman lalu periksa lagi.",
+    });
+    await unwrap(payPayrollItem({ itemId: february.id, paidOn: today, expectedTotal: 3_410_000 }));
+    expect((await itemOf("2093-02")).total).toBe(3_410_000);
+  });
+
+  it("pembayaran yang koreksinya sudah dibayar di bulan lain tidak bisa dibatalkan (Important 2)", async () => {
+    const { invoiceId } = await commissionInvoice(world, 100_000);
+    await unwrap(createPayrollPeriod({ month: "2093-01" }));
+    const january = await itemOf("2093-01");
+    await unwrap(payPayrollItem({ itemId: january.id, paidOn: today }));
+    await prisma.invoice.update({ where: { id: invoiceId }, data: { status: "DIBATALKAN" } });
+    await unwrap(createPayrollPeriod({ month: "2093-02" }));
+    await unwrap(payPayrollItem({ itemId: (await itemOf("2093-02")).id, paidOn: today }));
+
+    expect(await voidPayrollPayment({ itemId: january.id, reason: "Salah tanggal" })).toEqual({
+      ok: false,
+      error: "Koreksi komisi dari pembayaran ini sudah dibayar di penggajian 2093-02; batalkan pembayaran itu dulu.",
+    });
+  });
+
+  it("baris yang sedang dibayar tidak bisa dikeluarkan bersamaan (Important 3)", async () => {
+    for (let round = 0; round < 5; round++) {
+      await cleanupPayrollWorld(SLUG, WA, "2093");
+      world = await createPayrollWorld(SLUG, WA);
+      await commissionInvoice(world, 10_000);
+      await unwrap(createPayrollPeriod({ month: "2093-01" }));
+      const item = await itemOf("2093-01");
+      await Promise.all([payPayrollItem({ itemId: item.id, paidOn: today }), removePayrollItem({ itemId: item.id })]);
+      const after = await prisma.payrollItem.findUnique({ where: { id: item.id } });
+      const expenses = await prisma.expense.count({ where: { note: `Penggajian 2093-01 · ${SLUG} Rina`, voidedAt: null } });
+      if (after) expect(after.paidAt).not.toBeNull();
+      else expect(expenses).toBe(0);
+    }
+  });
+
+  it("pengeluaran dari penggajian tidak bisa dibatalkan dari halaman Pengeluaran (Important 4)", async () => {
+    await unwrap(createPayrollPeriod({ month: "2093-01" }));
+    const item = await itemOf("2093-01");
+    await unwrap(payPayrollItem({ itemId: item.id, paidOn: today }));
+    const paid = await prisma.payrollItem.findUniqueOrThrow({ where: { id: item.id } });
+    expect(await voidExpense({ id: paid.salaryExpenseId!, reason: "Salah" })).toEqual({
+      ok: false,
+      error: "Pengeluaran ini dari penggajian; batalkan pembayarannya dari menu Karyawan.",
+    });
   });
 });

@@ -69,6 +69,9 @@ export async function voidExpense(input: { id: string; reason: string }): Promis
     const reason = validateReason(input?.reason);
     if (!reason.ok) throw new UserFacingError(reason.message);
     const id = String(input?.id ?? "");
+    // Pengeluaran gaji/komisi dibatalkan bersama pembayarannya di menu Karyawan, agar klaim komisi ikut dilepas (review akhir penggajian).
+    const fromPayroll = await prisma.payrollItem.findFirst({ where: { OR: [{ salaryExpenseId: id }, { commissionExpenseId: id }] }, select: { id: true } });
+    if (fromPayroll) throw new UserFacingError("Pengeluaran ini dari penggajian; batalkan pembayarannya dari menu Karyawan.");
 
     const { count } = await prisma.expense.updateMany({
       where: { id, voidedAt: null },

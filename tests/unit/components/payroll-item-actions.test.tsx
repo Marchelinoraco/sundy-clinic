@@ -53,7 +53,7 @@ describe("PayrollItemActions (spec karyawan 4–5)", { timeout: 15_000 }, () => 
     const dialog = screen.getByRole("dialog", { name: "Tandai dibayar — Rina" });
     expect(dialog).toHaveTextContent("Rp 3.700.000");
     await user.click(within(dialog).getByRole("button", { name: "Bayar" }));
-    await waitFor(() => expect(payPayrollItem).toHaveBeenCalledWith({ itemId: "i1", paidOn: "2026-10-31" }));
+    await waitFor(() => expect(payPayrollItem).toHaveBeenCalledWith({ itemId: "i1", paidOn: "2026-10-31", expectedTotal: 3_700_000 }));
   });
 
   it("baris dibayar hanya bisa dibatalkan, dengan alasan", async () => {

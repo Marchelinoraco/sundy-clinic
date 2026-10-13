@@ -174,7 +174,7 @@ function PayDialog({ item, today }: { item: PayrollItemRow; today: string }) {
   const [run, pending] = useRun(setError);
   return (
     <ActionDialog text="Tandai dibayar" name={item.employeeName} open={open} setOpen={setOpen} actions={
-      <Button type="button" variant="contained" disabled={pending} onClick={() => run(() => payPayrollItem({ itemId: item.id, paidOn }), `Gaji ${item.employeeName} dibayar.`, () => setOpen(false))}>
+      <Button type="button" variant="contained" disabled={pending} onClick={() => run(() => payPayrollItem({ itemId: item.id, paidOn, expectedTotal: item.total }), `Gaji ${item.employeeName} dibayar.`, () => setOpen(false))}>
         Bayar
       </Button>
     }>

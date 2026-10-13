@@ -33,27 +33,35 @@ export async function openCommissions(db: Db, staffIds: string[], month: string)
  * Koreksi otomatis (spec karyawan 3): baris komisi yang sudah dibayar tetapi tagihannya kemudian dibatalkan menjadi POTONGAN
  * di baris penggajian yang belum dibayar. `invoiceLineId` unik mencegah koreksi ganda.
  */
-export async function syncCommissionCorrections(db: Db, item: { id: string; staffId: string | null }, actorName: string): Promise<void> {
-  if (!item.staffId) return;
+export type PendingCorrection = { lineId: string; amount: number; note: string };
+
+/** Koreksi yang belum tercatat per staf: komisi sudah dibayar, tagihannya kemudian dibatalkan, dan belum ada potongannya. */
+export async function pendingCorrections(db: Db, staffIds: string[]): Promise<Map<string, PendingCorrection[]>> {
+  const result = new Map<string, PendingCorrection[]>();
+  if (staffIds.length === 0) return result;
   const lines = await db.invoiceLine.findMany({
-    where: { performerId: item.staffId, payrollItem: { paidAt: { not: null } }, invoice: { status: "DIBATALKAN" }, commissionAmount: { gt: 0 } },
-    select: { id: true, commissionAmount: true, invoice: { select: { number: true } } },
+    where: { performerId: { in: staffIds }, payrollItem: { paidAt: { not: null } }, invoice: { status: "DIBATALKAN" }, commissionAmount: { gt: 0 } },
+    select: { id: true, performerId: true, commissionAmount: true, invoice: { select: { number: true } } },
   });
-  if (lines.length === 0) return;
+  if (lines.length === 0) return result;
   const done = new Set(
     (await db.payrollAdjustment.findMany({ where: { invoiceLineId: { in: lines.map((l) => l.id) } }, select: { invoiceLineId: true } })).map((a) => a.invoiceLineId),
   );
-  const fresh = lines.filter((l) => !done.has(l.id));
+  for (const l of lines) {
+    if (done.has(l.id)) continue;
+    const list = result.get(l.performerId!) ?? [];
+    list.push({ lineId: l.id, amount: l.commissionAmount, note: `Koreksi komisi ${l.invoice.number ?? "tagihan"} (dibatalkan)` });
+    result.set(l.performerId!, list);
+  }
+  return result;
+}
+
+export async function syncCommissionCorrections(db: Db, item: { id: string; staffId: string | null }, actorName: string): Promise<void> {
+  if (!item.staffId) return;
+  const fresh = (await pendingCorrections(db, [item.staffId])).get(item.staffId) ?? [];
   if (fresh.length === 0) return;
   await db.payrollAdjustment.createMany({
-    data: fresh.map((l) => ({
-      itemId: item.id,
-      kind: "POTONGAN" as const,
-      amount: l.commissionAmount,
-      note: `Koreksi komisi ${l.invoice.number ?? "tagihan"} (dibatalkan)`,
-      invoiceLineId: l.id,
-      createdByName: actorName,
-    })),
+    data: fresh.map((c) => ({ itemId: item.id, kind: "POTONGAN" as const, amount: c.amount, note: c.note, invoiceLineId: c.lineId, createdByName: actorName })),
     skipDuplicates: true,
   });
 }

@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { payrollTotal, worksInMonth } from "@/lib/payroll";
 import { dateOnlyString } from "@/lib/stock";
-import { adjustmentTotals, openCommissions } from "@/server/payroll-store";
+import { adjustmentTotals, openCommissions, pendingCorrections } from "@/server/payroll-store";
 import { requireCapability } from "@/server/session";
 
 /** Bacaan menu Karyawan (spec karyawan 5–6). Semua fungsi memeriksa `payroll:manage`; kolom dipilih eksplisit. */
@@ -82,9 +82,19 @@ const ITEM_SELECT = {
 async function itemRows(month: string, items: Awaited<ReturnType<typeof loadItems>>): Promise<PayrollItemRow[]> {
   const unpaidStaff = items.filter((i) => !i.paidAt && i.employee.staffId).map((i) => i.employee.staffId!);
   const open = await openCommissions(prisma, unpaidStaff, month);
+  // Koreksi yang muncul sesudah baris dibuat ikut tampil, sama dengan yang akan dicatat saat dibayar (review akhir, Important 1).
+  const pending = await pendingCorrections(prisma, unpaidStaff);
   return items.map(({ employee, adjustments, paidAt, ...item }) => {
-    const rows = adjustments.map((a) => ({ id: a.id, kind: a.kind, amount: a.amount, note: a.note, automatic: a.invoiceLineId !== null }));
-    if (paidAt) return { ...item, staffId: employee.staffId, paidAt: dateOnlyString(paidAt), adjustments: rows };
+    const saved = adjustments.map((a) => ({ id: a.id, kind: a.kind, amount: a.amount, note: a.note, automatic: a.invoiceLineId !== null }));
+    if (paidAt) return { ...item, staffId: employee.staffId, paidAt: dateOnlyString(paidAt), adjustments: saved };
+    const virtual = (employee.staffId ? (pending.get(employee.staffId) ?? []) : []).map((c) => ({
+      id: `koreksi-${c.lineId}`,
+      kind: "POTONGAN" as const,
+      amount: c.amount,
+      note: c.note,
+      automatic: true,
+    }));
+    const rows = [...saved, ...virtual];
     const live = employee.staffId ? open.get(employee.staffId) : undefined;
     const totals = adjustmentTotals(rows);
     const amounts = { baseSalary: item.baseSalary, allowance: item.allowance, commission: live?.commission ?? 0, ...totals };
