@@ -135,6 +135,69 @@ export async function packageSessionsUsed(start: Date, end: Date, branchId: stri
   return rows.map((row) => ({ name: row.name, sessions: Number(row.sessions) }));
 }
 
+export type MarginGroup = { revenue: number; stockCost: number; materialCost: number; toolCost: number; commission: number };
+export type MarginReport = {
+  goods: MarginGroup;
+  treatment: MarginGroup;
+  packageRevenue: number;
+  invoiceDiscount: number;
+  byItem: { name: string; quantity: number; revenue: number; cost: number }[];
+  byTreatment: { name: string; quantity: number; revenue: number; materialCost: number; toolCost: number; commission: number }[];
+};
+
+/** Margin per kelompok (spec harga modal 7) dari tagihan FINAL di [start, end); pendapatan baris setelah diskon baris. */
+export async function marginAggregates(start: Date, end: Date, branchId: string | null): Promise<MarginReport> {
+  const branch = branchId ? Prisma.sql`AND i."branchId" = ${branchId}` : Prisma.empty;
+  const inv = Prisma.sql`SELECT i."id", i."discountKind", i."discountValue" FROM "Invoice" i WHERE i."status" = 'FINAL' AND i."finalizedAt" >= ${start} AND i."finalizedAt" < ${end} ${branch}`;
+  type N = bigint | number | null;
+  const [groups, items, treatments, discounts] = await Promise.all([
+    prisma.$queryRaw<{ kind: string; revenue: N; stock: N; material: N; tool: N; commission: N }[]>`
+      WITH inv AS (${inv})
+      SELECT l."kind" AS kind,
+             SUM(l."quantity" * l."unitPrice" - l."discountAmount") AS revenue,
+             SUM((SELECT COALESCE(SUM(u."quantity" * u."unitCost"), 0) FROM "InvoiceStockUse" u WHERE u."lineId" = l."id")) AS stock,
+             SUM(l."materialCost") AS material, SUM(l."toolCost") AS tool, SUM(l."commissionAmount") AS commission
+      FROM "InvoiceLine" l JOIN inv ON inv."id" = l."invoiceId"
+      GROUP BY l."kind"`,
+    prisma.$queryRaw<{ name: string; quantity: N; revenue: N; cost: N }[]>`
+      WITH inv AS (${inv})
+      SELECT l."name" AS name, SUM(l."quantity") AS quantity, SUM(l."quantity" * l."unitPrice" - l."discountAmount") AS revenue,
+             SUM((SELECT COALESCE(SUM(u."quantity" * u."unitCost"), 0) FROM "InvoiceStockUse" u WHERE u."lineId" = l."id")) AS cost
+      FROM "InvoiceLine" l JOIN inv ON inv."id" = l."invoiceId"
+      WHERE l."kind" = 'BARANG'
+      GROUP BY l."name" ORDER BY 3 DESC, 1`,
+    prisma.$queryRaw<{ name: string; quantity: N; revenue: N; material: N; tool: N; commission: N }[]>`
+      WITH inv AS (${inv})
+      SELECT l."name" AS name, SUM(l."quantity") AS quantity, SUM(l."quantity" * l."unitPrice" - l."discountAmount") AS revenue,
+             SUM(l."materialCost") AS material, SUM(l."toolCost") AS tool, SUM(l."commissionAmount") AS commission
+      FROM "InvoiceLine" l JOIN inv ON inv."id" = l."invoiceId"
+      WHERE l."kind" = 'TREATMENT'
+      GROUP BY l."name" ORDER BY 2 DESC, 1`,
+    prisma.$queryRaw<{ discount: N }[]>`
+      WITH inv AS (${inv}),
+      sub AS (SELECT l."invoiceId", SUM(l."quantity" * l."unitPrice" - l."discountAmount") AS subtotal FROM "InvoiceLine" l JOIN inv ON inv."id" = l."invoiceId" GROUP BY l."invoiceId")
+      SELECT COALESCE(SUM(CASE
+        WHEN inv."discountKind" = 'PERSEN' AND inv."discountValue" > 0 THEN (COALESCE(sub.subtotal, 0) * LEAST(inv."discountValue", 100)) / 100
+        WHEN inv."discountKind" = 'NOMINAL' AND inv."discountValue" > 0 THEN LEAST(inv."discountValue"::bigint, COALESCE(sub.subtotal, 0))
+        ELSE 0 END), 0) AS discount
+      FROM inv LEFT JOIN sub ON sub."invoiceId" = inv."id"`,
+  ]);
+  const num = (value: N) => Number(value ?? 0);
+  const group = (kind: string): MarginGroup => {
+    const row = groups.find((g) => g.kind === kind);
+    return { revenue: num(row?.revenue ?? 0), stockCost: num(row?.stock ?? 0), materialCost: num(row?.material ?? 0), toolCost: num(row?.tool ?? 0), commission: num(row?.commission ?? 0) };
+  };
+  const goods = group("BARANG");
+  return {
+    goods: { ...goods, materialCost: 0, toolCost: 0, commission: 0 },
+    treatment: { ...group("TREATMENT"), stockCost: 0 },
+    packageRevenue: group("PAKET").revenue,
+    invoiceDiscount: num(discounts[0]?.discount ?? 0),
+    byItem: items.map((row) => ({ name: row.name, quantity: num(row.quantity), revenue: num(row.revenue), cost: num(row.cost) })),
+    byTreatment: treatments.map((row) => ({ name: row.name, quantity: num(row.quantity), revenue: num(row.revenue), materialCost: num(row.material), toolCost: num(row.tool), commission: num(row.commission) })),
+  };
+}
+
 /** Jumlah pengeluaran yang tidak dibatalkan per bulan ("YYYY-MM"), untuk tren. `branchId` null = semua cabang. */
 export async function expensesByMonth(fromDate: string, toDate: string, branchId: string | null): Promise<Map<string, number>> {
   const branch = branchId ? Prisma.sql`AND "branchId" = ${branchId}` : Prisma.empty;

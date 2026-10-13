@@ -17,15 +17,19 @@ export function ReportFilter({
   period,
   branchId,
   branches,
+  tab,
 }: {
   preset: ReportPreset;
   period: ReportPeriod;
   branchId: string | null;
   branches: { id: string; name: string }[];
+  /** Tab laporan yang sedang dibuka; dibawa saat saringan diterapkan (rencana harga modal keputusan 3). */
+  tab?: string;
 }) {
   const [preset, setPreset] = useState<ReportPreset>(initialPreset);
   return (
     <Form action="/admin/laporan">
+      {tab && <input type="hidden" name="tab" value={tab} />}
       <Stack direction="row" spacing={1.5} useFlexGap sx={{ flexWrap: "wrap", alignItems: "flex-start" }}>
         <SelectField name="periode" label="Periode" value={preset} onChange={(value) => setPreset(value as ReportPreset)} fullWidth={false} sx={{ minWidth: 180 }}>
           {REPORT_PRESETS.map((value) => (

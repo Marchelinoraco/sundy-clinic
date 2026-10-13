@@ -17,7 +17,7 @@ import {
 } from "@/lib/report";
 import { dateOnly } from "@/lib/stock";
 import { witaDateString } from "@/lib/time";
-import { expensesByMonth, invoiceAggregates, packageSessionsUsed } from "@/server/report-sql";
+import { expensesByMonth, invoiceAggregates, marginAggregates, packageSessionsUsed, type MarginReport } from "@/server/report-sql";
 import { ensureRecurringExpenses } from "@/server/expense-store";
 import { requireCapability } from "@/server/session";
 
@@ -207,4 +207,13 @@ export async function getMonthProfit(now: Date = new Date()): Promise<{ month: s
   const month = currentMonthOf(witaDateString(now));
   const view = summarizeReport(await collectReport(monthPeriod(month), null));
   return { month, revenue: view.totals.revenue, netProfit: view.totals.netProfit };
+}
+
+/** Tab "Margin" (spec harga modal 7). */
+export async function getMarginReport(filter: { period: ReportPeriod; branchId: string | null }): Promise<MarginReport> {
+  await requireCapability("profit:read");
+  const checked = validatePeriod(filter.period);
+  if (!checked.ok) throw new Error(checked.message);
+  const { start, end } = periodInstants(checked.value);
+  return marginAggregates(start, end, filter.branchId);
 }

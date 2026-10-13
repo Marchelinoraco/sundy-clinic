@@ -2,22 +2,25 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import { AdminHeader } from "@/components/admin/admin-header";
 import { LinkButton } from "@/components/admin/mui/links";
-import { PageBody, PageHeader, SectionCard } from "@/components/admin/page-layout";
+import { EmptyState, PageBody, PageHeader, SectionCard } from "@/components/admin/page-layout";
 import { CashFlowCard } from "@/components/admin/report/cash-flow-card";
 import { ReportDetail } from "@/components/admin/report/report-detail";
 import { ReportFilter } from "@/components/admin/report/report-filter";
 import { PackageSessionsTable } from "@/components/admin/report/package-sessions-table";
+import { MarginReportView } from "@/components/admin/report/margin-report";
 import { ReportSummary } from "@/components/admin/report/report-summary";
+import { PageTabs } from "@/components/admin/page-tabs";
 import { TrendChart } from "@/components/admin/report/trend-chart";
 import { isReportPreset, periodLabel, presetPeriod, validatePeriod, type ReportPeriod, type ReportPreset } from "@/lib/report";
 import { witaDateString } from "@/lib/time";
 import { getBranches } from "@/server/catalog";
-import { getProfitReport } from "@/server/report-read";
+import { getMarginReport, getProfitReport } from "@/server/report-read";
+import { resolveTab } from "@/lib/page-tabs";
 import { requireCapability } from "@/server/session";
 
 export const metadata = { title: "Laporan" };
 
-type Search = { periode?: string; dari?: string; sampai?: string; cabang?: string };
+type Search = { periode?: string; dari?: string; sampai?: string; cabang?: string; tab?: string; pelaksana?: string };
 
 export default async function ReportPage({ searchParams }: { searchParams: Promise<Search> }) {
   await requireCapability("profit:read");
@@ -39,6 +42,8 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
   const branchId = branches.some((b) => b.id === params.cabang) ? (params.cabang ?? null) : null;
   const report = await getProfitReport({ period, branchId });
   const query = new URLSearchParams({ dari: period.from, sampai: period.to, ...(branchId ? { cabang: branchId } : {}) });
+  const tab = resolveTab(params.tab, ["ringkasan", "margin", "komisi"] as const);
+  const base = new URLSearchParams({ periode: preset, dari: period.from, sampai: period.to, ...(branchId ? { cabang: branchId } : {}) }).toString();
 
   return (
     <>
@@ -48,37 +53,58 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
           title="Laporan untung-rugi"
           description={`${periodLabel(period)} · ${report.branchName} · dibandingkan dengan ${periodLabel(report.previousPeriod)}`}
           actions={
-            <LinkButton href={`/admin/laporan/unduh?${query.toString()}`} download variant="outlined">
-              Unduh CSV
-            </LinkButton>
+            tab === "ringkasan" ? (
+              <LinkButton href={`/admin/laporan/unduh?${query.toString()}`} download variant="outlined">
+                Unduh CSV
+              </LinkButton>
+            ) : undefined
           }
         />
         {/* key: isian tanggal menyimpan nilainya sendiri dan Next tidak memasang ulang halaman saat hanya alamat yang berubah,
             jadi tanpa ini kolom Dari/Sampai tertinggal di periode lama setelah memilih "Bulan lalu". */}
-        <ReportFilter key={`${preset}|${period.from}|${period.to}|${branchId ?? ""}`} preset={preset} period={period} branchId={branchId} branches={branches} />
+        <ReportFilter key={`${preset}|${period.from}|${period.to}|${branchId ?? ""}`} preset={preset} period={period} branchId={branchId} branches={branches} tab={tab === "ringkasan" ? undefined : tab} />
+        <PageTabs
+          label="Bagian laporan"
+          active={tab}
+          tabs={[
+            { id: "ringkasan", label: "Ringkasan", href: `/admin/laporan?${base}` },
+            { id: "margin", label: "Margin", href: `/admin/laporan?${base}&tab=margin` },
+            { id: "komisi", label: "Komisi", href: `/admin/laporan?${base}&tab=komisi` },
+          ]}
+        />
         {notice && (
           <Alert severity="error">{notice}</Alert>
         )}
-        <ReportSummary view={report.current} comparison={report.comparison} />
-        {report.current.missingCost > 0 && (
-          <Alert severity="warning">
-            {report.current.missingCost} baris barang belum punya harga pokok; laba bisa lebih tinggi dari sebenarnya. Isi harga beli di Stok → Barang masuk.
-          </Alert>
+        {tab === "ringkasan" && (
+          <>
+          <ReportSummary view={report.current} comparison={report.comparison} />
+          {report.current.missingCost > 0 && (
+            <Alert severity="warning">
+              {report.current.missingCost} baris barang belum punya harga pokok; laba bisa lebih tinggi dari sebenarnya. Isi harga beli di Stok → Barang masuk.
+            </Alert>
+          )}
+          <Box sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "minmax(0, 1fr)", xl: "minmax(0, 1fr) 22rem" } }}>
+            <SectionCard title="Rincian" flush>
+              <ReportDetail current={report.current} previous={report.previous} />
+            </SectionCard>
+            <SectionCard title="Arus kas" flush>
+              <CashFlowCard cash={report.current.cash} />
+            </SectionCard>
+          </Box>
+          <SectionCard title="Sesi paket terpakai" description="Sesi dari paket customer yang dipakai di tagihan final periode ini; pendapatannya sudah dihitung saat paket dijual." flush>
+            <PackageSessionsTable rows={report.packageSessions} />
+          </SectionCard>
+          <SectionCard title="Tren 12 bulan">
+            <TrendChart points={report.trend} />
+          </SectionCard>
+          </>
         )}
-        <Box sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "minmax(0, 1fr)", xl: "minmax(0, 1fr) 22rem" } }}>
-          <SectionCard title="Rincian" flush>
-            <ReportDetail current={report.current} previous={report.previous} />
+        {tab === "margin" && (
+          <SectionCard title="Margin" description="Pendapatan bersih dikurangi harga pokok barang, bahan, alat, dan komisi treatment. Hanya tagihan final." flush>
+            <MarginReportView report={await getMarginReport({ period, branchId })} />
           </SectionCard>
-          <SectionCard title="Arus kas" flush>
-            <CashFlowCard cash={report.current.cash} />
-          </SectionCard>
-        </Box>
-        <SectionCard title="Sesi paket terpakai" description="Sesi dari paket customer yang dipakai di tagihan final periode ini; pendapatannya sudah dihitung saat paket dijual." flush>
-          <PackageSessionsTable rows={report.packageSessions} />
-        </SectionCard>
-        <SectionCard title="Tren 12 bulan">
-          <TrendChart points={report.trend} />
-        </SectionCard>
+        )}
+        {tab === "komisi" && <EmptyState>Belum tersedia.</EmptyState>}
       </PageBody>
     </>
   );
