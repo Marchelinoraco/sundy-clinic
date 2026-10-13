@@ -11,6 +11,7 @@ import { validateReason } from "@/lib/stock";
 import { witaDateString } from "@/lib/time";
 import { recordAudit } from "@/server/audit";
 import { lockInvoiceRow, nextInvoiceSequence, STALE_DRAFT, TOTALS_SELECT } from "@/server/invoice-store";
+import { activatePurchasedPackages, cancelPurchasedPackages } from "@/server/package-store";
 import { requireCapability } from "@/server/session";
 import { takeFromBatch } from "@/server/stock-store";
 
@@ -44,9 +45,10 @@ export async function finalizeInvoice(input: { invoiceId: string; version: numbe
           version: true,
           branchId: true,
           appointmentId: true,
+          patientId: true,
           branch: { select: { name: true } },
           ...TOTALS_SELECT,
-          lines: { orderBy: { sortOrder: "asc" }, select: { id: true, kind: true, name: true, itemId: true, quantity: true, unitPrice: true, discountAmount: true, discountSource: true } },
+          lines: { orderBy: { sortOrder: "asc" }, select: { id: true, kind: true, name: true, itemId: true, quantity: true, unitPrice: true, discountAmount: true, discountSource: true, treatmentPackageId: true } },
         },
       });
       if (!invoice) throw new UserFacingError("Tagihan tidak ditemukan.");
@@ -99,6 +101,9 @@ export async function finalizeInvoice(input: { invoiceId: string; version: numbe
           });
         }
       }
+
+      // Paket yang dijual menjadi milik customer di transaksi yang sama (spec paket 5).
+      await activatePurchasedPackages(tx, { patientId: invoice.patientId, lines: invoice.lines }, actor, today);
 
       const year = Number(today.slice(0, 4));
       const number = formatInvoiceNumber(year, await nextInvoiceSequence(tx, year));
@@ -156,6 +161,7 @@ export async function cancelInvoice(input: { invoiceId: string; reason: string }
       if (invoice.payments.length > 0 && !canCorrect) {
         throw new UserFacingError("Tagihan ini pernah dibayar. Pembatalan dilakukan oleh Admin Keuangan.");
       }
+      if (invoice.status === "FINAL") await cancelPurchasedPackages(tx, invoiceId, actor);
 
       for (const use of invoice.lines.flatMap((line) => line.stockUses)) {
         await tx.stockBatch.update({ where: { id: use.batchId }, data: { quantityRemaining: { increment: use.quantity } } });
