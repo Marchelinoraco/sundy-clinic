@@ -224,6 +224,50 @@ for (const [index, project] of ["desktop", "mobile"].entries()) {
   });
 }
 
+// Paket treatment (paket.spec.ts): per proyek satu pasien dengan dua kunjungan final hari ini berisi Relaxing Facial,
+// pukul 21.00/21.30 (desktop) dan 22.00/22.30 (ponsel), di luar jam buka.
+const relaxingFacial = await prisma.service.findUniqueOrThrow({ where: { slug: "relaxing-facial" } });
+for (const [index, project] of ["desktop", "mobile"].entries()) {
+  const patient = await prisma.patient.create({
+    data: {
+      medicalRecordNumber: `SDY-E2E-PAKET-${index + 1}`,
+      name: `Pasien Paket ${project}`,
+      whatsapp: `6281200091${index}01`,
+      birthDate: new Date("1993-05-17T00:00:00Z"),
+      gender: "P",
+    },
+  });
+  for (const offset of [0, 1]) {
+    const startAt = combineWitaDateAndMinutes(today, (21 + index) * 60 + offset * 30);
+    const appointment = await prisma.appointment.create({
+      data: {
+        code: `E2E-PAKET-${index + 1}-${offset + 1}`,
+        type: "KONSULTASI",
+        startAt,
+        endAt: new Date(startAt.getTime() + 30 * 60_000),
+        status: "HADIR",
+        source: "WALK_IN",
+        branchId: visitBranch.id,
+        staffId: visitDoctor.id,
+        serviceId: visitService.id,
+        patientId: patient.id,
+      },
+    });
+    const encounter = await prisma.encounter.create({
+      data: {
+        appointmentId: appointment.id,
+        createdById: visitDoctor.id,
+        createdByName: visitDoctor.name,
+        treatments: { create: [{ serviceId: relaxingFacial.id, serviceName: relaxingFacial.name, performerId: visitDoctor.id, performerName: visitDoctor.name, sortOrder: 0 }] },
+      },
+    });
+    await prisma.encounter.update({
+      where: { id: encounter.id },
+      data: { status: "FINAL", assessment: "E2E paket", finalizedAt: new Date(), finalizedById: visitDoctor.id, finalizedByName: visitDoctor.name },
+    });
+  }
+}
+
 // Pemberitahuan langsung (pemberitahuan.spec.ts): dua pasien hadir hari ini per proyek (satu untuk resep, satu tanpa resep),
 // pukul 01.00/01.30 (desktop) dan 02.00/02.30 (ponsel), di luar jam buka.
 for (const [index, project] of ["desktop", "mobile"].entries()) {
