@@ -221,6 +221,46 @@ describe("check-in: NIK, data diri, pasien rangkap", () => {
     ).toBe("SDY-2026-6602 → SDY-2026-6601: 1 booking, 0 isian, 1 hasil BIA");
   });
 
+  it("pindah pasien rangkap: paket treatment ikut pindah ke pemilik NIK, supaya sesinya tetap bisa dipakai", async () => {
+    const owner = await patient({ mrn: "SDY-2026-6601", name: "Siti Lama", whatsapp: WA.owner, extra: { nik: OWNER_NIK } });
+    const duplicate = await patient({ mrn: "SDY-2026-6602", name: "Siti Rangkap", whatsapp: WA.duplicate });
+    const todayBooking = await booking(duplicate.id);
+    const catalog = await prisma.treatmentPackage.create({ data: { name: `${SLUG} Paket`, price: 1000, validDays: 30 } });
+    const invoice = await prisma.invoice.create({
+      data: {
+        patientId: duplicate.id,
+        branchId: world.branchId,
+        createdById: "s1",
+        createdByName: "Rina",
+        lines: { create: [{ kind: "PAKET", name: "Paket", quantity: 1, unitPrice: 1000, treatmentPackageId: catalog.id }] },
+      },
+      select: { id: true, lines: { select: { id: true } } },
+    });
+    const owned = await prisma.patientPackage.create({
+      data: {
+        patientId: duplicate.id,
+        packageId: catalog.id,
+        name: "Paket",
+        price: 1000,
+        purchaseLineId: invoice.lines[0].id,
+        startsOn: new Date("2031-01-01T00:00:00Z"),
+        expiresOn: new Date("2031-01-30T00:00:00Z"),
+      },
+    });
+    try {
+      await unwrap(mergeDuplicatePatient({ appointmentId: todayBooking.id, nik: OWNER_NIK }));
+      expect((await prisma.patientPackage.findUniqueOrThrow({ where: { id: owned.id } })).patientId).toBe(owner.id);
+      expect(
+        (await prisma.auditLog.findFirstOrThrow({ where: { action: "patient.merge-duplicate", entityId: owner.id }, orderBy: { createdAt: "desc" } })).summary,
+      ).toBe("SDY-2026-6602 → SDY-2026-6601: 1 booking, 0 isian, 1 paket");
+    } finally {
+      await prisma.patientPackage.delete({ where: { id: owned.id } });
+      await prisma.invoiceLine.deleteMany({ where: { invoiceId: invoice.id } });
+      await prisma.invoice.delete({ where: { id: invoice.id } });
+      await prisma.treatmentPackage.delete({ where: { id: catalog.id } });
+    }
+  });
+
   it("pasien rangkap tidak bisa diberi booking baru", async () => {
     await patient({ mrn: "SDY-2026-6601", name: "Siti Lama", whatsapp: WA.owner, extra: { nik: OWNER_NIK } });
     const duplicate = await patient({ mrn: "SDY-2026-6602", name: "Siti Rangkap", whatsapp: WA.duplicate });

@@ -252,8 +252,10 @@ export async function mergeDuplicatePatient(input: { appointmentId: string; nik:
       const intakes = await tx.intake.updateMany({ where: { patientId: duplicate.id }, data: { patientId: owner.id } });
       // Hasil BIA menyimpan id pasien sendiri; tanpa ini ia tertinggal di pasien rangkap dan hilang dari riwayat dan grafik.
       const bia = await tx.biaMeasurement.updateMany({ where: { patientId: duplicate.id }, data: { patientId: owner.id } });
+      // Paket treatment milik customer, bukan milik data rangkap: tanpa ini sesinya tidak bisa dipakai lagi (tinjauan paket).
+      const packages = await tx.patientPackage.updateMany({ where: { patientId: duplicate.id }, data: { patientId: owner.id } });
       await tx.patient.update({ where: { id: duplicate.id }, data: { mergedIntoId: owner.id } });
-      return { appointments: appointments.count, intakes: intakes.count, bia: bia.count };
+      return { appointments: appointments.count, intakes: intakes.count, bia: bia.count, packages: packages.count };
     });
 
     await recordAudit({
@@ -261,7 +263,7 @@ export async function mergeDuplicatePatient(input: { appointmentId: string; nik:
       action: "patient.merge-duplicate",
       entity: "Patient",
       entityId: owner.id,
-      summary: `${duplicate.medicalRecordNumber} → ${owner.medicalRecordNumber}: ${moved.appointments} booking, ${moved.intakes} isian${moved.bia > 0 ? `, ${moved.bia} hasil BIA` : ""}`,
+      summary: `${duplicate.medicalRecordNumber} → ${owner.medicalRecordNumber}: ${moved.appointments} booking, ${moved.intakes} isian${moved.bia > 0 ? `, ${moved.bia} hasil BIA` : ""}${moved.packages > 0 ? `, ${moved.packages} paket` : ""}`,
     });
     safeRevalidatePath("/admin/booking");
     safeRevalidatePath("/admin/pasien");
