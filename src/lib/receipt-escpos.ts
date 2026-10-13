@@ -84,10 +84,12 @@ export function buildEscPosReceipt(receipt: PublicReceipt, width: PaperWidth): s
   lines.push(rule);
   for (const line of receipt.lines) {
     lines.push(...wrapText(text(line.name), columns));
-    row(`${line.quantity} x ${formatRupiah(line.unitPrice)}`, formatRupiah(line.amount));
+    row(`${line.quantity} x ${formatRupiah(line.unitPrice)}`, formatRupiah(line.gross));
+    if (line.discount > 0) row("  Diskon", `-${formatRupiah(line.discount)}`);
   }
   lines.push(rule);
   row("Subtotal", formatRupiah(receipt.subtotal));
+  if (receipt.itemDiscount > 0) row("Diskon item", `-${formatRupiah(receipt.itemDiscount)}`);
   if (receipt.discount > 0) row("Diskon", `-${formatRupiah(receipt.discount)}`);
   row("Total", formatRupiah(receipt.total));
   for (const payment of receipt.payments) {

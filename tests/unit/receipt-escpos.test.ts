@@ -11,11 +11,12 @@ const RECEIPT: PublicReceipt = {
   cashierName: "Mey",
   customerName: "Priscillya Jenitha Chiantoery",
   lines: [
-    { name: "Paket Lux", quantity: 1, unitPrice: 1_500_000, amount: 1_500_000 },
-    { name: "Krim pelembap wajah dengan ekstrak sakura dan niacinamide untuk kulit sensitif", quantity: 2, unitPrice: 125_000, amount: 250_000 },
-    { name: "Café latte é", quantity: 1, unitPrice: 25_000, amount: 25_000 },
+    { name: "Paket Lux", quantity: 1, unitPrice: 1_500_000, gross: 1_500_000, discount: 0, amount: 1_500_000 },
+    { name: "Krim pelembap wajah dengan ekstrak sakura dan niacinamide untuk kulit sensitif", quantity: 2, unitPrice: 125_000, gross: 250_000, discount: 0, amount: 250_000 },
+    { name: "Café latte é", quantity: 1, unitPrice: 25_000, gross: 25_000, discount: 0, amount: 25_000 },
   ],
   subtotal: 1_775_000,
+  itemDiscount: 0,
   discount: 75_000,
   total: 1_700_000,
   paid: 1_000_000,
@@ -96,5 +97,13 @@ describe("buildEscPosReceipt", () => {
     expect(joined).toContain("Maria Fransiska Theresia");
     expect(joined).toContain("Wulandari Simanjuntak");
     expect(joined).toContain("Kasir");
+  });
+
+  it("baris berdiskon mencetak Diskon di bawah baris, dan Diskon item di ringkasan", () => {
+    const text = printedLines(
+      buildEscPosReceipt({ ...RECEIPT, lines: [{ name: "Serum", quantity: 2, unitPrice: 150_000, gross: 300_000, discount: 30_000, amount: 270_000 }], itemDiscount: 30_000 }, 58),
+    ).join("\n");
+    expect(text).toMatch(/Diskon\s+-Rp 30\.000/);
+    expect(text).toMatch(/Diskon item\s+-Rp 30\.000/);
   });
 });

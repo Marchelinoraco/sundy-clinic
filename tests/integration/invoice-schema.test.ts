@@ -63,7 +63,8 @@ describe("skema tagihan", () => {
     const line = (data: Record<string, unknown>) =>
       prisma.invoiceLine.create({ data: { invoiceId: created.id, kind: "LAYANAN", name: "Konsultasi", quantity: 1, unitPrice: 1000, ...data } });
     await expect(line({ quantity: 0 })).rejects.toThrow(/invoice_line_values/);
-    await expect(line({ unitPrice: -1 })).rejects.toThrow(/invoice_line_values/);
+    // Harga negatif juga melanggar invoice_line_discount_range (diskon ≤ jumlah × harga); keduanya menolak.
+    await expect(line({ unitPrice: -1 })).rejects.toThrow(/invoice_line_values|invoice_line_discount_range/);
     await expect(line({ kind: "BARANG" })).rejects.toThrow(/invoice_line_values/);
     await expect(line({ itemId: world.drugId })).rejects.toThrow(/invoice_line_values/);
     expect((await line({ kind: "BARANG", itemId: world.drugId })).kind).toBe("BARANG");

@@ -14,9 +14,11 @@ import { EmptyState, PageBody, PageHeader, SectionCard } from "@/components/admi
 import { AdjustStockDialog } from "@/components/admin/stock/adjust-stock-dialog";
 import { StockItemActiveButton } from "@/components/admin/stock/stock-item-active-button";
 import { StockItemDialog } from "@/components/admin/stock/stock-item-dialog";
+import { StockPriceDialog } from "@/components/admin/stock/stock-price-dialog";
 import { formatDateWithYear, formatRupiah } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { ADJUST_REASON_LABEL, dateLabel, MOVEMENT_KIND_LABEL, STOCK_ITEM_KIND_LABEL } from "@/lib/stock";
+import { promoLabel } from "@/lib/stock-promo";
 import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
 import { requireCapability } from "@/server/session";
 import { getStockItemDetail } from "@/server/stock-read";
@@ -29,6 +31,7 @@ export default async function StockItemPage({ params }: { params: Promise<{ id: 
   if (!detail) notFound();
   const { item, batches, movements } = detail;
   const canManage = can(staff.role, "stock:manage");
+  const canSetPrice = can(staff.role, "price:manage");
 
   return (
     <>
@@ -39,24 +42,28 @@ export default async function StockItemPage({ params }: { params: Promise<{ id: 
           trail={[{ label: "Stok", href: "/admin/stok" }, { label: item.code }]}
           description={`${STOCK_ITEM_KIND_LABEL[item.kind]} · satuan ${item.unit} · harga jual ${
             item.sellPrice === null ? "belum diisi" : formatRupiah(item.sellPrice)
-          } · batas menipis ${item.minStock}`}
+          } · promo ${promoLabel(item) ?? "—"} · batas menipis ${item.minStock}`}
           actions={
-            canManage ? (
+            canManage || canSetPrice ? (
               <>
-                <StockItemDialog
-                  itemId={item.id}
-                  triggerLabel="Ubah barang"
-                  initial={{
-                    code: item.code,
-                    name: item.name,
-                    kind: item.kind,
-                    unit: item.unit,
-                    sellPrice: item.sellPrice,
-                    minStock: item.minStock,
-                    notes: item.notes ?? "",
-                  }}
-                />
-                <StockItemActiveButton itemId={item.id} active={item.isActive} />
+                {canManage && (
+                  <StockItemDialog
+                    itemId={item.id}
+                    triggerLabel="Ubah barang"
+                    initial={{
+                      code: item.code,
+                      name: item.name,
+                      kind: item.kind,
+                      unit: item.unit,
+                      sellPrice: item.sellPrice,
+                      minStock: item.minStock,
+                      notes: item.notes ?? "",
+                    }}
+                    canSetPrice={canSetPrice}
+                  />
+                )}
+                {canSetPrice && <StockPriceDialog itemId={item.id} itemName={item.name} sellPrice={item.sellPrice} promo={item} />}
+                {canManage && <StockItemActiveButton itemId={item.id} active={item.isActive} />}
               </>
             ) : undefined
           }

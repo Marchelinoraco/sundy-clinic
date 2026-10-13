@@ -11,6 +11,7 @@ import {
   type StockItemKindValue,
   type StockMovementKindValue,
 } from "@/lib/stock";
+import type { PromoFields } from "@/lib/stock-promo";
 import { witaDateString } from "@/lib/time";
 import { requireCapability } from "@/server/session";
 import { PAYABLE_SELECT } from "@/server/stock-store";
@@ -19,7 +20,7 @@ import { PAYABLE_SELECT } from "@/server/stock-store";
 
 export type StockListFilter = { branchId: string; kind?: StockItemKindValue; flag?: StockFlag | "NONAKTIF"; q?: string };
 
-export type StockItemRow = StockFlags & {
+export type StockItemRow = StockFlags & PromoFields & {
   id: string;
   code: string;
   name: string;
@@ -30,6 +31,8 @@ export type StockItemRow = StockFlags & {
   isActive: boolean;
   flags: StockFlag[];
 };
+
+const PROMO_FIELDS_SELECT = { promoName: true, promoKind: true, promoValue: true, promoStartsOn: true, promoEndsOn: true } as const;
 
 const BATCH_STOCK_SELECT = { quantityRemaining: true, expiryDate: true, unitCost: true } as const;
 
@@ -52,6 +55,7 @@ export async function listStockItems(filter: StockListFilter): Promise<StockItem
       kind: true,
       unit: true,
       sellPrice: true,
+      ...PROMO_FIELDS_SELECT,
       minStock: true,
       isActive: true,
       batches: { where: { branchId: filter.branchId, quantityRemaining: { gt: 0 } }, select: BATCH_STOCK_SELECT },
@@ -103,7 +107,7 @@ export type StockItemDetail = {
     minStock: number;
     isActive: boolean;
     notes: string | null;
-  };
+  } & PromoFields;
   batches: StockBatchRow[];
   movements: StockMovementRow[];
 };
@@ -114,7 +118,7 @@ export async function getStockItemDetail(id: string): Promise<StockItemDetail | 
   const today = witaDateString(new Date());
   const item = await prisma.stockItem.findUnique({
     where: { id: String(id ?? "") },
-    select: { id: true, code: true, name: true, kind: true, unit: true, sellPrice: true, minStock: true, isActive: true, notes: true },
+    select: { id: true, code: true, name: true, kind: true, unit: true, sellPrice: true, ...PROMO_FIELDS_SELECT, minStock: true, isActive: true, notes: true },
   });
   if (!item) return null;
   const [batches, movements] = await Promise.all([

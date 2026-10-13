@@ -21,8 +21,8 @@ function source(patch: Partial<ReceiptSource> = {}): ReceiptSource {
     patient: { name: "Priscillya Jenitha Chiantoery" },
     branch: { name: "SunDY Mahakeret", address: "Jl. Mahakeret 1, Manado" },
     lines: [
-      { name: "Paket Lux", quantity: 1, unitPrice: 1_500_000 },
-      { name: "Paket S 0.3", quantity: 1, unitPrice: 1_600_000 },
+      { name: "Paket Lux", quantity: 1, unitPrice: 1_500_000, discountAmount: 0, discountSource: null },
+      { name: "Paket S 0.3", quantity: 1, unitPrice: 1_600_000, discountAmount: 0, discountSource: null },
     ],
     payments: [{ amount: 3_100_000, method: "QRIS", paidAt: new Date("2026-10-12T00:00:00Z"), revokedAt: null }],
     ...patch,
@@ -40,10 +40,11 @@ describe("buildPublicReceipt", () => {
       cashierName: "Mey",
       customerName: "Priscillya Jenitha Chiantoery",
       lines: [
-        { name: "Paket Lux", quantity: 1, unitPrice: 1_500_000, amount: 1_500_000 },
-        { name: "Paket S 0.3", quantity: 1, unitPrice: 1_600_000, amount: 1_600_000 },
+        { name: "Paket Lux", quantity: 1, unitPrice: 1_500_000, gross: 1_500_000, discount: 0, amount: 1_500_000 },
+        { name: "Paket S 0.3", quantity: 1, unitPrice: 1_600_000, gross: 1_600_000, discount: 0, amount: 1_600_000 },
       ],
       subtotal: 3_100_000,
+      itemDiscount: 0,
       discount: 0,
       total: 3_100_000,
       paid: 3_100_000,
@@ -81,6 +82,22 @@ describe("buildPublicReceipt", () => {
     const extra = { ...source(), notes: "catatan internal", discountReason: "alasan", patient: { name: "A", whatsapp: "6281", medicalRecordNumber: "SDY-1" } };
     const json = JSON.stringify(buildPublicReceipt(extra as ReceiptSource));
     for (const secret of ["catatan internal", "alasan", "6281", "SDY-1"]) expect(json).not.toContain(secret);
+  });
+
+  it("diskon baris: jumlah bersih per baris, subtotal kotor, dan diskon item", () => {
+    const receipt = buildPublicReceipt(
+      source({
+        lines: [
+          { name: "Serum", quantity: 2, unitPrice: 150_000, discountAmount: 30_000, discountSource: "PROMO" },
+          { name: "Facial", quantity: 1, unitPrice: 100_000, discountAmount: 0, discountSource: null },
+        ],
+        discountKind: "PERSEN",
+        discountValue: 5,
+        payments: [],
+      }),
+    )!;
+    expect(receipt.lines[0]).toEqual({ name: "Serum", quantity: 2, unitPrice: 150_000, gross: 300_000, discount: 30_000, amount: 270_000 });
+    expect(receipt).toMatchObject({ subtotal: 400_000, itemDiscount: 30_000, discount: 18_500, total: 351_500 });
   });
 });
 

@@ -46,7 +46,7 @@ export async function finalizeInvoice(input: { invoiceId: string; version: numbe
           appointmentId: true,
           branch: { select: { name: true } },
           ...TOTALS_SELECT,
-          lines: { orderBy: { sortOrder: "asc" }, select: { id: true, kind: true, name: true, itemId: true, quantity: true, unitPrice: true } },
+          lines: { orderBy: { sortOrder: "asc" }, select: { id: true, kind: true, name: true, itemId: true, quantity: true, unitPrice: true, discountAmount: true, discountSource: true } },
         },
       });
       if (!invoice) throw new UserFacingError("Tagihan tidak ditemukan.");

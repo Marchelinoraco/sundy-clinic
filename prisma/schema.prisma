@@ -700,6 +700,19 @@ model ClinicSetting {
   updatedAt DateTime @updatedAt
 }
 
+/// Rekening klinik penerima transfer pembayaran tagihan (spec perbaikan tagihan 7). Tidak dihapus, hanya dinonaktifkan.
+model ClinicBankAccount {
+  id            String           @id @default(cuid())
+  bankName      String
+  accountNumber String
+  accountHolder String
+  isActive      Boolean          @default(true)
+  sortOrder     Int              @default(0)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  payments      InvoicePayment[]
+}
+
 enum EncounterStatus {
   DRAF
   FINAL
@@ -829,6 +842,12 @@ model StockItem {
   unit            String
   /// Harga jual dalam rupiah; boleh kosong sampai dibutuhkan tagihan.
   sellPrice       Int?
+  /// Diskon bawaan barang (spec perbaikan tagihan 3); diatur price:manage. CHECK stock_item_promo_shape.
+  promoName       String?
+  promoKind       DiscountKind?
+  promoValue      Int              @default(0)
+  promoStartsOn   DateTime?        @db.Date
+  promoEndsOn     DateTime?        @db.Date
   /// Batas "menipis" per cabang; 0 berarti tidak pernah ditandai menipis.
   minStock        Int              @default(0)
   isActive        Boolean          @default(true)
@@ -1020,6 +1039,12 @@ enum DiscountKind {
   PERSEN
 }
 
+/// Asal diskon baris tagihan (spec perbaikan tagihan 3): promo barang otomatis atau diketik staf.
+enum LineDiscountSource {
+  PROMO
+  MANUAL
+}
+
 /// Penghitung nomor tagihan per tahun; diambil atomik saat tagihan difinalkan.
 model InvoiceNumberCounter {
   year  Int @id
@@ -1071,24 +1096,28 @@ model Invoice {
 }
 
 model InvoiceLine {
-  id                   String          @id @default(cuid())
+  id                   String              @id @default(cuid())
   invoiceId            String
-  invoice              Invoice         @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  invoice              Invoice             @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
   kind                 InvoiceLineKind
   /// Disalin saat baris dibuat, bukan dirujuk: perubahan katalog tidak mengubah tagihan.
   name                 String
   quantity             Int
   unitPrice            Int
-  sortOrder            Int             @default(0)
+  sortOrder            Int                 @default(0)
   serviceId            String?
   /// Treatment di catatan dokter asal baris ini; mencegah treatment yang sama masuk dua kali.
   encounterTreatmentId String?
   itemId               String?
   /// Catatan bila harga diubah dari harga katalog.
   priceNote            String?
+  /// Potongan rupiah untuk seluruh baris (spec perbaikan tagihan 3–4). CHECK: 0..quantity×unitPrice.
+  discountAmount       Int                 @default(0)
+  discountReason       String?
+  discountSource       LineDiscountSource?
   /// Baris penyerahan asal baris ini (spec penyerahan 4.3); kosong untuk baris biasa. Dilepas bila tagihan dibatalkan.
-  dispensingLineId     String?         @unique
-  dispensingLine       DispensingLine? @relation(fields: [dispensingLineId], references: [id], onDelete: Restrict)
+  dispensingLineId     String?             @unique
+  dispensingLine       DispensingLine?     @relation(fields: [dispensingLineId], references: [id], onDelete: Restrict)
 
   stockUses InvoiceStockUse[]
 
@@ -1111,22 +1140,30 @@ model InvoiceStockUse {
 
 /// Uang masuk dari customer. Salah input dibatalkan (revokedAt), tidak dihapus.
 model InvoicePayment {
-  id            String        @id @default(cuid())
-  invoiceId     String
-  invoice       Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
-  amount        Int
-  method        PaymentMethod
-  paidAt        DateTime      @db.Date
-  reference     String?
-  staffId       String
-  staffName     String
-  createdAt     DateTime      @default(now())
-  revokedAt     DateTime?
-  revokedByName String?
-  revokeReason  String?
+  id                  String             @id @default(cuid())
+  invoiceId           String
+  invoice             Invoice            @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  /// Transfer bank (spec perbaikan tagihan 8): rekening tujuan klinik dan salinan labelnya saat dicatat.
+  clinicBankAccountId String?
+  clinicBankAccount   ClinicBankAccount? @relation(fields: [clinicBankAccountId], references: [id], onDelete: Restrict)
+  destinationLabel    String?
+  senderBank          String?
+  senderAccountName   String?
+  senderAccountNumber String?
+  amount              Int
+  method              PaymentMethod
+  paidAt              DateTime           @db.Date
+  reference           String?
+  staffId             String
+  staffName           String
+  createdAt           DateTime           @default(now())
+  revokedAt           DateTime?
+  revokedByName       String?
+  revokeReason        String?
 
   @@index([invoiceId])
   @@index([paidAt])
+  @@index([clinicBankAccountId])
 }
 
 // ---------------------------------------------------------------------------

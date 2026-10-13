@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   refreshCatalogPrices: vi.fn(),
   cancelInvoice: vi.fn(),
 }));
+vi.mock("@/server/invoice-notes", () => ({ updateInvoiceNotes: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mocks.refresh, push: mocks.push }) }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/server/invoice-drafts", () => ({
@@ -27,13 +28,15 @@ vi.mock("@/server/invoice-drafts", () => ({
   addInvoiceItem: mocks.addInvoiceItem,
   addFreeLine: mocks.addFreeLine,
   refreshCatalogPrices: mocks.refreshCatalogPrices,
+  setLineDiscount: vi.fn(),
+  clearLineDiscount: vi.fn(),
 }));
 vi.mock("@/server/invoice-lifecycle", () => ({ finalizeInvoice: mocks.finalizeInvoice, cancelInvoice: mocks.cancelInvoice }));
 
 function detail(patch: Partial<InvoiceDetail> = {}): InvoiceDetail {
   const lines: InvoiceDetail["lines"] = [
-    { id: "l1", kind: "LAYANAN", name: "Konsultasi Gizi", quantity: 1, unitPrice: 150000, amount: 150000, priceNote: null, serviceId: "s1", itemId: null, catalogLinked: true, fromDispensing: false, cost: null },
-    { id: "l2", kind: "BARANG", name: "Vitamin C", quantity: 2, unitPrice: 25000, amount: 50000, priceNote: null, serviceId: null, itemId: "it1", catalogLinked: true, fromDispensing: false, cost: null },
+    { id: "l1", kind: "LAYANAN", name: "Konsultasi Gizi", quantity: 1, unitPrice: 150000, gross: 150000, amount: 150000, discountAmount: 0, discountReason: null, discountSource: null, priceNote: null, serviceId: "s1", itemId: null, catalogLinked: true, fromDispensing: false, cost: null },
+    { id: "l2", kind: "BARANG", name: "Vitamin C", quantity: 2, unitPrice: 25000, gross: 50000, amount: 50000, discountAmount: 0, discountReason: null, discountSource: null, priceNote: null, serviceId: null, itemId: "it1", catalogLinked: true, fromDispensing: false, cost: null },
   ];
   const base = { status: "DRAF" as const, discountKind: null, discountValue: 0, lines, payments: [] };
   return {
@@ -171,5 +174,18 @@ describe("editor draf tagihan", () => {
     expect(screen.getByLabelText("Harga Vitamin C")).toBeEnabled();
     expect(screen.getByLabelText("Jumlah Konsultasi Gizi")).toBeEnabled();
     expect(screen.getByRole("button", { name: "Hapus Konsultasi Gizi" })).toBeInTheDocument();
+  });
+
+  it("ringkasan memisahkan Diskon item; setiap baris punya tombol Diskon dan catatan diskonnya", () => {
+    const discounted = detail();
+    discounted.lines[0] = { ...discounted.lines[0], discountAmount: 10_000, amount: 140_000, discountReason: "Pelanggan lama", discountSource: "MANUAL" };
+    discounted.totals = invoiceTotals({ status: "DRAF", discountKind: null, discountValue: 0, lines: discounted.lines, payments: [] });
+    renderAdmin(<InvoiceDraftEditor detail={discounted} items={items} canExceedDiscount={false} />);
+    const summary = screen.getByRole("region", { name: "Ringkasan tagihan" });
+    expect(summary).toHaveTextContent("SubtotalRp 200.000");
+    expect(summary).toHaveTextContent("Diskon item-Rp 10.000");
+    expect(summary).toHaveTextContent("TotalRp 190.000");
+    expect(screen.getByRole("button", { name: "Diskon Konsultasi Gizi" })).toBeInTheDocument();
+    expect(screen.getByText(/Diskon −Rp 10\.000 · Pelanggan lama/)).toBeInTheDocument();
   });
 });

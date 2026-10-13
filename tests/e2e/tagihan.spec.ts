@@ -1,6 +1,7 @@
 import { expect, test, type TestInfo } from "@playwright/test";
 import { E2E_APOTEKER, E2E_KEUANGAN, E2E_RESEPSIONIS } from "./credentials";
 import { isiTanggal, pilihOpsi } from "./helpers/mui";
+import { aturHargaJual } from "./helpers/harga";
 import { signIn } from "./helpers/quiz";
 import { buatPasienBaru } from "./helpers/pasien-baru";
 
@@ -20,7 +21,7 @@ function dayFromToday(days: number): string {
 
 let invoicePath: string | null = null;
 
-test("apoteker menyiapkan barang dengan stok 10", async ({ page }, testInfo) => {
+test("apoteker menyiapkan barang dengan stok 10", async ({ page, browser }, testInfo) => {
   const t = tag(testInfo);
   const itemName = `Vitamin Tagihan ${t}`;
   await signIn(page, E2E_APOTEKER);
@@ -31,9 +32,9 @@ test("apoteker menyiapkan barang dengan stok 10", async ({ page }, testInfo) => 
   await itemDialog.getByLabel("Nama", { exact: true }).fill(itemName);
   await itemDialog.getByLabel("Satuan").fill("tablet");
   await itemDialog.getByLabel("Batas menipis").fill("2");
-  await itemDialog.getByLabel("Harga jual").fill("25000");
   await itemDialog.getByRole("button", { name: "Simpan" }).click();
   await expect(itemDialog).toBeHidden({ timeout: 30_000 });
+  await aturHargaJual(browser, itemName, "25000");
 
   await page.goto("/admin/stok/masuk/baru");
   await page.getByRole("button", { name: "+ Supplier baru" }).click();

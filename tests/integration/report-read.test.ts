@@ -317,7 +317,7 @@ describe("laporan untung-rugi", () => {
         status: true,
         discountKind: true,
         discountValue: true,
-        lines: { select: { kind: true, quantity: true, unitPrice: true, stockUses: { select: { quantity: true, unitCost: true } } } },
+        lines: { select: { kind: true, quantity: true, unitPrice: true, discountAmount: true, discountSource: true, stockUses: { select: { quantity: true, unitCost: true } } } },
         payments: { select: { amount: true, revokedAt: true } },
       },
     });

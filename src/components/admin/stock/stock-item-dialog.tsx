@@ -26,10 +26,13 @@ export function StockItemDialog({
   itemId,
   initial,
   triggerLabel,
+  canSetPrice = false,
 }: {
   itemId?: string;
   initial?: StockItemInput;
   triggerLabel: string;
+  /** Harga jual hanya diisi Admin Keuangan dan Super Admin (spec perbaikan tagihan 5.1). */
+  canSetPrice?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -62,6 +65,13 @@ export function StockItemDialog({
     });
   }
 
+  // Ubah barang selalu mulai dari data halaman terbaru: harga bisa diisi Admin Keuangan sesudah halaman dimuat.
+  function openDialog() {
+    if (itemId && initial) setValue(initial);
+    setError(null);
+    setOpen(true);
+  }
+
   function close() {
     setOpen(false);
     setError(null);
@@ -71,7 +81,7 @@ export function StockItemDialog({
 
   return (
     <>
-      <Button variant={itemId ? "outlined" : "contained"} onClick={() => setOpen(true)}>
+      <Button variant={itemId ? "outlined" : "contained"} onClick={openDialog}>
         {triggerLabel}
       </Button>
       <Dialog open={open} onClose={close} fullWidth maxWidth="sm">
@@ -106,15 +116,17 @@ export function StockItemDialog({
               fullWidth
               slotProps={{ htmlInput: { min: 0, inputMode: "numeric" } }}
             />
-            <RupiahInput
-              id="stock-item-price"
-              label="Harga jual"
-              value={value.sellPrice}
-              onChange={(next) => set("sellPrice", next)}
-              placeholder="Boleh dikosongkan"
-              fullWidth
-              sx={wide}
-            />
+            {canSetPrice && (
+              <RupiahInput
+                id="stock-item-price"
+                label="Harga jual"
+                value={value.sellPrice}
+                onChange={(next) => set("sellPrice", next)}
+                placeholder="Boleh dikosongkan"
+                fullWidth
+                sx={wide}
+              />
+            )}
             <TextField id="stock-item-notes" label="Catatan" value={value.notes} onChange={(e) => set("notes", e.target.value)} fullWidth sx={wide} />
             {error && (
               <Alert severity="error" sx={wide}>

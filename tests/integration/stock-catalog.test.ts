@@ -60,6 +60,8 @@ describe("barang dan supplier", () => {
   });
 
   it("menambah barang, menolak kode ganda, mengubah, dan menonaktifkan", async () => {
+    // Harga jual hanya oleh price:manage (spec perbaikan tagihan T9); Apoteker tanpa harga diuji di stock-price.test.ts.
+    actor.role = "SUPER_ADMIN";
     const { id } = await unwrap(createStockItem(item()));
     const saved = await prisma.stockItem.findUniqueOrThrow({ where: { id } });
     expect(saved).toMatchObject({ code: `${CODE}-BARU`, kind: "PRODUK", sellPrice: 50000, minStock: 5, isActive: true });

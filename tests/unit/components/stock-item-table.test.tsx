@@ -12,6 +12,11 @@ const row = (patch: Partial<StockItemRow> = {}): StockItemRow => ({
   kind: "OBAT",
   unit: "kapsul",
   sellPrice: 2000,
+  promoName: null,
+  promoKind: null,
+  promoValue: 0,
+  promoStartsOn: null,
+  promoEndsOn: null,
   minStock: 20,
   isActive: true,
   onHand: 11,
@@ -37,12 +42,17 @@ describe("StockItemTable", () => {
     expect(screen.getByText("Rp 2.000")).toBeInTheDocument();
   });
 
-  it("harga kosong tampil sebagai tanda pisah; barang nonaktif diberi tanda; daftar kosong", () => {
+  it("harga kosong ditandai Belum diisi; barang nonaktif diberi tanda; daftar kosong", () => {
     const { unmount } = renderAdmin(<StockItemTable rows={[row({ sellPrice: null, isActive: false, flags: [], onHand: 8 })]} />);
-    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(screen.getByText("Belum diisi")).toBeInTheDocument();
     expect(screen.getByText("Nonaktif")).toBeInTheDocument();
     unmount();
     renderAdmin(<StockItemTable rows={[]} />);
     expect(screen.getByText("Tidak ada barang yang cocok.")).toBeInTheDocument();
+  });
+
+  it("promo barang tampil di bawah harga jual", () => {
+    renderAdmin(<StockItemTable rows={[row({ sellPrice: 150_000, promoName: "Promo Oktober", promoKind: "PERSEN", promoValue: 10 })]} />);
+    expect(screen.getByText("Promo Oktober · 10%")).toBeInTheDocument();
   });
 });

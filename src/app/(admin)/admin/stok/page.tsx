@@ -40,10 +40,11 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
   const staff = await requireCapability("stock:read");
   const params = await searchParams;
   const canManage = can(staff.role, "stock:manage");
+  const canSetPrice = can(staff.role, "price:manage");
   const tab: Tab = params.tab === "masuk" || params.tab === "supplier" ? params.tab : "barang";
 
   const actions = !canManage ? undefined : tab === "barang" ? (
-    <StockItemDialog triggerLabel="+ Barang" />
+    <StockItemDialog triggerLabel="+ Barang" canSetPrice={canSetPrice} />
   ) : tab === "masuk" ? (
     <LinkButton href="/admin/stok/masuk/baru" variant="contained">
       + Barang masuk

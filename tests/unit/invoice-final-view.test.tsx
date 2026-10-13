@@ -15,6 +15,8 @@ const mocks = vi.hoisted(() => ({
   applyFinalDiscount: vi.fn(),
   cancelInvoice: vi.fn(),
 }));
+vi.mock("@/server/invoice-notes", () => ({ updateInvoiceNotes: vi.fn() }));
+vi.mock("@/server/invoice-drafts", () => ({ setLineDiscount: vi.fn(), clearLineDiscount: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mocks.refresh, push: vi.fn() }) }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/server/invoice-payments", () => ({
@@ -38,6 +40,10 @@ const payment: InvoicePaymentRow = {
   method: "TUNAI",
   paidAt: "2026-10-07",
   reference: "KW-1",
+  destinationLabel: null,
+  senderBank: null,
+  senderAccountName: null,
+  senderAccountNumber: null,
   staffName: "Resepsionis Uji",
   createdAt: new Date("2026-10-07T03:00:00Z"),
   revokedAt: null,
@@ -47,8 +53,8 @@ const payment: InvoicePaymentRow = {
 
 function finalDetail(patch: Partial<InvoiceDetail> = {}): InvoiceDetail {
   const lines: InvoiceDetail["lines"] = [
-    { id: "l1", kind: "LAYANAN", name: "Konsultasi Gizi", quantity: 1, unitPrice: 150000, amount: 150000, priceNote: null, serviceId: "s1", itemId: null, catalogLinked: true, fromDispensing: false, cost: null },
-    { id: "l2", kind: "BARANG", name: "Vitamin C", quantity: 2, unitPrice: 25000, amount: 50000, priceNote: null, serviceId: null, itemId: "it1", catalogLinked: true, fromDispensing: false, cost: null },
+    { id: "l1", kind: "LAYANAN", name: "Konsultasi Gizi", quantity: 1, unitPrice: 150000, gross: 150000, amount: 150000, discountAmount: 0, discountReason: null, discountSource: null, priceNote: null, serviceId: "s1", itemId: null, catalogLinked: true, fromDispensing: false, cost: null },
+    { id: "l2", kind: "BARANG", name: "Vitamin C", quantity: 2, unitPrice: 25000, gross: 50000, amount: 50000, discountAmount: 0, discountReason: null, discountSource: null, priceNote: null, serviceId: null, itemId: "it1", catalogLinked: true, fromDispensing: false, cost: null },
   ];
   const payments = patch.payments ?? [payment];
   return {
@@ -127,7 +133,7 @@ describe("tampilan tagihan final", () => {
 
   it("dialog pembayaran: nominal di atas sisa ditolak di layar; yang sah dikirim", async () => {
     mocks.recordInvoicePayment.mockResolvedValue({ ok: true, data: { id: "pay2" } });
-    renderAdmin(<InvoicePaymentDialog invoiceId="inv1" limit={160000} finalizedDate="2026-10-07" today="2026-10-07" />);
+    renderAdmin(<InvoicePaymentDialog invoiceId="inv1" limit={160000} finalizedDate="2026-10-07" today="2026-10-07" bankAccounts={[]} />);
     await userEvent.click(screen.getByRole("button", { name: "Catat pembayaran" }));
     const dialog = await screen.findByRole("dialog");
     const amount = within(dialog).getByLabelText("Nominal");
@@ -163,5 +169,21 @@ describe("tampilan tagihan final", () => {
     const { container } = renderAdmin(<InvoiceFinalView detail={cancelled} receipt={null} today="2026-10-07" canManage canCorrect canSeeCost={false} />);
     expect(container.querySelector(".struk-tanpa-cetak")).toBeNull();
     expect(container.querySelector(".struk-hanya-cetak")).toBeNull();
+  });
+
+  it("baris berdiskon: catatan promo, harga kotor dicoret, ringkasan memisahkan Diskon item", () => {
+    const base = finalDetail();
+    const lines: InvoiceDetail["lines"] = [
+      base.lines[0],
+      { ...base.lines[1], discountAmount: 5000, amount: 45000, discountReason: "Promo: Oktober", discountSource: "PROMO" },
+    ];
+    const detail = finalDetail({ lines, totals: invoiceTotals({ status: "FINAL", discountKind: null, discountValue: 0, lines, payments: [payment] }) });
+    renderAdmin(<InvoiceFinalView detail={detail} today="2026-10-07" canManage canCorrect={false} canSeeCost={false} />);
+    const summary = screen.getByRole("region", { name: "Ringkasan tagihan" });
+    expect(summary).toHaveTextContent("SubtotalRp 200.000");
+    expect(summary).toHaveTextContent("Diskon item-Rp 5.000");
+    expect(summary).toHaveTextContent("TotalRp 195.000");
+    expect(screen.getByText(/Diskon −Rp 5\.000 · Promo: Oktober/)).toBeInTheDocument();
+    expect(screen.getByText("Rp 50.000")).toHaveStyle({ textDecoration: "line-through" });
   });
 });

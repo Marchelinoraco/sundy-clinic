@@ -26,4 +26,11 @@ describe("ReceiptPaper", () => {
     render(<ReceiptPaper receipt={RECEIPT} className="struk-hanya-cetak" />);
     expect(screen.getByRole("region", { name: "Struk TG-2026-0123" })).toHaveClass("struk-kertas", "struk-hanya-cetak");
   });
+
+  it("baris berdiskon menampilkan potongan dan ringkasan diskon item", () => {
+    render(<ReceiptPaper receipt={{ ...RECEIPT, lines: [{ ...RECEIPT.lines[0], discount: 100_000, amount: 1_400_000 }], itemDiscount: 100_000 }} />);
+    const paper = screen.getByRole("region", { name: "Struk TG-2026-0123" });
+    expect(paper).toHaveTextContent("Diskon item-Rp 100.000");
+    expect(within(paper).getByRole("list", { name: "Item" })).toHaveTextContent("Diskon-Rp 100.000");
+  });
 });

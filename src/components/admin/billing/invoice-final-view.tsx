@@ -11,12 +11,15 @@ import { ReceiptPaper } from "@/components/receipt/receipt-paper";
 import { formatDateWithYear, formatRupiah } from "@/lib/format";
 import { INVOICE_LINE_KIND_LABEL } from "@/lib/invoice";
 import type { PublicReceipt } from "@/lib/receipt";
+import type { ClinicBankAccountView } from "@/server/clinic-bank";
 import { dateLabel, PAYMENT_METHOD_LABEL } from "@/lib/stock";
 import type { InvoiceDetail } from "@/server/invoice-read";
 import { SectionCard } from "../page-layout";
 import { CancelInvoiceDialog } from "./cancel-invoice-dialog";
 import { FinalDiscountDialog } from "./final-discount-dialog";
+import { InvoiceNotesForm } from "./invoice-notes-form";
 import { InvoicePaymentDialog } from "./invoice-payment-dialog";
+import { LineDiscountNote } from "./line-discount-dialog";
 import { PrintButton } from "./print-button";
 import { ReceiptPrintButton } from "./receipt-print-button";
 import { ReceiptResetDialog } from "./receipt-reset-dialog";
@@ -31,6 +34,8 @@ export function InvoiceFinalView({
   canCorrect,
   canSeeCost,
   receipt = null,
+  canEditNotes = false,
+  bankAccounts = [],
 }: {
   detail: InvoiceDetail;
   today: string;
@@ -39,6 +44,10 @@ export function InvoiceFinalView({
   canSeeCost: boolean;
   /** Struk untuk dikirim dan dicetak (spec struk WA 5–7); null untuk tagihan dibatalkan. */
   receipt?: PublicReceipt | null;
+  /** Catatan internal boleh diubah (invoice:manage atau invoice:correct). */
+  canEditNotes?: boolean;
+  /** Rekening klinik aktif untuk dialog pembayaran transfer. */
+  bankAccounts?: ClinicBankAccountView[];
 }) {
   const { totals } = detail;
   const isFinal = detail.status === "FINAL";
@@ -96,10 +105,18 @@ export function InvoiceFinalView({
                       {INVOICE_LINE_KIND_LABEL[line.kind]}
                       {line.priceNote && ` · ${line.priceNote}`}
                     </Typography>
+                    <LineDiscountNote line={line} />
                   </TableCell>
                   <TableCell align="right">{line.quantity}</TableCell>
                   <TableCell align="right">{formatRupiah(line.unitPrice)}</TableCell>
-                  <TableCell align="right">{formatRupiah(line.amount)}</TableCell>
+                  <TableCell align="right">
+                    {line.discountAmount > 0 && (
+                      <Typography variant="caption" component="div" sx={{ textDecoration: "line-through", color: "text.secondary" }}>
+                        {formatRupiah(line.gross)}
+                      </Typography>
+                    )}
+                    {formatRupiah(line.amount)}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -110,8 +127,14 @@ export function InvoiceFinalView({
           <Stack spacing={0.5}>
             <Stack direction="row" sx={row}>
               <span>Subtotal</span>
-              <span>{formatRupiah(totals.subtotal)}</span>
+              <span>{formatRupiah(totals.grossSubtotal)}</span>
             </Stack>
+            {totals.itemDiscount > 0 && (
+              <Stack direction="row" sx={row}>
+                <span>Diskon item</span>
+                <span>-{formatRupiah(totals.itemDiscount)}</span>
+              </Stack>
+            )}
             {totals.discount > 0 && (
               <Box>
                 <Stack direction="row" sx={row}>
@@ -147,7 +170,7 @@ export function InvoiceFinalView({
         <SectionCard
           title="Pembayaran"
           flush
-          actions={canPay ? <InvoicePaymentDialog invoiceId={detail.id} limit={totals.balance} finalizedDate={finalizedDate} today={today} /> : undefined}
+          actions={canPay ? <InvoicePaymentDialog invoiceId={detail.id} limit={totals.balance} finalizedDate={finalizedDate} today={today} bankAccounts={bankAccounts} /> : undefined}
         >
           {detail.payments.length === 0 ? (
             <Typography variant="body2" sx={{ p: 2, color: "text.secondary" }}>
@@ -165,7 +188,14 @@ export function InvoiceFinalView({
                   >
                     <Box component="span" sx={payment.revokedAt ? { color: "text.secondary", textDecoration: "line-through" } : undefined}>
                       {dateLabel(payment.paidAt)} · {formatRupiah(payment.amount)} · {PAYMENT_METHOD_LABEL[payment.method]}
-                      {payment.reference && ` · ${payment.reference}`}
+                      {payment.reference && ` · Ref. ${payment.reference}`}
+                      {payment.destinationLabel && (
+                        <Box component="span" sx={{ display: "block", fontSize: "0.75rem" }}>
+                          Ke {payment.destinationLabel}
+                          {(payment.senderBank || payment.senderAccountName || payment.senderAccountNumber) &&
+                            ` · Dari ${[payment.senderBank, payment.senderAccountNumber, payment.senderAccountName && `a.n. ${payment.senderAccountName}`].filter(Boolean).join(" ")}`}
+                        </Box>
+                      )}
                       <Box component="span" sx={{ display: "block", fontSize: "0.75rem" }}>
                         {payment.staffName}
                       </Box>
@@ -183,6 +213,7 @@ export function InvoiceFinalView({
             </Box>
           )}
         </SectionCard>
+        <InvoiceNotesForm invoiceId={detail.id} notes={detail.notes} canEdit={canEditNotes} />
       </Stack>
       {receipt && <ReceiptPaper receipt={receipt} className="struk-hanya-cetak" />}
     </>

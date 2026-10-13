@@ -1,6 +1,7 @@
 import { expect, test, type TestInfo } from "@playwright/test";
 import { E2E_APOTEKER, E2E_KEUANGAN, E2E_RESEPSIONIS } from "./credentials";
 import { isiTanggal, pilihOpsi } from "./helpers/mui";
+import { aturHargaJual } from "./helpers/harga";
 import { signIn } from "./helpers/quiz";
 
 // Satu cerita berurutan per proyek (desktop/ponsel, data masing-masing):
@@ -18,7 +19,7 @@ function dayFromToday(days: number): string {
 
 let invoicePath: string | null = null;
 
-test("apoteker menambah barang, mencatat barang masuk dua batch, lalu meretur sebagian", async ({ page }, testInfo) => {
+test("apoteker menambah barang, mencatat barang masuk dua batch, lalu meretur sebagian", async ({ page, browser }, testInfo) => {
   const t = tag(testInfo);
   const itemName = `Amoxicillin E2E ${t}`;
   await signIn(page, E2E_APOTEKER);
@@ -31,9 +32,9 @@ test("apoteker menambah barang, mencatat barang masuk dua batch, lalu meretur se
   await itemDialog.getByLabel("Nama", { exact: true }).fill(itemName);
   await itemDialog.getByLabel("Satuan").fill("kapsul");
   await itemDialog.getByLabel("Batas menipis").fill("20");
-  await itemDialog.getByLabel("Harga jual").fill("2000");
   await itemDialog.getByRole("button", { name: "Simpan" }).click();
   await expect(itemDialog).toBeHidden({ timeout: 30_000 });
+  await aturHargaJual(browser, itemName, "2000");
   const items = page.getByRole("region", { name: "Barang", exact: true });
   await expect(items.getByRole("row").filter({ hasText: itemName })).toContainText("0 kapsul", { timeout: 30_000 });
 

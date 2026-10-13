@@ -3,8 +3,11 @@
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
 import { prisma } from "@/lib/db";
 import {
+  invoiceGrossSubtotal,
   invoiceSubtotal,
+  manualItemDiscount,
   validateDiscount,
+  validateLineDiscount,
   validateFreeLine,
   validateItemAdd,
   validateLineEdit,
@@ -12,8 +15,11 @@ import {
   type FreeLineInput,
   type DiscountKindValue,
 } from "@/lib/invoice";
+import { formatRupiah } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { safeRevalidatePath } from "@/lib/revalidate";
+import { promoDiscount } from "@/lib/stock-promo";
+import { witaDateString } from "@/lib/time";
 import { recordAudit } from "@/server/audit";
 import { isExclusionViolation } from "@/server/db-errors";
 import { handedInvoiceLines, lockDispensingRow } from "@/server/dispensing-store";
@@ -21,6 +27,9 @@ import { guardDiscount, touchDraft } from "@/server/invoice-store";
 import { requireCapability } from "@/server/session";
 
 const DISPENSED_QUANTITY = "Jumlah obat dari penyerahan tidak bisa diubah. Minta Apoteker membuka kembali penyerahan.";
+const PROMO_SELECT = { promoName: true, promoKind: true, promoValue: true, promoStartsOn: true, promoEndsOn: true } as const;
+const OVER_LIMIT = "Diskon di atas 20% diberikan oleh Admin Keuangan.";
+const NO_DISCOUNT = { discountAmount: 0, discountReason: null, discountSource: null } as const;
 const DISPENSED_REMOVE = "Obat dari penyerahan tidak bisa dihapus. Minta Apoteker membuka kembali penyerahan.";
 
 function revalidateInvoices(invoiceId?: string) {
@@ -175,11 +184,13 @@ export async function addInvoiceItem(input: { invoiceId: string; version: number
       const version = await touchDraft(tx, invoiceId, input.version);
       const item = await tx.stockItem.findUnique({
         where: { id: checked.value.itemId },
-        select: { id: true, name: true, isActive: true, sellPrice: true },
+        select: { id: true, name: true, isActive: true, sellPrice: true, ...PROMO_SELECT },
       });
       if (!item) throw new UserFacingError("Barang tidak ditemukan.");
       if (!item.isActive) throw new UserFacingError("Barang ini nonaktif.");
       if (item.sellPrice === null) throw new UserFacingError("Barang ini belum punya harga jual.");
+      // Promo barang terpasang otomatis (spec perbaikan tagihan 5.1); tidak dihitung dalam batas 20%.
+      const promo = promoDiscount(item, { quantity: checked.value.quantity, unitPrice: item.sellPrice }, witaDateString(new Date()));
       await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
         await tx.invoiceLine.create({
           data: {
@@ -190,6 +201,7 @@ export async function addInvoiceItem(input: { invoiceId: string; version: number
             unitPrice: item.sellPrice!,
             itemId: item.id,
             sortOrder: await nextSortOrder(tx, invoiceId),
+            ...(promo ? { discountAmount: promo.amount, discountReason: promo.reason, discountSource: "PROMO" as const } : {}),
           },
         });
       });
@@ -247,7 +259,19 @@ export async function updateInvoiceLine(input: {
       const version = await touchDraft(tx, invoiceId, input.version);
       const line = await tx.invoiceLine.findFirst({
         where: { id: String(input.lineId ?? ""), invoiceId },
-        select: { id: true, name: true, quantity: true, unitPrice: true, priceNote: true, serviceId: true, itemId: true, dispensingLineId: true },
+        select: {
+          id: true,
+          name: true,
+          quantity: true,
+          unitPrice: true,
+          priceNote: true,
+          serviceId: true,
+          itemId: true,
+          dispensingLineId: true,
+          discountAmount: true,
+          discountReason: true,
+          discountSource: true,
+        },
       });
       if (!line) throw new UserFacingError("Baris tidak ditemukan.");
       if (line.dispensingLineId && input.quantity !== line.quantity) throw new UserFacingError(DISPENSED_QUANTITY);
@@ -265,10 +289,23 @@ export async function updateInvoiceLine(input: {
 
       const atCatalogPrice = catalogLinked && checked.value.unitPrice === (catalogPrice ?? line.unitPrice);
       const priceNote = atCatalogPrice ? null : (checked.value.priceNote ?? (checked.value.unitPrice === line.unitPrice ? line.priceNote : null));
+      // Diskon baris mengikuti harga baris baru: promo dihitung ulang, diskon manual dipotong ke harga baris (spec 5.1).
+      const gross = checked.value.quantity * checked.value.unitPrice;
+      let discount: { discountAmount: number; discountReason: string | null; discountSource: "PROMO" | "MANUAL" | null } = {
+        discountAmount: Math.min(line.discountAmount, gross),
+        discountReason: line.discountReason,
+        discountSource: line.discountSource,
+      };
+      if (line.discountSource === "PROMO" && line.itemId) {
+        const item = await tx.stockItem.findUnique({ where: { id: line.itemId }, select: PROMO_SELECT });
+        const promo = item ? promoDiscount(item, checked.value, witaDateString(new Date())) : null;
+        discount = promo ? { discountAmount: promo.amount, discountReason: promo.reason, discountSource: "PROMO" } : { ...NO_DISCOUNT };
+      }
+      if (discount.discountAmount === 0) discount = { ...NO_DISCOUNT };
       await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
         await tx.invoiceLine.update({
           where: { id: line.id },
-          data: { quantity: checked.value.quantity, unitPrice: checked.value.unitPrice, priceNote },
+          data: { quantity: checked.value.quantity, unitPrice: checked.value.unitPrice, priceNote, ...discount },
         });
       });
       return { version, summary: `Ubah baris ${line.name}: ×${checked.value.quantity}, Rp ${checked.value.unitPrice}` };
@@ -312,16 +349,30 @@ export async function refreshCatalogPrices(input: { invoiceId: string; version: 
       const version = await touchDraft(tx, invoiceId, input.version);
       const lines = await tx.invoiceLine.findMany({
         where: { invoiceId, OR: [{ itemId: { not: null } }, { serviceId: { not: null } }] },
-        select: { id: true, unitPrice: true, itemId: true, serviceId: true },
+        select: { id: true, quantity: true, unitPrice: true, itemId: true, serviceId: true, discountAmount: true, discountSource: true },
       });
+      const today = witaDateString(new Date());
       let updated = 0;
       await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
         for (const line of lines) {
+          const item = line.itemId ? await tx.stockItem.findUnique({ where: { id: line.itemId }, select: { sellPrice: true, ...PROMO_SELECT } }) : null;
           const price = line.itemId
-            ? (await tx.stockItem.findUnique({ where: { id: line.itemId }, select: { sellPrice: true } }))?.sellPrice ?? null
-            : (await tx.service.findUnique({ where: { id: line.serviceId! }, select: { promoPrice: true } }))?.promoPrice ?? null;
-          if (price === null || price === line.unitPrice) continue;
-          await tx.invoiceLine.update({ where: { id: line.id }, data: { unitPrice: price, priceNote: null } });
+            ? (item?.sellPrice ?? null)
+            : ((await tx.service.findUnique({ where: { id: line.serviceId! }, select: { promoPrice: true } }))?.promoPrice ?? null);
+          const priceChanged = price !== null && price !== line.unitPrice;
+          const unitPrice = priceChanged ? price : line.unitPrice;
+          const gross = line.quantity * unitPrice;
+          // Promo diperbarui sesuai hari ini; diskon manual tidak disentuh selain dipotong ke harga baris (spec 5.1).
+          let discount: Record<string, unknown> = {};
+          if (line.discountSource === "MANUAL") {
+            if (line.discountAmount > gross) discount = gross > 0 ? { discountAmount: gross } : { ...NO_DISCOUNT };
+          } else if (line.itemId) {
+            const promo = item ? promoDiscount(item, { quantity: line.quantity, unitPrice }, today) : null;
+            const next = promo ? { discountAmount: promo.amount, discountReason: promo.reason, discountSource: "PROMO" as const } : { ...NO_DISCOUNT };
+            if (next.discountAmount !== line.discountAmount || (promo === null) !== (line.discountSource === null)) discount = next;
+          }
+          if (!priceChanged && Object.keys(discount).length === 0) continue;
+          await tx.invoiceLine.update({ where: { id: line.id }, data: { ...(priceChanged ? { unitPrice, priceNote: null } : {}), ...discount } });
           updated += 1;
         }
       });
@@ -353,8 +404,13 @@ export async function setInvoiceDiscount(input: {
 
     const result = await prisma.$transaction(async (tx) => {
       const version = await touchDraft(tx, invoiceId, input.version);
-      const lines = await tx.invoiceLine.findMany({ where: { invoiceId }, select: { quantity: true, unitPrice: true } });
-      const checked = validateDiscount(input, { subtotal: invoiceSubtotal(lines), canExceed });
+      const lines = await tx.invoiceLine.findMany({ where: { invoiceId }, select: { quantity: true, unitPrice: true, discountAmount: true, discountSource: true } });
+      const checked = validateDiscount(input, {
+        subtotal: invoiceSubtotal(lines),
+        grossSubtotal: invoiceGrossSubtotal(lines),
+        otherLimited: manualItemDiscount(lines),
+        canExceed,
+      });
       if (!checked.ok) throw new UserFacingError(checked.message);
       const discount = checked.value;
       await tx.invoice.update({
@@ -370,6 +426,67 @@ export async function setInvoiceDiscount(input: {
     });
 
     await recordAudit({ actor, action: "invoice.discount", entity: "Invoice", entityId: invoiceId, summary: result.summary });
+    revalidateInvoices(invoiceId);
+    return { version: result.version };
+  });
+}
+
+/** Diskon draf boleh diberi resepsionis (dalam batas) dan Admin Keuangan (di atas batas), sama dengan setInvoiceDiscount. */
+async function discountActor() {
+  const actor = await requireCapability("invoice:read");
+  if (!can(actor.role, "invoice:manage") && !can(actor.role, "invoice:correct")) throw new UserFacingError("Anda tidak berhak mengubah diskon.");
+  return actor;
+}
+
+/** Diskon manual satu baris draf (spec perbaikan tagihan 5.2); batas gabungan 20% dijaga guardDiscount. */
+export async function setLineDiscount(input: {
+  invoiceId: string;
+  version: number;
+  lineId: string;
+  kind: DiscountKindValue;
+  value: number;
+  reason: string;
+}): Promise<EditResult> {
+  return runAction(async () => {
+    const actor = await discountActor();
+    const invoiceId = String(input?.invoiceId ?? "");
+    const result = await prisma.$transaction(async (tx) => {
+      const version = await touchDraft(tx, invoiceId, input.version);
+      const line = await tx.invoiceLine.findFirst({ where: { id: String(input.lineId ?? ""), invoiceId }, select: { id: true, name: true, quantity: true, unitPrice: true } });
+      if (!line) throw new UserFacingError("Baris tidak ditemukan.");
+      const checked = validateLineDiscount(input, { gross: line.quantity * line.unitPrice });
+      if (!checked.ok) throw new UserFacingError(checked.message);
+      await guardDiscount(
+        tx,
+        invoiceId,
+        can(actor.role, "invoice:correct"),
+        async () => {
+          await tx.invoiceLine.update({ where: { id: line.id }, data: { discountAmount: checked.value.amount, discountReason: checked.value.reason, discountSource: "MANUAL" } });
+        },
+        OVER_LIMIT,
+      );
+      return { version, summary: `Diskon baris ${line.name}: ${formatRupiah(checked.value.amount)} (${checked.value.reason})` };
+    });
+    await recordAudit({ actor, action: "invoice.update", entity: "Invoice", entityId: invoiceId, summary: result.summary });
+    revalidateInvoices(invoiceId);
+    return { version: result.version };
+  });
+}
+
+export async function clearLineDiscount(input: { invoiceId: string; version: number; lineId: string }): Promise<EditResult> {
+  return runAction(async () => {
+    const actor = await discountActor();
+    const invoiceId = String(input?.invoiceId ?? "");
+    const result = await prisma.$transaction(async (tx) => {
+      const version = await touchDraft(tx, invoiceId, input.version);
+      const line = await tx.invoiceLine.findFirst({ where: { id: String(input.lineId ?? ""), invoiceId }, select: { id: true, name: true } });
+      if (!line) throw new UserFacingError("Baris tidak ditemukan.");
+      await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
+        await tx.invoiceLine.update({ where: { id: line.id }, data: { discountAmount: 0, discountReason: null, discountSource: null } });
+      });
+      return { version, summary: `Hapus diskon baris ${line.name}` };
+    });
+    await recordAudit({ actor, action: "invoice.update", entity: "Invoice", entityId: invoiceId, summary: result.summary });
     revalidateInvoices(invoiceId);
     return { version: result.version };
   });

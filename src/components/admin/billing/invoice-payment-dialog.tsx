@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { formatRupiah } from "@/lib/format";
 import { validateInvoicePayment } from "@/lib/invoice";
 import { PAYMENT_METHOD_LABEL, PAYMENT_METHODS, type PaymentMethodValue } from "@/lib/stock";
+import type { ClinicBankAccountView } from "@/server/clinic-bank";
 import { recordInvoicePayment } from "@/server/invoice-payments";
 import { DateField } from "../mui/date-field";
 import { DialogCloseButton } from "../mui/dialog-close-button";
@@ -27,12 +28,15 @@ export function InvoicePaymentDialog({
   limit,
   finalizedDate,
   today,
+  bankAccounts,
 }: {
   invoiceId: string;
   /** Sisa tagihan; diperiksa lagi di server. */
   limit: number;
   finalizedDate: string;
   today: string;
+  /** Rekening klinik aktif untuk transfer (spec perbaikan tagihan 8). */
+  bankAccounts: ClinicBankAccountView[];
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -42,11 +46,24 @@ export function InvoicePaymentDialog({
   const [method, setMethod] = useState<PaymentMethodValue>("TUNAI");
   const [paidAt, setPaidAt] = useState(today);
   const [reference, setReference] = useState("");
+  const [accountId, setAccountId] = useState(bankAccounts.length === 1 ? bankAccounts[0].id : "");
+  const [senderBank, setSenderBank] = useState("");
+  const [senderAccountName, setSenderAccountName] = useState("");
+  const [senderAccountNumber, setSenderAccountNumber] = useState("");
+  const transfer = method === "TRANSFER";
+  const noAccounts = transfer && bankAccounts.length === 0;
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   function save() {
-    const input = { invoiceId, amount: amount ?? Number.NaN, method, paidAt, reference };
+    const input = {
+      invoiceId,
+      amount: amount ?? Number.NaN,
+      method,
+      paidAt,
+      reference,
+      ...(transfer ? { clinicBankAccountId: accountId, senderBank, senderAccountName, senderAccountNumber } : {}),
+    };
     const checked = validateInvoicePayment(input, { today, finalizedDate, limit });
     if (!checked.ok) {
       setError(checked.message);
@@ -100,9 +117,38 @@ export function InvoicePaymentDialog({
               ))}
             </SelectField>
             <DateField id="inv-payment-date" label="Tanggal" min={finalizedDate} max={today} value={paidAt} onChange={setPaidAt} fullWidth />
+            {noAccounts && <Alert severity="warning">Belum ada rekening klinik. Tambahkan di Pengaturan.</Alert>}
+            {transfer && !noAccounts && (
+              <>
+                <SelectField id="inv-payment-account" label="Rekening tujuan" value={accountId} onChange={setAccountId}>
+                  <option value="">Pilih rekening</option>
+                  {bankAccounts.map((account) => (
+                    <option key={account.id} value={account.id}>
+                      {account.label}
+                    </option>
+                  ))}
+                </SelectField>
+                <TextField id="inv-payment-sender-bank" label="Bank pengirim (opsional)" value={senderBank} onChange={(e) => setSenderBank(e.target.value)} fullWidth />
+                <TextField
+                  id="inv-payment-sender-name"
+                  label="Nama pemilik rekening pengirim (opsional)"
+                  value={senderAccountName}
+                  onChange={(e) => setSenderAccountName(e.target.value)}
+                  fullWidth
+                />
+                <TextField
+                  id="inv-payment-sender-number"
+                  label="Nomor rekening pengirim (opsional)"
+                  value={senderAccountNumber}
+                  onChange={(e) => setSenderAccountNumber(e.target.value)}
+                  placeholder="mis. ****1234"
+                  fullWidth
+                />
+              </>
+            )}
             <TextField
               id="inv-payment-reference"
-              label="Referensi (opsional)"
+              label="Nomor referensi (opsional)"
               value={reference}
               onChange={(e) => setReference(e.target.value)}
               placeholder="Nomor kuitansi atau transfer"
@@ -112,7 +158,7 @@ export function InvoicePaymentDialog({
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button type="button" variant="contained" onClick={save} disabled={pending}>
+          <Button type="button" variant="contained" onClick={save} disabled={pending || noAccounts}>
             {pending ? "Menyimpan…" : "Simpan"}
           </Button>
         </DialogActions>

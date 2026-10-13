@@ -18,7 +18,7 @@ export function loadReceiptSource(invoiceId: string) {
       discountValue: true,
       patient: { select: { name: true, whatsapp: true } },
       branch: { select: { name: true, address: true } },
-      lines: { orderBy: { sortOrder: "asc" }, select: { name: true, quantity: true, unitPrice: true } },
+      lines: { orderBy: { sortOrder: "asc" }, select: { name: true, quantity: true, unitPrice: true, discountAmount: true, discountSource: true } },
       payments: { orderBy: { createdAt: "asc" }, select: { amount: true, method: true, paidAt: true, revokedAt: true } },
     },
   });

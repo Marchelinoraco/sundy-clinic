@@ -6,6 +6,7 @@ import Typography from "@mui/material/Typography";
 import type { GridColDef } from "@mui/x-data-grid";
 import { formatRupiah } from "@/lib/format";
 import { STOCK_FLAG_LABEL, STOCK_ITEM_KIND_LABEL, type StockFlag } from "@/lib/stock";
+import { promoLabel } from "@/lib/stock-promo";
 import type { StockItemRow } from "@/server/stock-read";
 import { AdminDataGrid } from "../mui/admin-data-grid";
 import { TextLink } from "../mui/links";
@@ -70,8 +71,26 @@ const COLUMNS: GridColDef<StockItemRow>[] = [
     type: "number",
     align: "right",
     headerAlign: "right",
-    width: 130,
-    renderCell: ({ row }) => (row.sellPrice === null ? "—" : formatRupiah(row.sellPrice)),
+    width: 160,
+    renderCell: ({ row }) => {
+      const promo = promoLabel(row);
+      return (
+        <Box sx={{ lineHeight: 1.3, py: 0.5 }}>
+          {row.sellPrice === null ? (
+            <Box component="span" sx={{ color: "warning.main" }}>
+              Belum diisi
+            </Box>
+          ) : (
+            formatRupiah(row.sellPrice)
+          )}
+          {promo && (
+            <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>
+              {promo}
+            </Typography>
+          )}
+        </Box>
+      );
+    },
   },
 ];
 
