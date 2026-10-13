@@ -4,12 +4,24 @@ import { runAction, UserFacingError, type ActionResult } from "@/lib/action-resu
 import { prisma } from "@/lib/db";
 import { isMonthString } from "@/lib/expense";
 import { formatRupiah } from "@/lib/format";
-import { validateAdjustment, validateAmounts, validateEmployee, worksInMonth, type AdjustmentInput, type EmployeeInput } from "@/lib/payroll";
+import {
+  expenseSplit,
+  payrollTotal,
+  PAYROLL_COMMISSION_CATEGORY,
+  PAYROLL_SALARY_CATEGORY,
+  validateAdjustment,
+  validateAmounts,
+  validateEmployee,
+  worksInMonth,
+  type AdjustmentInput,
+  type EmployeeInput,
+} from "@/lib/payroll";
 import { safeRevalidatePath } from "@/lib/revalidate";
-import { dateOnly, dateOnlyString, isDateString } from "@/lib/stock";
+import { dateOnly, dateOnlyString, isDateString, validateReason } from "@/lib/stock";
+import { witaDateString } from "@/lib/time";
 import { recordAudit } from "@/server/audit";
 import { isUniqueViolation } from "@/server/db-errors";
-import { syncCommissionCorrections } from "@/server/payroll-store";
+import { adjustmentTotals, lockEmployee, openCommissions, syncCommissionCorrections } from "@/server/payroll-store";
 import { requireCapability } from "@/server/session";
 
 const EMPLOYEE_NOT_FOUND = "Karyawan tidak ditemukan.";
@@ -231,5 +243,126 @@ export async function removePayrollAdjustment(input: { adjustmentId: string }): 
     await prisma.payrollAdjustment.delete({ where: { id: adjustment.id } });
     await recordAudit({ actor, action: "payroll.update", entity: "PayrollItem", entityId: item.id, summary: `${item.employeeName} ${item.period.month}: hapus ${adjustment.note}` });
     revalidatePayroll(item.period.month);
+  });
+}
+
+/** Kategori pengeluaran penggajian; dibuat bila belum ada (nama dibandingkan tanpa huruf besar/kecil). */
+async function ensureCategory(name: string): Promise<string> {
+  const find = () => prisma.expenseCategory.findFirst({ where: { name: { equals: name, mode: "insensitive" } }, select: { id: true } });
+  const found = await find();
+  if (found) return found.id;
+  const last = await prisma.expenseCategory.aggregate({ _max: { sortOrder: true } });
+  try {
+    return (await prisma.expenseCategory.create({ data: { name, sortOrder: (last._max.sortOrder ?? 0) + 1 }, select: { id: true } })).id;
+  } catch (error) {
+    if (!isUniqueViolation(error)) throw error;
+    return (await find())!.id;
+  }
+}
+
+export async function payPayrollItem(input: { itemId: string; paidOn: string }): Promise<ActionResult> {
+  return runAction(async () => {
+    const actor = await requireCapability("payroll:manage");
+    if (!isDateString(input?.paidOn)) throw new UserFacingError("Isi tanggal bayar.");
+    if (input.paidOn > witaDateString(new Date())) throw new UserFacingError("Tanggal bayar tidak boleh di masa depan.");
+    const head = await prisma.payrollItem.findUnique({ where: { id: String(input?.itemId ?? "") }, select: { id: true, employeeId: true } });
+    if (!head) throw new UserFacingError(ITEM_NOT_FOUND);
+    const [salaryCategoryId, commissionCategoryId] = [await ensureCategory(PAYROLL_SALARY_CATEGORY), await ensureCategory(PAYROLL_COMMISSION_CATEGORY)];
+
+    const summary = await prisma.$transaction(async (tx) => {
+      await lockEmployee(tx, head.employeeId);
+      const item = await tx.payrollItem.findUniqueOrThrow({
+        where: { id: head.id },
+        select: { id: true, paidAt: true, employeeName: true, baseSalary: true, allowance: true, period: { select: { month: true } }, employee: { select: { staffId: true, branchId: true } } },
+      });
+      if (item.paidAt) throw new UserFacingError(ITEM_PAID);
+      await syncCommissionCorrections(tx, { id: item.id, staffId: item.employee.staffId }, actor.name);
+      const adjustments = await tx.payrollAdjustment.findMany({ where: { itemId: item.id }, select: { kind: true, amount: true } });
+      const open = item.employee.staffId ? (await openCommissions(tx, [item.employee.staffId], item.period.month)).get(item.employee.staffId) : undefined;
+      const amounts = { baseSalary: item.baseSalary, allowance: item.allowance, commission: open?.commission ?? 0, ...adjustmentTotals(adjustments) };
+      const total = payrollTotal(amounts);
+      if (total < 0) throw new UserFacingError("Potongan melebihi gaji.");
+      const split = expenseSplit(amounts);
+      const note = `Penggajian ${item.period.month} · ${item.employeeName}`;
+      const expense = (categoryId: string, amount: number) =>
+        amount > 0
+          ? tx.expense.create({
+              data: { date: dateOnly(input.paidOn), categoryId, amount, note, branchId: item.employee.branchId, createdById: actor.staffId, createdByName: actor.name },
+              select: { id: true },
+            })
+          : Promise.resolve(null);
+      const salaryExpense = await expense(salaryCategoryId, split.salary);
+      const commissionExpense = await expense(commissionCategoryId, split.commission);
+
+      if (open && open.lineIds.length > 0) {
+        const { count } = await tx.invoiceLine.updateMany({ where: { id: { in: open.lineIds }, payrollItemId: null }, data: { payrollItemId: item.id } });
+        if (count !== open.lineIds.length) throw new UserFacingError("Komisi berubah saat diproses. Coba lagi.");
+      }
+      await tx.payrollItem.update({
+        where: { id: item.id },
+        data: {
+          ...amounts,
+          treatments: open?.treatments ?? 0,
+          total,
+          paidAt: dateOnly(input.paidOn),
+          paidById: actor.staffId,
+          paidByName: actor.name,
+          salaryExpenseId: salaryExpense?.id ?? null,
+          commissionExpenseId: commissionExpense?.id ?? null,
+        },
+      });
+      return { name: item.employeeName, month: item.period.month, total };
+    });
+
+    await recordAudit({ actor, action: "payroll.pay", entity: "PayrollItem", entityId: head.id, summary: `${summary.name} ${summary.month}: ${formatRupiah(summary.total)}` });
+    revalidatePayroll(summary.month);
+  });
+}
+
+export async function voidPayrollPayment(input: { itemId: string; reason: string }): Promise<ActionResult> {
+  return runAction(async () => {
+    const actor = await requireCapability("payroll:manage");
+    const reason = validateReason(input?.reason);
+    if (!reason.ok) throw new UserFacingError(reason.message);
+    const head = await prisma.payrollItem.findUnique({ where: { id: String(input?.itemId ?? "") }, select: { id: true, employeeId: true } });
+    if (!head) throw new UserFacingError(ITEM_NOT_FOUND);
+
+    const summary = await prisma.$transaction(async (tx) => {
+      await lockEmployee(tx, head.employeeId);
+      const item = await tx.payrollItem.findUniqueOrThrow({
+        where: { id: head.id },
+        select: { id: true, paidAt: true, employeeName: true, total: true, salaryExpenseId: true, commissionExpenseId: true, period: { select: { month: true } } },
+      });
+      if (!item.paidAt) throw new UserFacingError("Baris ini belum dibayar.");
+      const expenseIds = [item.salaryExpenseId, item.commissionExpenseId].filter((id): id is string => id !== null);
+      await tx.expense.updateMany({
+        where: { id: { in: expenseIds }, voidedAt: null },
+        data: { voidedAt: new Date(), voidedByName: actor.name, voidReason: `Pembatalan penggajian: ${reason.value}` },
+      });
+      const claimed = (await tx.invoiceLine.findMany({ where: { payrollItemId: item.id }, select: { id: true } })).map((l) => l.id);
+      // Koreksi yang lahir dari klaim ini dan belum dibayar tidak berlaku lagi (Review Focus 3).
+      await tx.payrollAdjustment.deleteMany({ where: { invoiceLineId: { in: claimed }, item: { paidAt: null } } });
+      await tx.invoiceLine.updateMany({ where: { payrollItemId: item.id }, data: { payrollItemId: null } });
+      await tx.payrollItem.update({
+        where: { id: item.id },
+        data: {
+          paidAt: null,
+          paidById: null,
+          paidByName: null,
+          salaryExpenseId: null,
+          commissionExpenseId: null,
+          commission: 0,
+          treatments: 0,
+          bonusTotal: 0,
+          deductionTotal: 0,
+          total: 0,
+          voidedPayments: { increment: 1 },
+        },
+      });
+      return { name: item.employeeName, month: item.period.month, total: item.total };
+    });
+
+    await recordAudit({ actor, action: "payroll.void", entity: "PayrollItem", entityId: head.id, summary: `${summary.name} ${summary.month}: ${formatRupiah(summary.total)} — ${reason.value}` });
+    revalidatePayroll(summary.month);
   });
 }
