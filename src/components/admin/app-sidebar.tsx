@@ -2,6 +2,7 @@
 
 import AccountBalanceWalletOutlined from "@mui/icons-material/AccountBalanceWalletOutlined";
 import CalendarMonthOutlined from "@mui/icons-material/CalendarMonthOutlined";
+import CardGiftcardOutlined from "@mui/icons-material/CardGiftcardOutlined";
 import ContactsOutlined from "@mui/icons-material/ContactsOutlined";
 import DashboardOutlined from "@mui/icons-material/DashboardOutlined";
 import EventNoteOutlined from "@mui/icons-material/EventNoteOutlined";
@@ -56,6 +57,7 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
     title: "Persediaan & keuangan",
     items: [
       { title: "Tagihan", url: "/admin/tagihan", icon: ReceiptLongOutlined, needs: "invoice:read" },
+      { title: "Paket", url: "/admin/paket", icon: CardGiftcardOutlined, needs: "price:manage" },
       { title: "Resep", url: "/admin/resep", icon: MedicationOutlined, needs: "dispense:read" },
       { title: "Stok", url: "/admin/stok", icon: Inventory2Outlined, needs: "stock:read" },
       { title: "Stok obat", url: "/admin/stok-dokter", icon: LocalPharmacyOutlined, needs: "stock:availability", hideWith: "stock:read" },
