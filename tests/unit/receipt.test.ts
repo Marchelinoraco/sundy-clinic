@@ -4,6 +4,7 @@ import {
   formatReceiptDateTime,
   RECEIPT_CANCELLED_TEXT,
   RECEIPT_INVALID_TEXT,
+  RECEIPT_STATUS_LABEL,
   receiptMessageText,
   type ReceiptSource,
 } from "@/lib/receipt";
@@ -40,8 +41,8 @@ describe("buildPublicReceipt", () => {
       cashierName: "Mey",
       customerName: "Priscillya Jenitha Chiantoery",
       lines: [
-        { name: "Paket Lux", quantity: 1, unitPrice: 1_500_000, gross: 1_500_000, discount: 0, amount: 1_500_000 },
-        { name: "Paket S 0.3", quantity: 1, unitPrice: 1_600_000, gross: 1_600_000, discount: 0, amount: 1_600_000 },
+        { name: "Paket Lux", quantity: 1, unitPrice: 1_500_000, gross: 1_500_000, discount: 0, amount: 1_500_000, note: null },
+        { name: "Paket S 0.3", quantity: 1, unitPrice: 1_600_000, gross: 1_600_000, discount: 0, amount: 1_600_000, note: null },
       ],
       subtotal: 3_100_000,
       itemDiscount: 0,
@@ -96,7 +97,7 @@ describe("buildPublicReceipt", () => {
         payments: [],
       }),
     )!;
-    expect(receipt.lines[0]).toEqual({ name: "Serum", quantity: 2, unitPrice: 150_000, gross: 300_000, discount: 30_000, amount: 270_000 });
+    expect(receipt.lines[0]).toEqual({ name: "Serum", quantity: 2, unitPrice: 150_000, gross: 300_000, discount: 30_000, amount: 270_000, note: null });
     expect(receipt).toMatchObject({ subtotal: 400_000, itemDiscount: 30_000, discount: 18_500, total: 351_500 });
   });
 });
@@ -128,5 +129,12 @@ describe("label", () => {
   it("pesan halaman publik", () => {
     expect(RECEIPT_INVALID_TEXT).toBe("Tautan struk tidak berlaku.");
     expect(RECEIPT_CANCELLED_TEXT).toBe("Struk ini sudah dibatalkan. Hubungi klinik bila ada pertanyaan.");
+  });
+
+  it("keterangan baris diteruskan ke struk; status dibayar sebagian = SEBAGIAN berlabel DEPOSIT", () => {
+    const base = source();
+    const receipt = buildPublicReceipt({ ...base, lines: [{ ...base.lines[0], note: "3× Facial · berlaku s.d. 10 Apr 2027" }] })!;
+    expect(receipt.lines[0].note).toBe("3× Facial · berlaku s.d. 10 Apr 2027");
+    expect(RECEIPT_STATUS_LABEL.SEBAGIAN).toBe("DEPOSIT");
   });
 });

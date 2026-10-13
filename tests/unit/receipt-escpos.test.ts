@@ -67,7 +67,7 @@ describe("buildEscPosReceipt", () => {
 
   it("memuat kepala, item, diskon, pembayaran, sisa, dan status", () => {
     const text = printedLines(buildEscPosReceipt(RECEIPT, 80)).join("\n");
-    for (const part of ["SunDY Clinic", "SunDY Mahakeret", "No.", "TG-2026-0123", "12 Okt 2026 pukul 18.46", "Kasir", "Mey", "Paket Lux", "1 x Rp 1.500.000", "Rp 1.500.000", "Diskon", "-Rp 75.000", "Total", "Rp 1.700.000", "QRIS", "Sisa", "Rp 700.000", "DIBAYAR SEBAGIAN", "Terima kasih", "Cafe latte e"]) {
+    for (const part of ["SunDY Clinic", "SunDY Mahakeret", "No.", "TG-2026-0123", "12 Okt 2026 pukul 18.46", "Kasir", "Mey", "Paket Lux", "1 x Rp 1.500.000", "Rp 1.500.000", "Diskon", "-Rp 75.000", "Total", "Rp 1.700.000", "QRIS", "Sisa", "Rp 700.000", "DEPOSIT", "Terima kasih", "Cafe latte e"]) {
       expect(text, part).toContain(part);
     }
     expect(text).not.toContain("é");
@@ -105,5 +105,10 @@ describe("buildEscPosReceipt", () => {
     ).join("\n");
     expect(text).toMatch(/Diskon\s+-Rp 30\.000/);
     expect(text).toMatch(/Diskon item\s+-Rp 30\.000/);
+  });
+
+  it("keterangan paket dicetak di bawah nama baris", () => {
+    const data = buildEscPosReceipt({ ...RECEIPT, lines: [{ ...RECEIPT.lines[0], note: "3× Facial · berlaku s.d. 10 Apr 2027" }] }, 80);
+    expect(printedLines(data)).toContain("  3x Facial - berlaku s.d. 10 Apr 2027");
   });
 });

@@ -27,7 +27,8 @@ export const INVOICE_NOTES_MAX = 500;
 export const INVOICE_STATUS_LABEL: Record<InvoiceDisplayStatus, string> = {
   DRAF: "Draf",
   BELUM_DIBAYAR: "Belum dibayar",
-  SEBAGIAN: "Sebagian",
+  // DP/uang muka (spec paket P2); nilai internal tetap SEBAGIAN.
+  SEBAGIAN: "Deposit",
   LUNAS: "Lunas",
   DIBATALKAN: "Dibatalkan",
 };

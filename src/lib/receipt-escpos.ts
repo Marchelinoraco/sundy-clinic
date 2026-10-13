@@ -24,6 +24,7 @@ export function toPrinterText(text: string): string {
     .replace(/\u00a0/g, " ")
     .replace(/[–—]/g, "-")
     .replace(/·/g, "-")
+    .replace(/×/g, "x")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[^\x20-\x7E\n]/gu, "?");
@@ -84,6 +85,8 @@ export function buildEscPosReceipt(receipt: PublicReceipt, width: PaperWidth): s
   lines.push(rule);
   for (const line of receipt.lines) {
     lines.push(...wrapText(text(line.name), columns));
+    // Keterangan paket menjorok dua kolom (spec paket 8).
+    if (line.note) lines.push(...wrapText(text(line.note), columns - 2).map((part) => `  ${part}`));
     row(`${line.quantity} x ${formatRupiah(line.unitPrice)}`, formatRupiah(line.gross));
     if (line.discount > 0) row("  Diskon", `-${formatRupiah(line.discount)}`);
   }

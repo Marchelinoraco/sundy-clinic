@@ -511,6 +511,9 @@ h3 {
   display: grid;
   gap: 0.35rem;
 }
+.struk-catatan {
+  font-size: 0.85em;
+}
 .struk-tengah {
   text-align: center;
 }

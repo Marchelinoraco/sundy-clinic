@@ -51,7 +51,7 @@ describe("daftar tagihan", () => {
     renderAdmin(<InvoiceTable rows={[row(), row({ id: "i2", number: null, display: "DRAF", patientName: "Citra Uji", balance: 50000 })]} />);
     expect(screen.getByRole("link", { name: "TG-2026-0001" })).toHaveAttribute("href", "/admin/tagihan/i1");
     expect(screen.getByText("Ani Uji")).toBeInTheDocument();
-    expect(screen.getByText("Sebagian", { exact: true })).toBeInTheDocument();
+    expect(screen.getByText("Deposit", { exact: true })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Draf" })).toHaveAttribute("href", "/admin/tagihan/i2");
   });
 

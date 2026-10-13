@@ -31,6 +31,7 @@ export function ReceiptPaper({ receipt, className = "" }: { receipt: PublicRecei
         {receipt.lines.map((line, index) => (
           <li key={index}>
             <div>{line.name}</div>
+            {line.note && <div className="struk-catatan">{line.note}</div>}
             <Row left={`${line.quantity} x ${formatRupiah(line.unitPrice)}`} right={formatRupiah(line.gross)} />
             {line.discount > 0 && <Row left="Diskon" right={`-${formatRupiah(line.discount)}`} />}
           </li>

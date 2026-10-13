@@ -104,7 +104,7 @@ describe("struk publik", () => {
     expect(page.state).toBe("VALID");
     if (page.state !== "VALID") return;
     expect(page.receipt).toMatchObject({ customerName: "Priscillya Struk", total: 300_000, balance: 0, status: "LUNAS", branchAddress: "Alamat" });
-    expect(page.receipt.lines).toEqual([{ name: "Layanan Struk", quantity: 1, unitPrice: 300_000, gross: 300_000, discount: 0, amount: 300_000 }]);
+    expect(page.receipt.lines).toEqual([{ name: "Layanan Struk", quantity: 1, unitPrice: 300_000, gross: 300_000, discount: 0, amount: 300_000, note: null }]);
     const json = JSON.stringify(page);
     const patient = await prisma.patient.findUniqueOrThrow({ where: { id: world.patientId } });
     for (const secret of [WA, patient.medicalRecordNumber, "catatan internal struk"]) expect(json).not.toContain(secret);

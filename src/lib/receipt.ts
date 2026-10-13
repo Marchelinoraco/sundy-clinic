@@ -8,7 +8,16 @@ import { minutesToTimeLabel, witaMinutesOfDay } from "./time";
 // Struk tagihan (spec struk WA 5–7). Murni: dipakai halaman /struk, cetak browser, dan ESC/POS.
 
 /** `gross` = quantity × unitPrice; `amount` = setelah diskon baris. */
-export type ReceiptLine = { name: string; quantity: number; unitPrice: number; gross: number; discount: number; amount: number };
+export type ReceiptLine = {
+  name: string;
+  quantity: number;
+  unitPrice: number;
+  gross: number;
+  discount: number;
+  amount: number;
+  /** Keterangan paket di bawah nama baris (spec paket 8). */
+  note?: string | null;
+};
 export type ReceiptPayment = { paidAt: string; method: PaymentMethodValue; amount: number };
 export type ReceiptStatus = "LUNAS" | "SEBAGIAN" | "BELUM_DIBAYAR";
 
@@ -39,7 +48,7 @@ export type PublicReceiptPage = { state: "VALID"; receipt: PublicReceipt } | { s
 
 export const RECEIPT_STATUS_LABEL: Record<ReceiptStatus, string> = {
   LUNAS: "LUNAS",
-  SEBAGIAN: "DIBAYAR SEBAGIAN",
+  SEBAGIAN: "DEPOSIT",
   BELUM_DIBAYAR: "BELUM DIBAYAR",
 };
 export const RECEIPT_INVALID_TEXT = "Tautan struk tidak berlaku.";
@@ -54,7 +63,7 @@ export type ReceiptSource = {
   discountValue: number;
   patient: { name: string };
   branch: { name: string; address: string };
-  lines: readonly { name: string; quantity: number; unitPrice: number; discountAmount: number; discountSource: LineDiscountSourceValue | null }[];
+  lines: readonly { name: string; quantity: number; unitPrice: number; discountAmount: number; discountSource: LineDiscountSourceValue | null; note?: string | null }[];
   payments: readonly { amount: number; method: PaymentMethodValue; paidAt: Date; revokedAt: Date | null }[];
 };
 
@@ -73,7 +82,7 @@ export function buildPublicReceipt(source: ReceiptSource): PublicReceipt | null 
     lines: source.lines.map((line) => {
       const gross = line.quantity * line.unitPrice;
       const discount = line.discountAmount;
-      return { name: line.name, quantity: line.quantity, unitPrice: line.unitPrice, gross, discount, amount: gross - discount };
+      return { name: line.name, quantity: line.quantity, unitPrice: line.unitPrice, gross, discount, amount: gross - discount, note: line.note ?? null };
     }),
     subtotal: totals.grossSubtotal,
     itemDiscount: totals.itemDiscount,
