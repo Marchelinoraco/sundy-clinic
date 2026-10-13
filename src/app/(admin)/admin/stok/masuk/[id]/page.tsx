@@ -138,7 +138,7 @@ export default async function PurchasePage({ params }: { params: Promise<{ id: s
             invoiceDate={detail.invoiceDate}
             dueDate={detail.dueDate}
             today={witaDateString(new Date())}
-            total={detail.total ?? 0}
+            total={detail.total}
             summary={detail.summary}
             payments={detail.payments}
             cancelled={detail.cancelledAt !== null}

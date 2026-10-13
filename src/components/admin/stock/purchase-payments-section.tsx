@@ -1,4 +1,5 @@
 import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
 import { formatRupiah } from "@/lib/format";
 import { dateLabel, PAYMENT_KIND_LABEL, PAYMENT_METHOD_LABEL, type PayableSummary } from "@/lib/stock";
 import type { SupplierPaymentRow } from "@/server/purchase-read";
@@ -22,7 +23,8 @@ export function PurchasePaymentsSection({
   invoiceDate: string;
   dueDate: string;
   today: string;
-  total: number;
+  /** Kosong selama faktur "Menunggu harga" (spec harga modal 4). */
+  total: number | null;
   summary: PayableSummary;
   payments: SupplierPaymentRow[];
   cancelled: boolean;
@@ -39,41 +41,47 @@ export function PurchasePaymentsSection({
 
   return (
     <SectionCard title="Pembayaran" actions={actions}>
-      <Box
-        component="dl"
-        sx={{
-          m: 0,
-          display: "grid",
-          gap: 2,
-          gridTemplateColumns: { xs: "1fr", sm: "repeat(5, 1fr)" },
-          fontSize: "0.875rem",
-          "& dt": { color: "text.secondary" },
-          "& dd": { m: 0 },
-        }}
-      >
-        <div>
-          <dt>Total faktur</dt>
-          <dd>{formatRupiah(total)}</dd>
-        </div>
-        <div>
-          <dt>Dibayar</dt>
-          <dd>{formatRupiah(summary.paid)}</dd>
-        </div>
-        <div>
-          <dt>Retur</dt>
-          <dd>{formatRupiah(summary.returned)}</dd>
-        </div>
-        <div>
-          <dt>Pengembalian dana</dt>
-          <dd>{formatRupiah(summary.refunded)}</dd>
-        </div>
-        <div>
-          <dt>{summary.balance < 0 ? "Kredit dari supplier" : "Sisa hutang"}</dt>
-          <Box component="dd" sx={{ fontSize: "1.125rem", fontWeight: 600 }}>
-            {formatRupiah(Math.abs(summary.balance))}
-          </Box>
-        </div>
-      </Box>
+      {total === null ? (
+        <Typography variant="body2" sx={{ color: "text.secondary" }}>
+          Isi harga beli dulu. Total faktur dan hutang terbentuk setelah semua harga beli diisi.
+        </Typography>
+      ) : (
+        <Box
+          component="dl"
+          sx={{
+            m: 0,
+            display: "grid",
+            gap: 2,
+            gridTemplateColumns: { xs: "1fr", sm: "repeat(5, 1fr)" },
+            fontSize: "0.875rem",
+            "& dt": { color: "text.secondary" },
+            "& dd": { m: 0 },
+          }}
+        >
+          <div>
+            <dt>Total faktur</dt>
+            <dd>{formatRupiah(total)}</dd>
+          </div>
+          <div>
+            <dt>Dibayar</dt>
+            <dd>{formatRupiah(summary.paid)}</dd>
+          </div>
+          <div>
+            <dt>Retur</dt>
+            <dd>{formatRupiah(summary.returned)}</dd>
+          </div>
+          <div>
+            <dt>Pengembalian dana</dt>
+            <dd>{formatRupiah(summary.refunded)}</dd>
+          </div>
+          <div>
+            <dt>{summary.balance < 0 ? "Kredit dari supplier" : "Sisa hutang"}</dt>
+            <Box component="dd" sx={{ fontSize: "1.125rem", fontWeight: 600 }}>
+              {formatRupiah(Math.abs(summary.balance))}
+            </Box>
+          </div>
+        </Box>
+      )}
 
       {payments.length === 0 ? (
         <EmptyState>Belum ada pembayaran.</EmptyState>

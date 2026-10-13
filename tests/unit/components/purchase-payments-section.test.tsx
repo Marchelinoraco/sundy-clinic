@@ -67,4 +67,14 @@ describe("PurchasePaymentsSection", () => {
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
     expect(screen.getByText("Belum ada pembayaran.")).toBeInTheDocument();
   });
+
+  it("faktur menunggu harga: angka tidak tampil sebagai Rp 0, ada petunjuk isi harga beli", () => {
+    renderAdmin(
+      <PurchasePaymentsSection {...props} total={null} summary={summary({ paid: 0, balance: 0, status: "MENUNGGU_HARGA" })} payments={[]} cancelled={false} />,
+    );
+    const section = screen.getByRole("region", { name: "Pembayaran" });
+    expect(section).toHaveTextContent("Isi harga beli dulu.");
+    expect(section).not.toHaveTextContent("Rp 0");
+    expect(within(section).queryByRole("button", { name: /Catat pembayaran/ })).not.toBeInTheDocument();
+  });
 });
