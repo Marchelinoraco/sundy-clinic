@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  commissionCsvRows,
   compareReports,
   csvCell,
   delta,
@@ -231,5 +232,16 @@ describe("pendapatan paket", () => {
     const view = summarizeReport(raw);
     expect(view.totals).toMatchObject({ package: 900_000, revenue: 950_000 });
     expect(reportCsvRows({ period: { from: "2026-10-01", to: "2026-10-31" }, branchName: "Semua cabang" }, view)).toContainEqual(["Paket", 900_000]);
+  });
+});
+
+describe("commissionCsvRows", () => {
+  it("kepala, periode, lalu satu baris per rincian", () => {
+    const rows = commissionCsvRows({ period: { from: "2026-10-01", to: "2026-10-31" }, branchName: "Semua cabang" }, [
+      { finalizedAt: new Date("2026-10-05T03:00:00Z"), invoiceId: "i1", invoiceNumber: "TG-2026-0001", customerName: "Ani", treatment: "Facial", quantity: 2, commission: 50_000, performerName: "Rina" },
+    ]);
+    expect(rows[0]).toEqual(["Komisi pelaksana"]);
+    expect(rows).toContainEqual(["Pelaksana", "Tanggal", "Tagihan", "Customer", "Treatment", "Jumlah", "Komisi (Rp)"]);
+    expect(rows).toContainEqual(["Rina", "2026-10-05", "TG-2026-0001", "Ani", "Facial", 2, 50_000]);
   });
 });

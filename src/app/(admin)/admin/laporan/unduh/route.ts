@@ -1,5 +1,5 @@
 import { can } from "@/lib/permissions";
-import { exportReportCsv, ReportInputError } from "@/server/report-export";
+import { exportCommissionCsv, exportReportCsv, ReportInputError } from "@/server/report-export";
 import { getCurrentStaff } from "@/server/session";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +12,8 @@ export async function GET(request: Request): Promise<Response> {
 
   const params = new URL(request.url).searchParams;
   try {
-    const { filename, csv } = await exportReportCsv({
+    const exporter = params.get("jenis") === "komisi" ? exportCommissionCsv : exportReportCsv;
+    const { filename, csv } = await exporter({
       period: { from: params.get("dari") ?? "", to: params.get("sampai") ?? "" },
       branchId: params.get("cabang") || null,
     });

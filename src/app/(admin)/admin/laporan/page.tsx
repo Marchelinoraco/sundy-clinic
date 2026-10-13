@@ -2,11 +2,12 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import { AdminHeader } from "@/components/admin/admin-header";
 import { LinkButton } from "@/components/admin/mui/links";
-import { EmptyState, PageBody, PageHeader, SectionCard } from "@/components/admin/page-layout";
+import { PageBody, PageHeader, SectionCard } from "@/components/admin/page-layout";
 import { CashFlowCard } from "@/components/admin/report/cash-flow-card";
 import { ReportDetail } from "@/components/admin/report/report-detail";
 import { ReportFilter } from "@/components/admin/report/report-filter";
 import { PackageSessionsTable } from "@/components/admin/report/package-sessions-table";
+import { CommissionReportView } from "@/components/admin/report/commission-report";
 import { MarginReportView } from "@/components/admin/report/margin-report";
 import { ReportSummary } from "@/components/admin/report/report-summary";
 import { PageTabs } from "@/components/admin/page-tabs";
@@ -14,7 +15,7 @@ import { TrendChart } from "@/components/admin/report/trend-chart";
 import { isReportPreset, periodLabel, presetPeriod, validatePeriod, type ReportPeriod, type ReportPreset } from "@/lib/report";
 import { witaDateString } from "@/lib/time";
 import { getBranches } from "@/server/catalog";
-import { getMarginReport, getProfitReport } from "@/server/report-read";
+import { getCommissionReport, getMarginReport, getProfitReport } from "@/server/report-read";
 import { resolveTab } from "@/lib/page-tabs";
 import { requireCapability } from "@/server/session";
 
@@ -104,7 +105,16 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
             <MarginReportView report={await getMarginReport({ period, branchId })} />
           </SectionCard>
         )}
-        {tab === "komisi" && <EmptyState>Belum tersedia.</EmptyState>}
+        {tab === "komisi" && (
+          <SectionCard title="Komisi pelaksana" flush>
+            <CommissionReportView
+              {...(await getCommissionReport({ period, branchId, performerId: typeof params.pelaksana === "string" ? params.pelaksana : null }))}
+              selected={typeof params.pelaksana === "string" ? params.pelaksana : null}
+              hrefFor={(id) => `/admin/laporan?${base}&tab=komisi&pelaksana=${encodeURIComponent(id)}`}
+              downloadHref={`/admin/laporan/unduh?${query.toString()}&jenis=komisi`}
+            />
+          </SectionCard>
+        )}
       </PageBody>
     </>
   );

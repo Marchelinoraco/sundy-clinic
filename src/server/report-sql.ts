@@ -198,6 +198,45 @@ export async function marginAggregates(start: Date, end: Date, branchId: string 
   };
 }
 
+export type CommissionRow = { performerId: string; performerName: string; treatments: number; commission: number };
+export type CommissionDetailRow = {
+  finalizedAt: Date;
+  invoiceId: string;
+  invoiceNumber: string;
+  customerName: string;
+  treatment: string;
+  quantity: number;
+  commission: number;
+  performerName: string;
+};
+
+/** Komisi per pelaksana (spec harga modal 7): baris TREATMENT berpelaksana dari tagihan FINAL di [start, end). Nama terbaru per pelaksana. */
+export async function commissionByPerformer(start: Date, end: Date, branchId: string | null): Promise<CommissionRow[]> {
+  const branch = branchId ? Prisma.sql`AND i."branchId" = ${branchId}` : Prisma.empty;
+  const rows = await prisma.$queryRaw<{ performerId: string; performerName: string; treatments: bigint | number; commission: bigint | number }[]>`
+    SELECT l."performerId" AS "performerId", MAX(l."performerName") AS "performerName",
+           SUM(l."quantity") AS treatments, SUM(l."commissionAmount") AS commission
+    FROM "InvoiceLine" l JOIN "Invoice" i ON i."id" = l."invoiceId"
+    WHERE i."status" = 'FINAL' AND i."finalizedAt" >= ${start} AND i."finalizedAt" < ${end} ${branch}
+      AND l."kind" = 'TREATMENT' AND l."performerId" IS NOT NULL
+    GROUP BY l."performerId"
+    ORDER BY 4 DESC, 2`;
+  return rows.map((row) => ({ performerId: row.performerId, performerName: row.performerName, treatments: Number(row.treatments), commission: Number(row.commission) }));
+}
+
+export async function commissionDetails(start: Date, end: Date, branchId: string | null, performerId: string | null): Promise<CommissionDetailRow[]> {
+  const branch = branchId ? Prisma.sql`AND i."branchId" = ${branchId}` : Prisma.empty;
+  const performer = performerId ? Prisma.sql`AND l."performerId" = ${performerId}` : Prisma.empty;
+  const rows = await prisma.$queryRaw<(Omit<CommissionDetailRow, "quantity" | "commission"> & { quantity: bigint | number; commission: bigint | number })[]>`
+    SELECT i."finalizedAt" AS "finalizedAt", i."id" AS "invoiceId", i."number" AS "invoiceNumber", p."name" AS "customerName",
+           l."name" AS treatment, l."quantity" AS quantity, l."commissionAmount" AS commission, l."performerName" AS "performerName"
+    FROM "InvoiceLine" l JOIN "Invoice" i ON i."id" = l."invoiceId" JOIN "Patient" p ON p."id" = i."patientId"
+    WHERE i."status" = 'FINAL' AND i."finalizedAt" >= ${start} AND i."finalizedAt" < ${end} ${branch} ${performer}
+      AND l."kind" = 'TREATMENT' AND l."performerId" IS NOT NULL
+    ORDER BY l."performerName", i."finalizedAt", i."number"`;
+  return rows.map((row) => ({ ...row, quantity: Number(row.quantity), commission: Number(row.commission) }));
+}
+
 /** Jumlah pengeluaran yang tidak dibatalkan per bulan ("YYYY-MM"), untuk tren. `branchId` null = semua cabang. */
 export async function expensesByMonth(fromDate: string, toDate: string, branchId: string | null): Promise<Map<string, number>> {
   const branch = branchId ? Prisma.sql`AND "branchId" = ${branchId}` : Prisma.empty;

@@ -1,6 +1,6 @@
 import { addMonths, currentMonthOf, monthsBetween } from "./expense";
 import { dateLabel, isDateString, type Validation } from "./stock";
-import { addDaysToDateString, combineWitaDateAndMinutes } from "./time";
+import { addDaysToDateString, combineWitaDateAndMinutes, witaDateString } from "./time";
 
 // Aturan murni laporan untung-rugi (spec laporan 3, 8). Dipakai server dan browser; tanpa akses basis data.
 
@@ -270,5 +270,19 @@ export function reportCsvRows(meta: { period: ReportPeriod; branchName: string }
     ["Pengeluaran", cash.expenses],
     ["Total keluar", cash.outflow],
     ["Kas bersih", cash.net],
+  ];
+}
+
+export function commissionCsvRows(
+  meta: { period: ReportPeriod; branchName: string },
+  details: readonly { finalizedAt: Date; invoiceId: string; invoiceNumber: string; customerName: string; treatment: string; quantity: number; commission: number; performerName: string }[],
+): (string | number)[][] {
+  return [
+    ["Komisi pelaksana"],
+    ["Periode", meta.period.from, meta.period.to],
+    ["Cabang", meta.branchName],
+    [],
+    ["Pelaksana", "Tanggal", "Tagihan", "Customer", "Treatment", "Jumlah", "Komisi (Rp)"],
+    ...details.map((d) => [d.performerName, witaDateString(d.finalizedAt), d.invoiceNumber, d.customerName, d.treatment, d.quantity, d.commission]),
   ];
 }

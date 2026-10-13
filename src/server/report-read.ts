@@ -17,7 +17,7 @@ import {
 } from "@/lib/report";
 import { dateOnly } from "@/lib/stock";
 import { witaDateString } from "@/lib/time";
-import { expensesByMonth, invoiceAggregates, marginAggregates, packageSessionsUsed, type MarginReport } from "@/server/report-sql";
+import { commissionByPerformer, commissionDetails, expensesByMonth, invoiceAggregates, marginAggregates, packageSessionsUsed, type MarginReport } from "@/server/report-sql";
 import { ensureRecurringExpenses } from "@/server/expense-store";
 import { requireCapability } from "@/server/session";
 
@@ -216,4 +216,17 @@ export async function getMarginReport(filter: { period: ReportPeriod; branchId: 
   if (!checked.ok) throw new Error(checked.message);
   const { start, end } = periodInstants(checked.value);
   return marginAggregates(start, end, filter.branchId);
+}
+
+/** Tab "Komisi" (spec harga modal 7). Rincian hanya untuk pelaksana yang dipilih. */
+export async function getCommissionReport(filter: { period: ReportPeriod; branchId: string | null; performerId: string | null }) {
+  await requireCapability("profit:read");
+  const checked = validatePeriod(filter.period);
+  if (!checked.ok) throw new Error(checked.message);
+  const { start, end } = periodInstants(checked.value);
+  const [rows, details] = await Promise.all([
+    commissionByPerformer(start, end, filter.branchId),
+    filter.performerId ? commissionDetails(start, end, filter.branchId, filter.performerId) : Promise.resolve(null),
+  ]);
+  return { rows, details };
 }
