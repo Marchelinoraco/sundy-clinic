@@ -3,6 +3,7 @@ import { RegistrationFlow } from "@/components/pendaftaran/registration-flow";
 import { CLINIC_WHATSAPP_DISPLAY } from "@/lib/clinic";
 import { buildWhatsAppLink } from "@/lib/whatsapp";
 import { getBookingOptions } from "@/server/public-booking-data";
+import { registrationAccess } from "@/server/registration-access";
 
 export const metadata: Metadata = {
   title: "Daftar Konsultasi",
@@ -15,10 +16,12 @@ export const dynamic = "force-dynamic";
 /**
  * Jeda sementara pendaftaran online (mis. saat fitur booking sedang diperbaiki),
  * tanpa deploy: set REGISTRATION_CLOSED=true di shared/.env lalu `pm2 restart sundy`,
- * dan kembalikan dengan cara yang sama. Rute lain tidak terpengaruh.
+ * dan kembalikan dengan cara yang sama. REGISTRATION_CLOSED=staff membuka form hanya
+ * untuk staf yang sedang login (uji coba). Rute lain tidak terpengaruh.
  */
 export default async function RegistrationPage() {
-  if (process.env.REGISTRATION_CLOSED === "true") {
+  const access = await registrationAccess();
+  if (access === "closed") {
     const link = buildWhatsAppLink("Halo, saya ingin mendaftar konsultasi di SunDY Clinic.");
     return (
       <div className="mx-auto max-w-md space-y-4 px-4 py-16 text-center">
@@ -40,5 +43,14 @@ export default async function RegistrationPage() {
   }
 
   const options = await getBookingOptions();
-  return <RegistrationFlow options={options} />;
+  return (
+    <>
+      {access === "staff-preview" && (
+        <p role="status" className="mx-auto mt-4 max-w-2xl rounded-2xl border border-gold-500 bg-cream-100 px-4 py-3 text-center text-sm text-brown-800">
+          Mode uji coba: hanya staf yang login yang melihat formulir ini. Booking yang dibuat tercatat sungguhan.
+        </p>
+      )}
+      <RegistrationFlow options={options} />
+    </>
+  );
 }

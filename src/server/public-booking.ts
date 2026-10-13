@@ -40,6 +40,7 @@ import { expireStaleSiteBookings } from "@/server/booking-expiry";
 import { getClinicSetting } from "@/server/clinic-setting";
 import { isExclusionViolation, isUniqueViolation } from "@/server/db-errors";
 import { loadOnlineService, onlineBranchId } from "@/server/online-store";
+import { assertRegistrationOpen } from "@/server/registration-access";
 import { guardRate } from "@/server/request-guard";
 
 // Setiap ekspor berkas ini bisa dipanggil siapa pun dari browser tanpa login.
@@ -99,6 +100,7 @@ export async function getPublicSlots(input: {
 }): Promise<ActionResult<PublicSlot[]>> {
   return runAction(async () => {
     await guardRate(slotLimiter);
+    await assertRegistrationOpen();
     if (!isBookableDate(input.date, new Date())) throw new UserFacingError(DATE_OUT_OF_RANGE);
 
     const service = await loadServiceAndBranch(input.serviceId, input.branchId);
@@ -141,6 +143,7 @@ export async function holdSlot(input: {
 }): Promise<ActionResult<SlotHoldReceipt>> {
   return runAction(async () => {
     await guardRate(holdLimiter);
+    await assertRegistrationOpen();
 
     // Beda dari getPublicSlots: di sini staffId wajib. "Siapa saja" sudah
     // diselesaikan client jadi satu staffId nyata sebelum menahan jam —
@@ -388,6 +391,7 @@ async function createSiteBooking(
 export async function submitSiteBooking(input: SiteBookingInput): Promise<ActionResult<SubmitOutcome>> {
   return runAction(async () => {
     await guardRate(submitLimiter);
+    await assertRegistrationOpen();
     if (input.website) throw new UserFacingError(GENERIC_FAILURE);
     if (typeof input.holdToken !== "string" || input.holdToken.length < 16) {
       throw new UserFacingError("Pilih jadwal lebih dulu.");
@@ -529,6 +533,7 @@ const ONLINE_UNAVAILABLE = "Konsultasi online sedang tidak tersedia. Silakan pil
 export async function submitOnlineBooking(input: OnlineBookingInput): Promise<ActionResult<{ receipt: BookingReceipt }>> {
   return runAction(async () => {
     await guardRate(submitLimiter);
+    await assertRegistrationOpen();
     if (input.website) throw new UserFacingError(GENERIC_FAILURE);
     const key = input.submissionKey;
     if (typeof key !== "string" || key.length < 16 || key.length > 100) throw new UserFacingError(GENERIC_FAILURE);
