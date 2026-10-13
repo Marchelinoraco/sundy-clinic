@@ -35,6 +35,7 @@ import { RupiahInput } from "../rupiah-input";
 import { AddFreeLineDialog } from "./add-free-line-dialog";
 import { AddItemDialog } from "./add-item-dialog";
 import { AddPackageDialog } from "./add-package-dialog";
+import { LinePerformerSelect } from "./line-performer-select";
 import { PackageSessionButton } from "./package-session-button";
 import { CancelInvoiceDialog } from "./cancel-invoice-dialog";
 import { DiscountForm } from "./discount-form";
@@ -65,10 +66,11 @@ export function useInvoiceAction() {
   return { run, error, setError, pending };
 }
 
-function LineRow({ detail, line, options, disabled, run, fail }: {
+function LineRow({ detail, line, options, performers, disabled, run, fail }: {
   detail: InvoiceDetail;
   line: InvoiceLineRow;
   options: readonly PackageOption[];
+  performers: readonly { id: string; name: string }[];
   disabled: boolean;
   run: ReturnType<typeof useInvoiceAction>["run"];
   fail: (message: string) => void;
@@ -94,6 +96,7 @@ function LineRow({ detail, line, options, disabled, run, fail }: {
         <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>
           {INVOICE_LINE_KIND_LABEL[line.kind]}
         </Typography>
+        <LinePerformerSelect invoiceId={detail.id} version={detail.version} line={line} performers={performers} disabled={disabled} />
         <LineDiscountNote line={line} />
         {line.packageNote && (
           <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>
@@ -170,6 +173,7 @@ export function InvoiceDraftEditor({
   canEditNotes = true,
   packages = [],
   packageOptions = [],
+  performers = [],
 }: {
   detail: InvoiceDetail;
   items: BillingItem[];
@@ -177,6 +181,7 @@ export function InvoiceDraftEditor({
   canEditNotes?: boolean;
   packages?: SellablePackage[];
   packageOptions?: PackageOption[];
+  performers?: { id: string; name: string }[];
 }) {
   const { run, error, setError, pending } = useInvoiceAction();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -236,7 +241,7 @@ export function InvoiceDraftEditor({
                 </TableCell>
               </TableRow>
             ) : (
-              detail.lines.map((line) => <LineRow key={`${line.id}-${detail.version}`} detail={detail} line={line} options={packageOptions} disabled={pending} run={run} fail={setError} />)
+              detail.lines.map((line) => <LineRow key={`${line.id}-${detail.version}`} detail={detail} line={line} options={packageOptions} performers={performers} disabled={pending} run={run} fail={setError} />)
             )}
           </TableBody>
         </Table>

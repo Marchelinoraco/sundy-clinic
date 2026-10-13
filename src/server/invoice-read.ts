@@ -170,6 +170,9 @@ export type InvoiceLineRow = {
   catalogLinked: boolean;
   /** Berasal dari penyerahan Apoteker: jumlah terkunci dan tidak bisa dihapus resepsionis. */
   fromDispensing: boolean;
+  /** Pelaksana treatment; nama saja yang tampil bagi resepsionis (spec harga modal M8). */
+  performerId: string | null;
+  performerName: string | null;
   /** Baris PAKET: paket katalog yang dijual (spec paket 5). */
   treatmentPackageId: string | null;
   /** Baris TREATMENT yang memakai sesi paket customer (spec paket 6). */
@@ -275,6 +278,8 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
           discountSource: true,
           treatmentPackageId: true,
           patientPackageItemId: true,
+          performerId: true,
+          performerName: true,
           patientPackageItem: { select: { patientPackage: { select: { name: true } } } },
           stockUses: { select: { quantity: true, unitCost: true } },
         },
@@ -304,6 +309,8 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
     packageUse: line.patientPackageItemId ? { patientPackageItemId: line.patientPackageItemId, packageName: line.patientPackageItem?.patientPackage.name ?? "" } : null,
     packageNote: notes.get(line.id) ?? null,
     fromDispensing: line.dispensingLineId !== null,
+    performerId: line.performerId,
+    performerName: line.performerName,
     cost: withCost && line.kind === "BARANG" ? line.stockUses.reduce((sum, use) => sum + use.quantity * (use.unitCost ?? 0), 0) : null,
   }));
   return {
@@ -356,6 +363,12 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
     everPaid: invoice.payments.length > 0,
     cost: withCost ? lines.reduce((sum, line) => sum + (line.cost ?? 0), 0) : null,
   };
+}
+
+/** Pilihan pelaksana di editor draf (spec harga modal 6): dokter dan terapis aktif. */
+export async function listPerformers(): Promise<{ id: string; name: string }[]> {
+  await requireCapability("invoice:read");
+  return prisma.staff.findMany({ where: { isActive: true, role: { in: ["DOKTER", "TERAPIS"] } }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true } });
 }
 
 export type BillingItem = { id: string; code: string; name: string; unit: string; sellPrice: number; available: number };

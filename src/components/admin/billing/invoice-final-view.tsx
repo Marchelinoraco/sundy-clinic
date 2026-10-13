@@ -105,6 +105,11 @@ export function InvoiceFinalView({
                       {INVOICE_LINE_KIND_LABEL[line.kind]}
                       {line.priceNote && ` · ${line.priceNote}`}
                     </Typography>
+                    {line.performerName && (
+                      <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>
+                        Pelaksana: {line.performerName}
+                      </Typography>
+                    )}
                     <LineDiscountNote line={line} />
                     {line.packageNote && (
                       <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>

@@ -6,7 +6,7 @@ import { InvoiceDraftReadOnly } from "@/components/admin/billing/invoice-draft-r
 import { InvoiceStatusBadge } from "@/components/admin/billing/invoice-status-badge";
 import { PageBody, PageHeader } from "@/components/admin/page-layout";
 import { can } from "@/lib/permissions";
-import { getInvoiceDetail, listBillingItems } from "@/server/invoice-read";
+import { getInvoiceDetail, listBillingItems, listPerformers } from "@/server/invoice-read";
 import { listActiveClinicBankAccounts } from "@/server/clinic-bank";
 import { getInvoiceReceipt } from "@/server/receipt";
 import { requireCapability } from "@/server/session";
@@ -46,6 +46,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
               canEditNotes={canEditNotes}
               packages={await listSellablePackages()}
               packageOptions={await listPackageOptions(detail.patient.id)}
+              performers={await listPerformers()}
             />
           ) : (
             <InvoiceDraftReadOnly invoiceId={detail.id} notes={detail.notes} canEditNotes={canEditNotes} />

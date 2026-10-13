@@ -31,6 +31,7 @@ vi.mock("@/server/invoice-drafts", () => ({
   setLineDiscount: vi.fn(),
   addPackageLine: vi.fn(),
   applyPackageSession: vi.fn(),
+  setLinePerformer: vi.fn(),
   releasePackageSession: vi.fn(),
   clearLineDiscount: vi.fn(),
 }));
@@ -38,8 +39,8 @@ vi.mock("@/server/invoice-lifecycle", () => ({ finalizeInvoice: mocks.finalizeIn
 
 function detail(patch: Partial<InvoiceDetail> = {}): InvoiceDetail {
   const lines: InvoiceDetail["lines"] = [
-    { id: "l1", kind: "LAYANAN", name: "Konsultasi Gizi", quantity: 1, unitPrice: 150000, gross: 150000, amount: 150000, discountAmount: 0, discountReason: null, discountSource: null, priceNote: null, serviceId: "s1", itemId: null, catalogLinked: true, fromDispensing: false, treatmentPackageId: null, packageUse: null, packageNote: null, cost: null },
-    { id: "l2", kind: "BARANG", name: "Vitamin C", quantity: 2, unitPrice: 25000, gross: 50000, amount: 50000, discountAmount: 0, discountReason: null, discountSource: null, priceNote: null, serviceId: null, itemId: "it1", catalogLinked: true, fromDispensing: false, treatmentPackageId: null, packageUse: null, packageNote: null, cost: null },
+    { id: "l1", kind: "LAYANAN", name: "Konsultasi Gizi", quantity: 1, unitPrice: 150000, gross: 150000, amount: 150000, discountAmount: 0, discountReason: null, discountSource: null, priceNote: null, serviceId: "s1", itemId: null, catalogLinked: true, fromDispensing: false, performerId: null, performerName: null, treatmentPackageId: null, packageUse: null, packageNote: null, cost: null },
+    { id: "l2", kind: "BARANG", name: "Vitamin C", quantity: 2, unitPrice: 25000, gross: 50000, amount: 50000, discountAmount: 0, discountReason: null, discountSource: null, priceNote: null, serviceId: null, itemId: "it1", catalogLinked: true, fromDispensing: false, performerId: null, performerName: null, treatmentPackageId: null, packageUse: null, packageNote: null, cost: null },
   ];
   const base = { status: "DRAF" as const, discountKind: null, discountValue: 0, lines, payments: [] };
   return {

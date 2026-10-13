@@ -61,7 +61,7 @@ export async function createInvoiceFromVisit(appointmentId: string): Promise<Act
         branchId: true,
         channel: true,
         service: { select: { id: true, name: true, promoPrice: true } },
-        encounter: { select: { status: true, treatments: { orderBy: { sortOrder: "asc" }, select: { id: true, serviceId: true, serviceName: true } } } },
+        encounter: { select: { status: true, treatments: { orderBy: { sortOrder: "asc" }, select: { id: true, serviceId: true, serviceName: true, performerId: true, performerName: true } } } },
       },
     });
     if (!appointment) throw new UserFacingError("Kunjungan tidak ditemukan.");
@@ -93,6 +93,10 @@ export async function createInvoiceFromVisit(appointmentId: string): Promise<Act
       })),
     });
 
+    // Pelaksana disalin dari catatan kunjungan (spec harga modal 6) untuk komisi.
+    const performerOf = new Map(appointment.encounter.treatments.map((t) => [t.id, { performerId: t.performerId, performerName: t.performerName }]));
+    const withPerformer = lines.map((line) => ({ ...line, ...(line.encounterTreatmentId ? (performerOf.get(line.encounterTreatmentId) ?? {}) : {}) }));
+
     try {
       const created = await prisma.$transaction(async (tx) => {
         // Baris penyerahan dikunci dulu, supaya pembuatan tagihan dan penyelesaian penyerahan bergiliran
@@ -103,7 +107,7 @@ export async function createInvoiceFromVisit(appointmentId: string): Promise<Act
           await lockDispensingRow(tx, dispensing.id);
           handed = await handedInvoiceLines(tx, dispensing.id);
         }
-        const all = [...lines.map((line) => ({ ...line, dispensingLineId: null as string | null })), ...handed];
+        const all = [...withPerformer.map((line) => ({ ...line, dispensingLineId: null as string | null })), ...handed];
         return tx.invoice.create({
           data: {
             patientId: appointment.patientId!,
@@ -337,6 +341,30 @@ export async function releasePackageSession(input: { invoiceId: string; version:
       return { version, summary: `Lepas paket dari ${line.name}` };
     });
 
+    await recordAudit({ actor, action: "invoice.update", entity: "Invoice", entityId: invoiceId, summary: result.summary });
+    revalidateInvoices(invoiceId);
+    return { version: result.version };
+  });
+}
+
+/** Pelaksana baris treatment (spec harga modal 6, M7): boleh diganti atau dikosongkan; baris tanpa pelaksana tidak berkomisi. */
+export async function setLinePerformer(input: { invoiceId: string; version: number; lineId: string; performerId: string | null }): Promise<EditResult> {
+  return runAction(async () => {
+    const actor = await requireCapability("invoice:manage");
+    const invoiceId = String(input?.invoiceId ?? "");
+    const result = await prisma.$transaction(async (tx) => {
+      const version = await touchDraft(tx, invoiceId, input.version);
+      const line = await tx.invoiceLine.findFirst({ where: { id: String(input.lineId ?? ""), invoiceId }, select: { id: true, name: true, kind: true } });
+      if (!line) throw new UserFacingError("Baris tidak ditemukan.");
+      if (line.kind !== "TREATMENT") throw new UserFacingError("Pelaksana hanya untuk baris treatment.");
+      let performer: { id: string; name: string } | null = null;
+      if (input.performerId) {
+        performer = await tx.staff.findFirst({ where: { id: String(input.performerId), isActive: true, role: { in: ["DOKTER", "TERAPIS"] } }, select: { id: true, name: true } });
+        if (!performer) throw new UserFacingError("Pelaksana tidak ditemukan atau nonaktif.");
+      }
+      await tx.invoiceLine.update({ where: { id: line.id }, data: { performerId: performer?.id ?? null, performerName: performer?.name ?? null } });
+      return { version, summary: `Pelaksana ${line.name}: ${performer?.name ?? "kosong"}` };
+    });
     await recordAudit({ actor, action: "invoice.update", entity: "Invoice", entityId: invoiceId, summary: result.summary });
     revalidateInvoices(invoiceId);
     return { version: result.version };
