@@ -1,10 +1,11 @@
-import Typography from "@mui/material/Typography";
 import { AdminHeader } from "@/components/admin/admin-header";
 import { ClinicConsultationCard } from "@/components/admin/clinic-consultation-card";
 import { OnlineServiceCard } from "@/components/admin/online-service-card";
 import { EmptyState, PageBody, PageHeader } from "@/components/admin/page-layout";
 import { PageTabs } from "@/components/admin/page-tabs";
 import { InternalServiceDialog } from "@/components/admin/service/internal-service-dialog";
+import { SiteServiceDialog, type SiteServiceOption } from "@/components/admin/service/site-service-dialog";
+import { SiteServiceTable } from "@/components/admin/service/site-service-table";
 import { ServicePriceTable } from "@/components/admin/service-price-table";
 import { can } from "@/lib/permissions";
 import { getInternalCatalog, getSiteCatalog, listServiceCategories } from "@/server/catalog-admin-read";
@@ -21,6 +22,10 @@ export default async function AdminServicesPage({ searchParams }: { searchParams
   const canContent = can(staff.role, "content:manage");
   const tab: Tab = (await searchParams).tab === "situs" ? "situs" : "internal";
   const [internal, categoryOptions] = await Promise.all([getInternalCatalog(), listServiceCategories()]);
+  // Pilihan tautan layanan situs: semua layanan internal (termasuk nonaktif) kecuali Konsultasi Online (spec layanan situs 5.2).
+  const serviceOptions: SiteServiceOption[] = internal.flatMap((category) =>
+    category.services.map((s) => ({ id: s.id, name: s.name, categoryId: s.categoryId, price: s.promoPrice, isActive: s.isActive })),
+  );
 
   return (
     <>
@@ -29,7 +34,13 @@ export default async function AdminServicesPage({ searchParams }: { searchParams
         <PageHeader
           title="Layanan & Harga"
           description="Katalog internal dipakai booking, tagihan, dan paket. Katalog situs adalah isi promosi yang tertaut ke layanan internal."
-          actions={tab === "internal" ? <InternalServiceDialog categories={categoryOptions} /> : undefined}
+          actions={
+            tab === "internal" ? (
+              <InternalServiceDialog categories={categoryOptions} />
+            ) : (
+              <SiteServiceDialog categories={categoryOptions} services={serviceOptions} />
+            )
+          }
         />
         <PageTabs
           label="Katalog layanan"
@@ -42,7 +53,7 @@ export default async function AdminServicesPage({ searchParams }: { searchParams
         {tab === "internal" ? (
           <InternalTab canContent={canContent} internal={internal} categoryOptions={categoryOptions} />
         ) : (
-          <SiteTab />
+          <SiteTab categoryOptions={categoryOptions} services={serviceOptions} />
         )}
       </PageBody>
     </>
@@ -71,12 +82,8 @@ async function InternalTab({
   );
 }
 
-async function SiteTab() {
+async function SiteTab({ categoryOptions, services }: { categoryOptions: { id: string; name: string }[]; services: SiteServiceOption[] }) {
   const site = await getSiteCatalog();
   if (site.length === 0) return <EmptyState>Belum ada layanan situs.</EmptyState>;
-  return (
-    <Typography variant="body2" sx={{ color: "text.secondary" }}>
-      Daftar layanan situs menyusul.
-    </Typography>
-  );
+  return <SiteServiceTable categories={site} categoryOptions={categoryOptions} services={services} />;
 }
