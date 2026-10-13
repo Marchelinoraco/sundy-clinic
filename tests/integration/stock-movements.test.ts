@@ -110,7 +110,11 @@ describe("penyesuaian dan retur", () => {
       lines: [{ batchId, quantity: 4, unitCost: 5000, amount: 20000 }],
     });
     expect(await prisma.stockMovement.findFirst({ where: { batchId, kind: "RETUR" } })).toMatchObject({ quantity: -4, supplierReturnId: id });
+    // Angka hutang hanya untuk hak harga (spec harga modal 8): Apoteker melihat status, Super Admin angkanya.
+    expect((await getPurchaseDetail(invoiceId))?.summary).toMatchObject({ returned: 0, balance: 0, status: "SEBAGIAN" });
+    actor.role = "SUPER_ADMIN";
     const detail = await getPurchaseDetail(invoiceId);
+    actor.role = "APOTEKER";
     expect(detail?.summary).toMatchObject({ returned: 20000, balance: 30000, status: "SEBAGIAN" });
     expect(detail?.returns).toHaveLength(1);
     expect(detail?.canCancel).toBe(false);

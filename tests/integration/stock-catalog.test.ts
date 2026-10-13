@@ -94,7 +94,11 @@ describe("barang dan supplier", () => {
     await seedBatch(world, { invoiceNumber: "KT-3", itemId: world.productId, quantity: 4, unitCost: 90000 });
     await seedBatch(world, { invoiceNumber: "KT-4", itemId: world.productId, quantity: 50, branchId: world.comingSoonBranchId });
 
+    // Apoteker tidak menerima nilai stok (spec harga modal 8); angka dibaca sebagai Super Admin.
+    expect((await listStockItems({ branchId: world.branchId, q: SLUG })).find((row) => row.id === world.drugId)!.value).toBeNull();
+    actor.role = "SUPER_ADMIN";
     const rows = await listStockItems({ branchId: world.branchId, q: SLUG });
+    actor.role = "APOTEKER";
     const drug = rows.find((row) => row.id === world.drugId)!;
     const product = rows.find((row) => row.id === world.productId)!;
     expect(drug).toMatchObject({ onHand: 11, available: 8, value: 11 * 1500, flags: ["MENIPIS", "SEGERA_KEDALUWARSA", "KEDALUWARSA"] });
