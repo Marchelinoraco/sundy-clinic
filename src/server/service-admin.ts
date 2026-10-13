@@ -4,6 +4,7 @@ import { runAction, UserFacingError, type ActionResult } from "@/lib/action-resu
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { prisma } from "@/lib/db";
 import { CONSULTATION_SERVICE_SLUG, isConsultationDuration } from "@/lib/booking-rules";
+import { serviceCostSummary, validateServiceCost, type ServiceCostInput } from "@/lib/costing";
 import { formatRupiah } from "@/lib/format";
 import { ONLINE_SERVICE_SLUG } from "@/lib/online-consultation";
 import { validatePriceChange, type PriceInput } from "@/lib/price-validation";
@@ -15,7 +16,8 @@ export async function updateServicePrice(
   input: PriceInput & { id: string },
 ): Promise<ActionResult> {
   return runAction(async () => {
-    const actor = await requireCapability("content:manage");
+    // Harga jual treatment diisi Admin Keuangan dan Super Admin (spec harga modal M5).
+    const actor = await requireCapability("price:manage");
 
     const error = validatePriceChange(input);
     if (error) throw new UserFacingError(error);
@@ -39,6 +41,20 @@ export async function updateServicePrice(
     safeRevalidatePath("/layanan");
     safeRevalidatePath(`/layanan/${after.slug}`);
     safeRevalidatePath("/");
+  });
+}
+
+/** Biaya bahan, alat, dan komisi pelaksana per sesi (spec harga modal 5). */
+export async function updateServiceCost(input: { id: string } & ServiceCostInput): Promise<ActionResult> {
+  return runAction(async () => {
+    const actor = await requireCapability("price:manage");
+    const checked = validateServiceCost(input);
+    if (!checked.ok) throw new UserFacingError(checked.message);
+    const service = await prisma.service.findUnique({ where: { id: String(input?.id ?? "") }, select: { id: true, name: true } });
+    if (!service) throw new UserFacingError("Layanan tidak ditemukan.");
+    await prisma.service.update({ where: { id: service.id }, data: checked.value });
+    await recordAudit({ actor, action: "service.cost", entity: "Service", entityId: service.id, summary: `${service.name}: ${serviceCostSummary(checked.value)}` });
+    safeRevalidatePath("/admin/layanan");
   });
 }
 

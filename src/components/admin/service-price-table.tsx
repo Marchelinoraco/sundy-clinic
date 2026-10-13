@@ -13,11 +13,13 @@ import ToggleButton from "@mui/material/ToggleButton";
 import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import type { ServiceCostInput } from "@/lib/costing";
 import { updateServicePrice } from "@/server/service-admin";
 import { EmptyState, SectionCard } from "./page-layout";
 import { RupiahInput } from "./rupiah-input";
+import { ServiceCostDialog } from "./service-cost-dialog";
 
-type PriceService = { id: string; name: string; normalPrice: number | null; promoPrice: number };
+type PriceService = { id: string; name: string; normalPrice: number | null; promoPrice: number } & ServiceCostInput;
 export type PriceCategory = { id: string; name: string; services: PriceService[] };
 
 const ALL = "semua";
@@ -62,6 +64,9 @@ function PriceRow({ service, hidden }: { service: PriceService; hidden: boolean 
       </TableCell>
       <TableCell>
         <RupiahInput aria-label={`Harga berlaku ${service.name}`} sx={{ width: 160 }} value={promoPrice} onChange={setPromoPrice} />
+      </TableCell>
+      <TableCell>
+        <ServiceCostDialog service={service} />
       </TableCell>
       <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
         {dirty && (
@@ -132,6 +137,7 @@ export function ServicePriceTable({ categories }: { categories: PriceCategory[] 
                     <TableCell>Layanan</TableCell>
                     <TableCell>Harga coret</TableCell>
                     <TableCell>Harga berlaku</TableCell>
+                    <TableCell>Biaya per sesi</TableCell>
                     <TableCell />
                   </TableRow>
                 </TableHead>

@@ -38,6 +38,8 @@ export type NavItem = {
   url: string;
   icon: SvgIconComponent;
   needs?: Capability;
+  /** Cukup salah satu kemampuan ini (mis. Layanan & Harga: konten atau harga). */
+  needsAny?: Capability[];
   /** Menu disembunyikan bagi peran yang memegang kemampuan ini (mis. Apoteker sudah punya menu Stok penuh). */
   hideWith?: Capability;
 };
@@ -69,7 +71,7 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   {
     title: "Kelola",
     items: [
-      { title: "Layanan & Harga", url: "/admin/layanan", icon: SpaOutlined, needs: "content:manage" },
+      { title: "Layanan & Harga", url: "/admin/layanan", icon: SpaOutlined, needsAny: ["content:manage", "price:manage"] },
       { title: "Staf", url: "/admin/staf", icon: GroupOutlined, needs: "staff:manage" },
       { title: "Pengaturan", url: "/admin/pengaturan", icon: SettingsOutlined, needs: "content:manage" },
     ],
@@ -78,6 +80,7 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
 
 export function isNavItemVisible(role: CurrentStaff["role"], item: NavItem): boolean {
   if (item.needs && !can(role, item.needs)) return false;
+  if (item.needsAny && !item.needsAny.some((capability) => can(role, capability))) return false;
   if (item.hideWith && can(role, item.hideWith)) return false;
   return true;
 }

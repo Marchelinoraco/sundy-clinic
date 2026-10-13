@@ -5,14 +5,19 @@ import { ServicePriceTable } from "@/components/admin/service-price-table";
 import { OnlineServiceCard } from "@/components/admin/online-service-card";
 import { getServiceCategoriesWithServices } from "@/server/catalog";
 import { getClinicConsultationMinutes, getOnlineServiceSettings } from "@/server/service-admin";
-import { requireCapability } from "@/server/session";
+import { forbidden } from "next/navigation";
+import { can } from "@/lib/permissions";
+import { requireStaff } from "@/server/session";
 
 export default async function AdminServicesPage() {
-  await requireCapability("content:manage");
+  // Super Admin mengelola konten layanan; Admin Keuangan hanya harga dan biaya (spec harga modal 5).
+  const staff = await requireStaff();
+  const canContent = can(staff.role, "content:manage");
+  if (!canContent && !can(staff.role, "price:manage")) forbidden();
   const [categories, online, consultationMinutes] = await Promise.all([
     getServiceCategoriesWithServices(),
-    getOnlineServiceSettings(),
-    getClinicConsultationMinutes(),
+    canContent ? getOnlineServiceSettings() : Promise.resolve(null),
+    canContent ? getClinicConsultationMinutes() : Promise.resolve(null),
   ]);
 
   return (
@@ -20,13 +25,22 @@ export default async function AdminServicesPage() {
       <AdminHeader title="Layanan & Harga" />
       <PageBody>
         <PageHeader title="Layanan & Harga" description="Perubahan harga langsung tampil di situs publik dan tercatat di jejak audit." />
-        <ClinicConsultationCard minutes={consultationMinutes} />
+        {consultationMinutes !== null && <ClinicConsultationCard minutes={consultationMinutes} />}
         {online && <OnlineServiceCard settings={online} />}
         <ServicePriceTable
           categories={categories.map((category) => ({
             id: category.id,
             name: category.name,
-            services: category.services.map((s) => ({ id: s.id, name: s.name, normalPrice: s.normalPrice, promoPrice: s.promoPrice })),
+            services: category.services.map((s) => ({
+              id: s.id,
+              name: s.name,
+              normalPrice: s.normalPrice,
+              promoPrice: s.promoPrice,
+              materialCost: s.materialCost,
+              toolCost: s.toolCost,
+              commissionKind: s.commissionKind,
+              commissionValue: s.commissionValue,
+            })),
           }))}
         />
       </PageBody>

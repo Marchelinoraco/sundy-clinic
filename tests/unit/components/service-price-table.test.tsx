@@ -6,18 +6,21 @@ import { updateServicePrice } from "@/server/service-admin";
 import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
-vi.mock("@/server/service-admin", () => ({ updateServicePrice: vi.fn() }));
+vi.mock("@/server/service-admin", () => ({ updateServicePrice: vi.fn(), updateServiceCost: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+
+const NO_COST = { materialCost: 0, toolCost: 0, commissionKind: null, commissionValue: 0 };
 
 const CATEGORIES: PriceCategory[] = [
   {
     id: "c1",
     name: "Facial Treatment",
     services: [
-      { id: "s1", name: "Relaxing Facial", normalPrice: 189000, promoPrice: 149000 },
-      { id: "s2", name: "Facial Acne", normalPrice: 289000, promoPrice: 249000 },
+      { id: "s1", name: "Relaxing Facial", normalPrice: 189000, promoPrice: 149000, ...NO_COST },
+      { id: "s2", name: "Facial Acne", normalPrice: 289000, promoPrice: 249000, ...NO_COST },
     ],
   },
-  { id: "c2", name: "Laser Treatment", services: [{ id: "s3", name: "Lip Laser", normalPrice: null, promoPrice: 99000 }] },
+  { id: "c2", name: "Laser Treatment", services: [{ id: "s3", name: "Lip Laser", normalPrice: null, promoPrice: 99000, ...NO_COST }] },
 ];
 
 beforeEach(() => {
