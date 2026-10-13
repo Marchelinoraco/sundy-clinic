@@ -284,3 +284,18 @@ describe("migrasi karyawan dan penggajian", () => {
     expect(sql).toMatch(/payroll_adjustment_amount/);
   });
 });
+
+describe("migrasi resep dokter", () => {
+  const sql = readFileSync("prisma/migrations/20261018090000_resep_dokter/migration.sql", "utf8");
+
+  it("hanya menambah", () => {
+    expect(sql).not.toMatch(/\bDROP\b/i);
+  });
+
+  it("mengunci resep kunjungan final dan menjaga nilai", () => {
+    expect(sql).toMatch(/CREATE TRIGGER encounter_prescription_locked/);
+    expect(sql).toMatch(/CREATE TRIGGER encounter_prescription_no_truncate/);
+    expect(sql).toMatch(/encounter_prescription_values/);
+    expect(sql).toMatch(/dispensing_line_billing/);
+  });
+});

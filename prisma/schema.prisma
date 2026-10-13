@@ -151,12 +151,12 @@ model ScheduleException {
 }
 
 model ServiceCategory {
-  id          String    @id @default(cuid())
-  slug        String    @unique
-  name        String
-  description String?
-  sortOrder   Int       @default(0)
-  services    Service[]
+  id           String        @id @default(cuid())
+  slug         String        @unique
+  name         String
+  description  String?
+  sortOrder    Int           @default(0)
+  services     Service[]
   siteServices SiteService[]
 }
 
@@ -795,8 +795,9 @@ model Encounter {
   appointmentId String      @unique
   appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
 
-  treatments EncounterTreatment[]
-  addenda    EncounterAddendum[]
+  treatments    EncounterTreatment[]
+  addenda       EncounterAddendum[]
+  prescriptions EncounterPrescription[]
 
   createdAt DateTime @default(now())
   /// Juga dipakai sebagai versi: simpan draf ditolak bila berbeda dari yang dibaca halaman.
@@ -819,6 +820,26 @@ model EncounterTreatment {
   performerName String
   notes         String?
   sortOrder     Int       @default(0)
+
+  @@index([encounterId])
+}
+
+/// Satu obat dalam resep dokter (spec resep dokter 2.1). Ditulis ulang setiap simpan draf; terkunci saat kunjungan final
+/// (trigger encounter_prescription_locked). CHECK encounter_prescription_values.
+model EncounterPrescription {
+  id          String    @id @default(cuid())
+  encounterId String
+  encounter   Encounter @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  itemId      String
+  item        StockItem @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  /// Disalin saat disimpan, agar catatan lama tidak ikut berubah.
+  itemName    String
+  quantity    Int
+  /// Aturan pakai, mis. "3 x 1 sesudah makan".
+  usage       String
+  sortOrder   Int       @default(0)
+
+  dispensingLine DispensingLine?
 
   @@index([encounterId])
 }
@@ -876,8 +897,9 @@ enum PaymentMethod {
 /// Barang yang distok: obat dan produk jual. Terpisah dari Product (katalog situs publik).
 model StockItem {
   dispensingLines DispensingLine[]
-  id              String           @id @default(cuid())
-  code            String           @unique
+  prescriptions   EncounterPrescription[]
+  id              String                  @id @default(cuid())
+  code            String                  @unique
   name            String
   kind            StockItemKind
   /// Satuan terkecil yang dihitung, mis. tablet, kapsul, botol.
@@ -887,15 +909,15 @@ model StockItem {
   /// Diskon bawaan barang (spec perbaikan tagihan 3); diatur price:manage. CHECK stock_item_promo_shape.
   promoName       String?
   promoKind       DiscountKind?
-  promoValue      Int              @default(0)
-  promoStartsOn   DateTime?        @db.Date
-  promoEndsOn     DateTime?        @db.Date
+  promoValue      Int                     @default(0)
+  promoStartsOn   DateTime?               @db.Date
+  promoEndsOn     DateTime?               @db.Date
   /// Batas "menipis" per cabang; 0 berarti tidak pernah ditandai menipis.
-  minStock        Int              @default(0)
-  isActive        Boolean          @default(true)
+  minStock        Int                     @default(0)
+  isActive        Boolean                 @default(true)
   notes           String?
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
 
   purchaseLines PurchaseLine[]
   batches       StockBatch[]
@@ -1343,6 +1365,11 @@ enum DispensingStatus {
 }
 
 /// Penyerahan obat satu kunjungan; dibuat otomatis saat catatan dokter final dengan Catatan untuk Apoteker.
+enum DispensingSource {
+  APOTEKER
+  DOKTER
+}
+
 model Dispensing {
   id            String           @id @default(cuid())
   appointmentId String           @unique
@@ -1350,6 +1377,8 @@ model Dispensing {
   branchId      String
   branch        Branch           @relation(fields: [branchId], references: [id], onDelete: Restrict)
   status        DispensingStatus @default(MENUNGGU)
+  /// APOTEKER = alur lama (Catatan untuk Apoteker); DOKTER = resep dokter yang langsung Selesai (spec resep dokter 2.2).
+  source        DispensingSource @default(APOTEKER)
   /// Naik setiap perubahan; menolak suntingan dari halaman yang usang.
   version       Int              @default(1)
 
@@ -1366,17 +1395,23 @@ model Dispensing {
 }
 
 model DispensingLine {
-  id           String     @id @default(cuid())
-  dispensingId String
-  dispensing   Dispensing @relation(fields: [dispensingId], references: [id], onDelete: Restrict)
-  itemId       String
-  item         StockItem  @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  id             String                 @id @default(cuid())
+  dispensingId   String
+  dispensing     Dispensing             @relation(fields: [dispensingId], references: [id], onDelete: Restrict)
+  itemId         String
+  item           StockItem              @relation(fields: [itemId], references: [id], onDelete: Restrict)
   /// Disalin saat baris dibuat, agar riwayat tidak ikut berubah.
-  itemName     String
-  quantity     Int
+  itemName       String
+  quantity       Int
   /// Aturan pakai, mis. "3 x 1 sesudah makan".
-  usage        String
-  sortOrder    Int        @default(0)
+  usage          String
+  sortOrder      Int                    @default(0)
+  /// Baris resep dokter asal baris ini (spec resep dokter 2.2).
+  prescriptionId String?                @unique
+  prescription   EncounterPrescription? @relation(fields: [prescriptionId], references: [id], onDelete: SetNull)
+  /// Jumlah yang akhirnya ditagih dan alasan resepsionis; null = sesuai resep, 0 = dihapus dari tagihan. CHECK dispensing_line_billing.
+  billedQuantity Int?
+  billingNote    String?
 
   invoiceLine InvoiceLine?
 

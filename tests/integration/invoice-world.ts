@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { cleanupBookingWorld, createBookingWorld, type BookingWorld } from "./public-booking-world";
+import { purgeEncounters } from "../purge-encounters";
 import { seedBatch } from "./stock-world";
 
 /**
@@ -157,6 +158,8 @@ export async function cleanupBillingWorld(slug: string, patientWhatsapps: string
   await prisma.purchaseLine.deleteMany({ where: { invoice: { branch } } });
   await prisma.purchaseInvoice.deleteMany({ where: { branch } });
   await prisma.supplier.deleteMany({ where: { name: { startsWith: slug } } });
+  // Resep dokter merujuk barang (Restrict) dan terkunci bersama kunjungan final: kunjungan uji dibersihkan lebih dulu.
+  await purgeEncounters(prisma);
   await prisma.stockItem.deleteMany({ where: { code: { startsWith: slug.toUpperCase() } } });
   await prisma.biaFile.deleteMany({ where: { measurement: { appointment: { branch } } } });
   await prisma.biaMeasurement.deleteMany({ where: { appointment: { branch } } });
