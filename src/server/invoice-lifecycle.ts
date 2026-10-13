@@ -88,7 +88,9 @@ export async function finalizeInvoice(input: { invoiceId: string; version: numbe
           }
           const batch = batches.find((b) => b.id === take.batchId)!;
           batch.quantityRemaining -= take.quantity;
-          await tx.invoiceStockUse.create({ data: { lineId: line.id, batchId: batch.id, quantity: take.quantity, unitCost: batch.unitCost } });
+          // Dibaca sesudah batch terkunci: harga beli yang baru diisi Admin Keuangan selalu terbawa (spec harga modal 4).
+          const unitCost = (await tx.stockBatch.findUniqueOrThrow({ where: { id: take.batchId }, select: { unitCost: true } })).unitCost;
+          await tx.invoiceStockUse.create({ data: { lineId: line.id, batchId: batch.id, quantity: take.quantity, unitCost } });
           await tx.stockMovement.create({
             data: {
               batchId: batch.id,

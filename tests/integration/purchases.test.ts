@@ -54,8 +54,9 @@ describe("barang masuk dari supplier", () => {
     world = await createStockWorld(SLUG);
   });
 
+  // Super Admin: barang masuk berharga butuh stock:manage dan price:manage (spec harga modal M1). Apoteker tanpa harga diuji di purchase-pricing.test.ts.
   beforeEach(() => {
-    actor.role = "APOTEKER";
+    actor.role = "SUPER_ADMIN";
   });
 
   afterAll(async () => {
@@ -83,7 +84,7 @@ describe("barang masuk dari supplier", () => {
     expect(await prisma.auditLog.count({ where: { action: "purchase.create", entityId: id } })).toBe(1);
 
     const detail = await getPurchaseDetail(id);
-    expect(detail).toMatchObject({ total: 200000, summary: { balance: 200000, status: "BELUM_DIBAYAR" }, canCancel: true, payments: null });
+    expect(detail).toMatchObject({ total: 200000, summary: { balance: 200000, status: "BELUM_DIBAYAR" }, canCancel: true, payments: [] });
     expect(detail?.lines[0]).toMatchObject({ itemName: `${SLUG} Amoxicillin 500 mg`, amount: 50000, batchRemaining: 10, expiryDate: nextYear });
     const row = (await listPurchases()).find((r) => r.id === id);
     expect(row).toMatchObject({ lineCount: 2, status: "BELUM_DIBAYAR", supplierName: world.supplierName });

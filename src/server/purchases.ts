@@ -12,6 +12,7 @@ import { isUniqueViolation } from "@/server/db-errors";
 import { requireCapability } from "@/server/session";
 import { lockInvoice } from "@/server/stock-store";
 
+const PRICE_BY_FINANCE = "Harga beli diisi Admin Keuangan.";
 const CANNOT_CANCEL =
   "Faktur tidak bisa dibatalkan karena sudah ada pembayaran, retur, atau stok yang terpakai. Koreksi lewat penyesuaian atau retur.";
 
@@ -50,6 +51,10 @@ export async function createPurchase(input: PurchaseInput): Promise<ActionResult
     if (!supplier || !supplier.isActive) throw new UserFacingError("Pilih supplier yang aktif.");
     if (!branch || branch.status !== "AKTIF") throw new UserFacingError("Cabang ini belum bisa menerima barang.");
     const p = checked.value;
+    // Harga beli hanya diisi Admin Keuangan dan Super Admin (spec harga modal M1, M5).
+    const canPrice = can(actor.role, "price:manage");
+    if (!canPrice && p.lines.some((line) => line.unitCost !== null)) throw new UserFacingError(PRICE_BY_FINANCE);
+    const pricedAt = p.total === null ? null : new Date();
 
     let id: string;
     try {
@@ -62,6 +67,8 @@ export async function createPurchase(input: PurchaseInput): Promise<ActionResult
             invoiceDate: dateOnly(p.invoiceDate),
             dueDate: dateOnly(p.dueDate),
             total: p.total,
+            pricedAt,
+            pricedByName: pricedAt ? actor.name : null,
             notes: p.notes,
             createdById: actor.staffId,
             createdByName: actor.name,
@@ -113,7 +120,7 @@ export async function createPurchase(input: PurchaseInput): Promise<ActionResult
       action: "purchase.create",
       entity: "PurchaseInvoice",
       entityId: id,
-      summary: `${supplier.name} ${p.invoiceNumber}: ${p.lines.length} baris, ${formatRupiah(p.total)}`,
+      summary: `${supplier.name} ${p.invoiceNumber}: ${p.lines.length} baris, ${p.total === null ? "menunggu harga" : formatRupiah(p.total)}`,
     });
     revalidatePurchase(id);
     return { id };

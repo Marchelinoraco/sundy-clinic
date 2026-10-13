@@ -45,6 +45,7 @@ export async function recordSupplierPayment(input: PaymentInput): Promise<Action
       });
       if (!invoice) throw new UserFacingError("Faktur tidak ditemukan.");
       if (invoice.cancelledAt) throw new UserFacingError("Faktur yang dibatalkan tidak punya hutang.");
+      if (invoice.total === null) throw new UserFacingError("Isi harga beli dulu.");
       const { balance } = payableSummary(invoice, today);
       const limit = input?.kind === "PENGEMBALIAN" ? Math.max(-balance, 0) : Math.max(balance, 0);
       const checked = validatePayment(input, { today, invoiceDate: dateOnlyString(invoice.invoiceDate), limit });

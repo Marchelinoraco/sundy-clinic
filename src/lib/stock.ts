@@ -9,7 +9,7 @@ export type PaymentMethodValue = "TUNAI" | "TRANSFER" | "QRIS";
 export type SupplierPaymentKindValue = "BAYAR" | "PENGEMBALIAN";
 export type StockMovementKindValue = "MASUK" | "RETUR" | "PENYESUAIAN" | "KELUAR";
 export type StockFlag = "MENIPIS" | "SEGERA_KEDALUWARSA" | "KEDALUWARSA";
-export type PayableStatus = "DIBATALKAN" | "LUNAS" | "KREDIT" | "SEBAGIAN" | "BELUM_DIBAYAR";
+export type PayableStatus = "DIBATALKAN" | "MENUNGGU_HARGA" | "LUNAS" | "KREDIT" | "SEBAGIAN" | "BELUM_DIBAYAR";
 export type PayableView = "BELUM_LUNAS" | "TERLAMBAT" | "JATUH_TEMPO" | "LUNAS" | "DIBATALKAN";
 export type Validation<T> = { ok: true; value: T } | { ok: false; message: string };
 
@@ -43,6 +43,7 @@ export const STOCK_FLAG_LABEL: Record<StockFlag, string> = {
 };
 export const PAYABLE_STATUS_LABEL: Record<PayableStatus, string> = {
   DIBATALKAN: "Dibatalkan",
+  MENUNGGU_HARGA: "Menunggu harga",
   LUNAS: "Lunas",
   KREDIT: "Kredit dari supplier",
   SEBAGIAN: "Sebagian",
@@ -141,6 +142,10 @@ export function payableSummary(invoice: PayableInput, today: string): PayableSum
     else refunded += payment.amount;
   }
   const returned = invoice.returns.reduce((sum, r) => sum + r.total, 0);
+  // Faktur yang harga belinya belum lengkap belum berhutang (spec harga modal 4).
+  if (!invoice.cancelledAt && invoice.total === null) {
+    return { paid, refunded, returned, balance: 0, status: "MENUNGGU_HARGA", overdue: false };
+  }
   // Faktur dibatalkan tidak berhutang (spec stok 6.4).
   const balance = invoice.cancelledAt ? 0 : (invoice.total ?? 0) - paid - returned + refunded;
   const status: PayableStatus = invoice.cancelledAt
@@ -168,7 +173,7 @@ export function matchesPayableView(
 ): boolean {
   switch (view) {
     case "BELUM_LUNAS":
-      return row.status === "BELUM_DIBAYAR" || row.status === "SEBAGIAN" || row.status === "KREDIT";
+      return row.status === "BELUM_DIBAYAR" || row.status === "SEBAGIAN" || row.status === "KREDIT" || row.status === "MENUNGGU_HARGA";
     case "TERLAMBAT":
       return row.overdue;
     case "JATUH_TEMPO":
@@ -307,7 +312,7 @@ export function validateSupplier(raw: unknown): Validation<ValidSupplier> {
   return { ok: true, value: { name, phone: phone || null, address: address || null, notes: notes || null } };
 }
 
-export type PurchaseLineInput = { itemId: string; quantity: number; unitCost: number; batchNumber: string; expiryDate: string };
+export type PurchaseLineInput = { itemId: string; quantity: number; unitCost: number | null; batchNumber: string; expiryDate: string };
 export type PurchaseInput = {
   supplierId: string;
   branchId: string;
@@ -320,7 +325,8 @@ export type PurchaseInput = {
 export type ValidPurchaseLine = {
   itemId: string;
   quantity: number;
-  unitCost: number;
+  /** Kosong = menunggu harga dari Admin Keuangan (spec harga modal 4). */
+  unitCost: number | null;
   batchNumber: string | null;
   expiryDate: string | null;
 };
@@ -332,7 +338,8 @@ export type ValidPurchase = {
   dueDate: string;
   notes: string | null;
   lines: ValidPurchaseLine[];
-  total: number;
+  /** Kosong bila ada baris tanpa harga beli. */
+  total: number | null;
 };
 
 /**
@@ -361,13 +368,15 @@ export function validatePurchase(
 
   const lines: ValidPurchaseLine[] = [];
   let total = 0;
+  let missing = false;
   for (const [index, line] of raw.lines.entries()) {
     const n = index + 1;
     if (!isObject(line)) return fail(INVALID_PURCHASE);
     const kind = typeof line.itemId === "string" ? ctx.kindOf(line.itemId) : null;
     if (kind === null) return fail(`Baris ${n}: pilih barang yang aktif.`);
     if (!isWhole(line.quantity, 1, MAX_QUANTITY)) return fail(`Baris ${n}: jumlah harus bilangan bulat lebih dari 0.`);
-    if (!isWhole(line.unitCost, 0, MAX_AMOUNT)) return fail(`Baris ${n}: harga beli tidak sah.`);
+    const unitCost = line.unitCost === null || line.unitCost === undefined ? null : line.unitCost;
+    if (unitCost !== null && !isWhole(unitCost, 0, MAX_AMOUNT)) return fail(`Baris ${n}: harga beli tidak sah.`);
     const batchNumber = cleanText(line.batchNumber);
     if (batchNumber === null) return fail(INVALID_PURCHASE);
     if (batchNumber.length > 60) return fail(`Baris ${n}: nomor batch paling banyak 60 karakter.`);
@@ -379,12 +388,13 @@ export function validatePurchase(
     }
     if (kind === "OBAT" && expiryDate === null) return fail(`Baris ${n}: isi tanggal kedaluwarsa obat.`);
     if (expiryDate !== null && expiryDate < ctx.today) return fail(`Baris ${n}: barang ini sudah kedaluwarsa.`);
-    total += line.quantity * line.unitCost;
+    if (unitCost === null) missing = true;
+    else total += line.quantity * (unitCost as number);
     if (total > MAX_AMOUNT) return fail("Total faktur terlalu besar.");
     lines.push({
       itemId: line.itemId as string,
       quantity: line.quantity,
-      unitCost: line.unitCost,
+      unitCost: unitCost as number | null,
       batchNumber: batchNumber || null,
       expiryDate,
     });
@@ -399,7 +409,7 @@ export function validatePurchase(
       dueDate: raw.dueDate,
       notes: notes || null,
       lines,
-      total,
+      total: missing ? null : total,
     },
   };
 }

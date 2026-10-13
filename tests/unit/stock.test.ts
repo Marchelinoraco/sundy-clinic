@@ -7,6 +7,7 @@ import {
   flagsOf,
   isDateString,
   matchesPayableView,
+  PAYABLE_STATUS_LABEL,
   payableSummary,
   stockFlags,
   summarizeStock,
@@ -331,5 +332,23 @@ describe("validasi penyesuaian, retur, pembayaran, alasan, jatuh tempo", () => {
       message: "Jatuh tempo tidak boleh sebelum tanggal faktur.",
     });
     expect(validateDueDateChange("", "2026-10-01")).toEqual({ ok: false, message: "Isi tanggal jatuh tempo." });
+  });
+});
+
+describe("faktur menunggu harga", () => {
+  it("tanpa total: status Menunggu harga, sisa 0, tidak terlambat, tetap muncul di Belum lunas", () => {
+    const summary = payableSummary({ total: null, cancelledAt: null, dueDate: new Date("2020-01-01T00:00:00Z"), payments: [], returns: [] }, "2026-10-14");
+    expect(summary).toMatchObject({ status: "MENUNGGU_HARGA", balance: 0, overdue: false });
+    expect(PAYABLE_STATUS_LABEL.MENUNGGU_HARGA).toBe("Menunggu harga");
+    expect(matchesPayableView({ status: "MENUNGGU_HARGA", overdue: false, balance: 0, dueDate: "2026-11-01" }, "BELUM_LUNAS", "2026-10-14")).toBe(true);
+  });
+
+  it("barang masuk tanpa harga sah; total kosong bila ada baris tanpa harga", () => {
+    const base = { supplierId: "s", branchId: "b", invoiceNumber: "F-1", invoiceDate: "2026-10-14", dueDate: "2026-11-13", notes: "" };
+    const ctx = { today: "2026-10-14", kindOf: () => "PRODUK" as const };
+    const pending = validatePurchase({ ...base, lines: [{ itemId: "i", quantity: 2, unitCost: null, batchNumber: "", expiryDate: "" }] }, ctx);
+    expect(pending.ok && pending.value).toMatchObject({ total: null, lines: [{ unitCost: null }] });
+    const priced = validatePurchase({ ...base, lines: [{ itemId: "i", quantity: 2, unitCost: 5000, batchNumber: "", expiryDate: "" }] }, ctx);
+    expect(priced.ok && priced.value.total).toBe(10_000);
   });
 });

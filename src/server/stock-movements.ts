@@ -90,6 +90,7 @@ export async function createSupplierReturn(input: ReturnInput): Promise<ActionRe
         select: {
           invoiceNumber: true,
           cancelledAt: true,
+          total: true,
           supplier: { select: { name: true } },
           lines: {
             select: { batch: { select: { id: true, itemId: true, unitCost: true, batchNumber: true, item: { select: { name: true } } } } },
@@ -98,6 +99,7 @@ export async function createSupplierReturn(input: ReturnInput): Promise<ActionRe
       });
       if (!invoice) throw new UserFacingError("Faktur tidak ditemukan.");
       if (invoice.cancelledAt) throw new UserFacingError("Faktur yang dibatalkan tidak bisa diretur.");
+      if (invoice.total === null) throw new UserFacingError("Isi harga beli dulu.");
       const batches = new Map(invoice.lines.flatMap((line) => (line.batch ? [[line.batch.id, line.batch] as const] : [])));
 
       const lines: { batchId: string; quantity: number; unitCost: number; amount: number }[] = [];
@@ -108,7 +110,7 @@ export async function createSupplierReturn(input: ReturnInput): Promise<ActionRe
         if (!(await takeFromBatch(tx, batch.id, line.quantity))) {
           throw new UserFacingError(`Sisa ${batch.item.name} (batch ${batch.batchNumber ?? "-"}) tidak cukup untuk diretur.`);
         }
-        lines.push({ batchId: batch.id, quantity: line.quantity, unitCost: batch.unitCost ?? 0, amount: line.quantity * (batch.unitCost ?? 0) });
+        lines.push({ batchId: batch.id, quantity: line.quantity, unitCost: batch.unitCost!, amount: line.quantity * batch.unitCost! }); // total ada ⇒ semua baris berharga
         itemIds.add(batch.itemId);
       }
       const total = lines.reduce((sum, line) => sum + line.amount, 0);
