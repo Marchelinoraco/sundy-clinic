@@ -7,8 +7,9 @@ import { PageTabs } from "@/components/admin/page-tabs";
 import { DEFAULT_CONSULTATION_MINUTES } from "@/lib/booking-rules";
 import { witaDateString } from "@/lib/time";
 import { resolveBookingPrefill } from "@/server/booking-prefill";
-import { getBranches, getServiceCategoriesWithServices } from "@/server/catalog";
+import { getBranches } from "@/server/catalog";
 import { getClinicSetting } from "@/server/clinic-setting";
+import { listInternalServiceOptions } from "@/server/internal-catalog";
 import { loadOnlineService } from "@/server/online-store";
 import { listSchedulableStaff } from "@/server/schedule";
 import { requireCapability } from "@/server/session";
@@ -22,9 +23,9 @@ export default async function NewAppointmentPage({ searchParams }: { searchParam
   await requireCapability("booking:manage");
   const params = await searchParams;
 
-  const [branches, categories, staffList, setting, prefill, onlineService] = await Promise.all([
+  const [branches, services, staffList, setting, prefill, onlineService] = await Promise.all([
     getBranches(),
-    getServiceCategoriesWithServices(),
+    listInternalServiceOptions(),
     listSchedulableStaff(),
     getClinicSetting(),
     resolveBookingPrefill({ pasien: one(params.pasien), tenaga: one(params.tenaga), tanggal: one(params.tanggal), jam: one(params.jam) }),
@@ -34,23 +35,16 @@ export default async function NewAppointmentPage({ searchParams }: { searchParam
   const activeBranches = branches.filter((b) => b.status === "AKTIF");
   const online = one(params.jenis) === "online" && onlineService !== null;
   const doctors = staffList.filter((s) => s.role === "DOKTER").map((s) => ({ id: s.id, name: s.name }));
-  const consultation = categories
-    .flatMap((c) => c.services)
-    .find((s) => s.slug === CONSULTATION_SERVICE_SLUG);
-
-  const treatmentGroups: BookingServiceGroup[] = categories
-    .map((c) => ({
-      name: c.name,
-      services: c.services
-        .filter((s) => s.slug !== CONSULTATION_SERVICE_SLUG)
-        .map((s) => ({
-          id: s.id,
-          name: s.name,
-          durationMin: s.durationMin,
-          requiresDoctor: s.requiresDoctor,
-        })),
-    }))
-    .filter((g) => g.services.length > 0);
+  // Staf memilih dari katalog internal (spec layanan situs 4.2), termasuk item yang tidak tampil di situs.
+  const consultation = services.find((s) => s.slug === CONSULTATION_SERVICE_SLUG);
+  const groupsByCategory = new Map<string, BookingServiceGroup>();
+  for (const s of services) {
+    if (s.slug === CONSULTATION_SERVICE_SLUG) continue;
+    const group = groupsByCategory.get(s.categoryId) ?? { name: s.categoryName, services: [] };
+    group.services.push({ id: s.id, name: s.name, durationMin: s.durationMin, requiresDoctor: s.requiresDoctor });
+    groupsByCategory.set(s.categoryId, group);
+  }
+  const treatmentGroups: BookingServiceGroup[] = [...groupsByCategory.values()];
 
   return (
     <>

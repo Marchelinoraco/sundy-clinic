@@ -3,19 +3,17 @@ import { ClinicConsultationCard } from "@/components/admin/clinic-consultation-c
 import { PageBody, PageHeader } from "@/components/admin/page-layout";
 import { ServicePriceTable } from "@/components/admin/service-price-table";
 import { OnlineServiceCard } from "@/components/admin/online-service-card";
-import { getServiceCategoriesWithServices } from "@/server/catalog";
-import { getClinicConsultationMinutes, getOnlineServiceSettings } from "@/server/service-admin";
-import { forbidden } from "next/navigation";
 import { can } from "@/lib/permissions";
-import { requireStaff } from "@/server/session";
+import { getInternalCatalog } from "@/server/catalog-admin-read";
+import { getClinicConsultationMinutes, getOnlineServiceSettings } from "@/server/service-admin";
+import { requireCapability } from "@/server/session";
 
 export default async function AdminServicesPage() {
-  // Super Admin mengelola konten layanan; Admin Keuangan hanya harga dan biaya (spec harga modal 5).
-  const staff = await requireStaff();
+  // Katalog internal dan situs dikelola Super Admin dan Admin Keuangan; kartu konsultasi tetap Super Admin (spec layanan situs 5).
+  const staff = await requireCapability("catalog:manage");
   const canContent = can(staff.role, "content:manage");
-  if (!canContent && !can(staff.role, "price:manage")) forbidden();
   const [categories, online, consultationMinutes] = await Promise.all([
-    getServiceCategoriesWithServices(),
+    getInternalCatalog(),
     canContent ? getOnlineServiceSettings() : Promise.resolve(null),
     canContent ? getClinicConsultationMinutes() : Promise.resolve(null),
   ]);
