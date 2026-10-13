@@ -1,6 +1,7 @@
 "use client";
 
 import AccountBalanceWalletOutlined from "@mui/icons-material/AccountBalanceWalletOutlined";
+import BadgeOutlined from "@mui/icons-material/BadgeOutlined";
 import CalendarMonthOutlined from "@mui/icons-material/CalendarMonthOutlined";
 import CardGiftcardOutlined from "@mui/icons-material/CardGiftcardOutlined";
 import ContactsOutlined from "@mui/icons-material/ContactsOutlined";
@@ -65,6 +66,7 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
       { title: "Stok obat", url: "/admin/stok-dokter", icon: LocalPharmacyOutlined, needs: "stock:availability", hideWith: "stock:read" },
       { title: "Hutang", url: "/admin/hutang", icon: AccountBalanceWalletOutlined, needs: "payable:manage" },
       { title: "Pengeluaran", url: "/admin/pengeluaran", icon: PaymentsOutlined, needs: "expense:manage" },
+      { title: "Karyawan", url: "/admin/karyawan", icon: BadgeOutlined, needs: "payroll:manage" },
       { title: "Laporan", url: "/admin/laporan", icon: InsertChartOutlined, needs: "profit:read" },
     ],
   },

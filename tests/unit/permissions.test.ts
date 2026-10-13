@@ -181,4 +181,10 @@ describe("hak akses hasil BIA (spec hasil BIA 5)", () => {
       expect(can(role, "catalog:manage")).toBe(false);
     }
   });
+
+  it("penggajian hanya untuk Super Admin dan Admin Keuangan (spec karyawan 6)", () => {
+    expect(can("SUPER_ADMIN", "payroll:manage")).toBe(true);
+    expect(can("ADMIN_KEUANGAN", "payroll:manage")).toBe(true);
+    for (const role of ["RESEPSIONIS", "APOTEKER", "DOKTER", "TERAPIS"] as const) expect(can(role, "payroll:manage")).toBe(false);
+  });
 });

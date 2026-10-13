@@ -270,3 +270,17 @@ describe("migrasi layanan situs", () => {
     expect(sql).toMatch(/'ss' \|\| md5\(/);
   });
 });
+
+describe("migrasi karyawan dan penggajian", () => {
+  const sql = readFileSync("prisma/migrations/20261017090000_karyawan_penggajian/migration.sql", "utf8");
+
+  it("hanya menambah", () => {
+    expect(sql).not.toMatch(/\bDROP\b/i);
+  });
+
+  it("menjaga nominal dan status di basis data", () => {
+    expect(sql).toMatch(/employee_values/);
+    expect(sql).toMatch(/payroll_item_values/);
+    expect(sql).toMatch(/payroll_adjustment_amount/);
+  });
+});

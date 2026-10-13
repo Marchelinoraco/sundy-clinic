@@ -16,6 +16,7 @@ model Branch {
   recurringExpenses RecurringExpense[]
   dispensings       Dispensing[]
   invoices          Invoice[]
+  employees         Employee[]
   id                String             @id @default(cuid())
   slug              String             @unique
   name              String
@@ -96,6 +97,7 @@ model Staff {
   appointments       Appointment[]
   slotHolds          SlotHold[]
   reviewedIntakes    Intake[]
+  employee           Employee?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1150,6 +1152,9 @@ model InvoiceLine {
   unitPrice            Int
   sortOrder            Int                   @default(0)
   serviceId            String?
+  /// Penggajian yang membayar komisi baris ini (spec karyawan 2.5).
+  payrollItemId        String?
+  payrollItem          PayrollItem?          @relation(fields: [payrollItemId], references: [id], onDelete: SetNull)
   /// Treatment di catatan dokter asal baris ini; mencegah treatment yang sama masuk dua kali.
   encounterTreatmentId String?
   itemId               String?
@@ -1184,6 +1189,7 @@ model InvoiceLine {
   @@unique([invoiceId, encounterTreatmentId])
   @@index([patientPackageItemId])
   @@index([invoiceId])
+  @@index([performerId, payrollItemId])
 }
 
 /// Stok yang diambil untuk satu baris barang, per batch, dengan harga pokoknya (untuk laporan nanti).
@@ -1416,6 +1422,9 @@ model Expense {
   voidedByName  String?
   voidReason    String?
 
+  payrollSalary     PayrollItem? @relation("PayrollSalaryExpense")
+  payrollCommission PayrollItem? @relation("PayrollCommissionExpense")
+
   @@unique([recurringId, recurringMonth])
   @@index([date])
   @@index([categoryId])
@@ -1507,4 +1516,103 @@ model BiaFile {
   voidReason     String?
 
   @@index([measurementId])
+}
+
+enum EmployeeStatus {
+  AKTIF
+  BERHENTI
+}
+
+enum PayrollAdjustmentKind {
+  BONUS
+  POTONGAN
+}
+
+/// Karyawan (spec karyawan 2.1): termasuk yang tanpa akun panel. Data sensitif sengaja di luar `Staff`, yang dibaca situs publik.
+/// Tidak pernah dihapus; CHECK employee_values.
+model Employee {
+  id          String         @id @default(cuid())
+  name        String
+  position    String
+  branchId    String?
+  branch      Branch?        @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  joinedOn    DateTime       @db.Date
+  nik         String?
+  npwp        String?
+  whatsapp    String?
+  bankName    String?
+  bankAccount String?
+  bankHolder  String?
+  notes       String?
+  baseSalary  Int            @default(0)
+  allowance   Int            @default(0)
+  status      EmployeeStatus @default(AKTIF)
+  leftOn      DateTime?      @db.Date
+  staffId     String?        @unique
+  staff       Staff?         @relation(fields: [staffId], references: [id], onDelete: SetNull)
+
+  payrollItems PayrollItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+/// Penggajian satu bulan (spec karyawan 2.2). `month` = "YYYY-MM".
+model PayrollPeriod {
+  id            String        @id @default(cuid())
+  month         String        @unique
+  createdById   String
+  createdByName String
+  createdAt     DateTime      @default(now())
+  items         PayrollItem[]
+}
+
+/// Satu karyawan dalam satu penggajian (spec karyawan 2.3). Nominal komisi dan total dikunci saat dibayar. CHECK payroll_item_values.
+model PayrollItem {
+  id                  String        @id @default(cuid())
+  periodId            String
+  period              PayrollPeriod @relation(fields: [periodId], references: [id], onDelete: Restrict)
+  employeeId          String
+  employee            Employee      @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  employeeName        String
+  position            String
+  baseSalary          Int
+  allowance           Int
+  amountNote          String?
+  commission          Int           @default(0)
+  treatments          Int           @default(0)
+  bonusTotal          Int           @default(0)
+  deductionTotal      Int           @default(0)
+  total               Int           @default(0)
+  paidAt              DateTime?     @db.Date
+  paidById            String?
+  paidByName          String?
+  salaryExpenseId     String?       @unique
+  salaryExpense       Expense?      @relation("PayrollSalaryExpense", fields: [salaryExpenseId], references: [id], onDelete: SetNull)
+  commissionExpenseId String?       @unique
+  commissionExpense   Expense?      @relation("PayrollCommissionExpense", fields: [commissionExpenseId], references: [id], onDelete: SetNull)
+  voidedPayments      Int           @default(0)
+
+  adjustments     PayrollAdjustment[]
+  commissionLines InvoiceLine[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([periodId, employeeId])
+}
+
+/// Bonus atau potongan satu baris penggajian (spec karyawan 2.4). `invoiceLineId` terisi untuk koreksi komisi otomatis.
+model PayrollAdjustment {
+  id            String                @id @default(cuid())
+  itemId        String
+  item          PayrollItem           @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  kind          PayrollAdjustmentKind
+  amount        Int
+  note          String
+  invoiceLineId String?               @unique
+  createdByName String
+  createdAt     DateTime              @default(now())
 }

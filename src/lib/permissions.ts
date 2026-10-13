@@ -29,7 +29,8 @@ export type Capability =
   | "profit:read"
   | "bia:upload"
   | "price:manage"
-  | "catalog:manage";
+  | "catalog:manage"
+  | "payroll:manage";
 
 export const CAPABILITIES_BY_ROLE: Record<StaffRole, readonly Capability[]> = {
   SUPER_ADMIN: [
@@ -55,6 +56,7 @@ export const CAPABILITIES_BY_ROLE: Record<StaffRole, readonly Capability[]> = {
     "bia:upload",
     "price:manage",
     "catalog:manage",
+    "payroll:manage",
   ],
 
   // Dokter memegang rekam medis, tetapi tidak mengelola akun staf.
@@ -78,7 +80,7 @@ export const CAPABILITIES_BY_ROLE: Record<StaffRole, readonly Capability[]> = {
   // Tidak mengubah stok, booking, jadwal, rekam medis, atau akun staf (spec stok 7.2).
   // Harga jual dan promo barang (spec perbaikan tagihan T9); harga beli menyusul di sub-proyek 3.
   // Katalog layanan internal dan situs (spec layanan situs 5).
-  ADMIN_KEUANGAN: ["stock:read", "payable:manage", "report:read", "invoice:read", "invoice:correct", "expense:manage", "profit:read", "price:manage", "catalog:manage"],
+  ADMIN_KEUANGAN: ["stock:read", "payable:manage", "report:read", "invoice:read", "invoice:correct", "expense:manage", "profit:read", "price:manage", "catalog:manage", "payroll:manage"],
 };
 
 export function can(role: StaffRole, capability: Capability): boolean {
