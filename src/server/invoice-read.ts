@@ -171,6 +171,8 @@ export type InvoiceLineRow = {
   catalogLinked: boolean;
   /** Berasal dari penyerahan Apoteker: jumlah terkunci dan tidak bisa dihapus resepsionis. */
   fromDispensing: boolean;
+  /** Baris dari resep dokter (spec resep dokter 4): bisa dikurangi resepsionis dengan alasan. */
+  prescription: { prescribedQuantity: number; usage: string } | null;
   /** Pelaksana treatment; nama saja yang tampil bagi resepsionis (spec harga modal M8). */
   performerId: string | null;
   performerName: string | null;
@@ -231,6 +233,8 @@ export type InvoiceDetail = {
   cancelledByName: string | null;
   cancelReason: string | null;
   lines: InvoiceLineRow[];
+  /** Ada baris dari resep dokter: tombol Cetak etiket tampil (spec resep dokter 5). */
+  hasPrescription: boolean;
   payments: InvoicePaymentRow[];
   /** Pernah ada pembayaran (termasuk yang dibatalkan): pembatalan tagihan butuh invoice:correct. */
   everPaid: boolean;
@@ -287,6 +291,7 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
           serviceId: true,
           itemId: true,
           dispensingLineId: true,
+          dispensingLine: { select: { quantity: true, usage: true, dispensing: { select: { source: true } } } },
           discountAmount: true,
           discountReason: true,
           discountSource: true,
@@ -342,6 +347,8 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
     packageUse: line.patientPackageItemId ? { patientPackageItemId: line.patientPackageItemId, packageName: line.patientPackageItem?.patientPackage.name ?? "" } : null,
     packageNote: notes.get(line.id) ?? null,
     fromDispensing: line.dispensingLineId !== null,
+    prescription:
+      line.dispensingLine?.dispensing.source === "DOKTER" ? { prescribedQuantity: line.dispensingLine.quantity, usage: line.dispensingLine.usage } : null,
     performerId: line.performerId,
     performerName: line.performerName,
     costing: costingOf(line),
@@ -371,6 +378,7 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
     cancelledByName: invoice.cancelledByName,
     cancelReason: invoice.cancelReason,
     lines,
+    hasPrescription: lines.some((line) => line.prescription !== null),
     payments: invoice.payments.map((payment) => ({
       id: payment.id,
       amount: payment.amount,

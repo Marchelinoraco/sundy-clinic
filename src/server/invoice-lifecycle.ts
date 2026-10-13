@@ -201,10 +201,18 @@ export async function cancelInvoice(input: { invoiceId: string; reason: string }
       }
       // Baris asal penyerahan dilepas supaya penyerahan bisa ditagih lagi; penyerahan tagihan final kembali Menunggu
       // (spec penyerahan 4.6). Urutan kunci tetap tagihan → penyerahan.
+      // Resep dokter: jumlah yang dikurangi resepsionis berlaku untuk tagihan ini saja; tagihan baru memakai resep asli,
+      // dan penyerahannya tetap Selesai (spec resep dokter 4).
+      if (invoice.appointmentId) {
+        await tx.dispensingLine.updateMany({
+          where: { dispensing: { appointmentId: invoice.appointmentId, source: "DOKTER" } },
+          data: { billedQuantity: null, billingNote: null },
+        });
+      }
       await tx.invoiceLine.updateMany({ where: { invoiceId, dispensingLineId: { not: null } }, data: { dispensingLineId: null } });
       if (invoice.status === "FINAL" && invoice.appointmentId) {
         await tx.dispensing.updateMany({
-          where: { appointmentId: invoice.appointmentId, status: { not: "MENUNGGU" } },
+          where: { appointmentId: invoice.appointmentId, source: "APOTEKER", status: { not: "MENUNGGU" } },
           data: { status: "MENUNGGU", completedAt: null, completedById: null, completedByName: null, version: { increment: 1 } },
         });
       }

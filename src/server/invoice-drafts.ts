@@ -21,6 +21,7 @@ import {
 import { formatRupiah } from "@/lib/format";
 import { dateLabel, dateOnlyString } from "@/lib/stock";
 import { can } from "@/lib/permissions";
+import { validateReduction } from "@/lib/prescription";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { promoDiscount } from "@/lib/stock-promo";
 import { witaDateString } from "@/lib/time";
@@ -40,6 +41,8 @@ const NOT_PACKAGE_LINE = "Hanya baris treatment dari katalog yang bisa memakai s
 const PACKAGE_PRICE = "Baris sesi paket selalu Rp 0. Klik Lepas paket untuk menagih harga biasa.";
 const PACKAGE_DISCOUNT = "Baris sesi paket tidak bisa diberi diskon.";
 const DISPENSED_REMOVE = "Obat dari penyerahan tidak bisa dihapus. Minta Apoteker membuka kembali penyerahan.";
+const PRESCRIPTION_QUANTITY = "Jumlah obat dari resep dokter diubah lewat tombol Kurangi.";
+const PRESCRIPTION_REMOVE = "Obat dari resep dokter dihapus lewat tombol Kurangi (jumlah 0) dengan alasan.";
 
 function revalidateInvoices(invoiceId?: string) {
   safeRevalidatePath("/admin/tagihan");
@@ -448,10 +451,13 @@ export async function updateInvoiceLine(input: {
           kind: true,
           treatmentPackageId: true,
           patientPackageItemId: true,
+          dispensingLine: { select: { dispensing: { select: { source: true } } } },
         },
       });
       if (!line) throw new UserFacingError("Baris tidak ditemukan.");
-      if (line.dispensingLineId && input.quantity !== line.quantity) throw new UserFacingError(DISPENSED_QUANTITY);
+      if (line.dispensingLineId && input.quantity !== line.quantity) {
+        throw new UserFacingError(line.dispensingLine?.dispensing.source === "DOKTER" ? PRESCRIPTION_QUANTITY : DISPENSED_QUANTITY);
+      }
       if (line.kind === "PAKET" && input.quantity !== 1) throw new UserFacingError(PACKAGE_QUANTITY);
       if (line.patientPackageItemId && input.unitPrice !== 0) throw new UserFacingError(PACKAGE_PRICE);
 
@@ -505,13 +511,87 @@ export async function removeInvoiceLine(input: { invoiceId: string; version: num
 
     const result = await prisma.$transaction(async (tx) => {
       const version = await touchDraft(tx, invoiceId, input.version);
-      const line = await tx.invoiceLine.findFirst({ where: { id: String(input.lineId ?? ""), invoiceId }, select: { id: true, name: true, dispensingLineId: true } });
+      const line = await tx.invoiceLine.findFirst({
+        where: { id: String(input.lineId ?? ""), invoiceId },
+        select: { id: true, name: true, dispensingLineId: true, dispensingLine: { select: { dispensing: { select: { source: true } } } } },
+      });
       if (!line) throw new UserFacingError("Baris tidak ditemukan.");
-      if (line.dispensingLineId) throw new UserFacingError(DISPENSED_REMOVE);
+      if (line.dispensingLineId) {
+        throw new UserFacingError(line.dispensingLine?.dispensing.source === "DOKTER" ? PRESCRIPTION_REMOVE : DISPENSED_REMOVE);
+      }
       await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
         await tx.invoiceLine.delete({ where: { id: line.id } });
       });
       return { version, summary: `Hapus baris ${line.name}` };
+    });
+
+    await recordAudit({ actor, action: "invoice.update", entity: "Invoice", entityId: invoiceId, summary: result.summary });
+    revalidateInvoices(invoiceId);
+    return { version: result.version };
+  });
+}
+
+/**
+ * Resepsionis mengurangi atau menghapus (jumlah 0) baris dari resep dokter dengan alasan (spec resep dokter 4, RD5).
+ * Jumlah yang ditagih dan alasannya disimpan di baris penyerahan supaya dokter melihatnya di catatan kunjungan.
+ */
+export async function reducePrescriptionLine(input: {
+  invoiceId: string;
+  version: number;
+  lineId: string;
+  quantity: number;
+  reason: string;
+}): Promise<EditResult> {
+  return runAction(async () => {
+    const actor = await requireCapability("invoice:manage");
+    const invoiceId = String(input?.invoiceId ?? "");
+
+    const result = await prisma.$transaction(async (tx) => {
+      const version = await touchDraft(tx, invoiceId, input.version);
+      const line = await tx.invoiceLine.findFirst({
+        where: { id: String(input?.lineId ?? ""), invoiceId },
+        select: {
+          id: true,
+          name: true,
+          unitPrice: true,
+          itemId: true,
+          discountAmount: true,
+          discountReason: true,
+          discountSource: true,
+          dispensingLine: { select: { id: true, quantity: true, dispensing: { select: { source: true } } } },
+        },
+      });
+      if (!line) throw new UserFacingError("Baris tidak ditemukan.");
+      if (!line.dispensingLine || line.dispensingLine.dispensing.source !== "DOKTER") {
+        throw new UserFacingError("Hanya baris dari resep dokter yang bisa dikurangi di sini.");
+      }
+      const prescribed = line.dispensingLine.quantity;
+      const checked = validateReduction(input, { prescribed });
+      if (!checked.ok) throw new UserFacingError(checked.message);
+      const { quantity, reason } = checked.value;
+
+      await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
+        if (quantity === 0) {
+          await tx.invoiceLine.delete({ where: { id: line.id } });
+          return;
+        }
+        // Diskon mengikuti jumlah baru: promo dihitung ulang, diskon manual dipotong ke harga baris (sama dengan updateInvoiceLine).
+        const gross = quantity * line.unitPrice;
+        let discount: { discountAmount: number; discountReason: string | null; discountSource: "PROMO" | "MANUAL" | null } = {
+          discountAmount: Math.min(line.discountAmount, gross),
+          discountReason: line.discountReason,
+          discountSource: line.discountSource,
+        };
+        if (line.discountSource === "PROMO" && line.itemId) {
+          const item = await tx.stockItem.findUnique({ where: { id: line.itemId }, select: PROMO_SELECT });
+          const promo = item ? promoDiscount(item, { quantity, unitPrice: line.unitPrice }, witaDateString(new Date())) : null;
+          discount = promo ? { discountAmount: promo.amount, discountReason: promo.reason, discountSource: "PROMO" } : { ...NO_DISCOUNT };
+        }
+        if (discount.discountAmount === 0) discount = { ...NO_DISCOUNT };
+        await tx.invoiceLine.update({ where: { id: line.id }, data: { quantity, ...discount } });
+      });
+      await tx.dispensingLine.update({ where: { id: line.dispensingLine.id }, data: { billedQuantity: quantity, billingNote: reason } });
+      return { version, summary: `Kurangi ${line.name}: ×${quantity} dari ${prescribed} — ${reason}` };
     });
 
     await recordAudit({ actor, action: "invoice.update", entity: "Invoice", entityId: invoiceId, summary: result.summary });

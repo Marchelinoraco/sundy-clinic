@@ -42,6 +42,7 @@ import { CancelInvoiceDialog } from "./cancel-invoice-dialog";
 import { DiscountForm } from "./discount-form";
 import { InvoiceNotesForm } from "./invoice-notes-form";
 import { LineDiscountDialog, LineDiscountNote } from "./line-discount-dialog";
+import { ReducePrescriptionDialog } from "./reduce-prescription-dialog";
 
 /** Jalankan aksi server: tampilkan kesalahan apa adanya, muat ulang halaman bila berhasil. */
 export function useInvoiceAction() {
@@ -107,7 +108,13 @@ function LineRow({ detail, line, options, performers, disabled, run, fail }: {
         {line.fromDispensing && (
           <Box component="span" sx={{ mt: 0.5, display: "inline-flex", alignItems: "center", gap: 0.5, fontSize: "0.75rem", color: "text.secondary" }}>
             {/* Ikon MUI disembunyikan dari pembaca layar secara bawaan; label ini dipertahankan seperti ikon lama. */}
-            <LockOutlined role="img" aria-hidden={false} aria-label="Dari penyerahan Apoteker" sx={{ fontSize: 14 }} /> Dari penyerahan Apoteker
+            <LockOutlined
+              role="img"
+              aria-hidden={false}
+              aria-label={line.prescription ? "Dari resep dokter" : "Dari penyerahan Apoteker"}
+              sx={{ fontSize: 14 }}
+            />{" "}
+            {line.prescription ? `Dari resep dokter · ${line.prescription.usage}` : "Dari penyerahan Apoteker"}
           </Box>
         )}
         {priceChanged && line.catalogLinked && (
@@ -145,6 +152,14 @@ function LineRow({ detail, line, options, performers, disabled, run, fail }: {
         <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end" }}>
           <PackageSessionButton invoiceId={detail.id} version={detail.version} line={line} options={options} disabled={disabled} />
           {!line.packageUse && <LineDiscountDialog invoiceId={detail.id} version={detail.version} line={line} disabled={disabled} />}
+          {line.prescription && (
+            <ReducePrescriptionDialog
+              invoiceId={detail.id}
+              version={detail.version}
+              line={{ id: line.id, name: line.name, quantity: line.quantity, prescription: line.prescription }}
+              disabled={disabled}
+            />
+          )}
           <Button type="button" size="small" variant="outlined" disabled={disabled} onClick={save} aria-label={`Simpan baris ${line.name}`}>
             Simpan
           </Button>

@@ -26,6 +26,7 @@ const LINE: InvoiceLineRow = {
   itemId: "i1",
   catalogLinked: true,
   fromDispensing: false,
+  prescription: null,
   performerId: null,
   performerName: null,
   treatmentPackageId: null,
