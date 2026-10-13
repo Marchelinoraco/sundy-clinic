@@ -12,7 +12,7 @@ import {
 // Aturan murni tagihan (spec tagihan 3.2). Dipakai server dan browser; tanpa akses basis data.
 
 export type InvoiceStatusValue = "DRAF" | "FINAL" | "DIBATALKAN";
-export type InvoiceLineKindValue = "LAYANAN" | "TREATMENT" | "BARANG";
+export type InvoiceLineKindValue = "LAYANAN" | "TREATMENT" | "BARANG" | "PAKET";
 export type DiscountKindValue = "NOMINAL" | "PERSEN";
 export type InvoiceDisplayStatus = "DRAF" | "BELUM_DIBAYAR" | "SEBAGIAN" | "LUNAS" | "DIBATALKAN";
 export type InvoiceView = "PERLU_DITAGIH" | "DRAF" | "BELUM_LUNAS" | "LUNAS" | "DIBATALKAN";
@@ -43,6 +43,7 @@ export const INVOICE_LINE_KIND_LABEL: Record<InvoiceLineKindValue, string> = {
   LAYANAN: "Layanan",
   TREATMENT: "Treatment",
   BARANG: "Barang",
+  PAKET: "Paket",
 };
 export const DISCOUNT_KIND_LABEL: Record<DiscountKindValue, string> = { NOMINAL: "Nominal", PERSEN: "Persen" };
 

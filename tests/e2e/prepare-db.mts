@@ -21,11 +21,16 @@ await prisma.expense.deleteMany();
 await prisma.recurringExpense.deleteMany();
 await prisma.expenseCategory.deleteMany({ where: { name: { startsWith: "E2E" } } });
 // Tagihan (tagihan.spec.ts) merujuk booking dan pasien, jadi dibuang lebih dulu.
+// Paket treatment (paket.spec.ts): buku sesi dan paket customer lebih dulu, karena merujuk baris tagihan.
+await prisma.packageSessionEntry.deleteMany();
+await prisma.invoiceLine.updateMany({ where: { patientPackageItemId: { not: null } }, data: { patientPackageItemId: null } });
+await prisma.patientPackage.deleteMany();
 await prisma.invoicePayment.deleteMany();
 await prisma.invoiceStockUse.deleteMany();
 await prisma.invoiceLine.deleteMany();
 await prisma.invoice.deleteMany();
 await prisma.invoiceNumberCounter.deleteMany();
+await prisma.treatmentPackage.deleteMany({ where: { name: { startsWith: "Paket E2E" } } });
 // Penyerahan obat (resep.spec.ts) merujuk booking dan baris tagihan, jadi dibuang sesudah tagihan dan sebelum booking.
 await prisma.dispensingLine.deleteMany();
 await prisma.dispensing.deleteMany();

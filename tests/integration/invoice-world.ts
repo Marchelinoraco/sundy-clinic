@@ -136,10 +136,17 @@ export async function seedDispensing(
 /** Menghapus semua data dunia uji, dari anak ke induk (relasi tagihan dan stok memakai Restrict). */
 export async function cleanupBillingWorld(slug: string, patientWhatsapps: string[] = []): Promise<void> {
   const branch = { slug: { startsWith: slug } };
+  // Paket treatment (rencana paket Task 1): buku sesi → lepas baris pemakaian → paket customer → (baris tagihan) → katalog.
+  await prisma.packageSessionEntry.deleteMany({
+    where: { OR: [{ invoiceLine: { invoice: { branch } } }, { item: { patientPackage: { purchaseLine: { invoice: { branch } } } } }] },
+  });
+  await prisma.invoiceLine.updateMany({ where: { invoice: { branch }, patientPackageItemId: { not: null } }, data: { patientPackageItemId: null } });
+  await prisma.patientPackage.deleteMany({ where: { purchaseLine: { invoice: { branch } } } });
   await prisma.invoiceStockUse.deleteMany({ where: { line: { invoice: { branch } } } });
   await prisma.invoicePayment.deleteMany({ where: { invoice: { branch } } });
   await prisma.invoiceLine.deleteMany({ where: { invoice: { branch } } });
   await prisma.invoice.deleteMany({ where: { branch } });
+  await prisma.treatmentPackage.deleteMany({ where: { name: { startsWith: slug } } });
   await prisma.expense.deleteMany({ where: { branch } });
   await prisma.recurringExpense.deleteMany({ where: { branch } });
   await prisma.dispensingLine.deleteMany({ where: { dispensing: { branch } } });

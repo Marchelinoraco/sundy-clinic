@@ -225,3 +225,20 @@ describe("migrasi perbaikan tagihan", () => {
     expect(sql).toMatch(/INSERT INTO "ClinicBankAccount"[\s\S]*FROM "ClinicSetting"/);
   });
 });
+
+describe("migrasi paket treatment", () => {
+  const enumSql = readFileSync("prisma/migrations/20261014090000_paket_enum/migration.sql", "utf8");
+  const sql = readFileSync("prisma/migrations/20261014090100_paket_treatment/migration.sql", "utf8");
+
+  it("nilai enum PAKET ditambah di migrasi sendiri, sebelum dipakai", () => {
+    expect(enumSql).toMatch(/ALTER TYPE "InvoiceLineKind" ADD VALUE 'PAKET'/);
+    expect(enumSql.replace(/--.*$/gm, "").trim().split(";").filter((s) => s.trim()).length).toBe(1);
+  });
+
+  it("hanya menambah, dan menjaga bentuk paket di basis data", () => {
+    expect(sql).not.toMatch(/\bDROP\b/i);
+    for (const name of ["treatment_package_values", "treatment_package_item_sessions", "patient_package_dates", "package_entry_delta", "invoice_line_package_shape"]) {
+      expect(sql, name).toMatch(new RegExp(`ADD CONSTRAINT "${name}" CHECK`));
+    }
+  });
+});

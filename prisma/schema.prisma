@@ -182,6 +182,7 @@ model Service {
   categoryId String
   category   ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
+  packageItems TreatmentPackageItem[]
   appointments Appointment[]
 
   createdAt DateTime @default(now())
@@ -385,6 +386,7 @@ model Patient {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  packages     PatientPackage[]
   appointments Appointment[]
   intakes      Intake[]
 
@@ -1032,6 +1034,7 @@ enum InvoiceLineKind {
   LAYANAN
   TREATMENT
   BARANG
+  PAKET
 }
 
 enum DiscountKind {
@@ -1096,15 +1099,15 @@ model Invoice {
 }
 
 model InvoiceLine {
-  id                   String              @id @default(cuid())
+  id                   String                @id @default(cuid())
   invoiceId            String
-  invoice              Invoice             @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  invoice              Invoice               @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
   kind                 InvoiceLineKind
   /// Disalin saat baris dibuat, bukan dirujuk: perubahan katalog tidak mengubah tagihan.
   name                 String
   quantity             Int
   unitPrice            Int
-  sortOrder            Int                 @default(0)
+  sortOrder            Int                   @default(0)
   serviceId            String?
   /// Treatment di catatan dokter asal baris ini; mencegah treatment yang sama masuk dua kali.
   encounterTreatmentId String?
@@ -1112,16 +1115,26 @@ model InvoiceLine {
   /// Catatan bila harga diubah dari harga katalog.
   priceNote            String?
   /// Potongan rupiah untuk seluruh baris (spec perbaikan tagihan 3–4). CHECK: 0..quantity×unitPrice.
-  discountAmount       Int                 @default(0)
+  discountAmount       Int                   @default(0)
   discountReason       String?
   discountSource       LineDiscountSource?
   /// Baris penyerahan asal baris ini (spec penyerahan 4.3); kosong untuk baris biasa. Dilepas bila tagihan dibatalkan.
-  dispensingLineId     String?             @unique
-  dispensingLine       DispensingLine?     @relation(fields: [dispensingLineId], references: [id], onDelete: Restrict)
+  dispensingLineId     String?               @unique
+  dispensingLine       DispensingLine?       @relation(fields: [dispensingLineId], references: [id], onDelete: Restrict)
+  /// Paket katalog yang dijual baris PAKET (spec paket 5). CHECK invoice_line_package_shape.
+  treatmentPackageId   String?
+  treatmentPackage     TreatmentPackage?     @relation(fields: [treatmentPackageId], references: [id], onDelete: Restrict)
+  /// Item paket customer yang dipakai baris TREATMENT ini (spec paket 6); baris itu selalu Rp 0 tanpa diskon.
+  patientPackageItemId String?
+  patientPackageItem   PatientPackageItem?   @relation("PackageSessionLine", fields: [patientPackageItemId], references: [id], onDelete: Restrict)
+  /// Paket customer yang lahir dari baris PAKET ini saat tagihan difinalkan.
+  purchasedPackage     PatientPackage?       @relation("PackagePurchase")
+  packageEntries       PackageSessionEntry[] @relation("PackageEntryLine")
 
   stockUses InvoiceStockUse[]
 
   @@unique([invoiceId, encounterTreatmentId])
+  @@index([patientPackageItemId])
   @@index([invoiceId])
 }
 
@@ -1164,6 +1177,105 @@ model InvoicePayment {
   @@index([invoiceId])
   @@index([paidAt])
   @@index([clinicBankAccountId])
+}
+
+enum PatientPackageStatus {
+  AKTIF
+  DIBATALKAN
+}
+
+enum PackageEntryKind {
+  BELI
+  PAKAI
+  BATAL_PAKAI
+  PERPANJANG
+  BATAL_PAKET
+}
+
+/// Katalog paket treatment (spec paket 3–4). Tidak pernah dihapus; dinonaktifkan.
+model TreatmentPackage {
+  id              String                 @id @default(cuid())
+  name            String
+  price           Int
+  validDays       Int
+  description     String?
+  isActive        Boolean                @default(true)
+  sortOrder       Int                    @default(0)
+  items           TreatmentPackageItem[]
+  invoiceLines    InvoiceLine[]
+  patientPackages PatientPackage[]
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+
+  @@index([isActive, sortOrder])
+}
+
+model TreatmentPackageItem {
+  id        String           @id @default(cuid())
+  packageId String
+  package   TreatmentPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  serviceId String
+  service   Service          @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  sessions  Int
+  sortOrder Int              @default(0)
+
+  @@unique([packageId, serviceId])
+}
+
+/// Paket milik customer; nama, harga, dan isi disalin saat tagihan pembelian difinalkan.
+model PatientPackage {
+  id             String               @id @default(cuid())
+  patientId      String
+  patient        Patient              @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  packageId      String
+  package        TreatmentPackage     @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  name           String
+  price          Int
+  purchaseLineId String               @unique
+  purchaseLine   InvoiceLine          @relation("PackagePurchase", fields: [purchaseLineId], references: [id], onDelete: Restrict)
+  startsOn       DateTime             @db.Date
+  /// Inklusif. Kedaluwarsa dihitung dari tanggal ini, bukan disimpan sebagai status.
+  expiresOn      DateTime             @db.Date
+  status         PatientPackageStatus @default(AKTIF)
+  items          PatientPackageItem[]
+  createdAt      DateTime             @default(now())
+
+  @@index([patientId])
+}
+
+model PatientPackageItem {
+  id               String                @id @default(cuid())
+  patientPackageId String
+  patientPackage   PatientPackage        @relation(fields: [patientPackageId], references: [id], onDelete: Cascade)
+  serviceId        String
+  serviceName      String
+  /// Jatah awal. Sisa = Σ delta buku sesi.
+  sessions         Int
+  sortOrder        Int                   @default(0)
+  entries          PackageSessionEntry[]
+  invoiceLines     InvoiceLine[]         @relation("PackageSessionLine")
+
+  @@unique([patientPackageId, serviceId])
+}
+
+/// Buku sesi paket (spec paket 3): hanya ditambah, tidak pernah diubah.
+model PackageSessionEntry {
+  id                   String             @id @default(cuid())
+  patientPackageItemId String
+  item                 PatientPackageItem @relation(fields: [patientPackageItemId], references: [id], onDelete: Restrict)
+  kind                 PackageEntryKind
+  delta                Int
+  invoiceLineId        String?
+  invoiceLine          InvoiceLine?       @relation("PackageEntryLine", fields: [invoiceLineId], references: [id], onDelete: Restrict)
+  reason               String?
+  previousExpiresOn    DateTime?          @db.Date
+  newExpiresOn         DateTime?          @db.Date
+  staffId              String
+  staffName            String
+  createdAt            DateTime           @default(now())
+
+  @@index([patientPackageItemId])
+  @@index([invoiceLineId])
 }
 
 // ---------------------------------------------------------------------------
