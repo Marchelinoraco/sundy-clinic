@@ -11,6 +11,7 @@ import { AdminHeader } from "@/components/admin/admin-header";
 import { EmptyState, PageBody, PageHeader, SectionCard } from "@/components/admin/page-layout";
 import { CancelPurchaseDialog } from "@/components/admin/stock/cancel-purchase-dialog";
 import { PurchasePaymentsSection } from "@/components/admin/stock/purchase-payments-section";
+import { PurchasePriceDialog } from "@/components/admin/stock/purchase-price-dialog";
 import { PayableStatusBadge } from "@/components/admin/stock/payable-status-badge";
 import { SupplierReturnDialog } from "@/components/admin/stock/supplier-return-dialog";
 import { formatDateWithYear, formatRupiah } from "@/lib/format";
@@ -27,6 +28,7 @@ export default async function PurchasePage({ params }: { params: Promise<{ id: s
   const detail = await getPurchaseDetail((await params).id);
   if (!detail) notFound();
   const canManage = can(staff.role, "stock:manage");
+  const canPrice = can(staff.role, "price:manage");
   const canCancel = detail.canCancel && (canManage || can(staff.role, "payable:manage"));
   const returnable =
     canManage && detail.cancelledAt === null ? detail.lines.filter((line) => line.batchRemaining > 0) : [];
@@ -41,6 +43,18 @@ export default async function PurchasePage({ params }: { params: Promise<{ id: s
           description={`${detail.supplierName} · ${detail.branchName}`}
           actions={
             <>
+              {canPrice && detail.cancelledAt === null && (detail.total === null || detail.canReprice) && (
+                <PurchasePriceDialog
+                  invoiceId={detail.id}
+                  lines={detail.lines.map((line) => ({
+                    id: line.id,
+                    label: `${line.itemName}${line.batchNumber ? ` (batch ${line.batchNumber})` : ""}`,
+                    quantity: line.quantity,
+                    unit: line.unit,
+                    unitCost: line.unitCost,
+                  }))}
+                />
+              )}
               {returnable.length > 0 && (
                 <SupplierReturnDialog
                   invoiceId={detail.id}

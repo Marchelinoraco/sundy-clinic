@@ -30,7 +30,7 @@ import { listStockItems, listSuppliers } from "@/server/stock-read";
 
 export const metadata = { title: "Stok" };
 
-type Search = { tab?: string; cabang?: string; jenis?: string; tanda?: string; cari?: string };
+type Search = { tab?: string; cabang?: string; jenis?: string; tanda?: string; cari?: string; harga?: string };
 type Tab = "barang" | "masuk" | "supplier";
 
 const FLAGS = Object.keys(STOCK_FLAG_LABEL) as StockFlag[];
@@ -40,6 +40,8 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
   const staff = await requireCapability("stock:read");
   const params = await searchParams;
   const canManage = can(staff.role, "stock:manage");
+  const canPrice = can(staff.role, "price:manage");
+  const pendingOnly = canPrice && params.harga === "menunggu";
   const canSetPrice = can(staff.role, "price:manage");
   const tab: Tab = params.tab === "masuk" || params.tab === "supplier" ? params.tab : "barang";
 
@@ -69,8 +71,19 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
         />
         {tab === "barang" && <ItemsTab params={params} />}
         {tab === "masuk" && (
-          <SectionCard title="Barang masuk" description="Faktur supplier terbaru di atas." flush>
-            <PurchaseTable rows={await listPurchases()} />
+          <SectionCard
+            title="Barang masuk"
+            description={pendingOnly ? "Faktur yang harga belinya belum diisi." : "Faktur supplier terbaru di atas."}
+            actions={
+              canPrice ? (
+                <LinkButton href={pendingOnly ? "/admin/stok?tab=masuk" : "/admin/stok?tab=masuk&harga=menunggu"} variant="outlined" size="small">
+                  {pendingOnly ? "Semua faktur" : "Menunggu harga"}
+                </LinkButton>
+              ) : undefined
+            }
+            flush
+          >
+            <PurchaseTable rows={await listPurchases({ pendingOnly })} />
           </SectionCard>
         )}
         {tab === "supplier" && (

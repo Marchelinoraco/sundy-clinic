@@ -27,10 +27,11 @@ export type PurchaseRow = {
 };
 
 /** Tab "Barang masuk": faktur terbaru di atas, paling banyak 200. */
-export async function listPurchases(): Promise<PurchaseRow[]> {
+export async function listPurchases(filter: { pendingOnly?: boolean } = {}): Promise<PurchaseRow[]> {
   await requireCapability("stock:read");
   const today = witaDateString(new Date());
   const invoices = await prisma.purchaseInvoice.findMany({
+    where: filter.pendingOnly ? { total: null, cancelledAt: null } : {},
     orderBy: [{ invoiceDate: "desc" }, { createdAt: "desc" }],
     take: 200,
     select: {
@@ -118,6 +119,8 @@ export type PurchaseDetail = {
   payments: SupplierPaymentRow[] | null;
   /** Syarat batal faktur (spec stok 6.4) terpenuhi. */
   canCancel: boolean;
+  /** Harga beli masih boleh diisi atau dikoreksi: belum ada pembayaran aktif dan retur (spec harga modal 4). */
+  canReprice: boolean;
 };
 
 export async function getPurchaseDetail(id: string): Promise<PurchaseDetail | null> {
@@ -239,5 +242,6 @@ export async function getPurchaseDetail(id: string): Promise<PurchaseDetail | nu
         }))
       : null,
     canCancel,
+    canReprice: invoice.payments.every((payment) => payment.revokedAt !== null) && invoice.returns.length === 0,
   };
 }

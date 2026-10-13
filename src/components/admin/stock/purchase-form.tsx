@@ -34,12 +34,15 @@ export function PurchaseForm({
   suppliers: initialSuppliers,
   branches,
   today,
+  canSetPrice = false,
 }: {
   items: StockItemOption[];
   suppliers: SupplierOption[];
   branches: { id: string; name: string }[];
   /** Hari ini dalam WITA, dari server. */
   today: string;
+  /** Harga beli hanya diisi Admin Keuangan dan Super Admin (spec harga modal M1). */
+  canSetPrice?: boolean;
 }) {
   const router = useRouter();
   const [suppliers, setSuppliers] = useState(initialSuppliers);
@@ -85,7 +88,7 @@ export function PurchaseForm({
       lines: lines.map((line) => ({
         itemId: line.itemId,
         quantity: Number(line.quantity),
-        unitCost: line.unitCost ?? Number.NaN,
+        unitCost: canSetPrice ? line.unitCost : null,
         batchNumber: line.batchNumber,
         expiryDate: line.expiryDate,
       })),
@@ -213,13 +216,15 @@ export function PurchaseForm({
                   input: unit ? { endAdornment: <InputAdornment position="end">{unit}</InputAdornment> } : undefined,
                 }}
               />
-              <RupiahInput
-                label={`Harga beli baris ${n}`}
-                placeholder="per satuan"
-                value={line.unitCost}
-                onChange={(next) => update(line.key, { unitCost: next })}
-                fullWidth
-              />
+              {canSetPrice && (
+                <RupiahInput
+                  label={`Harga beli baris ${n}`}
+                  placeholder="per satuan"
+                  value={line.unitCost}
+                  onChange={(next) => update(line.key, { unitCost: next })}
+                  fullWidth
+                />
+              )}
               <TextField
                 label={`Batch baris ${n}`}
                 placeholder="Nomor batch"
@@ -258,12 +263,18 @@ export function PurchaseForm({
       </Stack>
 
       <Paper variant="outlined" sx={{ p: 2, display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 1.5 }}>
-        <Typography variant="body2" aria-live="polite">
-          Total faktur:{" "}
-          <Box component="strong" sx={{ fontSize: "1rem" }}>
-            {formatRupiah(total)}
-          </Box>
-        </Typography>
+        {canSetPrice ? (
+          <Typography variant="body2" aria-live="polite">
+            Total faktur:{" "}
+            <Box component="strong" sx={{ fontSize: "1rem" }}>
+              {formatRupiah(total)}
+            </Box>
+          </Typography>
+        ) : (
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            Harga beli diisi Admin Keuangan sesudah barang masuk dicatat.
+          </Typography>
+        )}
         <Button type="button" variant="contained" onClick={submit} disabled={pending}>
           {pending ? "Menyimpan…" : "Simpan barang masuk"}
         </Button>

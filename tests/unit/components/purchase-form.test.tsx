@@ -19,9 +19,9 @@ const items = [
 ];
 const TODAY = "2026-10-07";
 
-function renderForm() {
+function renderForm(canSetPrice = true) {
   return renderAdmin(
-    <PurchaseForm items={items} suppliers={[{ id: "s1", name: "Kimia Farma" }]} branches={[{ id: "b1", name: "SunDY Mahakeret" }]} today={TODAY} />,
+    <PurchaseForm items={items} suppliers={[{ id: "s1", name: "Kimia Farma" }]} branches={[{ id: "b1", name: "SunDY Mahakeret" }]} today={TODAY} canSetPrice={canSetPrice} />,
   );
 }
 
@@ -96,5 +96,19 @@ describe("PurchaseForm", () => {
     await user.type(within(dialog).getByLabelText("Nama supplier"), "Medika Jaya");
     await user.click(within(dialog).getByRole("button", { name: "Simpan" }));
     await waitFor(() => expect(screen.getByLabelText("Supplier")).toHaveValue("s2"));
+  });
+
+  it("Apoteker: tanpa isian harga beli dan tanpa total; harga dikirim kosong", async () => {
+    const user = userEvent.setup();
+    vi.mocked(createPurchase).mockResolvedValue({ ok: true, data: { id: "p9" } });
+    renderForm(false);
+    expect(screen.queryByLabelText("Harga beli baris 1")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Total faktur/)).not.toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText("Supplier"), "s1");
+    await user.type(screen.getByLabelText("Nomor faktur"), "INV-9");
+    await pickOption(user, "Barang baris 1", "Serum C (PRD-001)");
+    await user.type(screen.getByLabelText("Jumlah baris 1"), "3");
+    await user.click(screen.getByRole("button", { name: "Simpan barang masuk" }));
+    await waitFor(() => expect(createPurchase).toHaveBeenCalledWith(expect.objectContaining({ lines: [expect.objectContaining({ itemId: "serum", quantity: 3, unitCost: null })] })));
   });
 });

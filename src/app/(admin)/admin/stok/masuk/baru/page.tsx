@@ -2,6 +2,7 @@ import { AdminHeader } from "@/components/admin/admin-header";
 import { TextLink } from "@/components/admin/mui/links";
 import { EmptyState, PageBody, PageHeader } from "@/components/admin/page-layout";
 import { PurchaseForm } from "@/components/admin/stock/purchase-form";
+import { can } from "@/lib/permissions";
 import { witaDateString } from "@/lib/time";
 import { getBranches } from "@/server/catalog";
 import { requireCapability } from "@/server/session";
@@ -10,7 +11,7 @@ import { listStockItemOptions, listSupplierOptions } from "@/server/stock-read";
 export const metadata = { title: "Barang masuk" };
 
 export default async function NewPurchasePage() {
-  await requireCapability("stock:manage");
+  const staff = await requireCapability("stock:manage");
   const [items, suppliers, branches] = await Promise.all([listStockItemOptions(), listSupplierOptions(), getBranches()]);
   const active = branches.filter((branch) => branch.status === "AKTIF").map((branch) => ({ id: branch.id, name: branch.name }));
 
@@ -34,7 +35,7 @@ export default async function NewPurchasePage() {
             .
           </EmptyState>
         ) : (
-          <PurchaseForm items={items} suppliers={suppliers} branches={active} today={witaDateString(new Date())} />
+          <PurchaseForm items={items} suppliers={suppliers} branches={active} today={witaDateString(new Date())} canSetPrice={can(staff.role, "price:manage")} />
         )}
       </PageBody>
     </>
