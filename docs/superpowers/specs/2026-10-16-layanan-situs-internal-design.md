@@ -56,7 +56,7 @@ opsional), `durationMin`, `requiresDoctor`, `isActive`, `sortOrder`, serta biaya
 | `isActive` | Boolean, bawaan true | |
 | `sortOrder` | Int, bawaan 0 | urutan di dalam kategori |
 | `categoryId` | → `ServiceCategory` | `onDelete: Cascade`, sama seperti `Service` |
-| `serviceId` | → `Service` | wajib, `onDelete: Restrict` |
+| `serviceId` | → `Service` | wajib, `onDelete: Cascade` (tidak ada kode yang menghapus layanan internal; pembersih uji menghapus layanan beserta layanan situsnya) |
 | `createdAt`, `updatedAt` | DateTime | |
 
 Indeks `@@index([categoryId, sortOrder])`, `@@index([serviceId])`, `@@index([isSignature])`. Satu layanan internal boleh
@@ -66,7 +66,7 @@ ditautkan oleh beberapa layanan situs. Tidak ada kolom harga (K3).
 
 Membuat tabel `SiteService`, lalu menyalin setiap baris `Service` yang slug-nya bukan `konsultasi-online` menjadi satu
 `SiteService` dengan `slug`, `name`, `description`, `imageUrl`, `priceNote`, `isSignature`, `isActive`, `sortOrder`,
-`categoryId` yang sama dan `serviceId` = id asalnya. Id baru dibuat di SQL (`'ss_' || md5(random()::text || id)`).
+`categoryId` yang sama dan `serviceId` = id asalnya. Id baru dibuat di SQL (`'ss' || md5(random()::text || id)`, huruf kecil dan angka saja, agar cocok dengan pola nama berkas foto).
 Hasilnya situs menampilkan hal yang sama persis seperti sebelum deploy. `prisma/seed.ts` ikut membuat `SiteService` untuk
 setiap layanan seed (kecuali Konsultasi Online) agar basis data uji dan E2E sama bentuknya.
 
@@ -98,7 +98,7 @@ durasi, dan `requiresDoctor` dari layanan internal. Bila beberapa layanan situs 
 itu tampil sekali dengan nama layanan situs yang urutannya paling awal.
 
 Server booking (`public-booking.ts`) tetap menerima id layanan internal, dan sekarang juga menolak treatment yang tidak
-punya satu pun layanan situs aktif ("Treatment tidak tersedia."), supaya item khusus internal tidak bisa dipesan lewat
+punya satu pun layanan situs aktif (pesan yang sudah ada: "Layanan ini tidak tersedia untuk booking."), supaya item khusus internal tidak bisa dipesan lewat
 permintaan buatan. Konsultasi Dokter dikecualikan dari syarat ini. Aturan slimming tetap memakai kategori layanan internal
 (K4: kategorinya satu daftar).
 
@@ -116,7 +116,9 @@ konsultasi dan kartu Konsultasi Online tetap hanya untuk `content:manage` sepert
 ### 5.1 Tab "Layanan internal"
 
 Tabel per kategori: Nama · Harga (coret dan berlaku) · Durasi · Perlu dokter · Biaya per sesi · Di situs (jumlah layanan
-situs aktif yang menautkan, atau "Hanya internal") · Status · aksi. Konsultasi Online tidak masuk tabel.
+situs aktif yang menautkan, atau "Hanya internal") · Status · aksi. Konsultasi Online tidak masuk tabel. Konsultasi Dokter
+masuk tabel, tetapi tidak bisa dinonaktifkan ("Konsultasi Dokter tidak bisa dinonaktifkan.") dan durasinya tetap 15, 30,
+45, atau 60 menit.
 
 - **+ Layanan internal** dan **Ubah** memakai satu dialog: Nama, Kategori, Harga berlaku, Harga normal (opsional; bila diisi
   harus lebih besar dari harga berlaku), Durasi (15–480 menit, kelipatan 15), Perlu dokter.
