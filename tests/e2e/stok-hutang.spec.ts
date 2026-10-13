@@ -1,7 +1,7 @@
 import { expect, test, type TestInfo } from "@playwright/test";
 import { E2E_APOTEKER, E2E_KEUANGAN, E2E_RESEPSIONIS } from "./credentials";
 import { isiTanggal, pilihOpsi } from "./helpers/mui";
-import { aturHargaJual } from "./helpers/harga";
+import { aturHargaJual, isiHargaBeli } from "./helpers/harga";
 import { signIn } from "./helpers/quiz";
 
 // Satu cerita berurutan per proyek (desktop/ponsel, data masing-masing):
@@ -52,21 +52,23 @@ test("apoteker menambah barang, mencatat barang masuk dua batch, lalu meretur se
   const option = `${itemName} (E2E-${t}-OBT)`;
   await pilihOpsi(page, "Barang baris 1", option);
   await page.getByLabel("Jumlah baris 1").fill("10");
-  await page.getByLabel("Harga beli baris 1").fill("5000");
   await page.getByLabel("Batch baris 1").fill("B-01");
   await isiTanggal(page, "Kedaluwarsa baris 1", dayFromToday(365));
   await page.getByRole("button", { name: "+ Tambah baris" }).click();
   await pilihOpsi(page, "Barang baris 2", option);
   await page.getByLabel("Jumlah baris 2").fill("6");
-  await page.getByLabel("Harga beli baris 2").fill("5000");
   await page.getByLabel("Batch baris 2").fill("B-02");
   await isiTanggal(page, "Kedaluwarsa baris 2", dayFromToday(400));
-  await expect(page.getByText("Rp 80.000")).toBeVisible();
+  // Apoteker tidak melihat total faktur (spec harga modal 8); totalnya Rp 80.000 setelah harga diisi.
   await page.getByRole("button", { name: "Simpan barang masuk" }).click();
 
   await expect(page).toHaveURL(/\/admin\/stok\/masuk\/(?!baru)[^/]+$/, { timeout: 30_000 });
   invoicePath = new URL(page.url()).pathname;
-  await expect(page.getByText("Belum dibayar", { exact: true })).toBeVisible();
+  // Barang masuk dua langkah (spec harga modal 4): Apoteker tanpa harga, Admin Keuangan mengisi harga beli.
+  await expect(page.getByText("Menunggu harga", { exact: true })).toBeVisible();
+  await isiHargaBeli(browser, invoicePath, ["5000", "5000"]);
+  await page.reload();
+  await expect(page.getByText("Belum dibayar", { exact: true })).toBeVisible({ timeout: 30_000 });
   // Apoteker tidak melihat bagian pembayaran (spec stok 6.2).
   await expect(page.getByRole("region", { name: "Pembayaran" })).toHaveCount(0);
 
@@ -75,7 +77,9 @@ test("apoteker menambah barang, mencatat barang masuk dua batch, lalu meretur se
   await returnDialog.getByLabel(`Jumlah retur ${itemName} batch B-01`).fill("2");
   await returnDialog.getByRole("button", { name: "Simpan retur" }).click();
   await expect(returnDialog).toBeHidden({ timeout: 30_000 });
-  await expect(page.getByRole("region", { name: "Retur", exact: true })).toContainText("Rp 10.000", { timeout: 30_000 });
+  // Apoteker tidak melihat nilai rupiah retur (spec harga modal 8).
+  await expect(page.getByRole("region", { name: "Retur", exact: true })).toContainText(`${itemName} batch B-01: 2`, { timeout: 30_000 });
+  await expect(page.getByRole("region", { name: "Retur", exact: true })).not.toContainText("Rp 10.000");
 
   await page.goto("/admin/stok");
   const row = page.getByRole("region", { name: "Barang", exact: true }).getByRole("row").filter({ hasText: itemName });

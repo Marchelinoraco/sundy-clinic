@@ -46,7 +46,6 @@ test("promo barang, diskon baris dalam batas 20%, catatan, dan transfer ke reken
   await ap.getByLabel("Nomor faktur").fill(`DS-E2E-${t}`);
   await pilihOpsi(ap, "Barang baris 1", `${itemName} (E2E-${t}-SRM)`);
   await ap.getByLabel("Jumlah baris 1").fill("5");
-  await ap.getByLabel("Harga beli baris 1").fill("50000");
   await ap.getByLabel("Batch baris 1").fill("B-1");
   await isiTanggal(ap, "Kedaluwarsa baris 1", "2030-12-31");
   await ap.getByRole("button", { name: "Simpan barang masuk" }).click();

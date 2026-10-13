@@ -268,6 +268,42 @@ for (const [index, project] of ["desktop", "mobile"].entries()) {
   }
 }
 
+// Harga modal (harga-modal.spec.ts): biaya Relaxing Facial dimulai 0, dan per proyek satu pasien dengan kunjungan final
+// berisi Relaxing Facial pukul 23.00 (desktop) / 23.30 (ponsel), pelaksana dokter seed.
+await prisma.service.update({ where: { slug: "relaxing-facial" }, data: { materialCost: 0, toolCost: 0, commissionKind: null, commissionValue: 0 } });
+for (const [index, project] of ["desktop", "mobile"].entries()) {
+  const patient = await prisma.patient.create({
+    data: { medicalRecordNumber: `SDY-E2E-MODAL-${index + 1}`, name: `Pasien Modal ${project}`, whatsapp: `6281200092${index}01`, birthDate: new Date("1994-06-17T00:00:00Z"), gender: "P" },
+  });
+  const startAt = combineWitaDateAndMinutes(today, 23 * 60 + index * 30);
+  const appointment = await prisma.appointment.create({
+    data: {
+      code: `E2E-MODAL-${index + 1}`,
+      type: "KONSULTASI",
+      startAt,
+      endAt: new Date(startAt.getTime() + 30 * 60_000),
+      status: "HADIR",
+      source: "WALK_IN",
+      branchId: visitBranch.id,
+      staffId: visitDoctor.id,
+      serviceId: visitService.id,
+      patientId: patient.id,
+    },
+  });
+  const encounter = await prisma.encounter.create({
+    data: {
+      appointmentId: appointment.id,
+      createdById: visitDoctor.id,
+      createdByName: visitDoctor.name,
+      treatments: { create: [{ serviceId: relaxingFacial.id, serviceName: relaxingFacial.name, performerId: visitDoctor.id, performerName: visitDoctor.name, sortOrder: 0 }] },
+    },
+  });
+  await prisma.encounter.update({
+    where: { id: encounter.id },
+    data: { status: "FINAL", assessment: "E2E modal", finalizedAt: new Date(), finalizedById: visitDoctor.id, finalizedByName: visitDoctor.name },
+  });
+}
+
 // Pemberitahuan langsung (pemberitahuan.spec.ts): dua pasien hadir hari ini per proyek (satu untuk resep, satu tanpa resep),
 // pukul 01.00/01.30 (desktop) dan 02.00/02.30 (ponsel), di luar jam buka.
 for (const [index, project] of ["desktop", "mobile"].entries()) {

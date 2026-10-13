@@ -24,3 +24,19 @@ export async function aturHargaJual(browser: Browser, itemName: string, price: s
   await expect(dialog).toBeHidden({ timeout: 30_000 });
   await context.close();
 }
+
+/** Harga beli faktur barang masuk diisi Admin Keuangan di konteks terpisah (spec harga modal 4). */
+export async function isiHargaBeli(browser: Browser, invoiceUrl: string, prices: string[]): Promise<void> {
+  const context = await browser.newContext({ baseURL: E2E_BASE_URL });
+  const page = await context.newPage();
+  await signIn(page, E2E_KEUANGAN);
+  await page.goto(invoiceUrl);
+  await tungguHidrasi(page);
+  await page.getByRole("button", { name: "Isi harga beli" }).click();
+  const dialog = page.getByRole("dialog", { name: "Isi harga beli" });
+  const fields = dialog.getByLabel(/^Harga beli /);
+  for (const [index, price] of prices.entries()) await fields.nth(index).fill(price);
+  await dialog.getByRole("button", { name: "Simpan" }).click();
+  await expect(dialog).toBeHidden({ timeout: 30_000 });
+  await context.close();
+}

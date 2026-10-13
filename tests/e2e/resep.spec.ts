@@ -44,7 +44,6 @@ test("apoteker menyiapkan obat dengan stok 10", async ({ page, browser }, testIn
   await page.getByLabel("Nomor faktur").fill(`RSP-E2E-${t}-001`);
   await pilihOpsi(page, "Barang baris 1", `${itemName} (E2E-${t}-RSP)`);
   await page.getByLabel("Jumlah baris 1").fill("10");
-  await page.getByLabel("Harga beli baris 1").fill("1000");
   await page.getByLabel("Batch baris 1").fill("B-01");
   await isiTanggal(page, "Kedaluwarsa baris 1", dayFromToday(365));
   await page.getByRole("button", { name: "Simpan barang masuk" }).click();
