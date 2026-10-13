@@ -44,6 +44,14 @@ describe("data awal katalog", () => {
     expect(botox?.priceNote).toBe("/ unit");
   });
 
+  it("membuat satu layanan situs per layanan, tertaut ke layanan asalnya, kecuali Konsultasi Online", async () => {
+    const hifu = await prisma.siteService.findUnique({ where: { slug: "hifu-wajah" }, include: { service: true, category: true } });
+    expect(hifu).toMatchObject({ name: "HIFU Wajah", isSignature: true, service: { slug: "hifu-wajah" }, category: { slug: "hifu" } });
+    const botox = await prisma.siteService.findUnique({ where: { slug: "botox" } });
+    expect(botox?.priceNote).toBe("/ unit");
+    expect(await prisma.siteService.findFirst({ where: { service: { slug: "konsultasi-online" } } })).toBeNull();
+  });
+
   it("menandai tepat empat layanan sebagai signature", async () => {
     const signature = await prisma.service.findMany({ where: { isSignature: true } });
     expect(signature.map((s) => s.slug).sort()).toEqual([

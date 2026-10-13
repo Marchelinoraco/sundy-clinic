@@ -173,4 +173,12 @@ describe("hak akses hasil BIA (spec hasil BIA 5)", () => {
     expect(can("ADMIN_KEUANGAN", "price:manage")).toBe(true);
     for (const role of ["APOTEKER", "RESEPSIONIS", "DOKTER", "TERAPIS"] as const) expect(can(role, "price:manage")).toBe(false);
   });
+
+  it("katalog layanan dikelola Super Admin dan Admin Keuangan (spec layanan situs 5)", () => {
+    expect(can("SUPER_ADMIN", "catalog:manage")).toBe(true);
+    expect(can("ADMIN_KEUANGAN", "catalog:manage")).toBe(true);
+    for (const role of ["RESEPSIONIS", "APOTEKER", "DOKTER", "TERAPIS"] as const) {
+      expect(can(role, "catalog:manage")).toBe(false);
+    }
+  });
 });

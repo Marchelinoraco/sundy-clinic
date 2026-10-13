@@ -155,6 +155,7 @@ model ServiceCategory {
   description String?
   sortOrder   Int       @default(0)
   services    Service[]
+  siteServices SiteService[]
 }
 
 model Service {
@@ -190,11 +191,42 @@ model Service {
 
   packageItems TreatmentPackageItem[]
   appointments Appointment[]
+  /// Layanan situs yang menautkan layanan internal ini (spec layanan situs 2.2).
+  siteServices SiteService[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([categoryId, sortOrder])
+  @@index([isSignature])
+}
+
+/// Katalog situs publik (spec layanan situs 2.2): isi promosi yang tertaut ke tepat satu layanan internal.
+/// Harga dan durasi tidak disimpan di sini; selalu dibaca dari `service` (keputusan K3).
+model SiteService {
+  id          String  @id @default(cuid())
+  /// Alamat /layanan/<slug>.
+  slug        String  @unique
+  name        String
+  description String?
+  /// Foto unggahan (/foto-layanan/<nama>) atau berkas lokal lama; kosong = foto kategori.
+  imageUrl    String?
+  /// Satuan harga yang tampil setelah angka, misal "/ 5 titik".
+  priceNote   String?
+  isSignature Boolean @default(false)
+  isActive    Boolean @default(true)
+  sortOrder   Int     @default(0)
+
+  categoryId String
+  category   ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  serviceId  String
+  service    Service         @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([categoryId, sortOrder])
+  @@index([serviceId])
   @@index([isSignature])
 }
 

@@ -750,6 +750,28 @@ export async function seed(): Promise<void> {
       TRANSACTION_OPTIONS,
     );
 
+    // Katalog situs: satu layanan situs per layanan seed, tertaut ke layanan internalnya (spec layanan situs 2.3).
+    const serviceRows = await prisma.service.findMany({
+      where: { slug: { in: services.map((service) => service.slug) } },
+      select: { id: true, slug: true },
+    });
+    const serviceIdBySlug = new Map(serviceRows.map((row) => [row.slug, row.id]));
+    await prisma.$transaction(
+      services.map(({ slug, name, description, priceNote, isSignature, sortOrder, categorySlug }) => {
+        const data = {
+          name,
+          description: description ?? null,
+          priceNote: priceNote ?? null,
+          isSignature: isSignature ?? false,
+          sortOrder,
+          categoryId: categoryIdBySlug.get(categorySlug)!,
+          serviceId: serviceIdBySlug.get(slug)!,
+        };
+        return prisma.siteService.upsert({ where: { slug }, update: data, create: { slug, ...data } });
+      }),
+      TRANSACTION_OPTIONS,
+    );
+
     // Konsultasi Online dibuat nonaktif dan sengaja tidak ada di daftar `services` di atas: seed
     // mengulang upsert dengan `update: data` dan akan menimpa harga/status yang diatur pemilik.
     const slimmingCategoryId = categoryIdBySlug.get("slimming");

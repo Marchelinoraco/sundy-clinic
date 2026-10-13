@@ -71,7 +71,7 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   {
     title: "Kelola",
     items: [
-      { title: "Layanan & Harga", url: "/admin/layanan", icon: SpaOutlined, needsAny: ["content:manage", "price:manage"] },
+      { title: "Layanan & Harga", url: "/admin/layanan", icon: SpaOutlined, needsAny: ["catalog:manage"] },
       { title: "Staf", url: "/admin/staf", icon: GroupOutlined, needs: "staff:manage" },
       { title: "Pengaturan", url: "/admin/pengaturan", icon: SettingsOutlined, needs: "content:manage" },
     ],

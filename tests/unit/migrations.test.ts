@@ -257,3 +257,16 @@ describe("migrasi harga modal", () => {
     expect(sql).toMatch(/UPDATE "InvoiceLine"[\s\S]*FROM "EncounterTreatment"/);
   });
 });
+
+describe("migrasi layanan situs", () => {
+  const sql = readFileSync("prisma/migrations/20261016090000_layanan_situs/migration.sql", "utf8");
+
+  it("hanya menambah, tanpa menghapus apa pun yang dikenal rilis sebelumnya", () => {
+    expect(sql).not.toMatch(/\bDROP\b/i);
+  });
+
+  it("menyalin setiap layanan kecuali Konsultasi Online menjadi layanan situs yang tertaut", () => {
+    expect(sql).toMatch(/INSERT INTO "SiteService"[\s\S]+FROM "Service"[\s\S]+WHERE "slug" <> 'konsultasi-online'/);
+    expect(sql).toMatch(/'ss' \|\| md5\(/);
+  });
+});
