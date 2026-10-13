@@ -258,39 +258,14 @@ describe("aksi kunjungan", () => {
     });
   });
 
-  it("finalisasi dengan Catatan untuk Apoteker membuat satu penyerahan Menunggu di cabang booking", async () => {
-    actAs("DOKTER");
-    const { appointment, encounterId, version } = await opened();
-    await unwrap(
-      finalizeEncounter({ encounterId, version, draft: draftWith({ assessment: "Infeksi", pharmacyNote: "  Amoxicillin 3x1 selama 5 hari  " }) }),
-    );
-    const row = await prisma.encounter.findUniqueOrThrow({ where: { id: encounterId } });
-    expect(row.pharmacyNote).toBe("Amoxicillin 3x1 selama 5 hari");
-    const dispensing = await prisma.dispensing.findUniqueOrThrow({ where: { appointmentId: appointment.id } });
-    expect(dispensing).toMatchObject({ status: "MENUNGGU", version: 1, branchId: world.branchId, completedAt: null });
-    expect(await auditCount("dispensing.create", dispensing.id)).toBe(1);
-  });
-
-  it("tanpa Catatan untuk Apoteker (kosong atau spasi) tidak ada penyerahan", async () => {
-    actAs("DOKTER");
-    const { appointment, encounterId, version } = await opened();
-    await unwrap(finalizeEncounter({ encounterId, version, draft: draftWith({ assessment: "Kontrol", pharmacyNote: "   " }) }));
-    expect(await prisma.dispensing.count({ where: { appointmentId: appointment.id } })).toBe(0);
-  });
-
-  it("finalisasi yang gagal tidak meninggalkan penyerahan, dan catatan terlalu panjang ditolak", async () => {
+  it("finalisasi tanpa resep tidak membuat penyerahan, bahkan bila draf lama berisi Catatan untuk Apoteker (Review Focus 1)", async () => {
     actAs("DOKTER");
     const { appointment, encounterId } = await opened();
-    const stale = new Date(0).toISOString();
-    const result = await finalizeEncounter({ encounterId, version: stale, draft: draftWith({ assessment: "x", pharmacyNote: "Obat" }) });
-    expect(result.ok).toBe(false);
-    expect(await prisma.dispensing.count({ where: { appointmentId: appointment.id } })).toBe(0);
-
+    await prisma.encounter.update({ where: { id: encounterId }, data: { pharmacyNote: "Amoxicillin 3x1" } });
     const fresh = (await prisma.encounter.findUniqueOrThrow({ where: { id: encounterId } })).updatedAt.toISOString();
-    expect(await finalizeEncounter({ encounterId, version: fresh, draft: draftWith({ assessment: "x", pharmacyNote: "x".repeat(1001) }) })).toEqual({
-      ok: false,
-      error: "Catatan untuk Apoteker terlalu panjang (maks. 1.000 karakter).",
-    });
+    await unwrap(finalizeEncounter({ encounterId, version: fresh, draft: draftWith({ assessment: "Kontrol" }) }));
+    expect(await prisma.dispensing.count({ where: { appointmentId: appointment.id } })).toBe(0);
+    expect((await prisma.encounter.findUniqueOrThrow({ where: { id: encounterId } })).pharmacyNote).toBe("Amoxicillin 3x1");
   });
 
   it("kunjungan lama yang difinalisasi belakangan tidak memundurkan kunjungan terakhir", async () => {

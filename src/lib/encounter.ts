@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { formatShortIndonesianDate } from "./format";
+import { PRESCRIPTIONS_MAX, parsePrescriptions, type MedicineOption, type PrescriptionDraft, type PrescriptionInput } from "./prescription";
 
 /**
  * Aturan isian catatan kunjungan (spec catatan dokter, bagian 5). Formulir di
@@ -8,12 +9,14 @@ import { formatShortIndonesianDate } from "./format";
  */
 
 export const ENCOUNTER_TEXT_MAX = 5000;
-export const PHARMACY_NOTE_MAX = 1000;
 export const TREATMENT_TEXT_MAX = { area: 100, dose: 100, notes: 1000 } as const;
 export const TREATMENTS_MAX = 20;
 export const IMPORTANT_NOTES_MAX = 2000;
 export const PAPER_RECORD_NUMBER_MAX = 50;
 export const ASSESSMENT_PREVIEW_MAX = 80;
+
+/** Label catatan lama (alur penyerahan Apoteker); kunjungan baru memakai resep (spec resep dokter 3). */
+export const PHARMACY_NOTE_LABEL = "Catatan untuk Apoteker";
 
 export const FINALIZE_NEEDS_ASSESSMENT = "Isi penilaian (A) sebelum finalisasi.";
 
@@ -35,7 +38,6 @@ export const TEXT_FIELDS = {
   physicalExam: "Pemeriksaan fisik",
   assessment: "Penilaian / diagnosis",
   plan: "Rencana, program, dan resep",
-  pharmacyNote: "Catatan untuk Apoteker",
 } as const;
 
 export type TextKey = keyof typeof TEXT_FIELDS;
@@ -48,12 +50,14 @@ export type TreatmentInput = { serviceId: string; area: string; dose: string; pe
 export type EncounterDraftInput = Record<TextKey, string> & {
   vitals: Record<VitalKey, string>;
   treatments: TreatmentInput[];
+  prescriptions: PrescriptionInput[];
 };
 
 /** Isian yang sudah diperiksa, siap disimpan. */
 export type EncounterDraft = Record<TextKey, string | null> & {
   vitals: Record<VitalKey, number | null>;
   treatments: { serviceId: string; area: string | null; dose: string | null; performerId: string; notes: string | null }[];
+  prescriptions: PrescriptionDraft[];
 };
 
 /** Pilihan treatment dan pelaksana di formulir, dengan usulan baris baru. */
@@ -62,6 +66,8 @@ export type EncounterOptions = {
   performers: { id: string; name: string }[];
   defaultServiceId: string;
   defaultPerformerId: string;
+  /** Obat yang bisa diresepkan, dengan sisa stok cabang dan tanpa harga (spec resep dokter 3). */
+  medicines: MedicineOption[];
 };
 
 export type Parsed<T> = { ok: true; value: T } | { ok: false; message: string };
@@ -76,7 +82,6 @@ export const encounterDraftInputSchema = z
     physicalExam: text,
     assessment: text,
     plan: text,
-    pharmacyNote: text,
     vitals: z
       .object({
         systolic: vital,
@@ -95,6 +100,9 @@ export const encounterDraftInputSchema = z
           .strict(),
       )
       .max(TREATMENTS_MAX * 2),
+    prescriptions: z
+      .array(z.object({ itemId: z.string().max(100), quantity: z.string().max(20), usage: text }).strict())
+      .max(PRESCRIPTIONS_MAX * 2),
   })
   .strict();
 
@@ -145,7 +153,7 @@ export function parseEncounterDraft(input: EncounterDraftInput): Parsed<Encounte
   const texts = {} as Record<TextKey, string | null>;
   for (const key of TEXT_KEYS) {
     const value = clean(input[key]);
-    const max = key === "pharmacyNote" ? PHARMACY_NOTE_MAX : ENCOUNTER_TEXT_MAX;
+    const max = ENCOUNTER_TEXT_MAX;
     if (value && value.length > max) return { ok: false, message: tooLong(TEXT_FIELDS[key], max) };
     texts[key] = value;
   }
@@ -177,7 +185,10 @@ export function parseEncounterDraft(input: EncounterDraftInput): Parsed<Encounte
     treatments.push({ serviceId: row.serviceId, area, dose, performerId: row.performerId, notes });
   }
 
-  return { ok: true, value: { ...texts, vitals, treatments } };
+  const prescriptions = parsePrescriptions(input.prescriptions);
+  if (!prescriptions.ok) return prescriptions;
+
+  return { ok: true, value: { ...texts, vitals, treatments, prescriptions: prescriptions.value } };
 }
 
 export function emptyDraftInput(): EncounterDraftInput {
@@ -186,9 +197,9 @@ export function emptyDraftInput(): EncounterDraftInput {
     physicalExam: "",
     assessment: "",
     plan: "",
-    pharmacyNote: "",
     vitals: { systolic: "", diastolic: "", pulse: "", temperatureC: "", weightKg: "", heightCm: "", waistCm: "" },
     treatments: [],
+    prescriptions: [],
   };
 }
 

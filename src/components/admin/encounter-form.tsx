@@ -19,7 +19,6 @@ import { appendToSubjective } from "@/lib/food-recall";
 import {
   ENCOUNTER_TEXT_MAX,
   FINALIZE_NEEDS_ASSESSMENT,
-  PHARMACY_NOTE_MAX,
   TEXT_FIELDS,
   TREATMENT_TEXT_MAX,
   VITALS,
@@ -356,14 +355,6 @@ export function EncounterForm(props: EncounterFormProps) {
 
       <Section id="bagian-p" title="P — Plan">
         <NoteField label={TEXT_FIELDS.plan} value={draft.plan} onChange={(v) => setText("plan", v)} />
-        <NoteField
-          label={TEXT_FIELDS.pharmacyNote}
-          value={draft.pharmacyNote}
-          onChange={(v) => setText("pharmacyNote", v)}
-          rows={2}
-          maxLength={PHARMACY_NOTE_MAX}
-          hint="Diisi bila pasien perlu obat. Apoteker hanya membaca kolom ini, bukan catatan klinis lain."
-        />
       </Section>
 
       <Section id="bagian-treatment" title="Treatment yang dilakukan">

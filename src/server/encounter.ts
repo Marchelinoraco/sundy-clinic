@@ -93,6 +93,26 @@ async function resolveTreatments(draft: EncounterDraft): Promise<TreatmentRow[]>
   });
 }
 
+type PrescriptionRow = { itemId: string; itemName: string; quantity: number; usage: string };
+
+/** Nama obat dibaca dari basis data dan disalin; obat harus aktif dan berharga jual (spec resep dokter 3). */
+async function resolvePrescriptions(draft: EncounterDraft): Promise<PrescriptionRow[]> {
+  if (draft.prescriptions.length === 0) return [];
+  const items = await prisma.stockItem.findMany({
+    where: { id: { in: draft.prescriptions.map((row) => row.itemId) } },
+    select: { id: true, name: true, isActive: true, sellPrice: true },
+  });
+  const byId = new Map(items.map((item) => [item.id, item]));
+  return draft.prescriptions.map((row) => {
+    const item = byId.get(row.itemId);
+    if (!item) throw new UserFacingError("Obat tidak ditemukan. Muat ulang halaman.");
+    if (!item.isActive || item.sellPrice === null) {
+      throw new UserFacingError(`Obat ${item.name} sudah nonaktif atau belum punya harga jual. Hapus dari resep.`);
+    }
+    return { itemId: item.id, itemName: item.name, quantity: row.quantity, usage: row.usage };
+  });
+}
+
 /** Menulis draf hanya bila masih DRAF dan versinya sama. Mengembalikan versi baru, atau null. */
 async function writeDraft(
   tx: Prisma.TransactionClient,
@@ -100,6 +120,7 @@ async function writeDraft(
   version: Date,
   draft: EncounterDraft,
   treatments: TreatmentRow[],
+  prescriptions: PrescriptionRow[],
 ): Promise<Date | null> {
   const { count } = await tx.encounter.updateMany({
     where: { id: encounterId, status: "DRAF", updatedAt: version },
@@ -108,7 +129,6 @@ async function writeDraft(
       physicalExam: draft.physicalExam,
       assessment: draft.assessment,
       plan: draft.plan,
-      pharmacyNote: draft.pharmacyNote,
       ...draft.vitals,
     },
   });
@@ -119,6 +139,12 @@ async function writeDraft(
   if (treatments.length > 0) {
     await tx.encounterTreatment.createMany({
       data: treatments.map((row, index) => ({ ...row, encounterId, sortOrder: index })),
+    });
+  }
+  await tx.encounterPrescription.deleteMany({ where: { encounterId } });
+  if (prescriptions.length > 0) {
+    await tx.encounterPrescription.createMany({
+      data: prescriptions.map((row, index) => ({ ...row, encounterId, sortOrder: index })),
     });
   }
   const saved = await tx.encounter.findUniqueOrThrow({ where: { id: encounterId }, select: { updatedAt: true } });
@@ -186,10 +212,11 @@ export async function saveEncounterDraft(input: {
     const version = readVersion(input?.version);
     const encounterId = String(input?.encounterId ?? "");
     const treatments = await resolveTreatments(draft);
+    const prescriptions = await resolvePrescriptions(draft);
 
     const saved = await guardLocked(() =>
       prisma.$transaction(async (tx) => {
-        const updatedAt = await writeDraft(tx, encounterId, version, draft, treatments);
+        const updatedAt = await writeDraft(tx, encounterId, version, draft, treatments, prescriptions);
         if (!updatedAt) throw new UserFacingError(await whyUnchanged(tx, encounterId));
         return updatedAt;
       }),
@@ -229,10 +256,11 @@ export async function finalizeEncounter(input: {
     const patientId = appointment.patientId;
     if (!patientId) throw new UserFacingError(GONE);
     const treatments = await resolveTreatments(draft);
+    const prescriptions = await resolvePrescriptions(draft);
 
     const dispensingId = await guardLocked(() =>
       prisma.$transaction(async (tx) => {
-        const updatedAt = await writeDraft(tx, encounterId, version, draft, treatments);
+        const updatedAt = await writeDraft(tx, encounterId, version, draft, treatments, prescriptions);
         if (!updatedAt) throw new UserFacingError(await whyUnchanged(tx, encounterId));
         await tx.encounter.update({
           where: { id: encounterId },
@@ -247,10 +275,31 @@ export async function finalizeEncounter(input: {
           where: { id: patientId, OR: [{ lastVisitAt: null }, { lastVisitAt: { lt: appointment.startAt } }] },
           data: { lastVisitAt: appointment.startAt },
         });
-        // Catatan untuk Apoteker terisi: satu penyerahan Menunggu di cabang booking (spec penyerahan 3.3).
-        if (!draft.pharmacyNote) return null;
+        // Resep dokter langsung menjadi penyerahan Selesai (spec resep dokter 4). Tagihan kunjungan belum mungkin ada
+        // (createInvoiceFromVisit mensyaratkan catatan final), jadi barisnya terisi saat resepsionis membuat tagihan.
+        // Kunjungan tidak lagi membuat penyerahan Menunggu (RD3), walau draf lama berisi Catatan untuk Apoteker.
+        const rows = await tx.encounterPrescription.findMany({ where: { encounterId }, orderBy: { sortOrder: "asc" } });
+        if (rows.length === 0) return null;
         const created = await tx.dispensing.create({
-          data: { appointmentId: appointment.id, branchId: appointment.branchId },
+          data: {
+            appointmentId: appointment.id,
+            branchId: appointment.branchId,
+            source: "DOKTER",
+            status: "SELESAI",
+            completedAt: new Date(),
+            completedById: actor.staffId,
+            completedByName: actor.name,
+            lines: {
+              create: rows.map((row) => ({
+                itemId: row.itemId,
+                itemName: row.itemName,
+                quantity: row.quantity,
+                usage: row.usage,
+                sortOrder: row.sortOrder,
+                prescriptionId: row.id,
+              })),
+            },
+          },
           select: { id: true },
         });
         return created.id;
@@ -259,8 +308,9 @@ export async function finalizeEncounter(input: {
 
     await recordAudit({ actor, action: "encounter.finalize", entity: "Encounter", entityId: encounterId, summary: appointment.code });
     if (dispensingId) {
-      await recordAudit({ actor, action: "dispensing.create", entity: "Dispensing", entityId: dispensingId, summary: appointment.code });
+      await recordAudit({ actor, action: "dispensing.create", entity: "Dispensing", entityId: dispensingId, summary: `${appointment.code}: resep dokter` });
       safeRevalidatePath("/admin/resep");
+      safeRevalidatePath("/admin/tagihan");
     }
     revalidateEncounter(encounterId, patientId);
     safeRevalidatePath("/admin/booking");

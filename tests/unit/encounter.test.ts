@@ -52,15 +52,17 @@ describe("parseEncounterDraft", () => {
     expect(parsed).toMatchObject({ ok: true, value: { subjective: "Pusing", plan: null, assessment: null } });
   });
 
-  it("Catatan untuk Apoteker: dipangkas, kosong menjadi null, paling banyak 1.000 karakter", () => {
-    expect(parseEncounterDraft(draft({ pharmacyNote: "  Amoxicillin 3x1  " }))).toMatchObject({ ok: true, value: { pharmacyNote: "Amoxicillin 3x1" } });
-    expect(parseEncounterDraft(draft({ pharmacyNote: "   " }))).toMatchObject({ ok: true, value: { pharmacyNote: null } });
-    expect(parseEncounterDraft(draft({ pharmacyNote: "x".repeat(1000) })).ok).toBe(true);
-    expect(parseEncounterDraft(draft({ pharmacyNote: "x".repeat(1001) }))).toEqual({
-      ok: false,
-      message: "Catatan untuk Apoteker terlalu panjang (maks. 1.000 karakter).",
+  it("resep ikut diperiksa; draf kosong tidak punya resep dan tidak punya Catatan untuk Apoteker", () => {
+    expect(parseEncounterDraft(draft({ prescriptions: [{ itemId: "o1", quantity: "2", usage: "3 x 1" }] }))).toMatchObject({
+      ok: true,
+      value: { prescriptions: [{ itemId: "o1", quantity: 2, usage: "3 x 1" }] },
     });
-    expect(emptyDraftInput().pharmacyNote).toBe("");
+    expect(parseEncounterDraft(draft({ prescriptions: [{ itemId: "o1", quantity: "0", usage: "3 x 1" }] }))).toEqual({
+      ok: false,
+      message: "Jumlah obat harus bilangan bulat 1–9.999.",
+    });
+    expect(emptyDraftInput().prescriptions).toEqual([]);
+    expect("pharmacyNote" in emptyDraftInput()).toBe(false);
   });
 
   it("tensi harus berpasangan, dan diastolik lebih kecil dari sistolik", () => {

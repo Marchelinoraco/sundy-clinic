@@ -8,7 +8,7 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import type { ReactNode } from "react";
-import { TEXT_FIELDS } from "@/lib/encounter";
+import { PHARMACY_NOTE_LABEL, TEXT_FIELDS } from "@/lib/encounter";
 import type { EncounterDetail } from "@/server/encounter-read";
 
 function Part({ id, title, children }: { id: string; title: string; children: ReactNode }) {
@@ -62,7 +62,7 @@ export function EncounterRecord({ encounter }: { encounter: EncounterDetail }) {
       </Part>
       <Part id="bagian-p" title="P — Plan">
         <RecordText label={TEXT_FIELDS.plan} value={draft.plan} />
-        <RecordText label={TEXT_FIELDS.pharmacyNote} value={draft.pharmacyNote} />
+        {encounter.pharmacyNote && <RecordText label={PHARMACY_NOTE_LABEL} value={encounter.pharmacyNote} />}
       </Part>
       <Part id="bagian-treatment" title="Treatment yang dilakukan">
         {encounter.treatments.length === 0 ? (

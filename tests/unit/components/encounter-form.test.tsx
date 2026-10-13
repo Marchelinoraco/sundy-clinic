@@ -31,6 +31,7 @@ const options: EncounterOptions = {
   ],
   defaultServiceId: "svc-konsul",
   defaultPerformerId: "st-diane",
+  medicines: [],
 };
 
 // 02.42 UTC = 10.42 WITA.
@@ -305,15 +306,9 @@ describe("EncounterForm", () => {
     expect(bar).toContainElement(screen.getByRole("status"));
   });
 
-  it("ada kolom Catatan untuk Apoteker di bagian Plan, dan ketikan ikut tersimpan otomatis", async () => {
-    vi.mocked(saveEncounterDraft).mockResolvedValueOnce(saved("v2"));
+  it("tidak ada lagi kolom Catatan untuk Apoteker (diganti resep, spec resep dokter 3)", () => {
     renderForm();
-    const field = screen.getByLabelText("Catatan untuk Apoteker");
-    expect(field).toHaveAttribute("maxlength", "1000");
-    await type(field, "Amoxicillin 3x1");
-    expect(field).toHaveValue("Amoxicillin 3x1");
-    await waitFor(() => expect(saveEncounterDraft).toHaveBeenCalledTimes(1));
-    expect(vi.mocked(saveEncounterDraft).mock.calls[0][0].draft.pharmacyNote).toBe("Amoxicillin 3x1");
+    expect(screen.queryByLabelText("Catatan untuk Apoteker")).not.toBeInTheDocument();
   });
 });
 

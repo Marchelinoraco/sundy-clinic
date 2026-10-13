@@ -18,9 +18,11 @@ import { INTAKE_PURPOSE_LABEL } from "@/lib/intake-purpose";
 import { lastAttemptLabel, nextOpenWindow, onlinePhase, placeLabel, windowLabel } from "@/lib/online-consultation";
 import type { RecordProposal } from "@/lib/kuis/v2/record-proposal";
 import { can } from "@/lib/permissions";
+import { billingLabel } from "@/lib/prescription";
 import { addDaysToDateString, combineWitaDateAndMinutes, witaDateString } from "@/lib/time";
 import { listAuditTrail, recordAuditThrottled, type AuditTrailRow } from "@/server/audit";
 import { loadApproval, loadIntakeClinical, type IntakeClinical, type ReadyIntakeApproval } from "@/server/intake-clinical";
+import { listPrescribableItems } from "@/server/prescription-read";
 import { requireCapability } from "@/server/session";
 
 export type EncounterWarnings = {
@@ -101,6 +103,10 @@ export type EncounterDetail = {
   /** Angka vital tersimpan kunjungan ini (baris "Kunjungan ini" di Tren sebelum dokter mengetik). */
   vitals: Record<VitalKey, number | null>;
   treatments: EncounterTreatmentSummary[];
+  /** Catatan untuk Apoteker dari alur lama; baca-saja (spec resep dokter 2.2). */
+  pharmacyNote: string | null;
+  /** Resep dokter beserta keterangan penagihan dari resepsionis (spec resep dokter 4). */
+  prescriptions: { id: string; itemName: string; quantity: number; usage: string; billing: string | null }[];
   addenda: EncounterAddendumSummary[];
   options: EncounterOptions;
   /** Hanya untuk audit:read (Super Admin). */
@@ -234,7 +240,7 @@ async function loadEncounterIntake(
 async function loadOptions(
   used: { serviceIds: string[]; performerIds: string[] },
   booking: { serviceId: string | null; staffId: string },
-): Promise<EncounterOptions> {
+): Promise<Omit<EncounterOptions, "medicines">> {
   const serviceIds = [...used.serviceIds, ...(booking.serviceId ? [booking.serviceId] : [])];
   const performerIds = [...used.performerIds, booking.staffId];
   const [services, performers] = await Promise.all([
@@ -278,12 +284,24 @@ export async function getEncounterForStaff(encounterId: string): Promise<Encount
       finalizedByName: true,
       finalizedAt: true,
       treatments: TREATMENT_SELECT,
+      prescriptions: {
+        orderBy: { sortOrder: "asc" },
+        select: {
+          id: true,
+          itemId: true,
+          itemName: true,
+          quantity: true,
+          usage: true,
+          dispensingLine: { select: { billedQuantity: true, billingNote: true } },
+        },
+      },
       addenda: ADDENDUM_SELECT,
       appointment: {
         select: {
           id: true,
           code: true,
           type: true,
+          branchId: true,
           channel: true,
           startAt: true,
           serviceId: true,
@@ -328,7 +346,7 @@ export async function getEncounterForStaff(encounterId: string): Promise<Encount
   const vitalInputs = {} as Record<VitalKey, string>;
   for (const key of VITAL_KEYS) vitalInputs[key] = vitalInputValue(key, vitals[key]);
 
-  const [{ intake, pregnancy, proposal }, options, trail, historyRows] = await Promise.all([
+  const [{ intake, pregnancy, proposal }, options, trail, historyRows, medicines] = await Promise.all([
     loadEncounterIntake(appointment.intake),
     loadOptions(
       { serviceIds: row.treatments.map((t) => t.serviceId), performerIds: row.treatments.map((t) => t.performerId) },
@@ -336,6 +354,10 @@ export async function getEncounterForStaff(encounterId: string): Promise<Encount
     ),
     can(staff.role, "audit:read") ? listAuditTrail("Encounter", row.id) : Promise.resolve(null),
     findHistory(patient.id, appointment.startAt, row.id),
+    listPrescribableItems(
+      appointment.branchId,
+      row.prescriptions.map((p) => p.itemId),
+    ),
   ]);
 
   const approval =
@@ -378,7 +400,6 @@ export async function getEncounterForStaff(encounterId: string): Promise<Encount
       physicalExam: row.physicalExam ?? "",
       assessment: row.assessment ?? "",
       plan: row.plan ?? "",
-      pharmacyNote: row.pharmacyNote ?? "",
       vitals: vitalInputs,
       treatments: row.treatments.map((t) => ({
         serviceId: t.serviceId,
@@ -387,12 +408,21 @@ export async function getEncounterForStaff(encounterId: string): Promise<Encount
         performerId: t.performerId,
         notes: t.notes ?? "",
       })),
+      prescriptions: row.prescriptions.map((p) => ({ itemId: p.itemId, quantity: String(p.quantity), usage: p.usage })),
     },
     vitalLines: describeVitals(vitals),
     vitals,
     treatments: row.treatments.map(toTreatmentSummary),
+    pharmacyNote: row.pharmacyNote,
+    prescriptions: row.prescriptions.map((p) => ({
+      id: p.id,
+      itemName: p.itemName,
+      quantity: p.quantity,
+      usage: p.usage,
+      billing: p.dispensingLine ? billingLabel({ quantity: p.quantity, ...p.dispensingLine }) : null,
+    })),
     addenda: row.addenda,
-    options,
+    options: { ...options, medicines },
     trail,
     history: historyRows.slice(0, HISTORY_LIMIT).map(toHistoryItem),
     hasMoreHistory: historyRows.length > HISTORY_LIMIT,
