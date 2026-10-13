@@ -36,4 +36,14 @@ describe("label aksi audit", () => {
     expect(auditActionLabel("site_service.deactivate")).toBe("menonaktifkan layanan situs");
     expect(auditActionLabel("site_service.photo")).toBe("mengganti foto layanan situs");
   });
+
+  it("aksi karyawan dan penggajian punya bahasa manusia", () => {
+    expect(auditActionLabel("employee.create")).toBe("menambah karyawan");
+    expect(auditActionLabel("employee.update")).toBe("mengubah data karyawan");
+    expect(auditActionLabel("employee.status")).toBe("mengubah status karyawan");
+    expect(auditActionLabel("payroll.create")).toBe("membuat penggajian");
+    expect(auditActionLabel("payroll.update")).toBe("mengubah penggajian");
+    expect(auditActionLabel("payroll.pay")).toBe("membayar gaji");
+    expect(auditActionLabel("payroll.void")).toBe("membatalkan pembayaran gaji");
+  });
 });

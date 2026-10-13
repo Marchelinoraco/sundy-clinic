@@ -28,6 +28,13 @@ const ACTION_LABEL: Record<string, string> = {
   "site_service.activate": "mengaktifkan layanan situs",
   "site_service.deactivate": "menonaktifkan layanan situs",
   "site_service.photo": "mengganti foto layanan situs",
+  "employee.create": "menambah karyawan",
+  "employee.update": "mengubah data karyawan",
+  "employee.status": "mengubah status karyawan",
+  "payroll.create": "membuat penggajian",
+  "payroll.update": "mengubah penggajian",
+  "payroll.pay": "membayar gaji",
+  "payroll.void": "membatalkan pembayaran gaji",
 };
 
 const ROLE_LABEL: Record<string, string> = {
