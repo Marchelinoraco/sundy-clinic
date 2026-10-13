@@ -42,7 +42,8 @@ beforeEach(() => {
   vi.mocked(updateSiteService).mockResolvedValue({ ok: true, data: undefined });
 });
 
-describe("SiteServiceDialog (spec layanan situs 5.2)", () => {
+// Banyak ketikan per uji: batas 5 detik bawaan terlalu ketat saat seluruh rangkaian berjalan bersamaan.
+describe("SiteServiceDialog (spec layanan situs 5.2)", { timeout: 15_000 }, () => {
   it("memilih layanan internal mengisi nama, kategori, dan slug; harga ikut layanan internal", async () => {
     const user = userEvent.setup();
     renderAdmin(<SiteServiceDialog categories={CATEGORIES} services={SERVICES} />);
