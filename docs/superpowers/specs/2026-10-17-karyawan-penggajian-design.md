@@ -11,7 +11,7 @@ maupun komisi kecuali dicatat manual di Pengeluaran.
 Berhasil bila: semua karyawan (termasuk yang tanpa akun panel) tercatat beserta gajinya; setiap bulan Admin Keuangan
 membuat satu daftar penggajian yang otomatis memuat komisi dari tagihan; bonus dan potongan dicatat dengan keterangan;
 pembayaran dicatat per karyawan, komisi tidak pernah dibayar dua kali, dan pembayaran otomatis masuk Pengeluaran sehingga
-laba rugi benar; slip gaji bisa dicetak atau disimpan sebagai PDF.
+laba rugi benar.
 
 ### Keputusan pemilik
 
@@ -21,7 +21,7 @@ laba rugi benar; slip gaji bisa dicetak atau disimpan sebagai PDF.
 | K2 | Karyawan = semua staf yang ada + karyawan tanpa akun panel (cleaning service, satpam, driver, …). |
 | K3 | Hanya Super Admin dan Admin Keuangan yang membuka menu ini. Peran lain tidak melihat gaji siapa pun. |
 | K4 | Gaji dan komisi dibayar bersama, sebulan sekali; setiap pembayaran otomatis tercatat di Pengeluaran. |
-| K5 | Slip gaji bisa dicetak / disimpan sebagai PDF dari browser (tanpa kirim WhatsApp). |
+| K5 | Tanpa slip gaji di sub-proyek ini (keputusan pemilik saat meninjau spec). |
 | K6 | Data karyawan di tabel terpisah dari `Staff` (pendekatan 1), boleh ditautkan satu-satu ke `Staff`. |
 
 ## 2. Data
@@ -59,7 +59,7 @@ CHECK `employee_values`: `baseSalary >= 0 AND allowance >= 0 AND ((status = 'AKT
 | Kolom | Keterangan |
 |-------|------------|
 | `id`, `periodId` → `PayrollPeriod` (`Restrict`), `employeeId` → `Employee` (`Restrict`) | unik `(periodId, employeeId)` |
-| `employeeName`, `position` | disalin saat dibuat (slip lama tidak berubah bila data karyawan diganti) |
+| `employeeName`, `position` | disalin saat dibuat (riwayat penggajian tidak berubah bila data karyawan diganti) |
 | `baseSalary`, `allowance` | disalin dari karyawan saat dibuat; boleh diubah sebelum dibayar dengan `amountNote` (alasan) |
 | `amountNote` | String?; wajib bila gaji pokok/tunjangan berbeda dari data karyawan saat diubah |
 | `commission`, `treatments` | Int; bernilai 0 dan dihitung langsung selama belum dibayar; diisi (dikunci) saat dibayar |
@@ -123,16 +123,12 @@ Hak baru `payroll:manage` = Super Admin + Admin Keuangan. Menu samping **Karyawa
 - **Penggajian** (`?tab=penggajian`): daftar bulan (jumlah karyawan, total, dibayar, sisa) dan **+ Penggajian**.
   Halaman bulan `/admin/karyawan/penggajian/<YYYY-MM>`: ringkasan + tabel per karyawan (gaji, tunjangan, komisi dengan
   tautan rincian ke tab Komisi laporan, bonus, potongan, total, status). Aksi per baris: **Penyesuaian**, **Ubah gaji**,
-  **Tandai dibayar**, **Batalkan pembayaran**, **Slip**, **Keluarkan dari daftar**; di atas tabel **+ Tambah karyawan**.
-- **Slip gaji** `/admin/karyawan/slip/<itemId>`: kop (`CLINIC_FULL_NAME`), nama, jabatan, periode, rincian (gaji pokok,
-  tunjangan, komisi dan jumlah treatment, setiap bonus dan potongan), total, tanggal bayar, rekening tujuan. Tata letak
-  khusus cetak (`@media print` menyembunyikan panel); tombol **Cetak / simpan PDF** memanggil `window.print()`. Baris
-  belum dibayar bertanda air "DRAF".
+  **Tandai dibayar**, **Batalkan pembayaran**, **Keluarkan dari daftar**; di atas tabel **+ Tambah karyawan**.
 - **Laporan Komisi** (tab yang sudah ada): rincian per baris mendapat kolom "Dibayar" (periode penggajian atau "Belum").
 
 ## 6. Hak akses dan kerahasiaan
 
-- Semua halaman, rute slip, dan aksi menu Karyawan memeriksa `payroll:manage`; peran lain 403.
+- Semua halaman dan aksi menu Karyawan memeriksa `payroll:manage`; peran lain 403.
 - Bacaan karyawan dan penggajian ada di modul baca sendiri dengan `select` eksplisit; `Employee` tidak pernah dibaca
   oleh situs publik, halaman Staf, atau bacaan tagihan.
 - Jejak audit memuat nama karyawan dan nominal, tidak memuat NIK, NPWP, atau nomor rekening.
@@ -148,9 +144,9 @@ Hak baru `payroll:manage` = Super Admin + Admin Keuangan. Menu samping **Karyawa
   bulan keluarnya; hak akses (Resepsionis, Apoteker, Dokter ditolak).
 - **E2E** (`tests/e2e/karyawan.spec.ts`, desktop dan ponsel): Admin Keuangan menambah karyawan tanpa akun dan menautkan
   terapis → tagihan bertreatment dengan terapis itu difinalkan → buat penggajian, komisi tampil → tambah potongan → tandai
-  dibayar → slip tampil → Pengeluaran bulan itu memuat Gaji Karyawan dan Komisi.
+  dibayar → Pengeluaran bulan itu memuat Gaji Karyawan dan Komisi.
 
 ## 8. Di luar cakupan
 
 Absensi dan jadwal kerja karyawan non-panel, perhitungan PPh 21/BPJS, pro-rata otomatis untuk karyawan baru (diatur
-lewat "Ubah gaji" dengan alasan), kirim slip lewat WhatsApp, karyawan melihat slip sendiri.
+lewat "Ubah gaji" dengan alasan), slip gaji (cetak, PDF, atau WhatsApp).
