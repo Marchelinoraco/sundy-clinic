@@ -2,33 +2,19 @@ import { UserFacingError } from "@/lib/action-result";
 import { BIA_MAX_BYTES } from "@/lib/bia";
 import { can } from "@/lib/permissions";
 import { uploadBiaFile } from "@/server/bia-upload";
+import { isSameOrigin } from "@/server/same-origin";
 import { getCurrentStaff } from "@/server/session";
 
 export const dynamic = "force-dynamic";
 
 const json = (body: { ok: true; fileId: string } | { ok: false; error: string }, status: number) => Response.json(body, { status });
 
-/**
- * Asal permintaan harus situs ini sendiri (cookie sesi saja tidak cukup bagi rute yang menulis). Hanya header `host`
- * yang dipakai: nginx mengisinya dari `$host`, sedangkan `x-forwarded-host` bisa dikirim klien.
- */
-function sameOrigin(request: Request): boolean {
-  const origin = request.headers.get("origin");
-  const host = request.headers.get("host");
-  if (!origin || !host) return false;
-  try {
-    return new URL(origin).host === host;
-  } catch {
-    return false;
-  }
-}
-
 /** Satu berkas hasil BIA per permintaan (spec hasil BIA 4.3). Pemeriksaan hak diulang di `uploadBiaFile`. */
 export async function POST(request: Request): Promise<Response> {
   const staff = await getCurrentStaff();
   if (!staff) return json({ ok: false, error: "Masuk dulu." }, 401);
   if (!can(staff.role, "bia:upload")) return json({ ok: false, error: "Anda tidak berhak mengunggah hasil BIA." }, 403);
-  if (!sameOrigin(request)) return json({ ok: false, error: "Permintaan tidak sah." }, 403);
+  if (!isSameOrigin(request)) return json({ ok: false, error: "Permintaan tidak sah." }, 403);
 
   // Tolak sebelum isinya dibaca ke memori: batas nginx 20 MB, sedangkan satu berkas paling besar 10 MB (+ sedikit ruang untuk bidang formulir).
   const declaredLength = Number(request.headers.get("content-length"));

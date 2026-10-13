@@ -43,7 +43,7 @@ export function DoctorProfile({ person, photo, headingLevel = 2, eyebrow }: Doct
         {eyebrow && <Eyebrow>{eyebrow}</Eyebrow>}
         <Heading className="mt-2 font-display text-3xl text-brown-900 sm:text-4xl">{person.name}</Heading>
         {person.specialty && <p className="mt-2 font-medium text-gold-600">{person.specialty}</p>}
-        {person.bio && <p className="mt-4 max-w-xl leading-relaxed text-brown-700">{person.bio}</p>}
+        {person.bio && <p className="mt-4 max-w-xl whitespace-pre-line leading-relaxed text-brown-700">{person.bio}</p>}
         {person.role === "DOKTER" && (
           <Link
             href="/daftar"
