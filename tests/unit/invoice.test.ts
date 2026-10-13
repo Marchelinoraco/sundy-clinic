@@ -9,6 +9,7 @@ import {
   matchesInvoiceView,
   validateDiscount,
   validateFreeLine,
+  validateServiceLineAdd,
   validateInvoicePayment,
   validateItemAdd,
   validateLineEdit,
@@ -212,5 +213,17 @@ describe("validateInvoicePayment", () => {
       ok: false,
       message: "Tanggal bayar tidak boleh sebelum tagihan difinalkan.",
     });
+  });
+});
+
+describe("validateServiceLineAdd (spec layanan situs 6)", () => {
+  it("menerima layanan dan jumlah bulat positif", () => {
+    expect(validateServiceLineAdd({ serviceId: "s1", quantity: 2 })).toEqual({ ok: true, value: { serviceId: "s1", quantity: 2 } });
+  });
+
+  it("menolak tanpa layanan atau jumlah tidak sah", () => {
+    expect(validateServiceLineAdd({ serviceId: "", quantity: 1 })).toEqual({ ok: false, message: "Pilih layanan." });
+    expect(validateServiceLineAdd({ serviceId: "s1", quantity: 0 })).toEqual({ ok: false, message: "Jumlah harus bilangan bulat lebih dari 0." });
+    expect(validateServiceLineAdd({ serviceId: "s1", quantity: 1.5 })).toEqual({ ok: false, message: "Jumlah harus bilangan bulat lebih dari 0." });
   });
 });

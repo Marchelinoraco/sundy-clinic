@@ -264,6 +264,16 @@ export function validateFreeLine(raw: unknown): Validation<FreeLineInput> {
   return { ok: true, value: { kind: raw.kind, name, quantity: raw.quantity, unitPrice: raw.unitPrice } };
 }
 
+export type ServiceLineInput = { serviceId: string; quantity: number };
+
+/** Baris treatment dari katalog internal (spec layanan situs 6): nama dan harga dari katalog, hanya jumlah yang diisi. */
+export function validateServiceLineAdd(raw: unknown): Validation<ServiceLineInput> {
+  if (!isObject(raw)) return fail(INVALID_FORM);
+  if (typeof raw.serviceId !== "string" || !raw.serviceId) return fail("Pilih layanan.");
+  if (!isWhole(raw.quantity, 1, MAX_QUANTITY)) return fail("Jumlah harus bilangan bulat lebih dari 0.");
+  return { ok: true, value: { serviceId: raw.serviceId, quantity: raw.quantity } };
+}
+
 export type ItemAddInput = { itemId: string; quantity: number };
 
 export function validateItemAdd(raw: unknown): Validation<ItemAddInput> {

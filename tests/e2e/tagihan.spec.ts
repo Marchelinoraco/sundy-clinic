@@ -77,6 +77,7 @@ test("resepsionis menagih penjualan langsung, memfinalkan, dan menerima pembayar
 
   await page.getByRole("button", { name: "+ Baris layanan" }).click();
   const lineDialog = page.getByRole("dialog", { name: "Tambah baris layanan" });
+  await pilihOpsi(lineDialog, "Layanan", "Lainnya (ketik sendiri)");
   await lineDialog.getByLabel("Nama", { exact: true }).fill("Layanan Tagihan");
   await lineDialog.getByLabel("Harga").fill("100000");
   await lineDialog.getByRole("button", { name: "Tambah" }).click();

@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { E2E_RESEPSIONIS } from "./credentials";
-import { tungguHidrasi } from "./helpers/mui";
+import { pilihOpsi, tungguHidrasi } from "./helpers/mui";
 import { buatPasienBaru } from "./helpers/pasien-baru";
 import { signIn } from "./helpers/quiz";
 
@@ -19,6 +19,7 @@ test("resepsionis mengirim struk via WA; tautan terbuka tanpa login; Ganti tauta
 
   await page.getByRole("button", { name: "+ Baris layanan" }).click();
   const lineDialog = page.getByRole("dialog", { name: "Tambah baris layanan" });
+  await pilihOpsi(lineDialog, "Layanan", "Lainnya (ketik sendiri)");
   await lineDialog.getByLabel("Nama", { exact: true }).fill(`Layanan Struk ${suffix}`);
   await lineDialog.getByLabel("Harga").fill("250000");
   await lineDialog.getByRole("button", { name: "Tambah" }).click();

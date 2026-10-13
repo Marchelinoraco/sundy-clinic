@@ -2,6 +2,7 @@
 
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
 import { prisma } from "@/lib/db";
+import { ONLINE_SERVICE_SLUG } from "@/lib/online-consultation";
 import {
   invoiceGrossSubtotal,
   invoiceSubtotal,
@@ -9,6 +10,7 @@ import {
   validateDiscount,
   validateLineDiscount,
   validateFreeLine,
+  validateServiceLineAdd,
   validateItemAdd,
   validateLineEdit,
   visitLines,
@@ -244,6 +246,36 @@ export async function addFreeLine(input: { invoiceId: string; version: number } 
     });
 
     await recordAudit({ actor, action: "invoice.update", entity: "Invoice", entityId: invoiceId, summary: `Tambah baris ${line.name} ×${line.quantity}` });
+    revalidateInvoices(invoiceId);
+    return { version };
+  });
+}
+
+/**
+ * Treatment dari katalog internal (spec layanan situs 6): baris TREATMENT tertaut `serviceId` berharga katalog, sehingga
+ * pelaksana, biaya, komisi, dan sesi paket berlaku seperti baris dari kunjungan.
+ */
+export async function addServiceLine(input: { invoiceId: string; version: number; serviceId: string; quantity: number }): Promise<EditResult> {
+  return runAction(async () => {
+    const actor = await requireCapability("invoice:manage");
+    const checked = validateServiceLineAdd(input);
+    if (!checked.ok) throw new UserFacingError(checked.message);
+    const { serviceId, quantity } = checked.value;
+    const service = await prisma.service.findUnique({ where: { id: serviceId }, select: { id: true, slug: true, name: true, promoPrice: true, isActive: true } });
+    if (!service?.isActive || service.slug === ONLINE_SERVICE_SLUG) throw new UserFacingError("Layanan tidak tersedia.");
+    const invoiceId = String(input.invoiceId ?? "");
+
+    const version = await prisma.$transaction(async (tx) => {
+      const next = await touchDraft(tx, invoiceId, input.version);
+      await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
+        await tx.invoiceLine.create({
+          data: { invoiceId, kind: "TREATMENT", name: service.name, quantity, unitPrice: service.promoPrice, serviceId: service.id, sortOrder: await nextSortOrder(tx, invoiceId) },
+        });
+      });
+      return next;
+    });
+
+    await recordAudit({ actor, action: "invoice.update", entity: "Invoice", entityId: invoiceId, summary: `Tambah baris ${service.name} ×${quantity}` });
     revalidateInvoices(invoiceId);
     return { version };
   });

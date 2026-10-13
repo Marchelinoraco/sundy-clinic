@@ -33,6 +33,7 @@ import type { SellablePackage } from "@/server/treatment-package-catalog";
 import { DialogCloseButton } from "../mui/dialog-close-button";
 import { RupiahInput } from "../rupiah-input";
 import { AddFreeLineDialog } from "./add-free-line-dialog";
+import type { InternalServiceOption } from "@/server/internal-catalog";
 import { AddItemDialog } from "./add-item-dialog";
 import { AddPackageDialog } from "./add-package-dialog";
 import { LinePerformerSelect } from "./line-performer-select";
@@ -174,6 +175,7 @@ export function InvoiceDraftEditor({
   packages = [],
   packageOptions = [],
   performers = [],
+  services = [],
 }: {
   detail: InvoiceDetail;
   items: BillingItem[];
@@ -182,6 +184,7 @@ export function InvoiceDraftEditor({
   packages?: SellablePackage[];
   packageOptions?: PackageOption[];
   performers?: { id: string; name: string }[];
+  services?: InternalServiceOption[];
 }) {
   const { run, error, setError, pending } = useInvoiceAction();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -193,7 +196,7 @@ export function InvoiceDraftEditor({
     <Stack spacing={3}>
       <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
         <AddItemDialog invoiceId={detail.id} version={detail.version} items={items} onError={setError} />
-        <AddFreeLineDialog invoiceId={detail.id} version={detail.version} />
+        <AddFreeLineDialog invoiceId={detail.id} version={detail.version} services={services} />
         <AddPackageDialog invoiceId={detail.id} version={detail.version} packages={packages} />
         <Button
           type="button"

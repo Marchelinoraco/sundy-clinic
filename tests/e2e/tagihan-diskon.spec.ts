@@ -76,6 +76,7 @@ test("promo barang, diskon baris dalam batas 20%, catatan, dan transfer ke reken
 
   await rp.getByRole("button", { name: "+ Baris layanan" }).click();
   const lineDialog = rp.getByRole("dialog", { name: "Tambah baris layanan" });
+  await pilihOpsi(lineDialog, "Layanan", "Lainnya (ketik sendiri)");
   await lineDialog.getByLabel("Nama", { exact: true }).fill("Facial Diskon");
   await lineDialog.getByLabel("Harga").fill("100000");
   await lineDialog.getByRole("button", { name: "Tambah" }).click();
