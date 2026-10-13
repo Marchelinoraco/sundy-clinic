@@ -7,6 +7,7 @@ import { formatDateWithYear } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { getBiaHistory } from "@/server/bia-read";
 import { getPatientDetail } from "@/server/patient";
+import { listPatientPackages } from "@/server/patient-package-read";
 import { requireCapability } from "@/server/session";
 
 export default async function PatientDetailPage({
@@ -53,6 +54,7 @@ export default async function PatientDetailPage({
           canWriteRecords={can(staff.role, "record:write")}
           tab={typeof tab === "string" ? tab : undefined}
           bia={bia}
+          packages={can(staff.role, "invoice:read") ? await listPatientPackages(patient.id) : null}
         />
       </PageBody>
     </>

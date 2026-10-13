@@ -13,12 +13,14 @@ import { resolveTab } from "@/lib/page-tabs";
 import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
 import type { BiaHistory } from "@/server/bia-read";
 import type { PatientDetail } from "@/server/patient";
+import type { PatientPackageSummary } from "@/server/patient-package-read";
 import { BiaHistoryTable } from "./bia/bia-history-table";
 import { BiaTrendChart } from "./bia/bia-trend-chart";
 import { FoodRecallTable } from "./food-recall-table";
 import { TextLink } from "./mui/links";
 import { StatusChip } from "./mui/status-chip";
 import { NikForm } from "./nik-form";
+import { PatientPackageTable } from "./package/patient-package-table";
 import { EmptyState, SectionCard } from "./page-layout";
 import { PageTabs } from "./page-tabs";
 import { ImportantNotesForm, PaperRecordNumberForm } from "./patient-note-forms";
@@ -35,7 +37,7 @@ const INTAKE_STATUS_LABEL: Record<PatientDetail["intakes"][number]["status"], st
   DIPERIKSA: "Diperiksa",
 };
 
-type PatientTab = "kunjungan" | "bia" | "booking" | "isian";
+type PatientTab = "kunjungan" | "bia" | "paket" | "booking" | "isian";
 
 const when = (date: Date) => `${formatIndonesianDate(date)}, ${minutesToTimeLabel(witaMinutesOfDay(date))}`;
 
@@ -62,6 +64,7 @@ export function PatientDetailView({
   canWriteRecords,
   tab,
   bia = null,
+  packages = null,
 }: {
   patient: PatientDetail;
   canReadRecords: boolean;
@@ -69,8 +72,10 @@ export function PatientDetailView({
   tab?: string;
   /** Riwayat BIA untuk pembaca rekam medis (spec hasil BIA 6.3); kosong untuk peran lain. */
   bia?: BiaHistory | null;
+  /** Paket treatment customer untuk staf yang bisa melihat tagihan (rencana paket keputusan 1). */
+  packages?: PatientPackageSummary[] | null;
 }) {
-  const tabs: PatientTab[] = [...(patient.encounters ? ["kunjungan" as const] : []), ...(bia ? ["bia" as const] : []), "booking", "isian"];
+  const tabs: PatientTab[] = [...(patient.encounters ? ["kunjungan" as const] : []), ...(bia ? ["bia" as const] : []), ...(packages ? ["paket" as const] : []), "booking", "isian"];
   const active = resolveTab(tab, tabs, patient.encounters && patient.encounters.length > 0 ? "kunjungan" : "booking");
   const href = (id: PatientTab) => `/admin/pasien/${patient.id}?tab=${id}`;
   const birth = patient.birthDateLabel
@@ -164,6 +169,7 @@ export function PatientDetailView({
         tabs={[
           ...(patient.encounters ? [{ id: "kunjungan", label: `Kunjungan (${patient.encounters.length})`, href: href("kunjungan") }] : []),
           ...(bia ? [{ id: "bia", label: `BIA (${bia.items.filter((m) => !m.voided).length})`, href: href("bia") }] : []),
+          ...(packages ? [{ id: "paket", label: `Paket (${packages.length})`, href: href("paket") }] : []),
           { id: "booking", label: `Booking (${patient.appointments.length})`, href: href("booking") },
           { id: "isian", label: `Isian (${patient.intakes.length})`, href: href("isian") },
         ]}
@@ -229,6 +235,12 @@ export function PatientDetailView({
             <BiaTrendChart points={bia.points} />
             {bia.items.length > 0 && <BiaHistoryTable items={bia.items} />}
           </Box>
+        </SectionCard>
+      )}
+
+      {active === "paket" && packages && (
+        <SectionCard title="Paket treatment" description="Sisa sesi dan masa berlaku; buka paket untuk riwayat dan perpanjangan." flush>
+          <PatientPackageTable rows={packages} showPatient={false} />
         </SectionCard>
       )}
 
