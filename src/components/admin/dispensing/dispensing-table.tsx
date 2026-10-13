@@ -1,5 +1,6 @@
 "use client";
 
+import Box from "@mui/material/Box";
 import type { GridColDef } from "@mui/x-data-grid";
 import { DISPENSING_STATUS_LABEL } from "@/lib/dispensing";
 import { formatDateWithYear } from "@/lib/format";
@@ -15,9 +16,16 @@ const COLUMNS: GridColDef<DispensingRow>[] = [
     flex: 1,
     minWidth: 160,
     renderCell: ({ row }) => (
-      <TextLink href={`/admin/resep/${row.id}`} sx={{ fontWeight: 500 }}>
-        {row.patientName}
-      </TextLink>
+      <>
+        <TextLink href={`/admin/resep/${row.id}`} sx={{ fontWeight: 500 }}>
+          {row.patientName}
+        </TextLink>
+        {row.source === "DOKTER" && (
+          <Box component="span" sx={{ ml: 1, fontSize: "0.75rem", color: "text.secondary" }}>
+            dari dokter
+          </Box>
+        )}
+      </>
     ),
   },
   { field: "branchName", headerName: "Cabang", flex: 1, minWidth: 120 },

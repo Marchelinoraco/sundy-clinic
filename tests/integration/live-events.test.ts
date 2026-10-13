@@ -60,6 +60,16 @@ describe("peristiwa langsung", () => {
     expect(mine((await liveEventsFor("APOTEKER", since)).events).filter((e) => e.kind === "RESEP_SELESAI")).toEqual([]);
   });
 
+  it("resep dokter tidak memicu Resep baru atau Resep selesai (spec resep dokter 6)", async () => {
+    const visit = await finalVisit(world);
+    const { id } = await seedDispensing(world, visit.appointmentId, { status: "SELESAI", lines: [{ itemId: world.drugId, quantity: 1 }] });
+    await prisma.dispensing.update({ where: { id }, data: { source: "DOKTER" } });
+    for (const role of ["APOTEKER", "RESEPSIONIS", "SUPER_ADMIN"] as const) {
+      const events = mine((await liveEventsFor(role, since)).events);
+      expect(events.filter((e) => e.entityId === id && (e.kind === "RESEP_BARU" || e.kind === "RESEP_SELESAI"))).toEqual([]);
+    }
+  });
+
   it("siap ditagih: catatan final tanpa resep, hanya untuk resepsionis", async () => {
     const visit = await finalVisit(world);
     const forReceptionist = mine((await liveEventsFor("RESEPSIONIS", since)).events).filter((e) => e.kind === "SIAP_DITAGIH");

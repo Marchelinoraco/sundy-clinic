@@ -7,6 +7,8 @@ import { requireCapability } from "@/server/session";
 export type DispensingRow = {
   id: string;
   status: DispensingStatusValue;
+  /** DOKTER = resep dokter yang langsung Selesai; tampil berlabel "dari dokter", baca-saja (spec resep dokter 6). */
+  source: "APOTEKER" | "DOKTER";
   patientName: string;
   branchName: string;
   startAt: Date;
@@ -40,6 +42,7 @@ export async function listDispensings(filter: { view: DispensingView; q?: string
     select: {
       id: true,
       status: true,
+      source: true,
       createdAt: true,
       completedAt: true,
       branch: { select: { name: true } },
@@ -50,6 +53,7 @@ export async function listDispensings(filter: { view: DispensingView; q?: string
   return rows.map((row) => ({
     id: row.id,
     status: row.status,
+    source: row.source,
     patientName: row.appointment.patient?.name ?? "-",
     branchName: row.branch.name,
     startAt: row.appointment.startAt,
@@ -69,6 +73,8 @@ export type DispensingDetail = {
   id: string;
   version: number;
   status: DispensingStatusValue;
+  /** DOKTER: resep dokter, baca-saja dan tidak bisa dibuka kembali (spec resep dokter 6). */
+  source: "APOTEKER" | "DOKTER";
   appointmentId: string;
   branchId: string;
   branchName: string;
@@ -94,6 +100,7 @@ export async function getDispensingDetail(id: string): Promise<DispensingDetail 
       id: true,
       version: true,
       status: true,
+      source: true,
       appointmentId: true,
       branchId: true,
       completedAt: true,
@@ -117,6 +124,7 @@ export async function getDispensingDetail(id: string): Promise<DispensingDetail 
     id: row.id,
     version: row.version,
     status: row.status,
+    source: row.source,
     appointmentId: row.appointmentId,
     branchId: row.branchId,
     branchName: row.branch.name,
@@ -127,7 +135,7 @@ export async function getDispensingDetail(id: string): Promise<DispensingDetail 
     completedByName: row.completedByName,
     lines: row.lines,
     invoiceState,
-    canReopen: row.status !== "MENUNGGU" && invoiceState !== "FINAL",
+    canReopen: row.source === "APOTEKER" && row.status !== "MENUNGGU" && invoiceState !== "FINAL",
   };
 }
 

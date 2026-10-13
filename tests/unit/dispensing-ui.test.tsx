@@ -43,6 +43,7 @@ function detail(patch: Partial<DispensingDetail> = {}): DispensingDetail {
     id: "d1",
     version: 3,
     status: "MENUNGGU",
+    source: "APOTEKER",
     appointmentId: "a1",
     branchId: "b1",
     branchName: "Manado",
@@ -65,6 +66,7 @@ describe("antrean resep", () => {
   const row: DispensingRow = {
     id: "d1",
     status: "MENUNGGU",
+    source: "APOTEKER",
     patientName: "Ani Uji",
     branchName: "Manado",
     startAt: new Date("2026-10-07T03:00:00Z"),
@@ -78,6 +80,11 @@ describe("antrean resep", () => {
     expect(screen.getByRole("link", { name: "Ani Uji" })).toHaveAttribute("href", "/admin/resep/d1");
     expect(screen.getByText("Manado")).toBeInTheDocument();
     expect(screen.getByText("Menunggu")).toBeInTheDocument();
+  });
+
+  it("resep dari dokter diberi label dari dokter (spec resep dokter 6)", () => {
+    renderAdmin(<DispensingTable rows={[row, { ...row, id: "d2", status: "SELESAI", source: "DOKTER", patientName: "Budi Uji" }]} />);
+    expect(screen.getAllByText("dari dokter")).toHaveLength(1);
   });
 
   it("kosong menampilkan keterangan", () => {
@@ -181,6 +188,14 @@ describe("ringkasan, buka kembali, dan etiket", () => {
     renderAdmin(<DispensingSummary detail={{ ...done, canReopen: false, invoiceState: "FINAL" }} />);
     expect(screen.queryByRole("button", { name: "Buka kembali" })).toBeNull();
     expect(screen.getByText(/tagihan sudah final/i)).toBeInTheDocument();
+  });
+
+  it("resep dari dokter: baca saja, tanpa Buka kembali dan tanpa alasan tagihan final (spec resep dokter 6)", () => {
+    renderAdmin(<DispensingSummary detail={{ ...done, source: "DOKTER", canReopen: false, completedByName: "dr. Diane" }} />);
+    expect(screen.getByText("Resep dari dokter — baca saja.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Buka kembali" })).toBeNull();
+    expect(screen.queryByText(/tagihan sudah final/i)).toBeNull();
+    expect(screen.getByText("Amoxicillin")).toBeInTheDocument();
   });
 
   it("Buka kembali memanggil server", async () => {

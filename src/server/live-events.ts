@@ -28,7 +28,8 @@ export async function liveEventsFor(role: Role, since: Date, now: Date = new Dat
 
   if (kinds.includes("RESEP_BARU")) {
     const rows = await prisma.dispensing.findMany({
-      where: { createdAt: range },
+      // Resep dokter dibuat langsung Selesai dan tidak perlu Apoteker (spec resep dokter 6).
+      where: { createdAt: range, source: "APOTEKER" },
       orderBy: { createdAt: "asc" },
       take: LIMIT,
       select: { id: true, createdAt: true, appointment: { select: { patient: { select: { name: true } } } } },
@@ -39,7 +40,7 @@ export async function liveEventsFor(role: Role, since: Date, now: Date = new Dat
   }
   if (kinds.includes("RESEP_SELESAI")) {
     const rows = await prisma.dispensing.findMany({
-      where: { completedAt: range, status: { in: ["SELESAI", "TANPA_OBAT"] } },
+      where: { completedAt: range, status: { in: ["SELESAI", "TANPA_OBAT"] }, source: "APOTEKER" },
       orderBy: { completedAt: "asc" },
       take: LIMIT,
       select: { id: true, status: true, completedAt: true, appointment: { select: { patient: { select: { name: true } } } } },

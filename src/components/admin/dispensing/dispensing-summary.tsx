@@ -24,6 +24,11 @@ export function DispensingSummary({ detail }: { detail: DispensingDetail }) {
           </Typography>
         )}
       </Stack>
+      {detail.source === "DOKTER" && (
+        <Typography role="status" variant="body2" sx={{ color: "text.secondary" }}>
+          Resep dari dokter — baca saja.
+        </Typography>
+      )}
       {detail.lines.length > 0 && (
         <TableContainer>
           <Table size="small">
@@ -55,9 +60,11 @@ export function DispensingSummary({ detail }: { detail: DispensingDetail }) {
         {detail.canReopen ? (
           <ReopenDispensingButton dispensingId={detail.id} />
         ) : (
-          <Typography variant="body2" sx={{ color: "text.secondary" }}>
-            Tidak bisa dibuka kembali karena tagihan sudah final.
-          </Typography>
+          detail.source === "APOTEKER" && (
+            <Typography variant="body2" sx={{ color: "text.secondary" }}>
+              Tidak bisa dibuka kembali karena tagihan sudah final.
+            </Typography>
+          )
         )}
       </Stack>
     </Stack>

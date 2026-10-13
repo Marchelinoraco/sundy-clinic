@@ -24,6 +24,7 @@ const SELECT = {
   appointmentId: true,
   branchId: true,
   status: true,
+  source: true,
   version: true,
   appointment: { select: { patient: { select: { name: true } } } },
   lines: { orderBy: { sortOrder: "asc" as const }, select: { itemId: true, itemName: true, quantity: true } },
@@ -120,6 +121,7 @@ export async function reopenDispensing(input: { dispensingId: string }): Promise
       if (!probe) throw new UserFacingError("Penyerahan tidak ditemukan.");
       const { invoice } = await lockDispensingContext(tx, dispensingId, probe.appointmentId);
       const row = await tx.dispensing.findUniqueOrThrow({ where: { id: dispensingId }, select: SELECT });
+      if (row.source === "DOKTER") throw new UserFacingError("Resep dari dokter tidak diubah di sini.");
       if (row.status === "MENUNGGU") throw new UserFacingError("Penyerahan ini masih menunggu.");
       if (invoice?.status === "FINAL") throw new UserFacingError("Tagihan kunjungan ini sudah final. Penyerahan tidak bisa dibuka kembali.");
       await tx.dispensing.update({
