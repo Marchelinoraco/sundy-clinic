@@ -15,11 +15,14 @@ export type InvoiceAggregate = {
   cogs: number;
   outstanding: number;
   invoiceCount: number;
+  /** Pemakaian stok tanpa harga beli di tagihan periode ini (spec harga modal 7). */
+  missingCost: number;
 };
 
 type Row = Record<keyof Omit<InvoiceAggregate, "bucket">, bigint | number | null> & { bucket: string };
 
 /**
+ * Harga pokok = barang (harga beli kosong dihitung 0) + bahan + alat treatment; komisi tidak (spec harga modal M3).
  * Per jenis baris kotor (quantity × unitPrice); diskon = diskon baris + diskon tagihan (rencana perbaikan tagihan,
  * keputusan 1), sehingga pendapatan = layanan + treatment + barang + paket − diskon tidak memotong diskon baris dua kali.
  * Jumlah tagihan FINAL yang `finalizedAt`-nya di [start, end), per jenis baris, diskon, harga pokok, sisa
@@ -44,12 +47,13 @@ export async function invoiceAggregates(start: Date, end: Date, branchId: string
              COALESCE(SUM(l."quantity" * l."unitPrice") FILTER (WHERE l."kind" = 'BARANG'), 0) AS goods,
              COALESCE(SUM(l."quantity" * l."unitPrice") FILTER (WHERE l."kind" = 'PAKET'), 0) AS package,
              COALESCE(SUM(l."discountAmount"), 0) AS "itemDiscount",
+             COALESCE(SUM(l."materialCost" + l."toolCost"), 0) AS "treatmentCost",
              COALESCE(SUM(l."quantity" * l."unitPrice" - l."discountAmount"), 0) AS subtotal
       FROM "InvoiceLine" l JOIN inv ON inv."id" = l."invoiceId"
       GROUP BY l."invoiceId"
     ),
     cost AS (
-      SELECT l."invoiceId", SUM(u."quantity" * u."unitCost") AS cogs
+      SELECT l."invoiceId", SUM(u."quantity" * u."unitCost") AS cogs, COUNT(*) FILTER (WHERE u."unitCost" IS NULL) AS missing
       FROM "InvoiceStockUse" u
       JOIN "InvoiceLine" l ON l."id" = u."lineId"
       JOIN inv ON inv."id" = l."invoiceId"
@@ -76,7 +80,8 @@ export async function invoiceAggregates(start: Date, end: Date, branchId: string
                  THEN LEAST(inv."discountValue"::bigint, COALESCE(lines.subtotal, 0))
                ELSE 0
              END AS discount,
-             COALESCE(cost.cogs, 0) AS cogs,
+             COALESCE(cost.cogs, 0) + COALESCE(lines."treatmentCost", 0) AS cogs,
+             COALESCE(cost.missing, 0) AS missing,
              COALESCE(paid.paid, 0) AS paid
       FROM inv
       LEFT JOIN lines ON lines."invoiceId" = inv."id"
@@ -91,6 +96,7 @@ export async function invoiceAggregates(start: Date, end: Date, branchId: string
            COALESCE(SUM(m.discount), 0) AS discount,
            COALESCE(SUM(m.cogs), 0) AS cogs,
            COALESCE(SUM(GREATEST(0, m.subtotal - (m.discount - m.item) - m.paid)), 0) AS outstanding,
+           COALESCE(SUM(m.missing), 0) AS "missingCost",
            COUNT(*) AS "invoiceCount"
     FROM m
     ${group}
@@ -106,6 +112,7 @@ export async function invoiceAggregates(start: Date, end: Date, branchId: string
     cogs: Number(row.cogs ?? 0),
     outstanding: Number(row.outstanding ?? 0),
     invoiceCount: Number(row.invoiceCount ?? 0),
+    missingCost: Number(row.missingCost ?? 0),
   }));
 }
 

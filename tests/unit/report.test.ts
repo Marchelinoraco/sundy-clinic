@@ -88,7 +88,7 @@ const RAW: RawReport = {
   upfrontOnline: 250_000,
   cogs: 120_000,
   outstanding: 50_000,
-  invoiceCount: 12,
+  invoiceCount: 12, missingCost: 0,
   expenses: [
     { categoryId: "k1", name: "Sewa", isActive: true, amount: 400_000 },
     { categoryId: "k2", name: "Gaji", isActive: true, amount: 600_000 },
@@ -135,7 +135,7 @@ describe("rumus laporan", () => {
   });
 
   it("rugi: pengeluaran tanpa pendapatan; label Rugi bila negatif dan Laba bila nol atau positif", () => {
-    const empty: RawReport = { ...RAW, service: 0, treatment: 0, goods: 0, package: 0, discount: 0, upfrontFee: 0, upfrontOnline: 0, cogs: 0, outstanding: 0, invoiceCount: 0, customerPaid: 0, supplierPaid: 0, supplierRefunded: 0 };
+    const empty: RawReport = { ...RAW, service: 0, treatment: 0, goods: 0, package: 0, discount: 0, upfrontFee: 0, upfrontOnline: 0, cogs: 0, outstanding: 0, invoiceCount: 0, missingCost: 0, customerPaid: 0, supplierPaid: 0, supplierRefunded: 0 };
     const view = summarizeReport(empty);
     expect(view.totals.netProfit).toBe(-1_000_000);
     expect(profitLabel(view.totals.netProfit)).toBe("Rugi");
@@ -222,7 +222,7 @@ describe("pendapatan paket", () => {
       upfrontOnline: 0,
       cogs: 0,
       outstanding: 0,
-      invoiceCount: 2,
+      invoiceCount: 2, missingCost: 0,
       expenses: [],
       customerPaid: 0,
       supplierPaid: 0,

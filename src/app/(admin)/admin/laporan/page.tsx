@@ -60,6 +60,11 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
           <Alert severity="error">{notice}</Alert>
         )}
         <ReportSummary view={report.current} comparison={report.comparison} />
+        {report.current.missingCost > 0 && (
+          <Alert severity="warning">
+            {report.current.missingCost} baris barang belum punya harga pokok; laba bisa lebih tinggi dari sebenarnya. Isi harga beli di Stok → Barang masuk.
+          </Alert>
+        )}
         <Box sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "minmax(0, 1fr)", xl: "minmax(0, 1fr) 22rem" } }}>
           <SectionCard title="Rincian" flush>
             <ReportDetail current={report.current} previous={report.previous} />

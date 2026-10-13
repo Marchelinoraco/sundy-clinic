@@ -114,6 +114,8 @@ export type RawReport = {
   cogs: number;
   outstanding: number;
   invoiceCount: number;
+  /** Pemakaian stok yang belum punya harga beli (spec harga modal 7). */
+  missingCost: number;
   expenses: { categoryId: string; name: string; isActive: boolean; amount: number }[];
   customerPaid: number;
   supplierPaid: number;
@@ -152,6 +154,7 @@ export type ReportView = {
   invoiceCount: number;
   upfrontFee: number;
   upfrontOnline: number;
+  missingCost: number;
 };
 
 /** Rumus spec laporan 3.1–3.3. Pembayaran hutang supplier hanya masuk arus kas, tidak mengurangi laba. */
@@ -183,6 +186,7 @@ export function summarizeReport(raw: RawReport): ReportView {
     invoiceCount: raw.invoiceCount,
     upfrontFee: raw.upfrontFee,
     upfrontOnline: raw.upfrontOnline,
+    missingCost: raw.missingCost,
   };
 }
 
