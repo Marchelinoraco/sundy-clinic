@@ -16,6 +16,7 @@ import { can } from "@/lib/permissions";
 import { dateOnlyString, stockFlags, type PaymentMethodValue } from "@/lib/stock";
 import { witaDateString } from "@/lib/time";
 import { TOTALS_SELECT } from "@/server/invoice-store";
+import { packageLineNotes } from "@/server/package-store";
 import { requireCapability } from "@/server/session";
 
 // Tanpa "use server": dibaca halaman server panel admin, tidak dipanggil browser.
@@ -169,6 +170,12 @@ export type InvoiceLineRow = {
   catalogLinked: boolean;
   /** Berasal dari penyerahan Apoteker: jumlah terkunci dan tidak bisa dihapus resepsionis. */
   fromDispensing: boolean;
+  /** Baris PAKET: paket katalog yang dijual (spec paket 5). */
+  treatmentPackageId: string | null;
+  /** Baris TREATMENT yang memakai sesi paket customer (spec paket 6). */
+  packageUse: { patientPackageItemId: string; packageName: string } | null;
+  /** Keterangan paket di bawah nama baris (isi dan masa berlaku, atau sesi paket yang dipakai). */
+  packageNote: string | null;
   /** Harga pokok baris barang; null bila pengguna tidak memegang stock:read atau bukan barang. */
   cost: number | null;
 };
@@ -266,6 +273,9 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
           discountAmount: true,
           discountReason: true,
           discountSource: true,
+          treatmentPackageId: true,
+          patientPackageItemId: true,
+          patientPackageItem: { select: { patientPackage: { select: { name: true } } } },
           stockUses: { select: { quantity: true, unitCost: true } },
         },
       },
@@ -273,6 +283,7 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
     },
   });
   if (!invoice) return null;
+  const notes = await packageLineNotes(prisma, invoice.lines);
 
   const lines = invoice.lines.map((line) => ({
     id: line.id,
@@ -288,7 +299,10 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
     priceNote: line.priceNote,
     serviceId: line.serviceId,
     itemId: line.itemId,
-    catalogLinked: line.serviceId !== null || line.itemId !== null,
+    catalogLinked: line.serviceId !== null || line.itemId !== null || line.treatmentPackageId !== null,
+    treatmentPackageId: line.treatmentPackageId,
+    packageUse: line.patientPackageItemId ? { patientPackageItemId: line.patientPackageItemId, packageName: line.patientPackageItem?.patientPackage.name ?? "" } : null,
+    packageNote: notes.get(line.id) ?? null,
     fromDispensing: line.dispensingLineId !== null,
     cost: withCost && line.kind === "BARANG" ? line.stockUses.reduce((sum, use) => sum + use.quantity * use.unitCost, 0) : null,
   }));

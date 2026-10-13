@@ -106,6 +106,11 @@ export function InvoiceFinalView({
                       {line.priceNote && ` · ${line.priceNote}`}
                     </Typography>
                     <LineDiscountNote line={line} />
+                    {line.packageNote && (
+                      <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>
+                        {line.packageNote}
+                      </Typography>
+                    )}
                   </TableCell>
                   <TableCell align="right">{line.quantity}</TableCell>
                   <TableCell align="right">{formatRupiah(line.unitPrice)}</TableCell>

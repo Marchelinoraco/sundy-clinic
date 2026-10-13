@@ -10,6 +10,7 @@ import { getInvoiceDetail, listBillingItems } from "@/server/invoice-read";
 import { listActiveClinicBankAccounts } from "@/server/clinic-bank";
 import { getInvoiceReceipt } from "@/server/receipt";
 import { requireCapability } from "@/server/session";
+import { listSellablePackages } from "@/server/treatment-package-catalog";
 import { witaDateString } from "@/lib/time";
 
 export const metadata = { title: "Tagihan" };
@@ -42,6 +43,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
               items={await listBillingItems(detail.branchId)}
               canExceedDiscount={can(staff.role, "invoice:correct")}
               canEditNotes={canEditNotes}
+              packages={await listSellablePackages()}
             />
           ) : (
             <InvoiceDraftReadOnly invoiceId={detail.id} notes={detail.notes} canEditNotes={canEditNotes} />

@@ -28,10 +28,12 @@ import type { ActionResult } from "@/lib/action-result";
 import { removeInvoiceLine, refreshCatalogPrices, updateInvoiceLine } from "@/server/invoice-drafts";
 import { finalizeInvoice } from "@/server/invoice-lifecycle";
 import type { BillingItem, InvoiceDetail, InvoiceLineRow } from "@/server/invoice-read";
+import type { SellablePackage } from "@/server/treatment-package-catalog";
 import { DialogCloseButton } from "../mui/dialog-close-button";
 import { RupiahInput } from "../rupiah-input";
 import { AddFreeLineDialog } from "./add-free-line-dialog";
 import { AddItemDialog } from "./add-item-dialog";
+import { AddPackageDialog } from "./add-package-dialog";
 import { CancelInvoiceDialog } from "./cancel-invoice-dialog";
 import { DiscountForm } from "./discount-form";
 import { InvoiceNotesForm } from "./invoice-notes-form";
@@ -90,6 +92,11 @@ function LineRow({ detail, line, disabled, run, fail }: {
           {INVOICE_LINE_KIND_LABEL[line.kind]}
         </Typography>
         <LineDiscountNote line={line} />
+        {line.packageNote && (
+          <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>
+            {line.packageNote}
+          </Typography>
+        )}
         {line.fromDispensing && (
           <Box component="span" sx={{ mt: 0.5, display: "inline-flex", alignItems: "center", gap: 0.5, fontSize: "0.75rem", color: "text.secondary" }}>
             {/* Ikon MUI disembunyikan dari pembaca layar secara bawaan; label ini dipertahankan seperti ikon lama. */}
@@ -110,7 +117,7 @@ function LineRow({ detail, line, disabled, run, fail }: {
       <TableCell sx={{ width: 96 }}>
         <TextField
           type="number"
-          disabled={line.fromDispensing}
+          disabled={line.fromDispensing || line.kind === "PAKET"}
           value={quantity ?? ""}
           onChange={(e) => setQuantity(e.target.value === "" ? null : Number(e.target.value))}
           slotProps={{ htmlInput: { "aria-label": `Jumlah ${line.name}`, min: 1 } }}
@@ -157,11 +164,13 @@ export function InvoiceDraftEditor({
   items,
   canExceedDiscount,
   canEditNotes = true,
+  packages = [],
 }: {
   detail: InvoiceDetail;
   items: BillingItem[];
   canExceedDiscount: boolean;
   canEditNotes?: boolean;
+  packages?: SellablePackage[];
 }) {
   const { run, error, setError, pending } = useInvoiceAction();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -174,6 +183,7 @@ export function InvoiceDraftEditor({
       <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
         <AddItemDialog invoiceId={detail.id} version={detail.version} items={items} onError={setError} />
         <AddFreeLineDialog invoiceId={detail.id} version={detail.version} />
+        <AddPackageDialog invoiceId={detail.id} version={detail.version} packages={packages} />
         <Button
           type="button"
           variant="outlined"

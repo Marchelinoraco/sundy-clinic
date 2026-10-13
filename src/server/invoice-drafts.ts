@@ -30,6 +30,7 @@ const DISPENSED_QUANTITY = "Jumlah obat dari penyerahan tidak bisa diubah. Minta
 const PROMO_SELECT = { promoName: true, promoKind: true, promoValue: true, promoStartsOn: true, promoEndsOn: true } as const;
 const OVER_LIMIT = "Diskon di atas 20% diberikan oleh Admin Keuangan.";
 const NO_DISCOUNT = { discountAmount: 0, discountReason: null, discountSource: null } as const;
+const PACKAGE_QUANTITY = "Jumlah paket selalu 1. Tambahkan baris paket lagi untuk paket berikutnya.";
 const DISPENSED_REMOVE = "Obat dari penyerahan tidak bisa dihapus. Minta Apoteker membuka kembali penyerahan.";
 
 function revalidateInvoices(invoiceId?: string) {
@@ -239,6 +240,31 @@ export async function addFreeLine(input: { invoiceId: string; version: number } 
   });
 }
 
+/** Jual paket dari katalog (spec paket 5): satu baris PAKET berharga katalog, jumlah 1. */
+export async function addPackageLine(input: { invoiceId: string; version: number; packageId: string }): Promise<EditResult> {
+  return runAction(async () => {
+    const actor = await requireCapability("invoice:manage");
+    const invoiceId = String(input?.invoiceId ?? "");
+
+    const result = await prisma.$transaction(async (tx) => {
+      const version = await touchDraft(tx, invoiceId, input.version);
+      const pkg = await tx.treatmentPackage.findUnique({ where: { id: String(input.packageId ?? "") }, select: { id: true, name: true, price: true, isActive: true } });
+      if (!pkg) throw new UserFacingError("Paket tidak ditemukan.");
+      if (!pkg.isActive) throw new UserFacingError(`Paket ${pkg.name} sudah tidak dijual.`);
+      await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
+        await tx.invoiceLine.create({
+          data: { invoiceId, kind: "PAKET", name: pkg.name, quantity: 1, unitPrice: pkg.price, treatmentPackageId: pkg.id, sortOrder: await nextSortOrder(tx, invoiceId) },
+        });
+      });
+      return { version, summary: `Tambah paket ${pkg.name}` };
+    });
+
+    await recordAudit({ actor, action: "invoice.update", entity: "Invoice", entityId: invoiceId, summary: result.summary });
+    revalidateInvoices(invoiceId);
+    return { version: result.version };
+  });
+}
+
 /**
  * Ubah jumlah dan harga satu baris draf. Harga baris katalog yang diubah dari harga semula dan
  * dari harga katalog sekarang wajib catatan; mengembalikannya ke harga katalog menghapus catatan.
@@ -271,17 +297,22 @@ export async function updateInvoiceLine(input: {
           discountAmount: true,
           discountReason: true,
           discountSource: true,
+          kind: true,
+          treatmentPackageId: true,
         },
       });
       if (!line) throw new UserFacingError("Baris tidak ditemukan.");
       if (line.dispensingLineId && input.quantity !== line.quantity) throw new UserFacingError(DISPENSED_QUANTITY);
+      if (line.kind === "PAKET" && input.quantity !== 1) throw new UserFacingError(PACKAGE_QUANTITY);
 
       const catalogPrice = line.itemId
         ? (await tx.stockItem.findUnique({ where: { id: line.itemId }, select: { sellPrice: true } }))?.sellPrice ?? null
-        : line.serviceId
-          ? (await tx.service.findUnique({ where: { id: line.serviceId }, select: { promoPrice: true } }))?.promoPrice ?? null
-          : null;
-      const catalogLinked = line.itemId !== null || line.serviceId !== null;
+        : line.treatmentPackageId
+          ? (await tx.treatmentPackage.findUnique({ where: { id: line.treatmentPackageId }, select: { price: true } }))?.price ?? null
+          : line.serviceId
+            ? (await tx.service.findUnique({ where: { id: line.serviceId }, select: { promoPrice: true } }))?.promoPrice ?? null
+            : null;
+      const catalogLinked = line.itemId !== null || line.serviceId !== null || line.treatmentPackageId !== null;
       const price = typeof input.unitPrice === "number" ? input.unitPrice : Number.NaN;
       const needsNote = catalogLinked && price !== line.unitPrice && price !== (catalogPrice ?? line.unitPrice);
       const checked = validateLineEdit(input, { needsNote });
@@ -348,8 +379,8 @@ export async function refreshCatalogPrices(input: { invoiceId: string; version: 
     const result = await prisma.$transaction(async (tx) => {
       const version = await touchDraft(tx, invoiceId, input.version);
       const lines = await tx.invoiceLine.findMany({
-        where: { invoiceId, OR: [{ itemId: { not: null } }, { serviceId: { not: null } }] },
-        select: { id: true, quantity: true, unitPrice: true, itemId: true, serviceId: true, discountAmount: true, discountSource: true },
+        where: { invoiceId, OR: [{ itemId: { not: null } }, { serviceId: { not: null } }, { treatmentPackageId: { not: null } }] },
+        select: { id: true, quantity: true, unitPrice: true, itemId: true, serviceId: true, treatmentPackageId: true, discountAmount: true, discountSource: true },
       });
       const today = witaDateString(new Date());
       let updated = 0;
@@ -358,7 +389,9 @@ export async function refreshCatalogPrices(input: { invoiceId: string; version: 
           const item = line.itemId ? await tx.stockItem.findUnique({ where: { id: line.itemId }, select: { sellPrice: true, ...PROMO_SELECT } }) : null;
           const price = line.itemId
             ? (item?.sellPrice ?? null)
-            : ((await tx.service.findUnique({ where: { id: line.serviceId! }, select: { promoPrice: true } }))?.promoPrice ?? null);
+            : line.treatmentPackageId
+              ? ((await tx.treatmentPackage.findUnique({ where: { id: line.treatmentPackageId }, select: { price: true } }))?.price ?? null)
+              : ((await tx.service.findUnique({ where: { id: line.serviceId! }, select: { promoPrice: true } }))?.promoPrice ?? null);
           const priceChanged = price !== null && price !== line.unitPrice;
           const unitPrice = priceChanged ? price : line.unitPrice;
           const gross = line.quantity * unitPrice;
