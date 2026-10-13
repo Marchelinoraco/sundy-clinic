@@ -16,6 +16,8 @@ import {
 import { cancelInvoice, finalizeInvoice } from "@/server/invoice-lifecycle";
 import { getInvoiceDetail } from "@/server/invoice-read";
 import { listPackageOptions } from "@/server/patient-package-read";
+import { loadReceiptSource } from "@/server/receipt-store";
+import { buildPublicReceipt } from "@/lib/receipt";
 import { cleanupBillingWorld, createBillingWorld, finalVisit, type BillingWorld } from "./invoice-world";
 import { catalogPackage } from "./package-world";
 import { unwrap } from "./unwrap";
@@ -188,5 +190,17 @@ describe("memakai sesi paket", () => {
     await unwrap(apply(draft, own.itemId));
     const option = (await listPackageOptions(world.patientId)).find((o) => o.patientPackageItemId === own.itemId);
     expect(option).toMatchObject({ packageName: own.name, serviceId: world.treatmentId, serviceName: "Facial Uji", sessions: 3, remaining: 2, startsOn: today });
+  });
+
+  it("tagihan final dan struk menampilkan sisa dari buku sesi saja, tanpa dikurangi draf lain yang masih terbuka", async () => {
+    const own = await ownPackage(facial3);
+    const used = await visitDraft();
+    await unwrap(apply(used, own.itemId));
+    await unwrap(finalize(used.id));
+    const pending = await visitDraft();
+    await unwrap(apply(pending, own.itemId));
+    expect((await getInvoiceDetail(used.id))!.lines.find((line) => line.id === used.line.id)!.packageNote).toBe(`Sesi paket ${own.name} · sisa 2 dari 3`);
+    expect(buildPublicReceipt((await loadReceiptSource(used.id))!)!.lines.find((line) => line.name === "Facial Uji")!.note).toBe(`Sesi paket ${own.name} · sisa 2 dari 3`);
+    expect((await getInvoiceDetail(pending.id))!.lines.find((line) => line.id === pending.line.id)!.packageNote).toBe(`Sesi paket ${own.name} · sisa 1 dari 3`);
   });
 });

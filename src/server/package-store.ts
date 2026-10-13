@@ -15,7 +15,7 @@ export type PackageNoteLine = { id: string; kind: string; treatmentPackageId: st
  * - baris PAKET draf: "3× Facial · berlaku 90 hari";
  * - baris PAKET final: "3× Facial · berlaku s.d. 12 Apr 2027".
  */
-export async function packageLineNotes(db: Db, lines: readonly PackageNoteLine[]): Promise<Map<string, string>> {
+export async function packageLineNotes(db: Db, lines: readonly PackageNoteLine[], options: { draft: boolean }): Promise<Map<string, string>> {
   const notes = new Map<string, string>();
   const packageLines = lines.filter((line) => line.kind === "PAKET" && line.treatmentPackageId);
   if (packageLines.length > 0) {
@@ -40,14 +40,17 @@ export async function packageLineNotes(db: Db, lines: readonly PackageNoteLine[]
       if (pkg) notes.set(line.id, `${packageContentsLabel(pkg.items.map((item) => ({ name: item.service.name, sessions: item.sessions })))} · berlaku ${pkg.validDays} hari`);
     }
   }
-  // Baris sesi: "Sesi paket {nama} · sisa n dari m", sisa sesudah semua draf yang menandai item itu (rencana paket keputusan 10).
+  // Baris sesi: "Sesi paket {nama} · sisa n dari m". Di draf, sisa sesudah semua draf yang menandai item itu (rencana paket
+  // keputusan 10); di tagihan final, struk, dan tagihan dibatalkan hanya buku sesi, supaya draf lain tidak mengubah angkanya.
   const useLines = lines.filter((line) => line.patientPackageItemId);
   if (useLines.length > 0) {
     const ids = [...new Set(useLines.map((line) => line.patientPackageItemId!))];
     const [items, sums, pending] = await Promise.all([
       db.patientPackageItem.findMany({ where: { id: { in: ids } }, select: { id: true, sessions: true, patientPackage: { select: { name: true } } } }),
       db.packageSessionEntry.groupBy({ by: ["patientPackageItemId"], where: { patientPackageItemId: { in: ids } }, _sum: { delta: true } }),
-      db.invoiceLine.groupBy({ by: ["patientPackageItemId"], where: { patientPackageItemId: { in: ids }, invoice: { status: "DRAF" } }, _sum: { quantity: true } }),
+      options.draft
+        ? db.invoiceLine.groupBy({ by: ["patientPackageItemId"], where: { patientPackageItemId: { in: ids }, invoice: { status: "DRAF" } }, _sum: { quantity: true } })
+        : Promise.resolve([] as { patientPackageItemId: string | null; _sum: { quantity: number | null } }[]),
     ]);
     for (const line of useLines) {
       const item = items.find((row) => row.id === line.patientPackageItemId);

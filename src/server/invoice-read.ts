@@ -283,7 +283,7 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
     },
   });
   if (!invoice) return null;
-  const notes = await packageLineNotes(prisma, invoice.lines);
+  const notes = await packageLineNotes(prisma, invoice.lines, { draft: invoice.status === "DRAF" });
 
   const lines = invoice.lines.map((line) => ({
     id: line.id,

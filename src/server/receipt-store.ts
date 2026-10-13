@@ -28,6 +28,6 @@ export async function loadReceiptSource(invoiceId: string) {
   });
   if (!invoice) return null;
   // Keterangan paket hanya nama treatment, sesi, dan tanggal; tanpa data klinis (spec paket 11).
-  const notes = await packageLineNotes(prisma, invoice.lines);
+  const notes = await packageLineNotes(prisma, invoice.lines, { draft: invoice.status === "DRAF" });
   return { ...invoice, lines: invoice.lines.map((line) => ({ ...line, note: notes.get(line.id) ?? null })) };
 }
