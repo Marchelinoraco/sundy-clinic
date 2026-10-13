@@ -1,8 +1,8 @@
-import Typography from "@mui/material/Typography";
 import { notFound } from "next/navigation";
 import { AdminHeader } from "@/components/admin/admin-header";
 import { InvoiceFinalView } from "@/components/admin/billing/invoice-final-view";
 import { InvoiceDraftEditor } from "@/components/admin/billing/invoice-draft-editor";
+import { InvoiceDraftReadOnly } from "@/components/admin/billing/invoice-draft-read-only";
 import { InvoiceStatusBadge } from "@/components/admin/billing/invoice-status-badge";
 import { PageBody, PageHeader } from "@/components/admin/page-layout";
 import { can } from "@/lib/permissions";
@@ -44,9 +44,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
               canEditNotes={canEditNotes}
             />
           ) : (
-            <Typography role="status" variant="body2" sx={{ color: "text.secondary" }}>
-              Tagihan ini masih draf; hanya resepsionis yang bisa mengubahnya.
-            </Typography>
+            <InvoiceDraftReadOnly invoiceId={detail.id} notes={detail.notes} canEditNotes={canEditNotes} />
           )
         ) : (
           <InvoiceFinalView
