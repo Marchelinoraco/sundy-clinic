@@ -28,7 +28,8 @@ export type PurchaseRow = {
 
 /** Tab "Barang masuk": faktur terbaru di atas, paling banyak 200. */
 export async function listPurchases(filter: { pendingOnly?: boolean } = {}): Promise<PurchaseRow[]> {
-  await requireCapability("stock:read");
+  const actor = await requireCapability("stock:read");
+  const withCost = can(actor.role, "price:manage");
   const today = witaDateString(new Date());
   const invoices = await prisma.purchaseInvoice.findMany({
     where: filter.pendingOnly ? { total: null, cancelledAt: null } : {},
@@ -52,7 +53,7 @@ export async function listPurchases(filter: { pendingOnly?: boolean } = {}): Pro
       invoiceNumber: invoice.invoiceNumber,
       supplierName: invoice.supplier.name,
       branchName: invoice.branch.name,
-      total: invoice.total,
+      total: withCost ? invoice.total : null,
       lineCount: invoice._count.lines,
       status: summary.status,
       overdue: summary.overdue,
@@ -80,8 +81,8 @@ export type SupplierReturnRow = {
   createdAt: Date;
   staffName: string;
   note: string | null;
-  total: number;
-  lines: { itemName: string; batchNumber: string | null; quantity: number; amount: number }[];
+  total: number | null;
+  lines: { itemName: string; batchNumber: string | null; quantity: number; amount: number | null }[];
 };
 
 export type SupplierPaymentRow = {
@@ -119,6 +120,8 @@ export type PurchaseDetail = {
   payments: SupplierPaymentRow[] | null;
   /** Syarat batal faktur (spec stok 6.4) terpenuhi. */
   canCancel: boolean;
+  /** Angka harga dikirim hanya untuk hak harga (spec harga modal 8). */
+  canSeeCost: boolean;
   /** Harga beli masih boleh diisi atau dikoreksi: belum ada pembayaran aktif dan retur (spec harga modal 4). */
   canReprice: boolean;
 };
@@ -126,6 +129,7 @@ export type PurchaseDetail = {
 export async function getPurchaseDetail(id: string): Promise<PurchaseDetail | null> {
   const actor = await requireCapability("stock:read");
   const withPayments = can(actor.role, "payable:manage");
+  const withCost = can(actor.role, "price:manage");
   const today = witaDateString(new Date());
   const invoice = await prisma.purchaseInvoice.findUnique({
     where: { id: String(id ?? "") },
@@ -191,7 +195,7 @@ export async function getPurchaseDetail(id: string): Promise<PurchaseDetail | nu
     invoiceNumber: invoice.invoiceNumber,
     invoiceDate: dateOnlyString(invoice.invoiceDate),
     dueDate: dateOnlyString(invoice.dueDate),
-    total: invoice.total,
+    total: withCost ? invoice.total : null,
     notes: invoice.notes,
     createdByName: invoice.createdByName,
     createdAt: invoice.createdAt,
@@ -205,8 +209,8 @@ export async function getPurchaseDetail(id: string): Promise<PurchaseDetail | nu
       itemName: line.item.name,
       unit: line.item.unit,
       quantity: line.quantity,
-      unitCost: line.unitCost,
-      amount: line.unitCost === null ? null : line.quantity * line.unitCost,
+      unitCost: withCost ? line.unitCost : null,
+      amount: withCost && line.unitCost !== null ? line.quantity * line.unitCost : null,
       batchNumber: line.batchNumber,
       expiryDate: line.expiryDate ? dateOnlyString(line.expiryDate) : null,
       batchId: line.batch?.id ?? "",
@@ -217,15 +221,16 @@ export async function getPurchaseDetail(id: string): Promise<PurchaseDetail | nu
       createdAt: r.createdAt,
       staffName: r.staffName,
       note: r.note,
-      total: r.total,
+      total: withCost ? r.total : null,
       lines: r.lines.map((line) => ({
         itemName: line.batch.item.name,
         batchNumber: line.batch.batchNumber,
         quantity: line.quantity,
-        amount: line.amount,
+        amount: withCost ? line.amount : null,
       })),
     })),
-    summary,
+    // Angka uang tidak dikirim ke peran tanpa hak harga (spec harga modal 8); status dan terlambat tetap.
+    summary: withCost ? summary : { ...summary, paid: 0, refunded: 0, returned: 0, balance: 0 },
     payments: payments
       ? payments.map((payment) => ({
           id: payment.id,
@@ -242,6 +247,7 @@ export async function getPurchaseDetail(id: string): Promise<PurchaseDetail | nu
         }))
       : null,
     canCancel,
+    canSeeCost: withCost,
     canReprice: invoice.payments.every((payment) => payment.revokedAt !== null) && invoice.returns.length === 0,
   };
 }

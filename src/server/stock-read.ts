@@ -20,7 +20,9 @@ import { PAYABLE_SELECT } from "@/server/stock-store";
 
 export type StockListFilter = { branchId: string; kind?: StockItemKindValue; flag?: StockFlag | "NONAKTIF"; q?: string };
 
-export type StockItemRow = StockFlags & PromoFields & {
+export type StockItemRow = Omit<StockFlags, "value"> & PromoFields & {
+  /** Σ sisa × harga beli; null bagi peran tanpa hak harga (spec harga modal 8). */
+  value: number | null;
   id: string;
   code: string;
   name: string;
@@ -38,7 +40,8 @@ const BATCH_STOCK_SELECT = { quantityRemaining: true, expiryDate: true, unitCost
 
 /** Daftar barang satu cabang (spec stok 5.1). Bawaannya barang aktif; "NONAKTIF" menampilkan yang nonaktif. */
 export async function listStockItems(filter: StockListFilter): Promise<StockItemRow[]> {
-  await requireCapability("stock:read");
+  const actor = await requireCapability("stock:read");
+  const withCost = can(actor.role, "price:manage");
   const today = witaDateString(new Date());
   const q = filter.q?.trim();
   const items = await prisma.stockItem.findMany({
@@ -63,7 +66,7 @@ export async function listStockItems(filter: StockListFilter): Promise<StockItem
   });
   const rows = items.map(({ batches, ...item }) => {
     const flags = stockFlags(batches, item.minStock, today);
-    return { ...item, ...flags, flags: flagsOf(flags) };
+    return { ...item, ...flags, value: withCost ? flags.value : null, flags: flagsOf(flags) };
   });
   const flag = filter.flag;
   return flag && flag !== "NONAKTIF" ? rows.filter((row) => row.flags.includes(flag)) : rows;
@@ -114,7 +117,8 @@ export type StockItemDetail = {
 
 /** Detail barang (spec stok 5.3): batch bersisa di semua cabang, kedaluwarsa terdekat dulu, dan 100 jurnal terakhir. */
 export async function getStockItemDetail(id: string): Promise<StockItemDetail | null> {
-  await requireCapability("stock:read");
+  const actor = await requireCapability("stock:read");
+  const withCost = can(actor.role, "price:manage");
   const today = witaDateString(new Date());
   const item = await prisma.stockItem.findUnique({
     where: { id: String(id ?? "") },
@@ -165,7 +169,7 @@ export async function getStockItemDetail(id: string): Promise<StockItemDetail | 
         batchNumber: batch.batchNumber,
         expiryDate,
         expired: expiryDate !== null && expiryDate < today,
-        unitCost: batch.unitCost,
+        unitCost: withCost ? batch.unitCost : null,
         quantityReceived: batch.quantityReceived,
         quantityRemaining: batch.quantityRemaining,
         invoiceId: invoice.id,

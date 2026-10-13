@@ -31,6 +31,7 @@ export default async function StockItemPage({ params }: { params: Promise<{ id: 
   if (!detail) notFound();
   const { item, batches, movements } = detail;
   const canManage = can(staff.role, "stock:manage");
+  const canPrice = can(staff.role, "price:manage");
   const canSetPrice = can(staff.role, "price:manage");
 
   return (
@@ -86,7 +87,7 @@ export default async function StockItemPage({ params }: { params: Promise<{ id: 
                     <TableCell>Batch</TableCell>
                     <TableCell>Kedaluwarsa</TableCell>
                     <TableCell align="right">Sisa</TableCell>
-                    <TableCell align="right">Harga beli</TableCell>
+                    {canPrice && <TableCell align="right">Harga beli</TableCell>}
                     <TableCell>Faktur</TableCell>
                     {canManage && <TableCell>Aksi</TableCell>}
                   </TableRow>
@@ -107,7 +108,7 @@ export default async function StockItemPage({ params }: { params: Promise<{ id: 
                       <TableCell align="right">
                         {batch.quantityRemaining} {item.unit}
                       </TableCell>
-                      <TableCell align="right">{batch.unitCost === null ? "—" : formatRupiah(batch.unitCost)}</TableCell>
+                      {canPrice && <TableCell align="right">{batch.unitCost === null ? "—" : formatRupiah(batch.unitCost)}</TableCell>}
                       <TableCell>
                         <TextLink href={`/admin/stok/masuk/${batch.invoiceId}`}>{batch.invoiceNumber}</TextLink>
                         <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>

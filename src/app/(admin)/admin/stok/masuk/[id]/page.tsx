@@ -109,12 +109,14 @@ export default async function PurchasePage({ params }: { params: Promise<{ id: s
                 <PayableStatusBadge status={detail.summary.status} overdue={detail.summary.overdue} />
               </dd>
             </div>
-            <div>
-              <dt>Total</dt>
-              <Box component="dd" sx={{ fontSize: "1.125rem", fontWeight: 600 }}>
-                {detail.total === null ? "—" : formatRupiah(detail.total)}
-              </Box>
-            </div>
+            {detail.canSeeCost && (
+              <div>
+                <dt>Total</dt>
+                <Box component="dd" sx={{ fontSize: "1.125rem", fontWeight: 600 }}>
+                  {detail.total === null ? "—" : formatRupiah(detail.total)}
+                </Box>
+              </div>
+            )}
             <div>
               <dt>Dicatat oleh</dt>
               <dd>
@@ -152,8 +154,8 @@ export default async function PurchasePage({ params }: { params: Promise<{ id: s
                   <TableCell>Batch</TableCell>
                   <TableCell>Kedaluwarsa</TableCell>
                   <TableCell align="right">Jumlah</TableCell>
-                  <TableCell align="right">Harga beli</TableCell>
-                  <TableCell align="right">Subtotal</TableCell>
+                  {detail.canSeeCost && <TableCell align="right">Harga beli</TableCell>}
+                  {detail.canSeeCost && <TableCell align="right">Subtotal</TableCell>}
                   <TableCell align="right">Sisa batch</TableCell>
                 </TableRow>
               </TableHead>
@@ -171,8 +173,8 @@ export default async function PurchasePage({ params }: { params: Promise<{ id: s
                     <TableCell align="right">
                       {line.quantity} {line.unit}
                     </TableCell>
-                    <TableCell align="right">{line.unitCost === null ? "—" : formatRupiah(line.unitCost)}</TableCell>
-                    <TableCell align="right">{line.amount === null ? "—" : formatRupiah(line.amount)}</TableCell>
+                    {detail.canSeeCost && <TableCell align="right">{line.unitCost === null ? "—" : formatRupiah(line.unitCost)}</TableCell>}
+                    {detail.canSeeCost && <TableCell align="right">{line.amount === null ? "—" : formatRupiah(line.amount)}</TableCell>}
                     <TableCell align="right">
                       {line.batchRemaining} {line.unit}
                     </TableCell>
@@ -191,11 +193,13 @@ export default async function PurchasePage({ params }: { params: Promise<{ id: s
               {detail.returns.map((r) => (
                 <Box component="li" key={r.id} sx={{ p: 2, display: "flex", flexDirection: "column", gap: 0.5 }}>
                   <Box sx={{ fontWeight: 500 }}>
-                    {formatDateWithYear(r.createdAt)} · {r.staffName} · {formatRupiah(r.total)}
+                    {formatDateWithYear(r.createdAt)} · {r.staffName}
+                    {r.total !== null && ` · ${formatRupiah(r.total)}`}
                   </Box>
                   {r.lines.map((line, index) => (
                     <Box key={index} sx={{ color: "text.secondary" }}>
-                      {line.itemName} batch {line.batchNumber ?? "-"}: {line.quantity} · {formatRupiah(line.amount)}
+                      {line.itemName} batch {line.batchNumber ?? "-"}: {line.quantity}
+                      {line.amount !== null && ` · ${formatRupiah(line.amount)}`}
                     </Box>
                   ))}
                   {r.note && <div>{r.note}</div>}

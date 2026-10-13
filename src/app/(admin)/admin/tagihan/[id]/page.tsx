@@ -56,7 +56,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             today={witaDateString(new Date())}
             canManage={canManage}
             canCorrect={can(staff.role, "invoice:correct")}
-            canSeeCost={can(staff.role, "stock:read")}
+            canSeeCost={can(staff.role, "price:manage")}
             receipt={receipt}
             canEditNotes={canEditNotes}
             bankAccounts={bankAccounts}

@@ -69,7 +69,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
             { id: "supplier", label: "Supplier", href: "/admin/stok?tab=supplier" },
           ]}
         />
-        {tab === "barang" && <ItemsTab params={params} />}
+        {tab === "barang" && <ItemsTab params={params} canPrice={canPrice} />}
         {tab === "masuk" && (
           <SectionCard
             title="Barang masuk"
@@ -83,7 +83,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
             }
             flush
           >
-            <PurchaseTable rows={await listPurchases({ pendingOnly })} />
+            <PurchaseTable rows={await listPurchases({ pendingOnly })} showTotal={canPrice} />
           </SectionCard>
         )}
         {tab === "supplier" && (
@@ -96,7 +96,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
   );
 }
 
-async function ItemsTab({ params }: { params: Search }) {
+async function ItemsTab({ params, canPrice }: { params: Search; canPrice: boolean }) {
   const branches = (await getBranches()).filter((branch) => branch.status === "AKTIF");
   if (branches.length === 0) return <EmptyState>Belum ada cabang aktif.</EmptyState>;
   const branch = branches.find((b) => b.id === params.cabang) ?? branches[0];
@@ -119,16 +119,19 @@ async function ItemsTab({ params }: { params: Search }) {
             m: 0,
             display: "grid",
             gap: 2,
-            gridTemplateColumns: { xs: "1fr", sm: "repeat(4, 1fr)" },
+            gridTemplateColumns: { xs: "1fr", sm: `repeat(${canPrice ? 4 : 3}, 1fr)` },
             fontSize: "0.875rem",
             "& dt": { color: "text.secondary" },
             "& dd": { m: 0, fontSize: "1.125rem", fontWeight: 600 },
           }}
         >
-          <div>
-            <dt>Nilai stok (harga beli)</dt>
-            <dd>{formatRupiah(summary.value)}</dd>
-          </div>
+          {/* Harga beli hanya untuk Admin Keuangan dan Super Admin (spec harga modal 8). */}
+          {canPrice && (
+            <div>
+              <dt>Nilai stok (harga beli)</dt>
+              <dd>{formatRupiah(summary.value)}</dd>
+            </div>
+          )}
           <div>
             <dt>Menipis</dt>
             <dd>{summary.low} barang</dd>

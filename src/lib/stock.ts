@@ -245,10 +245,10 @@ export function isStockFlag(value: unknown): value is StockFlag {
 }
 
 /** Ringkasan di atas daftar barang: nilai stok dan jumlah barang per tanda. */
-export function summarizeStock(rows: readonly StockFlags[]): { value: number; low: number; expiringSoon: number; expired: number } {
+export function summarizeStock(rows: readonly (Omit<StockFlags, "value"> & { value: number | null })[]): { value: number; low: number; expiringSoon: number; expired: number } {
   return rows.reduce(
     (sum, row) => ({
-      value: sum.value + row.value,
+      value: sum.value + (row.value ?? 0),
       low: sum.low + (row.low ? 1 : 0),
       expiringSoon: sum.expiringSoon + (row.expiringSoon ? 1 : 0),
       expired: sum.expired + (row.expired ? 1 : 0),

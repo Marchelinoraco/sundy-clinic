@@ -55,6 +55,8 @@ const COLUMNS: GridColDef<PurchaseRow>[] = [
 ];
 
 /** Tab "Barang masuk": faktur terbaru di atas. */
-export function PurchaseTable({ rows }: { rows: PurchaseRow[] }) {
-  return <AdminDataGrid rows={rows} columns={COLUMNS} label="Daftar barang masuk" emptyText="Belum ada barang masuk." />;
+/** `showTotal` false bagi peran tanpa hak harga (spec harga modal 8). */
+export function PurchaseTable({ rows, showTotal = true }: { rows: PurchaseRow[]; showTotal?: boolean }) {
+  const columns = showTotal ? COLUMNS : COLUMNS.filter((column) => column.field !== "total");
+  return <AdminDataGrid rows={rows} columns={columns} label="Daftar barang masuk" emptyText="Belum ada barang masuk." />;
 }
