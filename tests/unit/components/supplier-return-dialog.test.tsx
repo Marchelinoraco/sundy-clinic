@@ -2,6 +2,7 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SupplierReturnDialog } from "@/components/admin/stock/supplier-return-dialog";
+import { toast } from "sonner";
 import { createSupplierReturn } from "@/server/stock-movements";
 import { renderAdmin } from "../helpers/render-admin";
 
@@ -44,5 +45,17 @@ describe("SupplierReturnDialog", () => {
     await user.click(screen.getByRole("button", { name: "Simpan retur" }));
     expect(screen.getByRole("alert")).toHaveTextContent("Jumlah retur Serum C batch - melebihi sisa (2 botol).");
     expect(createSupplierReturn).not.toHaveBeenCalled();
+  });
+
+  it("tanpa harga beli (Apoteker): tidak ada nilai retur dalam rupiah, termasuk di pesan sukses", async () => {
+    vi.mocked(createSupplierReturn).mockResolvedValue({ ok: true, data: { id: "r2" } });
+    const user = userEvent.setup();
+    renderAdmin(<SupplierReturnDialog invoiceId="p1" lines={lines.map((line) => ({ ...line, unitCost: null }))} />);
+    await user.click(screen.getByRole("button", { name: "Retur ke supplier" }));
+    await user.type(screen.getByLabelText("Jumlah retur Amoxicillin batch B1"), "2");
+    expect(screen.queryByText(/Nilai retur/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Rp /)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Simpan retur" }));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith("Retur dicatat."));
   });
 });

@@ -38,6 +38,8 @@ export function SupplierReturnDialog({ invoiceId, lines }: { invoiceId: string; 
   const picked = lines
     .map((line) => ({ line, quantity: Number(quantities[line.batchId] ?? "") }))
     .filter(({ quantity }) => quantity !== 0 && !Number.isNaN(quantity));
+  // Nilai rupiah hanya bila semua harga beli dikirim (peran berhak harga, spec harga modal 8).
+  const showValue = lines.every((line) => line.unitCost !== null);
   const total = picked.reduce((sum, { line, quantity }) => (Number.isInteger(quantity) && quantity > 0 ? sum + quantity * (line.unitCost ?? 0) : sum), 0);
 
   function save() {
@@ -60,7 +62,7 @@ export function SupplierReturnDialog({ invoiceId, lines }: { invoiceId: string; 
           setError(result.error);
           return;
         }
-        toast.success(`Retur ${formatRupiah(total)} dicatat.`);
+        toast.success(showValue ? `Retur ${formatRupiah(total)} dicatat.` : "Retur dicatat.");
         setOpen(false);
         setQuantities({});
         setNote("");
@@ -121,9 +123,11 @@ export function SupplierReturnDialog({ invoiceId, lines }: { invoiceId: string; 
               </Table>
             </TableContainer>
             <TextField id="return-note" label="Catatan retur" value={note} onChange={(e) => setNote(e.target.value)} fullWidth />
-            <Typography variant="body2">
-              Nilai retur: <strong>{formatRupiah(total)}</strong>
-            </Typography>
+            {showValue && (
+              <Typography variant="body2">
+                Nilai retur: <strong>{formatRupiah(total)}</strong>
+              </Typography>
+            )}
             {error && <Alert severity="error">{error}</Alert>}
           </Stack>
         </DialogContent>
