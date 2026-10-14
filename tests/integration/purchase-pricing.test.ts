@@ -90,7 +90,10 @@ describe("barang masuk dua langkah", () => {
   it("tagihan final yang mengambil stok tanpa harga ikut terisi harga pokoknya (Review Focus 1)", async () => {
     const { id } = await unwrap(createPurchase(purchase(null)));
     // Hanya batch faktur ini yang tersisa, supaya FEFO pasti mengambilnya.
-    await prisma.stockBatch.updateMany({ where: { itemId: world.productId, branchId: world.branchId, purchaseLine: { invoiceId: { not: id } } }, data: { quantityRemaining: 0 } });
+    await prisma.stockBatch.updateMany({ where: { itemId: world.productId, branchId: world.branchId, purchaseLine: { invoiceId: { not: id } } }, data: { quantityRemaining: 0, counterRemaining: 0 } });
+    // Tagihan mengambil stok meja (spec stok meja SM1): seluruh batch faktur ini dipindah ke meja.
+    const own = await prisma.stockBatch.findFirstOrThrow({ where: { purchaseLine: { invoiceId: id } } });
+    await prisma.stockBatch.update({ where: { id: own.id }, data: { counterRemaining: own.quantityRemaining, quantityRemaining: 0 } });
     as("RESEPSIONIS");
     const sale = await unwrap(createDirectSale({ patientId: world.patientId, branchId: world.branchId }));
     await unwrap(addInvoiceItem({ invoiceId: sale.id, version: 1, itemId: world.productId, quantity: 2 }));

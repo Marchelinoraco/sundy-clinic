@@ -50,7 +50,7 @@ describe("tagihan dan penyerahan obat", () => {
   };
   const lineOf = (invoiceId: string) => prisma.invoiceLine.findFirstOrThrow({ where: { invoiceId, dispensingLineId: { not: null } } });
   const stockLeft = async () =>
-    (await prisma.stockBatch.aggregate({ where: { itemId: world.drugId, branchId: world.branchId }, _sum: { quantityRemaining: true } }))._sum.quantityRemaining;
+    (await prisma.stockBatch.aggregate({ where: { itemId: world.drugId, branchId: world.branchId }, _sum: { counterRemaining: true } }))._sum.counterRemaining;
 
   beforeAll(async () => {
     await cleanupBillingWorld(SLUG, [WA]);

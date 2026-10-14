@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/db";
+import { availableStock } from "@/lib/counter-stock";
 import type { MedicineOption } from "@/lib/prescription";
-import { stockFlags } from "@/lib/stock";
 import { witaDateString } from "@/lib/time";
+import { HAS_STOCK } from "@/server/stock-store";
 
 /**
  * Obat yang bisa diresepkan dokter di satu cabang (spec resep dokter 3): aktif dan berharga jual, beserta sisa stok cabang.
@@ -18,8 +19,8 @@ export async function listPrescribableItems(branchId: string, includeIds: string
       code: true,
       name: true,
       unit: true,
-      batches: { where: { branchId, quantityRemaining: { gt: 0 } }, select: { quantityRemaining: true, expiryDate: true } },
+      batches: { where: { branchId, ...HAS_STOCK }, select: { quantityRemaining: true, counterRemaining: true, expiryDate: true } },
     },
   });
-  return items.map(({ batches, ...item }) => ({ ...item, available: stockFlags(batches.map((b) => ({ ...b, unitCost: 0 })), 0, today).available }));
+  return items.map(({ batches, ...item }) => ({ ...item, available: availableStock(batches, today, "SEMUA") }));
 }

@@ -20,6 +20,7 @@ function revalidateLifecycle(invoiceId: string) {
   safeRevalidatePath("/admin/tagihan");
   safeRevalidatePath("/admin");
   safeRevalidatePath("/admin/stok");
+  safeRevalidatePath("/admin/stok-meja");
   safeRevalidatePath(`/admin/tagihan/${invoiceId}`);
 }
 
@@ -67,12 +68,14 @@ export async function finalizeInvoice(input: { invoiceId: string; version: numbe
       const live = new Map<string, LiveBatch[]>();
       for (const line of invoice.lines) {
         if (line.kind !== "BARANG" || !line.itemId || live.has(line.itemId)) continue;
+        // Tagihan mengambil stok meja resepsionis (spec stok meja SM1).
+        const batches = await tx.stockBatch.findMany({
+          where: { itemId: line.itemId, branchId: invoice.branchId, counterRemaining: { gt: 0 } },
+          select: { id: true, counterRemaining: true, expiryDate: true, createdAt: true, unitCost: true },
+        });
         live.set(
           line.itemId,
-          await tx.stockBatch.findMany({
-            where: { itemId: line.itemId, branchId: invoice.branchId, quantityRemaining: { gt: 0 } },
-            select: { id: true, quantityRemaining: true, expiryDate: true, createdAt: true, unitCost: true },
-          }),
+          batches.map(({ counterRemaining, ...batch }) => ({ ...batch, quantityRemaining: counterRemaining })),
         );
       }
 
@@ -81,10 +84,10 @@ export async function finalizeInvoice(input: { invoiceId: string; version: numbe
         const batches = live.get(line.itemId) ?? [];
         const plan = fefoPlan(batches, line.quantity, today);
         if (!plan.ok) {
-          throw new UserFacingError(`Stok ${line.name} di ${invoice.branch.name} tidak cukup (tersedia ${plan.available}).`);
+          throw new UserFacingError(`Stok meja ${line.name} di ${invoice.branch.name} tidak cukup (tersedia ${plan.available}). Minta restock ke Apoteker.`);
         }
         for (const take of plan.takes) {
-          if (!(await takeFromBatch(tx, take.batchId, take.quantity))) {
+          if (!(await takeFromBatch(tx, take.batchId, take.quantity, "MEJA"))) {
             throw new UserFacingError("Stok berubah saat difinalkan. Muat ulang halaman lalu coba lagi.");
           }
           const batch = batches.find((b) => b.id === take.batchId)!;
@@ -96,6 +99,7 @@ export async function finalizeInvoice(input: { invoiceId: string; version: numbe
             data: {
               batchId: batch.id,
               kind: "KELUAR",
+              location: "MEJA",
               quantity: -take.quantity,
               invoiceId,
               staffId: actor.staffId,
@@ -185,11 +189,18 @@ export async function cancelInvoice(input: { invoiceId: string; reason: string }
       }
 
       for (const use of invoice.lines.flatMap((line) => line.stockUses)) {
-        await tx.stockBatch.update({ where: { id: use.batchId }, data: { quantityRemaining: { increment: use.quantity } } });
+        // Kembali ke lokasi tempat stok diambil: meja, atau gudang untuk tagihan sebelum stok meja (spec stok meja 3).
+        const taken = await tx.stockMovement.findFirst({ where: { invoiceId, batchId: use.batchId, kind: "KELUAR" }, select: { location: true } });
+        const location = taken?.location ?? "MEJA";
+        await tx.stockBatch.update({
+          where: { id: use.batchId },
+          data: location === "MEJA" ? { counterRemaining: { increment: use.quantity } } : { quantityRemaining: { increment: use.quantity } },
+        });
         await tx.stockMovement.create({
           data: {
             batchId: use.batchId,
             kind: "PENYESUAIAN",
+            location,
             quantity: use.quantity,
             reason: "LAINNYA",
             note: `Tagihan ${invoice.number} dibatalkan`,

@@ -31,7 +31,7 @@ let seq = 0;
 describe("finalkan dan batalkan tagihan", () => {
   let world: BillingWorld;
 
-  const remaining = async (batchId: string) => (await prisma.stockBatch.findUniqueOrThrow({ where: { id: batchId } })).quantityRemaining;
+  const remaining = async (batchId: string) => (await prisma.stockBatch.findUniqueOrThrow({ where: { id: batchId } })).counterRemaining;
   const batch = (itemId: string, quantity: number, daysToExpiry: number | null, unitCost = 1000) => {
     seq += 1;
     return billingBatch(world, {
@@ -114,14 +114,14 @@ describe("finalkan dan batalkan tagihan", () => {
     const drug = await batch(world.drugId, 20, 60);
     const product = await batch(world.productId, 3, null);
     // Rak produk sudah berisi stok dari tes lain; bawa jumlah melebihi seluruhnya.
-    const have = (await prisma.stockBatch.aggregate({ where: { itemId: world.productId, branchId: world.branchId }, _sum: { quantityRemaining: true } }))._sum.quantityRemaining ?? 0;
+    const have = (await prisma.stockBatch.aggregate({ where: { itemId: world.productId, branchId: world.branchId }, _sum: { counterRemaining: true } }))._sum.counterRemaining ?? 0;
     const { id, version } = await draftWith([
       { itemId: world.drugId, quantity: 2 },
       { itemId: world.productId, quantity: have + 1 },
     ]);
     const before = await remaining(drug.batchId);
     const result = await finalizeInvoice({ invoiceId: id, version });
-    expect(result).toEqual({ ok: false, error: `Stok ${SLUG} Serum C di Cabang Publik Uji tidak cukup (tersedia ${have}).` });
+    expect(result).toEqual({ ok: false, error: `Stok meja ${SLUG} Serum C di Cabang Publik Uji tidak cukup (tersedia ${have}). Minta restock ke Apoteker.` });
     expect(await remaining(drug.batchId)).toBe(before);
     expect(await remaining(product.batchId)).toBe(3);
     expect(await prisma.stockMovement.count({ where: { invoiceId: id } })).toBe(0);
@@ -140,7 +140,7 @@ describe("finalkan dan batalkan tagihan", () => {
     ]);
     expect(await finalizeInvoice({ invoiceId: id, version })).toEqual({
       ok: false,
-      error: `Stok ${SLUG} Solo di Cabang Publik Uji tidak cukup (tersedia 2).`,
+      error: `Stok meja ${SLUG} Solo di Cabang Publik Uji tidak cukup (tersedia 2). Minta restock ke Apoteker.`,
     });
   });
 

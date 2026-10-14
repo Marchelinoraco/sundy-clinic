@@ -1,5 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { marginOf } from "@/lib/costing";
+import { counterState } from "@/lib/counter-stock";
 import { prisma } from "@/lib/db";
 import type { DispensingStatusValue } from "@/lib/dispensing";
 import {
@@ -14,7 +15,7 @@ import {
   type InvoiceView,
 } from "@/lib/invoice";
 import { can } from "@/lib/permissions";
-import { dateOnlyString, stockFlags, type PaymentMethodValue } from "@/lib/stock";
+import { dateOnlyString, type PaymentMethodValue } from "@/lib/stock";
 import { witaDateString } from "@/lib/time";
 import { TOTALS_SELECT } from "@/server/invoice-store";
 import { packageLineNotes } from "@/server/package-store";
@@ -437,7 +438,7 @@ export async function listPerformers(): Promise<{ id: string; name: string }[]> 
 
 export type BillingItem = { id: string; code: string; name: string; unit: string; sellPrice: number; available: number };
 
-/** Katalog barang untuk tagihan (spec tagihan 6): harga jual dan stok tersedia di cabang, tanpa harga beli dan tanpa batch. */
+/** Katalog barang untuk tagihan (spec tagihan 6): harga jual dan stok meja tersedia di cabang (spec stok meja SM1), tanpa harga beli dan tanpa batch. */
 export async function listBillingItems(branchId: string): Promise<BillingItem[]> {
   await requireCapability("invoice:manage");
   const today = witaDateString(new Date());
@@ -451,8 +452,8 @@ export async function listBillingItems(branchId: string): Promise<BillingItem[]>
       unit: true,
       sellPrice: true,
       batches: {
-        where: { branchId: String(branchId ?? ""), quantityRemaining: { gt: 0 } },
-        select: { quantityRemaining: true, expiryDate: true, unitCost: true },
+        where: { branchId: String(branchId ?? ""), counterRemaining: { gt: 0 } },
+        select: { counterRemaining: true, expiryDate: true },
       },
     },
   });
@@ -462,7 +463,7 @@ export async function listBillingItems(branchId: string): Promise<BillingItem[]>
     name: item.name,
     unit: item.unit,
     sellPrice: item.sellPrice ?? 0,
-    available: stockFlags(item.batches, 0, today).available,
+    available: counterState(item.batches, 0, today).available,
   }));
 }
 

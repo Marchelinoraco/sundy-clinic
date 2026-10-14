@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/db";
-import { stockFlags, type StockItemKindValue } from "@/lib/stock";
+import { availableStock } from "@/lib/counter-stock";
+import type { StockItemKindValue } from "@/lib/stock";
 import { witaDateString } from "@/lib/time";
 import { requireCapability } from "@/server/session";
+import { HAS_STOCK } from "@/server/stock-store";
 
 export type AvailabilityRow = { id: string; name: string; kind: StockItemKindValue; unit: string; available: number };
 
@@ -25,8 +27,8 @@ export async function listStockAvailability(filter: { branchId: string; q?: stri
       kind: true,
       unit: true,
       batches: {
-        where: { branchId: String(filter.branchId ?? ""), quantityRemaining: { gt: 0 } },
-        select: { quantityRemaining: true, expiryDate: true },
+        where: { branchId: String(filter.branchId ?? ""), ...HAS_STOCK },
+        select: { quantityRemaining: true, counterRemaining: true, expiryDate: true },
       },
     },
   });
@@ -35,6 +37,7 @@ export async function listStockAvailability(filter: { branchId: string; q?: stri
     name: item.name,
     kind: item.kind,
     unit: item.unit,
-    available: stockFlags(item.batches.map((b) => ({ ...b, unitCost: 0 })), 0, today).available,
+    // Gudang + meja (spec stok meja 6): Apoteker bisa mengisi meja kapan saja.
+    available: availableStock(item.batches, today, "SEMUA"),
   }));
 }

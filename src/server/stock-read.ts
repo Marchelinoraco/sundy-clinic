@@ -14,7 +14,7 @@ import {
 import type { PromoFields } from "@/lib/stock-promo";
 import { witaDateString } from "@/lib/time";
 import { requireCapability } from "@/server/session";
-import { PAYABLE_SELECT } from "@/server/stock-store";
+import { HAS_STOCK, PAYABLE_SELECT } from "@/server/stock-store";
 
 // Tanpa "use server": dibaca halaman server panel admin, tidak dipanggil browser.
 
@@ -36,7 +36,7 @@ export type StockItemRow = Omit<StockFlags, "value"> & PromoFields & {
 
 const PROMO_FIELDS_SELECT = { promoName: true, promoKind: true, promoValue: true, promoStartsOn: true, promoEndsOn: true } as const;
 
-const BATCH_STOCK_SELECT = { quantityRemaining: true, expiryDate: true, unitCost: true } as const;
+const BATCH_STOCK_SELECT = { quantityRemaining: true, counterRemaining: true, expiryDate: true, unitCost: true } as const;
 
 /** Daftar barang satu cabang (spec stok 5.1). Bawaannya barang aktif; "NONAKTIF" menampilkan yang nonaktif. */
 export async function listStockItems(filter: StockListFilter): Promise<StockItemRow[]> {
@@ -61,7 +61,7 @@ export async function listStockItems(filter: StockListFilter): Promise<StockItem
       ...PROMO_FIELDS_SELECT,
       minStock: true,
       isActive: true,
-      batches: { where: { branchId: filter.branchId, quantityRemaining: { gt: 0 } }, select: BATCH_STOCK_SELECT },
+      batches: { where: { branchId: filter.branchId, ...HAS_STOCK }, select: BATCH_STOCK_SELECT },
     },
   });
   const rows = items.map(({ batches, ...item }) => {

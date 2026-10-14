@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
+import { moveToCounter } from "@/server/counter-stock";
 import { addDaysToDateString, witaDateString } from "@/lib/time";
 import { addInvoiceItem, createDirectSale } from "@/server/invoice-drafts";
 import { finalizeInvoice } from "@/server/invoice-lifecycle";
@@ -47,6 +48,8 @@ beforeAll(async () => {
       }),
     )
   ).id;
+  // Tagihan mengambil stok meja (spec stok meja SM1).
+  await unwrap(moveToCounter({ branchId: world.branchId, itemId: world.productId, quantity: 5 }));
   invoiceId = (await unwrap(createDirectSale({ patientId: world.patientId, branchId: world.branchId }))).id;
   await unwrap(addInvoiceItem({ invoiceId, version: 1, itemId: world.productId, quantity: 1 }));
   await unwrap(finalizeInvoice({ invoiceId, version: (await prisma.invoice.findUniqueOrThrow({ where: { id: invoiceId } })).version }));

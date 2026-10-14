@@ -4,11 +4,12 @@ import { runAction, UserFacingError, type ActionResult } from "@/lib/action-resu
 import { prisma } from "@/lib/db";
 import { shortageMessage, stockShortage, totalsByItem } from "@/lib/dispensing";
 import { safeRevalidatePath } from "@/lib/revalidate";
-import { stockFlags } from "@/lib/stock";
+import { availableStock } from "@/lib/counter-stock";
 import { witaDateString } from "@/lib/time";
 import { recordAudit } from "@/server/audit";
 import { appendDispensingLines, lockDispensingContext, removeDispensingLines, STALE_DISPENSING } from "@/server/dispensing-store";
 import { requireCapability } from "@/server/session";
+import { HAS_STOCK } from "@/server/stock-store";
 
 const ALREADY_PROCESSED = "Penyerahan ini sudah diproses. Muat ulang halaman.";
 
@@ -51,10 +52,10 @@ export async function completeDispensing(input: { dispensingId: string; version:
 
       const needed = totalsByItem(row.lines.map((l) => ({ itemId: l.itemId, itemName: l.itemName, quantity: l.quantity })));
       const batches = await tx.stockBatch.findMany({
-        where: { itemId: { in: needed.map((n) => n.itemId) }, branchId: row.branchId, quantityRemaining: { gt: 0 } },
-        select: { itemId: true, quantityRemaining: true, expiryDate: true, unitCost: true },
+        where: { itemId: { in: needed.map((n) => n.itemId) }, branchId: row.branchId, ...HAS_STOCK },
+        select: { itemId: true, quantityRemaining: true, counterRemaining: true, expiryDate: true },
       });
-      const available = new Map(needed.map((n) => [n.itemId, stockFlags(batches.filter((b) => b.itemId === n.itemId), 0, today).available]));
+      const available = new Map(needed.map((n) => [n.itemId, availableStock(batches.filter((b) => b.itemId === n.itemId), today, "SEMUA")]));
       // Obat yang dinonaktifkan atau kehilangan harga jual sejak ditambahkan tidak boleh masuk tagihan (spec penyerahan 7).
       const items = await tx.stockItem.findMany({ where: { id: { in: needed.map((n) => n.itemId) } }, select: { id: true, name: true, isActive: true, sellPrice: true } });
       const unsellable = items.find((item) => !item.isActive || item.sellPrice === null);

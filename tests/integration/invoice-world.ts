@@ -34,12 +34,15 @@ export async function createBillingWorld(slug: string, whatsapp: string): Promis
   return { ...world, slug, patientId: patient.id, supplierId: supplier.id, drugId: drug.id, productId: product.id };
 }
 
-/** Faktur satu baris + batch + jurnal MASUK di cabang dunia ini (tanpa aksi server). */
+/**
+ * Faktur satu baris + batch + jurnal di cabang dunia ini (tanpa aksi server). Bawaannya seluruh jumlah sudah di
+ * meja, karena tagihan mengambil stok meja (spec stok meja SM1); `counter: 0` untuk stok gudang saja.
+ */
 export function billingBatch(
   world: BillingWorld,
-  input: { invoiceNumber: string; itemId: string; quantity: number; unitCost?: number; expiryDate?: string | null },
+  input: { invoiceNumber: string; itemId: string; quantity: number; unitCost?: number; expiryDate?: string | null; counter?: number },
 ) {
-  return seedBatch(world, { ...input, unitCost: input.unitCost ?? 1000 });
+  return seedBatch(world, { ...input, unitCost: input.unitCost ?? 1000, counter: input.counter ?? input.quantity });
 }
 
 let visitCount = 0;

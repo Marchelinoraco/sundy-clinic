@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/db";
 import type { DispensingStatusValue, DispensingView } from "@/lib/dispensing";
-import { stockFlags } from "@/lib/stock";
+import { availableStock } from "@/lib/counter-stock";
 import { witaDateString } from "@/lib/time";
 import { requireCapability } from "@/server/session";
+import { HAS_STOCK } from "@/server/stock-store";
 
 export type DispensingRow = {
   id: string;
@@ -154,8 +155,8 @@ export async function listDispenseItems(branchId: string): Promise<DispenseItem[
       name: true,
       unit: true,
       batches: {
-        where: { branchId: String(branchId ?? ""), quantityRemaining: { gt: 0 } },
-        select: { quantityRemaining: true, expiryDate: true, unitCost: true },
+        where: { branchId: String(branchId ?? ""), ...HAS_STOCK },
+        select: { quantityRemaining: true, counterRemaining: true, expiryDate: true },
       },
     },
   });
@@ -164,6 +165,6 @@ export async function listDispenseItems(branchId: string): Promise<DispenseItem[
     code: item.code,
     name: item.name,
     unit: item.unit,
-    available: stockFlags(item.batches, 0, today).available,
+    available: availableStock(item.batches, today, "SEMUA"),
   }));
 }
