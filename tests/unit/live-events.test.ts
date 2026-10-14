@@ -11,10 +11,10 @@ const event = (patch: Partial<LiveEvent> = {}): LiveEvent => ({
 });
 
 describe("peristiwa yang diawasi per peran", () => {
-  it("Apoteker hanya resep baru; resepsionis ketiganya; Super Admin ketiganya", () => {
-    expect(watchedKinds("APOTEKER")).toEqual(["RESEP_BARU"]);
-    expect(watchedKinds("RESEPSIONIS")).toEqual(["RESEP_BARU", "RESEP_SELESAI", "SIAP_DITAGIH"]);
-    expect(watchedKinds("SUPER_ADMIN")).toEqual(["RESEP_BARU", "RESEP_SELESAI", "SIAP_DITAGIH"]);
+  it("Apoteker resep baru dan permintaan restock; resepsionis resep, siap ditagih, dan hasil restock; Super Admin semuanya", () => {
+    expect(watchedKinds("APOTEKER")).toEqual(["RESEP_BARU", "RESTOCK_BARU"]);
+    expect(watchedKinds("RESEPSIONIS")).toEqual(["RESEP_BARU", "RESEP_SELESAI", "SIAP_DITAGIH", "RESTOCK_SELESAI", "RESTOCK_DITOLAK"]);
+    expect(watchedKinds("SUPER_ADMIN")).toEqual(["RESEP_BARU", "RESEP_SELESAI", "SIAP_DITAGIH", "RESTOCK_BARU", "RESTOCK_SELESAI", "RESTOCK_DITOLAK"]);
   });
 
   it("Dokter, Admin Keuangan, dan Terapis tidak mengawasi apa pun", () => {
@@ -23,6 +23,17 @@ describe("peristiwa yang diawasi per peran", () => {
 });
 
 describe("pesan dan tautan", () => {
+  it("teks dan tujuan peristiwa restock (spec stok meja 5)", () => {
+    const baru = event({ id: "RESTOCK_BARU:r1:1", kind: "RESTOCK_BARU", patientName: "Rina", entityId: "r1", count: 3 });
+    expect(eventMessage(baru, "APOTEKER")).toEqual({ title: "Permintaan restock dari Rina: 3 barang", description: "Kirim stok dari gudang ke meja." });
+    expect(eventHref(baru, "APOTEKER")).toBe("/admin/stok/permintaan/r1");
+    const selesai = event({ kind: "RESTOCK_SELESAI", patientName: "Apoteker Uji", entityId: "r1", count: 2 });
+    expect(eventMessage(selesai, "RESEPSIONIS")).toEqual({ title: "Restock dikirim: 2 barang", description: "Dikirim oleh Apoteker Uji." });
+    expect(eventHref(selesai, "RESEPSIONIS")).toBe("/admin/stok-meja");
+    const ditolak = event({ kind: "RESTOCK_DITOLAK", patientName: "Apoteker Uji", entityId: "r1", reason: "Stok kosong" });
+    expect(eventMessage(ditolak, "RESEPSIONIS")).toEqual({ title: "Permintaan restock ditolak: Stok kosong", description: "Ditolak oleh Apoteker Uji." });
+  });
+
   it("resep baru: Apoteker diminta menyiapkan obat; resepsionis diberi tahu tagihan tertahan", () => {
     expect(eventMessage(event(), "APOTEKER")).toEqual({ title: "Resep baru: Ani Pratiwi", description: "Obat perlu disiapkan." });
     expect(eventMessage(event(), "RESEPSIONIS")).toEqual({ title: "Resep baru: Ani Pratiwi", description: "Tagihan tertahan sampai obat diserahkan." });

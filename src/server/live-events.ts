@@ -12,7 +12,7 @@ const LIMIT = 20;
 
 /**
  * Peristiwa sejak `since` (eksklusif) sampai `now`, untuk peran ini (spec pemberitahuan): resep baru
- * (penyerahan dibuat), obat diserahkan atau tanpa obat (penyerahan selesai), dan siap ditagih (catatan final tanpa resep).
+ * (penyerahan dibuat), obat diserahkan atau tanpa obat (penyerahan selesai), siap ditagih (catatan final tanpa resep), dan restock meja (permintaan dibuat, dikirim, ditolak).
  * `since` yang terlalu lama dibatasi 10 menit. Dihitung dari data yang sudah ada, tanpa tabel baru.
  */
 export async function liveEventsFor(role: Role, since: Date, now: Date = new Date()): Promise<{ watching: boolean; serverTime: string; events: LiveEvent[] }> {
@@ -69,6 +69,38 @@ export async function liveEventsFor(role: Role, since: Date, now: Date = new Dat
     for (const row of rows) {
       const at = row.finalizedAt as Date;
       events.push({ id: `SIAP_DITAGIH:${row.id}:${at.getTime()}`, kind: "SIAP_DITAGIH", patientName: nameOf(row.appointment.patient), at: at.toISOString(), entityId: row.id });
+    }
+  }
+
+  if (kinds.includes("RESTOCK_BARU")) {
+    const rows = await prisma.restockRequest.findMany({
+      where: { createdAt: range },
+      orderBy: { createdAt: "asc" },
+      take: LIMIT,
+      select: { id: true, createdAt: true, requestedByName: true, _count: { select: { lines: true } } },
+    });
+    for (const row of rows) {
+      events.push({ id: `RESTOCK_BARU:${row.id}:${row.createdAt.getTime()}`, kind: "RESTOCK_BARU", patientName: row.requestedByName, at: row.createdAt.toISOString(), entityId: row.id, count: row._count.lines });
+    }
+  }
+  if (kinds.includes("RESTOCK_SELESAI")) {
+    const rows = await prisma.restockRequest.findMany({
+      where: { decidedAt: range, status: { in: ["SELESAI", "DITOLAK"] } },
+      orderBy: { decidedAt: "asc" },
+      take: LIMIT,
+      select: { id: true, status: true, decidedAt: true, decidedByName: true, rejectReason: true, lines: { select: { sentQuantity: true } } },
+    });
+    for (const row of rows) {
+      const at = row.decidedAt as Date;
+      const kind = row.status === "SELESAI" ? ("RESTOCK_SELESAI" as const) : ("RESTOCK_DITOLAK" as const);
+      events.push({
+        id: `${kind}:${row.id}:${at.getTime()}`,
+        kind,
+        patientName: row.decidedByName ?? "-",
+        at: at.toISOString(),
+        entityId: row.id,
+        ...(kind === "RESTOCK_SELESAI" ? { count: row.lines.filter((line) => (line.sentQuantity ?? 0) > 0).length } : { reason: row.rejectReason ?? "" }),
+      });
     }
   }
 

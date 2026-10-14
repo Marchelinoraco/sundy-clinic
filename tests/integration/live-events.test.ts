@@ -87,6 +87,35 @@ describe("peristiwa langsung", () => {
     expect(ids).toContain(visit.encounterId);
   });
 
+  it("restock: Apoteker menerima permintaan baru; resepsionis menerima kiriman dan penolakan (spec stok meja 5)", async () => {
+    const created = await prisma.restockRequest.create({
+      data: { branchId: world.branchId, requestedById: "s1", requestedByName: `Rina ${SLUG}`, lines: { create: [{ itemId: world.drugId, itemName: "Obat", requestedQuantity: 4 }] } },
+    });
+    const forPharmacist = (await liveEventsFor("APOTEKER", since)).events.filter((e) => e.kind === "RESTOCK_BARU" && e.entityId === created.id);
+    expect(forPharmacist).toEqual([expect.objectContaining({ patientName: `Rina ${SLUG}`, count: 1 })]);
+    expect((await liveEventsFor("RESEPSIONIS", since)).events.some((e) => e.kind === "RESTOCK_BARU")).toBe(false);
+
+    const done = await prisma.restockRequest.create({
+      data: {
+        branchId: world.branchId,
+        requestedById: "s1",
+        requestedByName: "Rina",
+        status: "SELESAI",
+        decidedAt: new Date(),
+        decidedById: "a1",
+        decidedByName: `Apoteker ${SLUG}`,
+        lines: { create: [{ itemId: world.drugId, itemName: "Obat", requestedQuantity: 4, sentQuantity: 3 }, { itemId: world.productId, itemName: "Serum", requestedQuantity: 1, sentQuantity: 0 }] },
+      },
+    });
+    const rejected = await prisma.restockRequest.create({
+      data: { branchId: world.branchId, requestedById: "s1", requestedByName: "Rina", status: "DITOLAK", decidedAt: new Date(), decidedById: "a1", decidedByName: `Apoteker ${SLUG}`, rejectReason: "Stok kosong", lines: { create: [{ itemId: world.drugId, itemName: "Obat", requestedQuantity: 1 }] } },
+    });
+    const events = (await liveEventsFor("RESEPSIONIS", since)).events;
+    expect(events.find((e) => e.kind === "RESTOCK_SELESAI" && e.entityId === done.id)).toMatchObject({ patientName: `Apoteker ${SLUG}`, count: 1 });
+    expect(events.find((e) => e.kind === "RESTOCK_DITOLAK" && e.entityId === rejected.id)).toMatchObject({ reason: "Stok kosong" });
+    expect((await liveEventsFor("APOTEKER", since)).events.some((e) => e.kind === "RESTOCK_SELESAI")).toBe(false);
+  });
+
   it("kursor: hanya yang lebih baru dari 'sejak'; urut naik menurut waktu; serverTime ikut", async () => {
     const all = await liveEventsFor("RESEPSIONIS", since);
     const times = mine(all.events).map((e) => new Date(e.at).getTime());

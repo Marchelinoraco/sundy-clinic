@@ -1,6 +1,6 @@
 import { can } from "./permissions";
 
-// Aturan murni pemberitahuan langsung (resep baru, obat diserahkan, siap ditagih). Dipakai server dan browser.
+// Aturan murni pemberitahuan langsung (resep, siap ditagih, restock meja). Dipakai server dan browser.
 
 type Role = Parameters<typeof can>[0];
 
@@ -9,19 +9,24 @@ export const LIVE_POLL_MS = 10_000;
 /** Kursor berikutnya mundur sebesar ini; peristiwa yang terlihat dua kali dibuang lewat id. */
 export const LIVE_OVERLAP_MS = 30_000;
 
-export type LiveEventKind = "RESEP_BARU" | "RESEP_SELESAI" | "SIAP_DITAGIH";
+export type LiveEventKind = "RESEP_BARU" | "RESEP_SELESAI" | "SIAP_DITAGIH" | "RESTOCK_BARU" | "RESTOCK_SELESAI" | "RESTOCK_DITOLAK";
 
 export type LiveEvent = {
   /** Unik per peristiwa: jenis, entitas, dan waktu. */
   id: string;
   kind: LiveEventKind;
+  /** Nama pasien; untuk restock, nama staf peminta atau pemutus. */
   patientName: string;
   /** Waktu peristiwa (ISO). */
   at: string;
-  /** id penyerahan (resep) atau kunjungan (siap ditagih). */
+  /** id penyerahan, kunjungan, atau permintaan restock. */
   entityId: string;
   /** Hanya untuk RESEP_SELESAI: penyerahan ditandai tanpa obat. */
   detail?: "TANPA_OBAT";
+  /** Restock: jumlah barang. */
+  count?: number;
+  /** RESTOCK_DITOLAK: alasan Apoteker. */
+  reason?: string;
 };
 
 /** Jenis peristiwa yang boleh diterima peran ini (spec pemberitahuan): Apoteker resep baru; resepsionis semuanya. */
@@ -29,6 +34,8 @@ export function watchedKinds(role: Role): LiveEventKind[] {
   const kinds: LiveEventKind[] = [];
   if (can(role, "dispense:read") || can(role, "invoice:manage")) kinds.push("RESEP_BARU");
   if (can(role, "invoice:manage")) kinds.push("RESEP_SELESAI", "SIAP_DITAGIH");
+  if (can(role, "stock:manage")) kinds.push("RESTOCK_BARU");
+  if (can(role, "restock:request")) kinds.push("RESTOCK_SELESAI", "RESTOCK_DITOLAK");
   return kinds;
 }
 
@@ -45,11 +52,19 @@ export function eventMessage(event: LiveEvent, role: Role): { title: string; des
         : { title: `Obat sudah diserahkan: ${event.patientName}`, description: "Tagihan bisa difinalkan dan dibayar." };
     case "SIAP_DITAGIH":
       return { title: `Siap ditagih: ${event.patientName}`, description: "Catatan dokter sudah final." };
+    case "RESTOCK_BARU":
+      return { title: `Permintaan restock dari ${event.patientName}: ${event.count ?? 0} barang`, description: "Kirim stok dari gudang ke meja." };
+    case "RESTOCK_SELESAI":
+      return { title: `Restock dikirim: ${event.count ?? 0} barang`, description: `Dikirim oleh ${event.patientName}.` };
+    case "RESTOCK_DITOLAK":
+      return { title: `Permintaan restock ditolak: ${event.reason ?? ""}`, description: `Ditolak oleh ${event.patientName}.` };
   }
 }
 
 /** Layar tujuan tombol "Buka": Apoteker ke rincian resep, selebihnya ke daftar tagihan. */
 export function eventHref(event: LiveEvent, role: Role): string {
+  if (event.kind === "RESTOCK_BARU") return `/admin/stok/permintaan/${event.entityId}`;
+  if (event.kind === "RESTOCK_SELESAI" || event.kind === "RESTOCK_DITOLAK") return "/admin/stok-meja";
   if (event.kind === "RESEP_BARU" && can(role, "dispense:read")) return `/admin/resep/${event.entityId}`;
   return "/admin/tagihan";
 }
