@@ -17,7 +17,7 @@ let encounterPath: string | null = null;
 test("apoteker menyiapkan dua obat", async ({ page, browser }, testInfo) => {
   const t = tag(testInfo);
   await signIn(page, E2E_APOTEKER);
-  for (const [suffix, name] of [["AMX", `Amoxicillin Dokter ${t}`], ["VIT", `Vitamin Dokter ${t}`]] as const) {
+  for (const [suffix, name] of [["AMX", `Kapsul Dokter ${t}`], ["VIT", `Vitamin Dokter ${t}`]] as const) {
     await page.goto("/admin/stok");
     await page.getByRole("button", { name: "+ Barang" }).click();
     const dialog = page.getByRole("dialog", { name: "Tambah barang" });
@@ -36,7 +36,7 @@ test("apoteker menyiapkan dua obat", async ({ page, browser }, testInfo) => {
   await supplier.getByRole("button", { name: "Simpan" }).click();
   await expect(supplier).toBeHidden({ timeout: 30_000 });
   await page.getByLabel("Nomor faktur").fill(`RSD-E2E-${t}-001`);
-  await pilihOpsi(page, "Barang baris 1", `Amoxicillin Dokter ${t} (E2E-${t}-AMX)`);
+  await pilihOpsi(page, "Barang baris 1", `Kapsul Dokter ${t} (E2E-${t}-AMX)`);
   await page.getByLabel("Jumlah baris 1").fill("10");
   await page.getByLabel("Batch baris 1").fill("A-01");
   await isiTanggal(page, "Kedaluwarsa baris 1", dayFromToday(365));
@@ -61,7 +61,7 @@ test("dokter menulis resep dua obat dengan peringatan stok lalu memfinalkan", as
 
   await page.getByRole("button", { name: "Tambah obat" }).click();
   const first = page.getByRole("group", { name: "Obat 1" });
-  await first.getByLabel("Obat").selectOption({ label: `Amoxicillin Dokter ${t} (E2E-${t}-AMX)` });
+  await first.getByLabel("Obat").selectOption({ label: `Kapsul Dokter ${t} (E2E-${t}-AMX)` });
   await first.getByLabel("Jumlah").fill("6");
   await first.getByLabel("Aturan pakai").fill("3 x 1 sesudah makan");
   await page.getByRole("button", { name: "Tambah obat" }).click();
@@ -95,6 +95,22 @@ test("resepsionis mengurangi obat yang kurang, mencetak etiket, dan memfinalkan;
   await expect(reduce).toBeHidden({ timeout: 30_000 });
   await expect(page.getByLabel(`Jumlah ${vitamin}`)).toHaveValue("2", { timeout: 30_000 });
 
+  // Obat dijadikan 0 lalu dikembalikan tanpa membatalkan tagihan.
+  const amox = `Kapsul Dokter ${t}`;
+  await page.getByRole("button", { name: `Kurangi ${amox}` }).click();
+  const drop = page.getByRole("dialog", { name: `Kurangi ${amox}` });
+  await drop.getByLabel("Jumlah ditagih").fill("0");
+  await drop.getByLabel("Alasan").fill("Pasien menolak");
+  await drop.getByRole("button", { name: "Simpan" }).click();
+  await expect(drop).toBeHidden({ timeout: 30_000 });
+  const dropped = page.getByRole("region", { name: "Obat resep tidak ditagih" });
+  await expect(dropped).toContainText("Pasien menolak", { timeout: 30_000 });
+  await expect(page.getByLabel(`Jumlah ${amox}`)).toHaveCount(0);
+  await dropped.getByRole("button", { name: `Kembalikan ${amox}` }).click();
+  await expect(page.getByLabel(`Jumlah ${amox}`)).toHaveValue("6", { timeout: 30_000 });
+  await expect(dropped).toHaveCount(0);
+  await expect(page.getByText("Obat sudah diserahkan.")).toHaveCount(0);
+
   await page.getByRole("link", { name: "Cetak etiket" }).click();
   await expect(page).toHaveURL(/\/admin\/tagihan\/[^/?]+\/etiket$/, { timeout: 30_000 });
   const label = page.getByRole("article", { name: "Etiket obat" });
@@ -112,7 +128,7 @@ test("resepsionis mengurangi obat yang kurang, mencetak etiket, dan memfinalkan;
   await signIn(ap, E2E_APOTEKER);
   await ap.goto("/admin/stok");
   const items = ap.getByRole("region", { name: "Barang", exact: true });
-  await expect(items.getByRole("row").filter({ hasText: `Amoxicillin Dokter ${t}` })).toContainText("4 tablet");
+  await expect(items.getByRole("row").filter({ hasText: `Kapsul Dokter ${t}` })).toContainText("4 tablet");
   await expect(items.getByRole("row").filter({ hasText: vitamin })).toContainText("0 tablet");
   await pharmacy.close();
 });
@@ -123,7 +139,7 @@ test("dokter melihat keterangan penagihan; hak akses", async ({ page }, testInfo
   await signIn(page, E2E_ADMIN);
   await page.goto(encounterPath!);
   await expect(page.getByRole("table", { name: "Resep" })).toContainText(`Ditagih 2 dari 5 — Stok kurang`, { timeout: 30_000 });
-  await expect(page.getByRole("table", { name: "Resep" })).toContainText(`Amoxicillin Dokter ${t}`);
+  await expect(page.getByRole("table", { name: "Resep" })).toContainText(`Kapsul Dokter ${t}`);
 
   await page.context().clearCookies();
   await signIn(page, E2E_APOTEKER);

@@ -2,7 +2,7 @@
 import type { StaffRole } from "@prisma/client";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
-import { createInvoiceFromVisit, reducePrescriptionLine, removeInvoiceLine, updateInvoiceLine } from "@/server/invoice-drafts";
+import { createInvoiceFromVisit, reducePrescriptionLine, removeInvoiceLine, restorePrescriptionLine, updateInvoiceLine } from "@/server/invoice-drafts";
 import { cancelInvoice, finalizeInvoice } from "@/server/invoice-lifecycle";
 import { getInvoiceDetail } from "@/server/invoice-read";
 import { billingBatch, cleanupBillingWorld, createBillingWorld, finalVisit, seedDispensing, type BillingWorld } from "./invoice-world";
@@ -56,7 +56,7 @@ describe("baris resep dokter di tagihan (spec resep dokter 4)", () => {
     expect(line).toMatchObject({ quantity: 10, prescription: { prescribedQuantity: 10, usage: "3 x 1 sesudah makan" } });
     expect(detail.hasPrescription).toBe(true);
 
-    expect(await reducePrescriptionLine({ invoiceId: id, version: await versionOf(id), lineId: line.id, quantity: 10, reason: "x" })).toEqual({ ok: false, error: "Jumlah ditagih harus 0–9." });
+    expect(await reducePrescriptionLine({ invoiceId: id, version: await versionOf(id), lineId: line.id, quantity: 11, reason: "x" })).toEqual({ ok: false, error: "Jumlah ditagih harus 0–10." });
     expect(await reducePrescriptionLine({ invoiceId: id, version: await versionOf(id), lineId: line.id, quantity: 5, reason: "" })).toEqual({ ok: false, error: "Alasan 2–200 karakter." });
     await unwrap(reducePrescriptionLine({ invoiceId: id, version: await versionOf(id), lineId: line.id, quantity: 5, reason: "Stok kurang" }));
     expect((await prisma.invoiceLine.findUniqueOrThrow({ where: { id: line.id } })).quantity).toBe(5);
@@ -81,6 +81,63 @@ describe("baris resep dokter di tagihan (spec resep dokter 4)", () => {
     await unwrap(reducePrescriptionLine({ invoiceId: id, version: await versionOf(id), lineId: line.id, quantity: 0, reason: "Customer menolak" }));
     expect(await prisma.invoiceLine.findUnique({ where: { id: line.id } })).toBeNull();
     expect((await prisma.dispensingLine.findUniqueOrThrow({ where: { id: dispensingLineId } })).billedQuantity).toBe(0);
+  });
+
+  it("pengurangan bisa dibatalkan: isi jumlah resep lagi, tanpa alasan, keterangan untuk dokter hilang", async () => {
+    const { appointmentId, dispensingLineId } = await doctorVisit();
+    const { id } = await unwrap(createInvoiceFromVisit(appointmentId));
+    const line = (await getInvoiceDetail(id))!.lines.find((l) => l.prescription)!;
+    await unwrap(reducePrescriptionLine({ invoiceId: id, version: await versionOf(id), lineId: line.id, quantity: 5, reason: "Stok kurang" }));
+    await unwrap(reducePrescriptionLine({ invoiceId: id, version: await versionOf(id), lineId: line.id, quantity: 10, reason: "" }));
+    expect((await prisma.invoiceLine.findUniqueOrThrow({ where: { id: line.id } })).quantity).toBe(10);
+    expect(await prisma.dispensingLine.findUniqueOrThrow({ where: { id: dispensingLineId } })).toMatchObject({ billedQuantity: null, billingNote: null });
+    expect((await prisma.auditLog.findFirstOrThrow({ where: { entityId: id, action: "invoice.update" }, orderBy: { createdAt: "desc" } })).summary).toBe(
+      `Kembalikan ${SLUG} Amoxicillin ke jumlah resep (10)`,
+    );
+  });
+
+  it("obat yang dijadikan 0 tampil sebagai tidak ditagih dan bisa dikembalikan dengan jumlah resep", async () => {
+    const { appointmentId, dispensingLineId } = await doctorVisit();
+    const { id } = await unwrap(createInvoiceFromVisit(appointmentId));
+    const before = (await getInvoiceDetail(id))!;
+    expect(before.dispensingSource).toBe("DOKTER");
+    expect(before.droppedPrescriptions).toEqual([]);
+    const line = before.lines.find((l) => l.prescription)!;
+    await unwrap(reducePrescriptionLine({ invoiceId: id, version: await versionOf(id), lineId: line.id, quantity: 0, reason: "Pasien menolak" }));
+    expect((await getInvoiceDetail(id))!.droppedPrescriptions).toEqual([
+      { dispensingLineId, name: `${SLUG} Amoxicillin`, prescribedQuantity: 10, reason: "Pasien menolak" },
+    ]);
+
+    await unwrap(restorePrescriptionLine({ invoiceId: id, version: await versionOf(id), dispensingLineId }));
+    const after = (await getInvoiceDetail(id))!;
+    expect(after.droppedPrescriptions).toEqual([]);
+    expect(after.lines.find((l) => l.prescription)).toMatchObject({ quantity: 10, unitPrice: 2000, prescription: { prescribedQuantity: 10 } });
+    expect(await prisma.dispensingLine.findUniqueOrThrow({ where: { id: dispensingLineId } })).toMatchObject({ billedQuantity: null, billingNote: null });
+    expect((await prisma.auditLog.findFirstOrThrow({ where: { entityId: id, action: "invoice.update" }, orderBy: { createdAt: "desc" } })).summary).toBe(
+      `Kembalikan ${SLUG} Amoxicillin: ×10`,
+    );
+    expect(await restorePrescriptionLine({ invoiceId: id, version: await versionOf(id), dispensingLineId })).toEqual({
+      ok: false,
+      error: "Obat ini sudah ada di tagihan.",
+    });
+  });
+
+  it("Kembalikan hanya untuk obat resep dokter kunjungan ini; Admin Keuangan tidak berhak", async () => {
+    const { appointmentId } = await finalVisit(world, { treatments: [] });
+    const { lineIds } = await seedDispensing(world, appointmentId, { status: "SELESAI", lines: [{ itemId: world.drugId, quantity: 2 }] });
+    const { id } = await unwrap(createInvoiceFromVisit(appointmentId));
+    expect((await getInvoiceDetail(id))!.dispensingSource).toBe("APOTEKER");
+    expect(await restorePrescriptionLine({ invoiceId: id, version: await versionOf(id), dispensingLineId: lineIds[0] })).toEqual({
+      ok: false,
+      error: "Obat resep tidak ditemukan. Muat ulang halaman.",
+    });
+    const other = await doctorVisit();
+    expect(await restorePrescriptionLine({ invoiceId: id, version: await versionOf(id), dispensingLineId: other.dispensingLineId })).toEqual({
+      ok: false,
+      error: "Obat resep tidak ditemukan. Muat ulang halaman.",
+    });
+    actor.role = "ADMIN_KEUANGAN";
+    await expect(restorePrescriptionLine({ invoiceId: id, version: await versionOf(id), dispensingLineId: lineIds[0] })).rejects.toThrow("forbidden: invoice:manage");
   });
 
   it("baris penyerahan Apoteker lama tidak bisa dikurangi lewat aksi resep (Review Focus 4)", async () => {

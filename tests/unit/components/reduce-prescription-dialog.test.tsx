@@ -36,7 +36,18 @@ describe("ReducePrescriptionDialog (spec resep dokter 4)", { timeout: 15_000 }, 
     await user.clear(screen.getByLabelText("Jumlah ditagih"));
     await user.type(screen.getByLabelText("Alasan"), "Stok kurang");
     await user.click(screen.getByRole("button", { name: "Simpan" }));
-    expect(await screen.findByText("Jumlah ditagih harus 0–9.")).toBeInTheDocument();
+    expect(await screen.findByText("Jumlah ditagih harus 0–10.")).toBeInTheDocument();
     expect(reducePrescriptionLine).not.toHaveBeenCalled();
+  });
+
+  it("jumlah resep lagi: pengurangan dibatalkan tanpa alasan", async () => {
+    const user = userEvent.setup();
+    renderAdmin(<ReducePrescriptionDialog invoiceId="inv" version={1} line={{ id: "l1", name: "Amoxicillin", quantity: 4, prescription: { prescribedQuantity: 10, usage: "3 x 1" } }} />);
+    await user.click(screen.getByRole("button", { name: "Kurangi Amoxicillin" }));
+    expect(screen.getByRole("dialog", { name: "Kurangi Amoxicillin" })).toHaveTextContent("Isi 10 untuk kembali sesuai resep.");
+    await user.clear(screen.getByLabelText("Jumlah ditagih"));
+    await user.type(screen.getByLabelText("Jumlah ditagih"), "10");
+    await user.click(screen.getByRole("button", { name: "Simpan" }));
+    await waitFor(() => expect(reducePrescriptionLine).toHaveBeenCalledWith({ invoiceId: "inv", version: 1, lineId: "l1", quantity: 10, reason: null }));
   });
 });

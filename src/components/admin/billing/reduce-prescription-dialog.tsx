@@ -63,7 +63,7 @@ export function ReducePrescriptionDialog({ invoiceId, version, line, disabled }:
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             <Typography variant="body2">
-              Resep dokter: {prescribed} · {line.prescription.usage}. Isi 0 untuk tidak menagih obat ini.
+              Resep dokter: {prescribed} · {line.prescription.usage}. Isi 0 untuk tidak menagih obat ini. Isi {prescribed} untuk kembali sesuai resep.
             </Typography>
             <TextField
               id={`reduce-qty-${line.id}`}
@@ -72,7 +72,7 @@ export function ReducePrescriptionDialog({ invoiceId, version, line, disabled }:
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
               fullWidth
-              slotProps={{ htmlInput: { min: 0, max: prescribed - 1 } }}
+              slotProps={{ htmlInput: { min: 0, max: prescribed } }}
             />
             <TextField id={`reduce-reason-${line.id}`} label="Alasan" value={reason} onChange={(e) => setReason(e.target.value)} fullWidth />
             {error && <Alert severity="error">{error}</Alert>}

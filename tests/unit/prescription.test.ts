@@ -42,12 +42,17 @@ describe("resep dokter", () => {
     expect(stockWarnings([{ itemId: "hilang", quantity: 1 }], medicines).has("hilang")).toBe(false);
   });
 
-  it("pengurangan oleh resepsionis: 0 sampai kurang dari resep, alasan wajib", () => {
+  it("pengurangan oleh resepsionis: 0 sampai jumlah resep; alasan wajib bila kurang dari resep", () => {
     expect(validateReduction({ quantity: 5, reason: " Stok kurang " }, { prescribed: 10 })).toEqual({ ok: true, value: { quantity: 5, reason: "Stok kurang" } });
     expect(validateReduction({ quantity: 0, reason: "Menolak" }, { prescribed: 10 })).toEqual({ ok: true, value: { quantity: 0, reason: "Menolak" } });
-    expect(validateReduction({ quantity: 10, reason: "x" }, { prescribed: 10 })).toEqual({ ok: false, message: "Jumlah ditagih harus 0–9." });
-    expect(validateReduction({ quantity: 1.5, reason: "Stok" }, { prescribed: 10 })).toEqual({ ok: false, message: "Jumlah ditagih harus 0–9." });
+    expect(validateReduction({ quantity: 11, reason: "Stok" }, { prescribed: 10 })).toEqual({ ok: false, message: "Jumlah ditagih harus 0–10." });
+    expect(validateReduction({ quantity: 1.5, reason: "Stok" }, { prescribed: 10 })).toEqual({ ok: false, message: "Jumlah ditagih harus 0–10." });
     expect(validateReduction({ quantity: 5, reason: "x" }, { prescribed: 10 })).toEqual({ ok: false, message: "Alasan 2–200 karakter." });
+  });
+
+  it("kembali ke jumlah resep: alasan tidak wajib dan tidak disimpan", () => {
+    expect(validateReduction({ quantity: 10, reason: "" }, { prescribed: 10 })).toEqual({ ok: true, value: { quantity: 10, reason: null } });
+    expect(validateReduction({ quantity: 10, reason: "Stok ada lagi" }, { prescribed: 10 })).toEqual({ ok: true, value: { quantity: 10, reason: null } });
   });
 
   it("keterangan penagihan untuk dokter", () => {

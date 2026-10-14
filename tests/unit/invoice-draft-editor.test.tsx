@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   addInvoiceItem: vi.fn(),
   addFreeLine: vi.fn(),
   refreshCatalogPrices: vi.fn(),
+  restorePrescriptionLine: vi.fn(),
   cancelInvoice: vi.fn(),
 }));
 vi.mock("@/server/invoice-notes", () => ({ updateInvoiceNotes: vi.fn() }));
@@ -34,6 +35,8 @@ vi.mock("@/server/invoice-drafts", () => ({
   setLinePerformer: vi.fn(),
   releasePackageSession: vi.fn(),
   clearLineDiscount: vi.fn(),
+  reducePrescriptionLine: vi.fn(),
+  restorePrescriptionLine: mocks.restorePrescriptionLine,
 }));
 vi.mock("@/server/invoice-lifecycle", () => ({ finalizeInvoice: mocks.finalizeInvoice, cancelInvoice: mocks.cancelInvoice }));
 
@@ -71,6 +74,8 @@ function detail(patch: Partial<InvoiceDetail> = {}): InvoiceDetail {
     payments: [],
     everPaid: false,
     hasPrescription: false,
+    dispensingSource: null,
+    droppedPrescriptions: [],
     margin: null,
     ...patch,
   };
@@ -179,6 +184,35 @@ describe("editor draf tagihan", () => {
     expect(screen.getByLabelText("Harga Vitamin C")).toBeEnabled();
     expect(screen.getByLabelText("Jumlah Konsultasi Gizi")).toBeEnabled();
     expect(screen.getByRole("button", { name: "Hapus Konsultasi Gizi" })).toBeInTheDocument();
+  });
+
+  it("resep dokter: tanpa pita 'Obat sudah diserahkan' karena tidak ada penyerahan Apoteker", () => {
+    renderAdmin(<InvoiceDraftEditor detail={detail({ dispensing: "SELESAI", dispensingSource: "DOKTER" })} items={items} canExceedDiscount={false} />);
+    expect(screen.queryByText("Obat sudah diserahkan.")).toBeNull();
+    expect(screen.getByRole("button", { name: "Finalkan tagihan" })).toBeEnabled();
+  });
+
+  it("obat resep yang dijadikan 0 tampil di 'Obat resep tidak ditagih' dan bisa dikembalikan", async () => {
+    mocks.restorePrescriptionLine.mockResolvedValue({ ok: true, data: { version: 8 } });
+    const base = detail({ dispensing: "SELESAI", dispensingSource: "DOKTER" });
+    renderAdmin(
+      <InvoiceDraftEditor
+        detail={{ ...base, droppedPrescriptions: [{ dispensingLineId: "dl1", name: "Amoxicillin", prescribedQuantity: 10, reason: "Pasien menolak" }] }}
+        items={items}
+        canExceedDiscount={false}
+      />,
+    );
+    const region = screen.getByRole("region", { name: "Obat resep tidak ditagih" });
+    expect(region).toHaveTextContent("Amoxicillin");
+    expect(region).toHaveTextContent("resep 10");
+    expect(region).toHaveTextContent("Pasien menolak");
+    await userEvent.click(within(region).getByRole("button", { name: "Kembalikan Amoxicillin" }));
+    await waitFor(() => expect(mocks.restorePrescriptionLine).toHaveBeenCalledWith({ invoiceId: "inv1", version: base.version, dispensingLineId: "dl1" }));
+  });
+
+  it("tanpa obat yang dijadikan 0 tidak ada bagian 'Obat resep tidak ditagih'", () => {
+    renderAdmin(<InvoiceDraftEditor detail={detail()} items={items} canExceedDiscount={false} />);
+    expect(screen.queryByRole("region", { name: "Obat resep tidak ditagih" })).toBeNull();
   });
 
   it("baris dari resep dokter: label, aturan pakai, tombol Kurangi, dan tautan Cetak etiket (spec resep dokter 4–5)", () => {

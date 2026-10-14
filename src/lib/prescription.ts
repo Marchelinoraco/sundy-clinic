@@ -42,13 +42,17 @@ export function stockWarnings(rows: { itemId: string; quantity: number }[], medi
   return warnings;
 }
 
-/** Pengurangan baris resep di tagihan oleh resepsionis (RD5): 0 ≤ jumlah < resep, alasan 2–200 karakter. */
-export function validateReduction(raw: unknown, ctx: { prescribed: number }): Result<{ quantity: number; reason: string }> {
+/**
+ * Jumlah yang ditagih untuk baris resep, diubah resepsionis (RD5): 0 ≤ jumlah ≤ resep. Kurang dari resep wajib alasan
+ * 2–200 karakter; sama dengan resep berarti kembali sesuai resep, alasannya tidak disimpan (`reason: null`).
+ */
+export function validateReduction(raw: unknown, ctx: { prescribed: number }): Result<{ quantity: number; reason: string | null }> {
   const value = (typeof raw === "object" && raw !== null ? raw : {}) as Record<string, unknown>;
   const quantity = value.quantity;
-  if (typeof quantity !== "number" || !Number.isInteger(quantity) || quantity < 0 || quantity >= ctx.prescribed) {
-    return { ok: false, message: `Jumlah ditagih harus 0–${ctx.prescribed - 1}.` };
+  if (typeof quantity !== "number" || !Number.isInteger(quantity) || quantity < 0 || quantity > ctx.prescribed) {
+    return { ok: false, message: `Jumlah ditagih harus 0–${ctx.prescribed}.` };
   }
+  if (quantity === ctx.prescribed) return { ok: true, value: { quantity, reason: null } };
   const reason = typeof value.reason === "string" ? value.reason.replace(/\s+/g, " ").trim() : "";
   if (reason.length < 2 || reason.length > 200) return { ok: false, message: "Alasan 2–200 karakter." };
   return { ok: true, value: { quantity, reason } };

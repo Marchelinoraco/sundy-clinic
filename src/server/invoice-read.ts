@@ -218,6 +218,10 @@ export type InvoiceDetail = {
   appointmentId: string | null;
   /** Status penyerahan obat kunjungan ini; null bila tidak ada. Tidak pernah memuat isi catatan. */
   dispensing: DispensingStatusValue | null;
+  /** Asal penyerahan: DOKTER = resep dokter, tanpa langkah penyerahan Apoteker (spec resep dokter 4). */
+  dispensingSource: "APOTEKER" | "DOKTER" | null;
+  /** Obat resep dokter yang dijadikan 0 oleh resepsionis; bisa dikembalikan selama tagihan draf. */
+  droppedPrescriptions: { dispensingLineId: string; name: string; prescribedQuantity: number; reason: string }[];
   visitDate: Date | null;
   discountKind: DiscountKindValue | null;
   discountValue: number;
@@ -278,7 +282,22 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
       appointmentId: true,
       patient: { select: { id: true, name: true, medicalRecordNumber: true } },
       branch: { select: { name: true } },
-      appointment: { select: { startAt: true, dispensing: { select: { status: true } } } },
+      appointment: {
+        select: {
+          startAt: true,
+          dispensing: {
+            select: {
+              status: true,
+              source: true,
+              lines: {
+                where: { billedQuantity: 0, invoiceLine: null },
+                orderBy: { sortOrder: "asc" },
+                select: { id: true, itemName: true, quantity: true, billingNote: true },
+              },
+            },
+          },
+        },
+      },
       lines: {
         orderBy: { sortOrder: "asc" },
         select: {
@@ -363,6 +382,16 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
     branchName: invoice.branch.name,
     appointmentId: invoice.appointmentId,
     dispensing: invoice.appointment?.dispensing?.status ?? null,
+    dispensingSource: invoice.appointment?.dispensing?.source ?? null,
+    droppedPrescriptions:
+      invoice.status === "DRAF" && invoice.appointment?.dispensing?.source === "DOKTER"
+        ? invoice.appointment.dispensing.lines.map((line) => ({
+            dispensingLineId: line.id,
+            name: line.itemName,
+            prescribedQuantity: line.quantity,
+            reason: line.billingNote ?? "",
+          }))
+        : [],
     visitDate: invoice.appointment?.startAt ?? null,
     discountKind: invoice.discountKind,
     discountValue: invoice.discountValue,

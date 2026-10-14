@@ -540,7 +540,7 @@ export async function reducePrescriptionLine(input: {
   version: number;
   lineId: string;
   quantity: number;
-  reason: string;
+  reason: string | null;
 }): Promise<EditResult> {
   return runAction(async () => {
     const actor = await requireCapability("invoice:manage");
@@ -590,8 +590,51 @@ export async function reducePrescriptionLine(input: {
         if (discount.discountAmount === 0) discount = { ...NO_DISCOUNT };
         await tx.invoiceLine.update({ where: { id: line.id }, data: { quantity, ...discount } });
       });
-      await tx.dispensingLine.update({ where: { id: line.dispensingLine.id }, data: { billedQuantity: quantity, billingNote: reason } });
-      return { version, summary: `Kurangi ${line.name}: ×${quantity} dari ${prescribed} — ${reason}` };
+      // Jumlah resep lagi (reason null): pengurangan dibatalkan dan keterangan untuk dokter hilang.
+      const restored = quantity === prescribed;
+      await tx.dispensingLine.update({
+        where: { id: line.dispensingLine.id },
+        data: restored ? { billedQuantity: null, billingNote: null } : { billedQuantity: quantity, billingNote: reason },
+      });
+      const summary = restored ? `Kembalikan ${line.name} ke jumlah resep (${prescribed})` : `Kurangi ${line.name}: ×${quantity} dari ${prescribed} — ${reason}`;
+      return { version, summary };
+    });
+
+    await recordAudit({ actor, action: "invoice.update", entity: "Invoice", entityId: invoiceId, summary: result.summary });
+    revalidateInvoices(invoiceId);
+    return { version: result.version };
+  });
+}
+
+/**
+ * Mengembalikan obat resep dokter yang dijadikan 0 ke draf tagihan dengan jumlah resep, harga jual katalog, dan promo
+ * hari ini (spec resep dokter 4). Keterangan pengurangan untuk dokter ikut dihapus.
+ */
+export async function restorePrescriptionLine(input: { invoiceId: string; version: number; dispensingLineId: string }): Promise<EditResult> {
+  return runAction(async () => {
+    const actor = await requireCapability("invoice:manage");
+    const invoiceId = String(input?.invoiceId ?? "");
+
+    const result = await prisma.$transaction(async (tx) => {
+      const version = await touchDraft(tx, invoiceId, input.version);
+      const invoice = await tx.invoice.findUniqueOrThrow({ where: { id: invoiceId }, select: { appointmentId: true } });
+      const dispensingLine = invoice.appointmentId
+        ? await tx.dispensingLine.findFirst({
+            where: { id: String(input?.dispensingLineId ?? ""), dispensing: { appointmentId: invoice.appointmentId, source: "DOKTER" } },
+            select: { id: true, dispensingId: true, itemName: true, quantity: true, billedQuantity: true, invoiceLine: { select: { id: true } } },
+          })
+        : null;
+      if (!dispensingLine) throw new UserFacingError("Obat resep tidak ditemukan. Muat ulang halaman.");
+      if (dispensingLine.invoiceLine) throw new UserFacingError("Obat ini sudah ada di tagihan.");
+
+      const handed = (await handedInvoiceLines(tx, dispensingLine.dispensingId)).find((line) => line.dispensingLineId === dispensingLine.id);
+      if (!handed) throw new UserFacingError("Obat resep tidak ditemukan. Muat ulang halaman.");
+      const last = await tx.invoiceLine.aggregate({ where: { invoiceId }, _max: { sortOrder: true } });
+      await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
+        await tx.invoiceLine.create({ data: { ...handed, invoiceId, sortOrder: (last._max.sortOrder ?? -1) + 1 } });
+      });
+      await tx.dispensingLine.update({ where: { id: dispensingLine.id }, data: { billedQuantity: null, billingNote: null } });
+      return { version, summary: `Kembalikan ${dispensingLine.itemName}: ×${dispensingLine.quantity}` };
     });
 
     await recordAudit({ actor, action: "invoice.update", entity: "Invoice", entityId: invoiceId, summary: result.summary });

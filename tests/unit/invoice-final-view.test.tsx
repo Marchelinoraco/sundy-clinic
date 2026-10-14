@@ -85,6 +85,8 @@ function finalDetail(patch: Partial<InvoiceDetail> = {}): InvoiceDetail {
     payments,
     everPaid: payments.length > 0,
     hasPrescription: false,
+    dispensingSource: null,
+    droppedPrescriptions: [],
     margin: null,
     ...patch,
   };

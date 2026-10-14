@@ -26,7 +26,7 @@ import { dispensingNotice } from "@/lib/dispensing";
 import { INVOICE_LINE_KIND_LABEL, validateLineEdit } from "@/lib/invoice";
 import { packageOptionsSummary, type PackageOption } from "@/lib/treatment-package";
 import type { ActionResult } from "@/lib/action-result";
-import { removeInvoiceLine, refreshCatalogPrices, updateInvoiceLine } from "@/server/invoice-drafts";
+import { removeInvoiceLine, refreshCatalogPrices, restorePrescriptionLine, updateInvoiceLine } from "@/server/invoice-drafts";
 import { finalizeInvoice } from "@/server/invoice-lifecycle";
 import type { BillingItem, InvoiceDetail, InvoiceLineRow } from "@/server/invoice-read";
 import type { SellablePackage } from "@/server/treatment-package-catalog";
@@ -206,7 +206,8 @@ export function InvoiceDraftEditor({
   const [confirmOpen, setConfirmOpen] = useState(false);
   const { totals } = detail;
 
-  const notice = dispensingNotice(detail.dispensing);
+  // Resep dokter tidak melewati penyerahan Apoteker, jadi "Obat sudah diserahkan." tidak berlaku (spec resep dokter 4).
+  const notice = detail.dispensingSource === "DOKTER" ? null : dispensingNotice(detail.dispensing);
 
   return (
     <Stack spacing={3}>
@@ -270,6 +271,38 @@ export function InvoiceDraftEditor({
           </TableBody>
         </Table>
       </TableContainer>
+
+      {detail.droppedPrescriptions.length > 0 && (
+        <Box component="section" aria-labelledby="obat-tidak-ditagih" sx={{ p: 1.5, border: 1, borderColor: "divider", borderRadius: 1 }}>
+          <Typography id="obat-tidak-ditagih" component="h2" variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
+            Obat resep tidak ditagih
+          </Typography>
+          <Stack spacing={1}>
+            {detail.droppedPrescriptions.map((row) => (
+              <Stack key={row.dispensingLineId} direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
+                <Typography variant="body2" sx={{ minWidth: 0 }}>
+                  {row.name} · resep {row.prescribedQuantity} · {row.reason}
+                </Typography>
+                <Button
+                  type="button"
+                  size="small"
+                  variant="outlined"
+                  disabled={pending}
+                  aria-label={`Kembalikan ${row.name}`}
+                  onClick={() =>
+                    run(
+                      () => restorePrescriptionLine({ invoiceId: detail.id, version: detail.version, dispensingLineId: row.dispensingLineId }),
+                      () => toast.success(`${row.name} dikembalikan ke tagihan.`),
+                    )
+                  }
+                >
+                  Kembalikan
+                </Button>
+              </Stack>
+            ))}
+          </Stack>
+        </Box>
+      )}
 
       <DiscountForm detail={detail} canExceed={canExceedDiscount} run={run} fail={setError} disabled={pending} />
 
