@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { billingLabel, parsePrescriptions, stockWarnings, validateReduction } from "@/lib/prescription";
+import { billingLabel, isIncompletePrescription, parsePrescriptions, stockWarnings, validateReduction } from "@/lib/prescription";
 
 const row = { itemId: "o1", quantity: " 10 ", usage: "  3 x 1 sesudah makan " };
 
@@ -59,5 +59,14 @@ describe("resep dokter", () => {
     expect(billingLabel({ quantity: 10, billedQuantity: null, billingNote: null })).toBeNull();
     expect(billingLabel({ quantity: 10, billedQuantity: 5, billingNote: "Stok kurang" })).toBe("Ditagih 5 dari 10 — Stok kurang");
     expect(billingLabel({ quantity: 10, billedQuantity: 0, billingNote: "Customer menolak" })).toBe("Tidak ditagih — Customer menolak");
+  });
+
+  it("baris belum lengkap: obat, jumlah, atau aturan pakai masih kosong", () => {
+    expect(isIncompletePrescription({ itemId: "", quantity: "1", usage: "3 x 1" })).toBe(true);
+    expect(isIncompletePrescription({ itemId: "o1", quantity: " ", usage: "3 x 1" })).toBe(true);
+    expect(isIncompletePrescription({ itemId: "o1", quantity: "1", usage: "  " })).toBe(true);
+    expect(isIncompletePrescription({ itemId: "o1", quantity: "1", usage: "3 x 1" })).toBe(false);
+    // Isian yang salah bukan "belum lengkap": tetap diperiksa dan pesannya tampil.
+    expect(isIncompletePrescription({ itemId: "o1", quantity: "0", usage: "3 x 1" })).toBe(false);
   });
 });

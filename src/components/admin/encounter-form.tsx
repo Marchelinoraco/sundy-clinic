@@ -26,6 +26,7 @@ import {
   VITAL_KEYS,
   bloodPressureProblem,
   bmi,
+  draftForAutosave,
   formatDecimal,
   parseEncounterDraft,
   parseVital,
@@ -209,9 +210,10 @@ export function EncounterForm(props: EncounterFormProps) {
   const [busy, startTransition] = useTransition();
   const autosave = useDraftAutosave<EncounterDraftInput>({
     initialVersion: props.initialVersion,
-    save: (version, value) => saveEncounterDraft({ encounterId, version, draft: value }),
+    // Baris resep yang belum lengkap belum ikut disimpan, supaya tidak menahan isian lain; finalisasi tetap memeriksanya.
+    save: (version, value) => saveEncounterDraft({ encounterId, version, draft: draftForAutosave(value) }),
     validate: (value) => {
-      const parsed = parseEncounterDraft(value);
+      const parsed = parseEncounterDraft(draftForAutosave(value));
       return parsed.ok ? null : parsed.message;
     },
     delayMs: props.autosaveDelayMs,

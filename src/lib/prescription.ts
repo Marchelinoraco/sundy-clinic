@@ -25,6 +25,14 @@ export function parsePrescriptions(rows: PrescriptionInput[]): Result<Prescripti
   return { ok: true, value };
 }
 
+/**
+ * Baris yang belum selesai diisi (obat, jumlah, atau aturan pakai kosong). Simpan otomatis melewatinya agar isian lain
+ * tetap tersimpan; finalisasi tetap menolaknya. Isian yang salah (mis. jumlah 0) bukan "belum lengkap".
+ */
+export function isIncompletePrescription(row: PrescriptionInput): boolean {
+  return !row.itemId || !row.quantity.trim() || !row.usage.trim();
+}
+
 /** Obat yang bisa diresepkan: tanpa harga apa pun (spec resep dokter 7). */
 export type MedicineOption = { id: string; code: string; name: string; unit: string; available: number };
 

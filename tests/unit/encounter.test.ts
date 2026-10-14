@@ -4,6 +4,7 @@ import {
   assessmentPreview,
   bmi,
   describeVitals,
+  draftForAutosave,
   emptyDraftInput,
   encounterDraftInputSchema,
   parseEncounterDraft,
@@ -63,6 +64,24 @@ describe("parseEncounterDraft", () => {
     });
     expect(emptyDraftInput().prescriptions).toEqual([]);
     expect("pharmacyNote" in emptyDraftInput()).toBe(false);
+  });
+
+  it("simpan otomatis melewati baris resep yang belum lengkap, bukan yang salah", () => {
+    const value = draft({
+      assessment: "Infeksi",
+      prescriptions: [
+        { itemId: "o1", quantity: "2", usage: "3 x 1" },
+        { itemId: "", quantity: "1", usage: "" },
+        { itemId: "o2", quantity: "0", usage: "1 x 1" },
+      ],
+    });
+    expect(draftForAutosave(value)).toEqual({
+      ...value,
+      prescriptions: [
+        { itemId: "o1", quantity: "2", usage: "3 x 1" },
+        { itemId: "o2", quantity: "0", usage: "1 x 1" },
+      ],
+    });
   });
 
   it("tensi harus berpasangan, dan diastolik lebih kecil dari sistolik", () => {

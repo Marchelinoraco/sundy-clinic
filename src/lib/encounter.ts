@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { formatShortIndonesianDate } from "./format";
-import { PRESCRIPTIONS_MAX, parsePrescriptions, type MedicineOption, type PrescriptionDraft, type PrescriptionInput } from "./prescription";
+import { PRESCRIPTIONS_MAX, isIncompletePrescription, parsePrescriptions, type MedicineOption, type PrescriptionDraft, type PrescriptionInput } from "./prescription";
 
 /**
  * Aturan isian catatan kunjungan (spec catatan dokter, bagian 5). Formulir di
@@ -189,6 +189,11 @@ export function parseEncounterDraft(input: EncounterDraftInput): Parsed<Encounte
   if (!prescriptions.ok) return prescriptions;
 
   return { ok: true, value: { ...texts, vitals, treatments, prescriptions: prescriptions.value } };
+}
+
+/** Isian yang dikirim simpan otomatis: baris resep yang belum lengkap belum ikut (spec resep dokter 3). */
+export function draftForAutosave(input: EncounterDraftInput): EncounterDraftInput {
+  return { ...input, prescriptions: input.prescriptions.filter((row) => !isIncompletePrescription(row)) };
 }
 
 export function emptyDraftInput(): EncounterDraftInput {

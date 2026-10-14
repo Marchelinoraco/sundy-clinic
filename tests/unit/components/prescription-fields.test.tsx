@@ -36,6 +36,19 @@ describe("PrescriptionFields (spec resep dokter 3)", { timeout: 15_000 }, () => 
     expect(screen.getByText("Belum ada obat di resep ini.")).toBeInTheDocument();
   });
 
+  it("keterangan 'Belum tersimpan' hanya pada baris yang belum lengkap", () => {
+    renderAdmin(
+      <Harness
+        initial={[
+          { itemId: "o2", quantity: "1", usage: "1 x 1" },
+          { itemId: "o2", quantity: "1", usage: "" },
+        ]}
+      />,
+    );
+    expect(screen.getByRole("group", { name: "Obat 1" })).not.toHaveTextContent("Belum tersimpan");
+    expect(screen.getByRole("group", { name: "Obat 2" })).toHaveTextContent("Belum tersimpan — lengkapi obat, jumlah, dan aturan pakai.");
+  });
+
   it("peringatan menjumlahkan dua baris obat yang sama", async () => {
     renderAdmin(
       <Harness

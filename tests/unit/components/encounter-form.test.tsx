@@ -312,6 +312,19 @@ describe("EncounterForm", () => {
     expect(screen.queryByText(/Catatan untuk Apoteker/)).not.toBeInTheDocument();
   });
 
+  it("baris resep baru yang belum lengkap tidak menahan simpan otomatis isian lain", async () => {
+    vi.mocked(saveEncounterDraft).mockResolvedValue(saved("v2"));
+    renderForm({ options: { ...options, medicines: [{ id: "o1", code: "AMX", name: "Amoxicillin", unit: "kapsul", available: 4 }] } });
+    await userEvent.setup({ delay: null }).click(screen.getByRole("button", { name: "Tambah obat" }));
+    expect(screen.getByRole("group", { name: "Obat 1" })).toHaveTextContent("Belum tersimpan — lengkapi obat, jumlah, dan aturan pakai.");
+    await type(screen.getByLabelText("Penilaian / diagnosis"), "Infeksi");
+    // Simpan otomatis bisa sudah berjalan sekali sebelum ketikan selesai; yang diperiksa adalah simpan berisi "Infeksi".
+    const sentWithAssessment = () => vi.mocked(saveEncounterDraft).mock.calls.map((call) => call[0].draft).find((d) => d.assessment === "Infeksi");
+    await waitFor(() => expect(sentWithAssessment()).toBeDefined());
+    expect(sentWithAssessment()!.prescriptions).toEqual([]);
+    expect(screen.queryByText(/Belum tersimpan: /)).not.toBeInTheDocument();
+  });
+
   it("draf lama berisi Catatan untuk Apoteker: catatannya tampil baca-saja dengan ajakan memindahkannya ke Resep", () => {
     renderForm({ legacyPharmacyNote: "Amoxicillin 3x1 selama 5 hari" });
     const note = screen.getByRole("note", { name: "Catatan untuk Apoteker (lama)" });

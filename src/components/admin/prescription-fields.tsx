@@ -7,7 +7,7 @@ import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { PRESCRIPTION_USAGE_MAX, stockWarnings, type MedicineOption, type PrescriptionInput } from "@/lib/prescription";
+import { PRESCRIPTION_USAGE_MAX, isIncompletePrescription, stockWarnings, type MedicineOption, type PrescriptionInput } from "@/lib/prescription";
 import { SelectField } from "./mui/select-field";
 
 /** Resep dokter (spec resep dokter 3): obat dari stok cabang, jumlah, aturan pakai. Sisa stok tampil tanpa harga. */
@@ -62,6 +62,11 @@ export function PrescriptionFields({ rows, medicines, onChange }: { rows: Prescr
                 fullWidth
                 slotProps={{ htmlInput: { maxLength: PRESCRIPTION_USAGE_MAX } }}
               />
+              {isIncompletePrescription(row) && (
+                <Typography variant="caption" sx={{ color: "text.secondary" }}>
+                  Belum tersimpan — lengkapi obat, jumlah, dan aturan pakai.
+                </Typography>
+              )}
               {warning && (
                 <Alert severity="warning" role="alert">
                   {warning}
