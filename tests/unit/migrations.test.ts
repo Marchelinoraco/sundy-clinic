@@ -299,3 +299,29 @@ describe("migrasi resep dokter", () => {
     expect(sql).toMatch(/dispensing_line_billing/);
   });
 });
+
+describe("migrasi stok meja", () => {
+  const enumSql = readFileSync("prisma/migrations/20261019085000_stok_meja_enum/migration.sql", "utf8");
+  const sql = readFileSync("prisma/migrations/20261019090000_stok_meja/migration.sql", "utf8");
+
+  it("nilai enum PINDAH ditambah di migrasinya sendiri", () => {
+    expect(enumSql).toMatch(/ALTER TYPE "StockMovementKind" ADD VALUE 'PINDAH'/);
+    expect(sql).not.toMatch(/ADD VALUE/);
+  });
+
+  it("hanya menambah", () => {
+    expect(enumSql + sql).not.toMatch(/\bDROP\b/i);
+  });
+
+  it("menjaga angka stok meja, lokasi jurnal, dan keputusan permintaan", () => {
+    for (const name of [
+      "stock_batch_counter_nonnegative",
+      "stock_item_counter_min_nonnegative",
+      "stock_movement_location",
+      "restock_request_decision",
+      "restock_line_values",
+    ]) {
+      expect(sql).toContain(name);
+    }
+  });
+});

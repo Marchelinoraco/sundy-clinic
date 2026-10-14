@@ -9,6 +9,16 @@ describe("hak akses", () => {
     }
   });
 
+  it("stok meja: resepsionis melihat dan meminta, Apoteker melihat dan mengelola (spec stok meja 7)", () => {
+    expect(can("RESEPSIONIS", "counter:read")).toBe(true);
+    expect(can("RESEPSIONIS", "restock:request")).toBe(true);
+    expect(can("RESEPSIONIS", "stock:manage")).toBe(false);
+    expect(can("APOTEKER", "counter:read")).toBe(true);
+    expect(can("APOTEKER", "restock:request")).toBe(false);
+    expect(can("ADMIN_KEUANGAN", "counter:read")).toBe(false);
+    expect(can("DOKTER", "counter:read")).toBe(false);
+  });
+
   it("melarang resepsionis membaca catatan klinis", () => {
     // Aturan paling penting di berkas ini. Resepsionis mengurus booking dan
     // data demografi, tetapi isi catatan dokter bukan haknya.

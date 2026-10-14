@@ -101,6 +101,8 @@ export async function seedBatch(
 /** Menghapus semua data dunia uji, dari anak ke induk (relasi stok memakai Restrict). */
 export async function cleanupStockWorld(slug: string): Promise<void> {
   const branch = { slug: { startsWith: slug } };
+  // Permintaan restock merujuk cabang dan barang (Restrict); barisnya ikut terhapus (Cascade).
+  await prisma.restockRequest.deleteMany({ where: { branch } });
   await prisma.stockMovement.deleteMany({ where: { batch: { branch } } });
   await prisma.supplierReturnLine.deleteMany({ where: { batch: { branch } } });
   await prisma.supplierReturn.deleteMany({ where: { invoice: { branch } } });

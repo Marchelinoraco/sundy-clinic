@@ -7,7 +7,7 @@ export type StockItemKindValue = "OBAT" | "PRODUK";
 export type AdjustReasonValue = "RUSAK" | "HILANG" | "KEDALUWARSA" | "SELISIH_HITUNG" | "LAINNYA";
 export type PaymentMethodValue = "TUNAI" | "TRANSFER" | "QRIS";
 export type SupplierPaymentKindValue = "BAYAR" | "PENGEMBALIAN";
-export type StockMovementKindValue = "MASUK" | "RETUR" | "PENYESUAIAN" | "KELUAR";
+export type StockMovementKindValue = "MASUK" | "RETUR" | "PENYESUAIAN" | "KELUAR" | "PINDAH";
 export type StockFlag = "MENIPIS" | "SEGERA_KEDALUWARSA" | "KEDALUWARSA";
 export type PayableStatus = "DIBATALKAN" | "MENUNGGU_HARGA" | "LUNAS" | "KREDIT" | "SEBAGIAN" | "BELUM_DIBAYAR";
 export type PayableView = "BELUM_LUNAS" | "TERLAMBAT" | "JATUH_TEMPO" | "LUNAS" | "DIBATALKAN";
@@ -26,6 +26,7 @@ export const MOVEMENT_KIND_LABEL: Record<StockMovementKindValue, string> = {
   RETUR: "Retur ke supplier",
   PENYESUAIAN: "Penyesuaian",
   KELUAR: "Keluar (tagihan)",
+  PINDAH: "Pindah",
 };
 export const PAYMENT_METHOD_LABEL: Record<PaymentMethodValue, string> = {
   TUNAI: "Tunai",

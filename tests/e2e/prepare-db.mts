@@ -45,6 +45,7 @@ await prisma.appointment.deleteMany();
 await prisma.patient.deleteMany();
 await prisma.patientNumberCounter.deleteMany();
 // Stok dan hutang (stok-hutang.spec.ts) dimulai kosong setiap putaran; urutan anak ke induk.
+await prisma.restockRequest.deleteMany();
 await prisma.stockMovement.deleteMany();
 await prisma.supplierReturnLine.deleteMany();
 await prisma.supplierReturn.deleteMany();

@@ -37,6 +37,7 @@ model Branch {
   slotHolds          SlotHold[]
   purchaseInvoices   PurchaseInvoice[]
   stockBatches       StockBatch[]
+  restockRequests    RestockRequest[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -871,6 +872,20 @@ enum StockMovementKind {
   RETUR
   PENYESUAIAN
   KELUAR
+  PINDAH
+}
+
+/// Lokasi stok dalam satu cabang (spec stok meja 2.2).
+enum StockLocation {
+  GUDANG
+  MEJA
+}
+
+enum RestockStatus {
+  MENUNGGU
+  SELESAI
+  DITOLAK
+  DIBATALKAN
 }
 
 enum StockAdjustReason {
@@ -914,6 +929,8 @@ model StockItem {
   promoEndsOn     DateTime?               @db.Date
   /// Batas "menipis" per cabang; 0 berarti tidak pernah ditandai menipis.
   minStock        Int                     @default(0)
+  /// Batas "Meja menipis" (spec stok meja SM5); 0 berarti tidak dipantau di meja. CHECK stock_item_counter_min_nonnegative.
+  counterMinStock Int                     @default(0)
   isActive        Boolean                 @default(true)
   notes           String?
   createdAt       DateTime                @default(now())
@@ -921,6 +938,7 @@ model StockItem {
 
   purchaseLines PurchaseLine[]
   batches       StockBatch[]
+  restockLines  RestockRequestLine[]
 
   @@index([isActive, name])
 }
@@ -1004,7 +1022,10 @@ model StockBatch {
   expiryDate        DateTime?    @db.Date
   unitCost          Int?
   quantityReceived  Int
+  /// Sisa di gudang (spec stok meja 2.1); nama kolom lama dipertahankan.
   quantityRemaining Int
+  /// Sisa di meja resepsionis (spec stok meja 2.1). CHECK stock_batch_counter_nonnegative.
+  counterRemaining  Int          @default(0)
   createdAt         DateTime     @default(now())
 
   movements   StockMovement[]
@@ -1016,12 +1037,17 @@ model StockBatch {
 
 /// Jurnal stok: setiap perubahan sisa batch. Tidak pernah diubah atau dihapus.
 model StockMovement {
-  id               String             @id @default(cuid())
+  id               String              @id @default(cuid())
   batchId          String
-  batch            StockBatch         @relation(fields: [batchId], references: [id], onDelete: Restrict)
+  batch            StockBatch          @relation(fields: [batchId], references: [id], onDelete: Restrict)
   kind             StockMovementKind
   /// Bertanda: positif menambah, negatif mengurangi sisa batch.
   quantity         Int
+  /// Lokasi yang berubah (spec stok meja 2.2); jurnal lama selalu GUDANG. CHECK stock_movement_location.
+  location         StockLocation       @default(GUDANG)
+  /// Baris permintaan restock asal jurnal PINDAH ini.
+  restockLineId    String?
+  restockLine      RestockRequestLine? @relation(fields: [restockLineId], references: [id], onDelete: SetNull)
   /// Hanya untuk PENYESUAIAN (CHECK stock_movement_reason).
   reason           StockAdjustReason?
   note             String?
@@ -1030,9 +1056,53 @@ model StockMovement {
   supplierReturnId String?
   /// Tagihan yang mengeluarkan atau mengembalikan stok ini (KELUAR, atau PENYESUAIAN dari pembatalan tagihan).
   invoiceId        String?
-  createdAt        DateTime           @default(now())
+  createdAt        DateTime            @default(now())
 
   @@index([batchId, createdAt])
+}
+
+/// Permintaan restock dari meja resepsionis ke Apoteker (spec stok meja 2.3, 4). CHECK restock_request_decision.
+model RestockRequest {
+  id              String        @id @default(cuid())
+  branchId        String
+  branch          Branch        @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  status          RestockStatus @default(MENUNGGU)
+  note            String?
+  requestedById   String
+  requestedByName String
+  /// Apoteker yang mengirim atau menolak, atau resepsionis yang membatalkan.
+  decidedAt       DateTime?
+  decidedById     String?
+  decidedByName   String?
+  rejectReason    String?
+  /// Naik setiap perubahan; menolak aksi dari halaman yang usang.
+  version         Int           @default(1)
+  createdAt       DateTime      @default(now())
+
+  lines RestockRequestLine[]
+
+  @@index([status, createdAt])
+  @@index([branchId, status])
+}
+
+/// Satu barang dalam permintaan restock. CHECK restock_line_values.
+model RestockRequestLine {
+  id                String         @id @default(cuid())
+  requestId         String
+  request           RestockRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  itemId            String
+  item              StockItem      @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  /// Disalin saat diminta, agar riwayat tidak ikut berubah.
+  itemName          String
+  requestedQuantity Int
+  /// Diisi saat dikirim (SELESAI); 0 = barang ini tidak dikirim.
+  sentQuantity      Int?
+  sortOrder         Int            @default(0)
+
+  movements StockMovement[]
+
+  @@index([requestId])
+  @@index([itemId])
 }
 
 model SupplierReturn {

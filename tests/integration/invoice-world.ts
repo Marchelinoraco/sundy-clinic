@@ -150,6 +150,8 @@ export async function cleanupBillingWorld(slug: string, patientWhatsapps: string
   await prisma.treatmentPackage.deleteMany({ where: { name: { startsWith: slug } } });
   await prisma.expense.deleteMany({ where: { branch } });
   await prisma.recurringExpense.deleteMany({ where: { branch } });
+  // Permintaan restock merujuk cabang dan barang (Restrict); barisnya ikut terhapus (Cascade).
+  await prisma.restockRequest.deleteMany({ where: { branch } });
   await prisma.dispensingLine.deleteMany({ where: { dispensing: { branch } } });
   await prisma.dispensing.deleteMany({ where: { branch } });
   await prisma.stockMovement.deleteMany({ where: { batch: { branch } } });

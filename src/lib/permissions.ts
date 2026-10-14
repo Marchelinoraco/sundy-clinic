@@ -30,7 +30,9 @@ export type Capability =
   | "bia:upload"
   | "price:manage"
   | "catalog:manage"
-  | "payroll:manage";
+  | "payroll:manage"
+  | "counter:read"
+  | "restock:request";
 
 export const CAPABILITIES_BY_ROLE: Record<StaffRole, readonly Capability[]> = {
   SUPER_ADMIN: [
@@ -57,6 +59,8 @@ export const CAPABILITIES_BY_ROLE: Record<StaffRole, readonly Capability[]> = {
     "price:manage",
     "catalog:manage",
     "payroll:manage",
+    "counter:read",
+    "restock:request",
   ],
 
   // Dokter memegang rekam medis, tetapi tidak mengelola akun staf.
@@ -66,7 +70,8 @@ export const CAPABILITIES_BY_ROLE: Record<StaffRole, readonly Capability[]> = {
   // Resepsionis mengurus booking dan jadwal. Catatan klinis sengaja tidak ada
   // di daftar ini — lihat PRD bagian 4.
   // Resepsionis juga menagih customer (spec tagihan 6); koreksi uang masuk ada di Admin Keuangan.
-  RESEPSIONIS: ["booking:manage", "schedule:manage", "invoice:read", "invoice:manage", "bia:upload"],
+  // Resepsionis juga melihat stok meja dan meminta restock ke Apoteker (spec stok meja 7).
+  RESEPSIONIS: ["booking:manage", "schedule:manage", "invoice:read", "invoice:manage", "bia:upload", "counter:read", "restock:request"],
 
   // Terapis adalah sumber daya jadwal, bukan pengguna panel. Ia punya baris
   // Staff agar dapat dijadwalkan, tanpa akses apa pun ke panel admin.
@@ -74,7 +79,7 @@ export const CAPABILITIES_BY_ROLE: Record<StaffRole, readonly Capability[]> = {
 
   // Apoteker mengelola barang, barang masuk, retur, dan penyesuaian stok (spec stok 7).
   // Ia mengisi harga beli dari faktur kertas, tetapi tidak mengurus pembayaran hutang.
-  APOTEKER: ["stock:read", "stock:manage", "dispense:read", "dispense:manage", "stock:availability"],
+  APOTEKER: ["stock:read", "stock:manage", "dispense:read", "dispense:manage", "stock:availability", "counter:read"],
 
   // Admin Keuangan melihat stok, mengelola hutang ke supplier, dan melihat Angka dasbor.
   // Tidak mengubah stok, booking, jadwal, rekam medis, atau akun staf (spec stok 7.2).
