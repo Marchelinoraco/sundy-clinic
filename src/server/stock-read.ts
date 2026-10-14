@@ -1,3 +1,4 @@
+import { availableStock, counterState, type StockLocationValue } from "@/lib/counter-stock";
 import { prisma } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import {
@@ -32,6 +33,10 @@ export type StockItemRow = Omit<StockFlags, "value"> & PromoFields & {
   minStock: number;
   isActive: boolean;
   flags: StockFlag[];
+  /** Stok meja (spec stok meja 6): tersedia, kedaluwarsa di meja, dan Batas meja. */
+  counterMinStock: number;
+  counterAvailable: number;
+  counterExpired: number;
 };
 
 const PROMO_FIELDS_SELECT = { promoName: true, promoKind: true, promoValue: true, promoStartsOn: true, promoEndsOn: true } as const;
@@ -60,13 +65,22 @@ export async function listStockItems(filter: StockListFilter): Promise<StockItem
       sellPrice: true,
       ...PROMO_FIELDS_SELECT,
       minStock: true,
+      counterMinStock: true,
       isActive: true,
       batches: { where: { branchId: filter.branchId, ...HAS_STOCK }, select: BATCH_STOCK_SELECT },
     },
   });
   const rows = items.map(({ batches, ...item }) => {
     const flags = stockFlags(batches, item.minStock, today);
-    return { ...item, ...flags, value: withCost ? flags.value : null, flags: flagsOf(flags) };
+    const counter = counterState(batches, item.counterMinStock, today);
+    return {
+      ...item,
+      ...flags,
+      value: withCost ? flags.value : null,
+      counterAvailable: counter.available,
+      counterExpired: counter.expired,
+      flags: [...flagsOf(flags), ...(counter.flag ? [counter.flag] : [])],
+    };
   });
   const flag = filter.flag;
   return flag && flag !== "NONAKTIF" ? rows.filter((row) => row.flags.includes(flag)) : rows;
@@ -74,6 +88,9 @@ export async function listStockItems(filter: StockListFilter): Promise<StockItem
 
 export type StockBatchRow = {
   id: string;
+  branchId: string;
+  /** Sisa di meja (spec stok meja 6); `quantityRemaining` = gudang. */
+  counterRemaining: number;
   branchName: string;
   batchNumber: string | null;
   expiryDate: string | null;
@@ -91,6 +108,7 @@ export type StockMovementRow = {
   id: string;
   createdAt: Date;
   kind: StockMovementKindValue;
+  location: StockLocationValue;
   quantity: number;
   reason: AdjustReasonValue | null;
   note: string | null;
@@ -110,9 +128,12 @@ export type StockItemDetail = {
     minStock: number;
     isActive: boolean;
     notes: string | null;
+    counterMinStock: number;
   } & PromoFields;
   batches: StockBatchRow[];
   movements: StockMovementRow[];
+  /** Cabang yang gudangnya bisa mengisi meja, dengan sisa gudang tersedia (spec stok meja 6). */
+  moveOptions: { branchId: string; branchName: string; warehouseAvailable: number }[];
 };
 
 /** Detail barang (spec stok 5.3): batch bersisa di semua cabang, kedaluwarsa terdekat dulu, dan 100 jurnal terakhir. */
@@ -122,12 +143,12 @@ export async function getStockItemDetail(id: string): Promise<StockItemDetail | 
   const today = witaDateString(new Date());
   const item = await prisma.stockItem.findUnique({
     where: { id: String(id ?? "") },
-    select: { id: true, code: true, name: true, kind: true, unit: true, sellPrice: true, ...PROMO_FIELDS_SELECT, minStock: true, isActive: true, notes: true },
+    select: { id: true, code: true, name: true, kind: true, unit: true, sellPrice: true, ...PROMO_FIELDS_SELECT, minStock: true, counterMinStock: true, isActive: true, notes: true },
   });
   if (!item) return null;
   const [batches, movements] = await Promise.all([
     prisma.stockBatch.findMany({
-      where: { itemId: item.id, quantityRemaining: { gt: 0 } },
+      where: { itemId: item.id, ...HAS_STOCK },
       orderBy: [{ branch: { sortOrder: "asc" } }, { expiryDate: { sort: "asc", nulls: "last" } }, { createdAt: "asc" }],
       select: {
         id: true,
@@ -136,6 +157,8 @@ export async function getStockItemDetail(id: string): Promise<StockItemDetail | 
         unitCost: true,
         quantityReceived: true,
         quantityRemaining: true,
+        counterRemaining: true,
+        branchId: true,
         branch: { select: { name: true } },
         purchaseLine: {
           select: { invoice: { select: { id: true, invoiceNumber: true, cancelledAt: true, supplier: { select: { name: true } } } } },
@@ -150,6 +173,7 @@ export async function getStockItemDetail(id: string): Promise<StockItemDetail | 
         id: true,
         createdAt: true,
         kind: true,
+        location: true,
         quantity: true,
         reason: true,
         note: true,
@@ -158,13 +182,23 @@ export async function getStockItemDetail(id: string): Promise<StockItemDetail | 
       },
     }),
   ]);
+  // Cabang yang bisa mengisi meja dari gudangnya (spec stok meja 6): hanya sisa gudang yang belum kedaluwarsa.
+  const byBranch = new Map<string, { branchId: string; branchName: string; warehouseAvailable: number }>();
+  for (const batch of batches) {
+    const entry = byBranch.get(batch.branchId) ?? { branchId: batch.branchId, branchName: batch.branch.name, warehouseAvailable: 0 };
+    entry.warehouseAvailable += availableStock([batch], today, "GUDANG");
+    byBranch.set(batch.branchId, entry);
+  }
   return {
     item,
+    moveOptions: [...byBranch.values()].filter((option) => option.warehouseAvailable > 0),
     batches: batches.map((batch) => {
       const expiryDate = batch.expiryDate ? dateOnlyString(batch.expiryDate) : null;
       const invoice = batch.purchaseLine.invoice;
       return {
         id: batch.id,
+        branchId: batch.branchId,
+        counterRemaining: batch.counterRemaining,
         branchName: batch.branch.name,
         batchNumber: batch.batchNumber,
         expiryDate,
@@ -182,6 +216,7 @@ export async function getStockItemDetail(id: string): Promise<StockItemDetail | 
       id: movement.id,
       createdAt: movement.createdAt,
       kind: movement.kind,
+      location: movement.location,
       quantity: movement.quantity,
       reason: movement.reason,
       note: movement.note,
@@ -251,7 +286,7 @@ export async function countStockAlerts(): Promise<{ low: number; expiringSoon: n
       where: { isActive: true },
       select: {
         minStock: true,
-        batches: { where: { quantityRemaining: { gt: 0 } }, select: { ...BATCH_STOCK_SELECT, branchId: true } },
+        batches: { where: HAS_STOCK, select: { ...BATCH_STOCK_SELECT, branchId: true } },
       },
     }),
   ]);

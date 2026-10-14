@@ -26,6 +26,9 @@ const row = (patch: Partial<StockItemRow> = {}): StockItemRow => ({
   expiringSoon: false,
   expired: true,
   flags: ["MENIPIS", "KEDALUWARSA"],
+  counterMinStock: 0,
+  counterAvailable: 0,
+  counterExpired: 0,
   ...patch,
 });
 
