@@ -7,6 +7,7 @@ import { OnlineWorkView } from "@/components/admin/online-work";
 import { PayableTiles } from "@/components/admin/stock/payable-tiles";
 import { StockAlertTiles } from "@/components/admin/stock/stock-alert-tiles";
 import { CounterTiles } from "@/components/admin/counter/counter-tiles";
+import { RestockTiles } from "@/components/admin/counter/restock-tiles";
 import { LinkButton } from "@/components/admin/mui/links";
 import { FailedSection, PageBody, PageHeader } from "@/components/admin/page-layout";
 import { ScheduleTimeline } from "@/components/admin/schedule-timeline";
@@ -27,6 +28,7 @@ import { payablesOverview } from "@/server/payable-read";
 import { requireStaff } from "@/server/session";
 import { countStockAlerts } from "@/server/stock-read";
 import { countCounterAlerts } from "@/server/counter-read";
+import { countPendingRestock } from "@/server/restock-read";
 
 export const metadata = { title: "Dasbor" };
 
@@ -41,7 +43,7 @@ export default async function AdminDashboardPage({
   const canBook = can(staff.role, "booking:manage");
 
   // Setiap bagian dimuat sendiri-sendiri dan hanya bila berhak (spec D 4.6–4.7).
-  const [work, schedule, worklist, online, numbers, stock, payables, billable, unpaid, dispensing, profit, counter] = await Promise.all([
+  const [work, schedule, worklist, online, numbers, stock, payables, billable, unpaid, dispensing, profit, counter, restock] = await Promise.all([
     canBook ? settle(getTodayWork(now), "pekerjaan hari ini") : null,
     canBook ? settle(getTodaySchedule(now), "jadwal hari ini") : null,
     can(staff.role, "record:read") ? settle(listDoctorWorklist(), "daftar dokter") : null,
@@ -54,6 +56,7 @@ export default async function AdminDashboardPage({
     can(staff.role, "dispense:read") ? settle(countPendingDispensings(), "resep") : null,
     can(staff.role, "profit:read") ? settle(getMonthProfit(), "laporan") : null,
     can(staff.role, "counter:read") && !can(staff.role, "stock:manage") ? settle(countCounterAlerts(), "stok meja") : null,
+    can(staff.role, "stock:manage") ? settle(countPendingRestock(), "permintaan restock") : null,
   ]);
 
   const dayLabel =
@@ -88,6 +91,7 @@ export default async function AdminDashboardPage({
           ))}
         {stock && (stock.ok ? <StockAlertTiles alerts={stock.data} /> : <FailedSection title="Stok" />)}
         {counter && (counter.ok ? <CounterTiles alerts={counter.data} /> : <FailedSection title="Stok meja" />)}
+        {restock && (restock.ok ? <RestockTiles pending={restock.data} /> : <FailedSection title="Permintaan restock" />)}
         {payables && (payables.ok ? <PayableTiles overview={payables.data} /> : <FailedSection title="Hutang" />)}
         {(billable || unpaid) &&
           (billable?.ok !== false && unpaid?.ok !== false ? (

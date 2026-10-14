@@ -8,6 +8,7 @@ import { LinkButton } from "@/components/admin/mui/links";
 import { SelectField } from "@/components/admin/mui/select-field";
 import { PageTabs } from "@/components/admin/page-tabs";
 import { EmptyState, PageBody, PageHeader, SectionCard } from "@/components/admin/page-layout";
+import { RestockRequestList } from "@/components/admin/counter/restock-request-list";
 import { PurchaseTable } from "@/components/admin/stock/purchase-table";
 import { StockItemDialog } from "@/components/admin/stock/stock-item-dialog";
 import { StockItemTable } from "@/components/admin/stock/stock-item-table";
@@ -25,13 +26,14 @@ import {
 } from "@/lib/stock";
 import { getBranches } from "@/server/catalog";
 import { listPurchases } from "@/server/purchase-read";
+import { countPendingRestock, listRestockRequests } from "@/server/restock-read";
 import { requireCapability } from "@/server/session";
 import { listStockItems, listSuppliers } from "@/server/stock-read";
 
 export const metadata = { title: "Stok" };
 
 type Search = { tab?: string; cabang?: string; jenis?: string; tanda?: string; cari?: string; harga?: string };
-type Tab = "barang" | "masuk" | "supplier";
+type Tab = "barang" | "masuk" | "supplier" | "permintaan";
 
 const FLAGS = Object.keys(STOCK_FLAG_LABEL) as StockFlag[];
 const KINDS = Object.keys(STOCK_ITEM_KIND_LABEL) as StockItemKindValue[];
@@ -43,7 +45,9 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
   const canPrice = can(staff.role, "price:manage");
   const pendingOnly = canPrice && params.harga === "menunggu";
   const canSetPrice = can(staff.role, "price:manage");
-  const tab: Tab = params.tab === "masuk" || params.tab === "supplier" ? params.tab : "barang";
+  const tab: Tab =
+    params.tab === "masuk" || params.tab === "supplier" ? params.tab : params.tab === "permintaan" && canManage ? "permintaan" : "barang";
+  const pendingRestock = canManage ? await countPendingRestock() : 0;
 
   const actions = !canManage ? undefined : tab === "barang" ? (
     <StockItemDialog triggerLabel="+ Barang" canSetPrice={canSetPrice} />
@@ -51,9 +55,9 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
     <LinkButton href="/admin/stok/masuk/baru" variant="contained">
       + Barang masuk
     </LinkButton>
-  ) : (
+  ) : tab === "supplier" ? (
     <SupplierDialog triggerLabel="+ Supplier" />
-  );
+  ) : undefined;
 
   return (
     <>
@@ -67,6 +71,9 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
             { id: "barang", label: "Barang", href: "/admin/stok" },
             { id: "masuk", label: "Barang masuk", href: "/admin/stok?tab=masuk" },
             { id: "supplier", label: "Supplier", href: "/admin/stok?tab=supplier" },
+            ...(canManage
+              ? [{ id: "permintaan", label: pendingRestock > 0 ? `Permintaan (${pendingRestock})` : "Permintaan", href: "/admin/stok?tab=permintaan" }]
+              : []),
           ]}
         />
         {tab === "barang" && <ItemsTab params={params} canPrice={canPrice} />}
@@ -85,6 +92,16 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
           >
             <PurchaseTable rows={await listPurchases({ pendingOnly })} showTotal={canPrice} />
           </SectionCard>
+        )}
+        {tab === "permintaan" && (
+          <>
+            <SectionCard title="Permintaan menunggu" description="Terlama di atas." flush>
+              <RestockRequestList rows={await listRestockRequests({ view: "MENUNGGU" })} canCancel={can(staff.role, "restock:request")} linkToDetail />
+            </SectionCard>
+            <SectionCard title="Riwayat permintaan" description="50 terakhir." flush>
+              <RestockRequestList rows={await listRestockRequests({ view: "RIWAYAT" })} canCancel={false} linkToDetail={false} />
+            </SectionCard>
+          </>
         )}
         {tab === "supplier" && (
           <SectionCard title="Supplier" flush>
