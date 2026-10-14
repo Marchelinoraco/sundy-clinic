@@ -126,7 +126,7 @@ describe("penyesuaian dan retur", () => {
     const second = await batchOf(3);
     expect(await createSupplierReturn({ invoiceId: first.invoiceId, lines: [{ batchId: first.batchId, quantity: 4 }], note: "" })).toEqual({
       ok: false,
-      error: `Sisa ${SLUG} Amoxicillin 500 mg (batch -) tidak cukup untuk diretur.`,
+      error: `Sisa gudang ${SLUG} Amoxicillin 500 mg (batch -) tidak cukup untuk diretur.`,
     });
     expect(await createSupplierReturn({ invoiceId: first.invoiceId, lines: [{ batchId: second.batchId, quantity: 1 }], note: "" })).toEqual({
       ok: false,

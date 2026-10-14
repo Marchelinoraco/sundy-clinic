@@ -62,6 +62,8 @@ export async function seedBatch(
     branchId?: string;
     invoiceDate?: string;
     dueDate?: string;
+    /** Bagian jumlah yang sudah dipindah ke meja (spec stok meja 2.1). */
+    counter?: number;
   },
 ): Promise<{ invoiceId: string; batchId: string }> {
   const unitCost = input.unitCost ?? 1000;
@@ -89,12 +91,22 @@ export async function seedBatch(
       expiryDate,
       unitCost,
       quantityReceived: input.quantity,
-      quantityRemaining: input.quantity,
+      quantityRemaining: input.quantity - (input.counter ?? 0),
+      counterRemaining: input.counter ?? 0,
     },
   });
   await prisma.stockMovement.create({
     data: { batchId: batch.id, kind: "MASUK", quantity: input.quantity, staffId: "seed", staffName: "Seed" },
   });
+  // Sebagian sudah dipindah ke meja (spec stok meja 2.2): dua jurnal PINDAH.
+  if (input.counter) {
+    await prisma.stockMovement.createMany({
+      data: [
+        { batchId: batch.id, kind: "PINDAH", location: "GUDANG", quantity: -input.counter, staffId: "seed", staffName: "Seed" },
+        { batchId: batch.id, kind: "PINDAH", location: "MEJA", quantity: input.counter, staffId: "seed", staffName: "Seed" },
+      ],
+    });
+  }
   return { invoiceId: invoice.id, batchId: batch.id };
 }
 

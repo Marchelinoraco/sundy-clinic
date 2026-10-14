@@ -4,6 +4,7 @@ import { runAction, UserFacingError, type ActionResult } from "@/lib/action-resu
 import { prisma } from "@/lib/db";
 import { formatRupiah } from "@/lib/format";
 import { safeRevalidatePath } from "@/lib/revalidate";
+import { STOCK_LOCATION_LABEL } from "@/lib/counter-stock";
 import { ADJUST_REASON_LABEL, validateAdjustment, validateReturn, type AdjustmentInput, type ReturnInput } from "@/lib/stock";
 import { recordAudit } from "@/server/audit";
 import { requireCapability } from "@/server/session";
@@ -11,6 +12,7 @@ import { lockInvoice, STOCK_NOT_ENOUGH, takeFromBatch } from "@/server/stock-sto
 
 function revalidateMovement(itemIds: string[], invoiceId?: string) {
   safeRevalidatePath("/admin/stok");
+  safeRevalidatePath("/admin/stok-meja");
   safeRevalidatePath("/admin");
   for (const itemId of itemIds) safeRevalidatePath(`/admin/stok/barang/${itemId}`);
   if (invoiceId) {
@@ -27,31 +29,31 @@ export async function adjustStock(input: AdjustmentInput): Promise<ActionResult<
     if (!checked.ok) throw new UserFacingError(checked.message);
     const adjustment = checked.value;
 
-    const batch = await prisma.stockBatch.findUnique({
-      where: { id: adjustment.batchId },
-      select: {
-        id: true,
-        itemId: true,
-        batchNumber: true,
-        item: { select: { name: true } },
-        purchaseLine: { select: { invoice: { select: { cancelledAt: true } } } },
-      },
-    });
-    if (!batch) throw new UserFacingError("Batch tidak ditemukan.");
-    if (batch.purchaseLine.invoice.cancelledAt) {
-      throw new UserFacingError("Batch dari faktur yang dibatalkan tidak bisa disesuaikan.");
-    }
+    const probe = await prisma.stockBatch.findUnique({ where: { id: adjustment.batchId }, select: { purchaseLine: { select: { invoiceId: true } } } });
+    if (!probe) throw new UserFacingError("Batch tidak ditemukan.");
 
-    await prisma.$transaction(async (tx) => {
+    const batch = await prisma.$transaction(async (tx) => {
+      // Faktur dikunci lebih dulu, lalu status batalnya dibaca: penyesuaian dan pembatalan faktur tidak bisa saling
+      // menyalip (pemeriksaan alur Stok 14 Okt 2026, spec stok meja 3).
+      await lockInvoice(tx, probe.purchaseLine.invoiceId);
+      const row = await tx.stockBatch.findUniqueOrThrow({
+        where: { id: adjustment.batchId },
+        select: { id: true, itemId: true, batchNumber: true, item: { select: { name: true } }, purchaseLine: { select: { invoice: { select: { cancelledAt: true } } } } },
+      });
+      if (row.purchaseLine.invoice.cancelledAt) throw new UserFacingError("Batch dari faktur yang dibatalkan tidak bisa disesuaikan.");
       if (adjustment.delta < 0) {
-        if (!(await takeFromBatch(tx, batch.id, -adjustment.delta))) throw new UserFacingError(STOCK_NOT_ENOUGH);
+        if (!(await takeFromBatch(tx, row.id, -adjustment.delta, adjustment.location))) throw new UserFacingError(STOCK_NOT_ENOUGH);
       } else {
-        await tx.stockBatch.update({ where: { id: batch.id }, data: { quantityRemaining: { increment: adjustment.delta } } });
+        await tx.stockBatch.update({
+          where: { id: row.id },
+          data: adjustment.location === "MEJA" ? { counterRemaining: { increment: adjustment.delta } } : { quantityRemaining: { increment: adjustment.delta } },
+        });
       }
       await tx.stockMovement.create({
         data: {
-          batchId: batch.id,
+          batchId: row.id,
           kind: "PENYESUAIAN",
+          location: adjustment.location,
           quantity: adjustment.delta,
           reason: adjustment.reason,
           note: adjustment.note,
@@ -59,6 +61,7 @@ export async function adjustStock(input: AdjustmentInput): Promise<ActionResult<
           staffName: actor.name,
         },
       });
+      return row;
     });
 
     await recordAudit({
@@ -66,7 +69,7 @@ export async function adjustStock(input: AdjustmentInput): Promise<ActionResult<
       action: "stock.adjust",
       entity: "StockBatch",
       entityId: batch.id,
-      summary: `${batch.item.name} batch ${batch.batchNumber ?? "-"}: ${adjustment.delta > 0 ? "+" : ""}${adjustment.delta} (${ADJUST_REASON_LABEL[adjustment.reason]})`,
+      summary: `${batch.item.name} batch ${batch.batchNumber ?? "-"} (${STOCK_LOCATION_LABEL[adjustment.location]}): ${adjustment.delta > 0 ? "+" : ""}${adjustment.delta} (${ADJUST_REASON_LABEL[adjustment.reason]})`,
     });
     revalidateMovement([batch.itemId]);
   });
@@ -108,7 +111,7 @@ export async function createSupplierReturn(input: ReturnInput): Promise<ActionRe
         const batch = batches.get(line.batchId);
         if (!batch) throw new UserFacingError("Batch tidak termasuk faktur ini.");
         if (!(await takeFromBatch(tx, batch.id, line.quantity))) {
-          throw new UserFacingError(`Sisa ${batch.item.name} (batch ${batch.batchNumber ?? "-"}) tidak cukup untuk diretur.`);
+          throw new UserFacingError(`Sisa gudang ${batch.item.name} (batch ${batch.batchNumber ?? "-"}) tidak cukup untuk diretur.`);
         }
         lines.push({ batchId: batch.id, quantity: line.quantity, unitCost: batch.unitCost!, amount: line.quantity * batch.unitCost! }); // total ada ⇒ semua baris berharga
         itemIds.add(batch.itemId);
