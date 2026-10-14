@@ -10,6 +10,7 @@ import EventNoteOutlined from "@mui/icons-material/EventNoteOutlined";
 import GroupOutlined from "@mui/icons-material/GroupOutlined";
 import InsertChartOutlined from "@mui/icons-material/InsertChartOutlined";
 import Inventory2Outlined from "@mui/icons-material/Inventory2Outlined";
+import StorefrontOutlined from "@mui/icons-material/StorefrontOutlined";
 import LocalPharmacyOutlined from "@mui/icons-material/LocalPharmacyOutlined";
 import MedicationOutlined from "@mui/icons-material/MedicationOutlined";
 import NotificationsActiveOutlined from "@mui/icons-material/NotificationsActiveOutlined";
@@ -63,6 +64,7 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
       { title: "Paket", url: "/admin/paket", icon: CardGiftcardOutlined, needs: "invoice:read" },
       { title: "Resep", url: "/admin/resep", icon: MedicationOutlined, needs: "dispense:read" },
       { title: "Stok", url: "/admin/stok", icon: Inventory2Outlined, needs: "stock:read" },
+      { title: "Stok meja", url: "/admin/stok-meja", icon: StorefrontOutlined, needs: "counter:read" },
       { title: "Stok obat", url: "/admin/stok-dokter", icon: LocalPharmacyOutlined, needs: "stock:availability", hideWith: "stock:read" },
       { title: "Hutang", url: "/admin/hutang", icon: AccountBalanceWalletOutlined, needs: "payable:manage" },
       { title: "Pengeluaran", url: "/admin/pengeluaran", icon: PaymentsOutlined, needs: "expense:manage" },
@@ -101,6 +103,7 @@ export function AppSidebar({
   overduePayables = 0,
   billable = 0,
   pendingDispensing = 0,
+  counterAlerts = 0,
 }: {
   staff: CurrentStaff;
   /** Booking yang menunggu konfirmasi (situs dan WA/telepon), angka di menu Booking. */
@@ -115,6 +118,8 @@ export function AppSidebar({
   billable?: number;
   /** Resep menunggu penyerahan, angka di menu Resep. */
   pendingDispensing?: number;
+  /** Barang meja menipis atau habis di cabang aktif, angka di menu Stok meja (spec stok meja 4.1). */
+  counterAlerts?: number;
 }) {
   const pathname = usePathname() ?? "";
   const badges: Record<string, { count: number; label: string }> = {
@@ -123,6 +128,7 @@ export function AppSidebar({
     "/admin/tagihan": { count: billable, label: `${billable} kunjungan perlu ditagih` },
     "/admin/resep": { count: pendingDispensing, label: `${pendingDispensing} resep menunggu` },
     "/admin/stok": { count: stockAlerts, label: `${stockAlerts} barang menipis atau kedaluwarsa` },
+    "/admin/stok-meja": { count: counterAlerts, label: `${counterAlerts} barang meja menipis atau habis` },
     "/admin/hutang": { count: overduePayables, label: `${overduePayables} faktur hutang terlambat` },
   };
 

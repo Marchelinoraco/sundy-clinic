@@ -11,6 +11,7 @@ import { countOverduePayables } from "@/server/payable-read";
 import { countReminderWork } from "@/server/reminder";
 import { requireStaff } from "@/server/session";
 import { countStockAlerts } from "@/server/stock-read";
+import { countCounterAlerts } from "@/server/counter-read";
 
 export const metadata = { title: "Panel Admin" };
 
@@ -21,18 +22,19 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const [pendingBookings, reminderWork] = can(staff.role, "booking:manage")
     ? await Promise.all([countPendingBookings(), countReminderWork()])
     : [0, 0];
-  const [stockAlerts, overduePayables, billable, pendingDispensing] = await Promise.all([
+  const [stockAlerts, overduePayables, billable, pendingDispensing, counterAlerts] = await Promise.all([
     can(staff.role, "stock:read") ? countStockAlerts().then((alerts) => alerts.low + alerts.expired) : 0,
     can(staff.role, "payable:manage") ? countOverduePayables() : 0,
     can(staff.role, "invoice:manage") ? countBillable() : 0,
     can(staff.role, "dispense:read") ? countPendingDispensings() : 0,
+    can(staff.role, "counter:read") ? countCounterAlerts() : 0,
   ]);
 
   return (
     <>
       <AdminShell
         sidebar={
-          <AppSidebar staff={staff} pendingBookings={pendingBookings} reminderWork={reminderWork} stockAlerts={stockAlerts} overduePayables={overduePayables} billable={billable} pendingDispensing={pendingDispensing} />
+          <AppSidebar staff={staff} pendingBookings={pendingBookings} reminderWork={reminderWork} stockAlerts={stockAlerts} overduePayables={overduePayables} billable={billable} pendingDispensing={pendingDispensing} counterAlerts={counterAlerts} />
         }
         userMenu={<NavUser staff={staff} />}
       >

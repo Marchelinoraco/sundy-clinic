@@ -23,6 +23,16 @@ describe("menu samping", () => {
     expect(screen.queryByRole("link", { name: "Staf" })).toBeNull();
   });
 
+  it("Stok meja untuk resepsionis, dengan lencana; tidak untuk Admin Keuangan (spec stok meja 4.1)", () => {
+    pathname.value = "/admin";
+    const { unmount } = renderAdmin(<AppSidebar staff={staff} counterAlerts={2} />);
+    expect(screen.getByRole("link", { name: "Stok meja" })).toHaveAttribute("href", "/admin/stok-meja");
+    expect(screen.getByLabelText("2 barang meja menipis atau habis")).toHaveTextContent("2");
+    unmount();
+    renderAdmin(<AppSidebar staff={{ ...staff, role: "ADMIN_KEUANGAN" }} />);
+    expect(screen.queryByRole("link", { name: "Stok meja" })).toBeNull();
+  });
+
   it("menu Stok tidak ikut aktif di halaman Stok obat; lencana nol tidak tampil", () => {
     pathname.value = "/admin/stok-dokter";
     renderAdmin(<AppSidebar staff={{ ...staff, role: "DOKTER" }} pendingBookings={0} />);
