@@ -130,6 +130,11 @@ describe("stockFlags", () => {
     expect(flagsOf(stockFlags([batch(2, "2026-11-01")], 5, TODAY))).toEqual(["MENIPIS", "SEGERA_KEDALUWARSA"]);
   });
 
+  it("stok meja ikut nilai dan tanda kedaluwarsa, tetapi tidak ikut tersedia gudang (spec stok meja 3)", () => {
+    const flags = stockFlags([{ quantityRemaining: 2, counterRemaining: 3, expiryDate: day("2026-10-01"), unitCost: 1000 }, { quantityRemaining: 0, counterRemaining: 4, expiryDate: null, unitCost: 500 }], 0, TODAY);
+    expect(flags).toMatchObject({ onHand: 2, available: 0, value: 7000, expired: true });
+  });
+
   it("ringkasan cabang", () => {
     const a = stockFlags([batch(2, "2026-11-01")], 5, TODAY);
     const b = stockFlags([batch(1, "2026-10-01", 3000)], 0, TODAY);
@@ -143,9 +148,14 @@ describe("validasi barang dan supplier", () => {
   it("merapikan barang yang sah", () => {
     expect(validateStockItem(item)).toEqual({
       ok: true,
-      value: { code: "OBT-001", name: "Amoxicillin", kind: "OBAT", unit: "kapsul", sellPrice: 2000, minStock: 20, notes: null },
+      value: { code: "OBT-001", name: "Amoxicillin", kind: "OBAT", unit: "kapsul", sellPrice: 2000, minStock: 20, counterMinStock: 0, notes: null },
     });
     expect(validateStockItem({ ...item, sellPrice: null })).toMatchObject({ ok: true, value: { sellPrice: null } });
+  });
+
+  it("Batas meja bilangan bulat 0 atau lebih (spec stok meja SM5)", () => {
+    expect(validateStockItem({ ...item, counterMinStock: 5 })).toMatchObject({ ok: true, value: { counterMinStock: 5 } });
+    expect(validateStockItem({ ...item, counterMinStock: -1 })).toEqual({ ok: false, message: "Batas meja harus bilangan bulat 0 atau lebih." });
   });
 
   it("menolak barang yang tidak sah", () => {
@@ -262,11 +272,11 @@ describe("validasi penyesuaian, retur, pembayaran, alasan, jatuh tempo", () => {
   it("penyesuaian: arah menentukan tanda dan alasan yang boleh", () => {
     expect(validateAdjustment({ batchId: "b1", direction: "KURANGI", quantity: 2, reason: "RUSAK", note: "" })).toEqual({
       ok: true,
-      value: { batchId: "b1", delta: -2, reason: "RUSAK", note: null },
+      value: { batchId: "b1", delta: -2, reason: "RUSAK", note: null, location: "GUDANG" },
     });
     expect(validateAdjustment({ batchId: "b1", direction: "TAMBAH", quantity: 1, reason: "SELISIH_HITUNG", note: "Hitung ulang rak" })).toEqual({
       ok: true,
-      value: { batchId: "b1", delta: 1, reason: "SELISIH_HITUNG", note: "Hitung ulang rak" },
+      value: { batchId: "b1", delta: 1, reason: "SELISIH_HITUNG", note: "Hitung ulang rak", location: "GUDANG" },
     });
     expect(validateAdjustment({ batchId: "b1", direction: "TAMBAH", quantity: 1, reason: "RUSAK", note: "" })).toEqual({
       ok: false,
@@ -280,6 +290,13 @@ describe("validasi penyesuaian, retur, pembayaran, alasan, jatuh tempo", () => {
       ok: false,
       message: "Jumlah harus bilangan bulat lebih dari 0.",
     });
+  });
+
+  it("penyesuaian memilih lokasi; bawaannya gudang (spec stok meja 3)", () => {
+    const base = { batchId: "b1", direction: "KURANGI" as const, quantity: 1, reason: "RUSAK" as const, note: "" };
+    expect(validateAdjustment(base)).toMatchObject({ ok: true, value: { location: "GUDANG" } });
+    expect(validateAdjustment({ ...base, location: "MEJA" })).toMatchObject({ ok: true, value: { location: "MEJA", delta: -1 } });
+    expect(validateAdjustment({ ...base, location: "LACI" })).toEqual({ ok: false, message: "Data tidak sah. Muat ulang halaman lalu coba lagi." });
   });
 
   it("retur: minimal satu baris, jumlah bulat positif, batch tidak berulang", () => {

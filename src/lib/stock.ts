@@ -1,4 +1,5 @@
 import { formatDateWithYear, formatRupiah } from "./format";
+import type { StockLocationValue } from "./counter-stock";
 import { addDaysToDateString } from "./time";
 
 // Aturan murni stok dan hutang (spec stok 4.2). Dipakai server dan browser; tanpa akses basis data.
@@ -8,7 +9,7 @@ export type AdjustReasonValue = "RUSAK" | "HILANG" | "KEDALUWARSA" | "SELISIH_HI
 export type PaymentMethodValue = "TUNAI" | "TRANSFER" | "QRIS";
 export type SupplierPaymentKindValue = "BAYAR" | "PENGEMBALIAN";
 export type StockMovementKindValue = "MASUK" | "RETUR" | "PENYESUAIAN" | "KELUAR" | "PINDAH";
-export type StockFlag = "MENIPIS" | "SEGERA_KEDALUWARSA" | "KEDALUWARSA";
+export type StockFlag = "MENIPIS" | "SEGERA_KEDALUWARSA" | "KEDALUWARSA" | "MEJA_MENIPIS" | "MEJA_HABIS";
 export type PayableStatus = "DIBATALKAN" | "MENUNGGU_HARGA" | "LUNAS" | "KREDIT" | "SEBAGIAN" | "BELUM_DIBAYAR";
 export type PayableView = "BELUM_LUNAS" | "TERLAMBAT" | "JATUH_TEMPO" | "LUNAS" | "DIBATALKAN";
 export type Validation<T> = { ok: true; value: T } | { ok: false; message: string };
@@ -41,6 +42,8 @@ export const STOCK_FLAG_LABEL: Record<StockFlag, string> = {
   MENIPIS: "Menipis",
   SEGERA_KEDALUWARSA: "Segera kedaluwarsa",
   KEDALUWARSA: "Kedaluwarsa",
+  MEJA_MENIPIS: "Meja menipis",
+  MEJA_HABIS: "Meja habis",
 };
 export const PAYABLE_STATUS_LABEL: Record<PayableStatus, string> = {
   DIBATALKAN: "Dibatalkan",
@@ -206,9 +209,12 @@ export type StockFlags = {
   expired: boolean;
 };
 
-/** Tanda stok satu barang di satu cabang (spec stok 4.2). `today` adalah tanggal WITA. */
+/**
+ * Tanda stok satu barang di satu cabang (spec stok 4.2, stok meja 3). `onHand`, `available`, dan "menipis" untuk
+ * gudang; nilai stok dan tanda kedaluwarsa menghitung gudang dan meja (`counterRemaining`). `today` tanggal WITA.
+ */
 export function stockFlags(
-  batches: readonly { quantityRemaining: number; expiryDate: Date | null; unitCost: number | null }[],
+  batches: readonly { quantityRemaining: number; counterRemaining?: number; expiryDate: Date | null; unitCost: number | null }[],
   minStock: number,
   today: string,
 ): StockFlags {
@@ -219,15 +225,17 @@ export function stockFlags(
   let expired = false;
   let expiringSoon = false;
   for (const batch of batches) {
-    if (batch.quantityRemaining <= 0) continue;
-    onHand += batch.quantityRemaining;
-    value += batch.quantityRemaining * (batch.unitCost ?? 0);
+    const warehouse = Math.max(batch.quantityRemaining, 0);
+    const counter = Math.max(batch.counterRemaining ?? 0, 0);
+    if (warehouse + counter <= 0) continue;
+    onHand += warehouse;
+    value += (warehouse + counter) * (batch.unitCost ?? 0);
     const expiry = batch.expiryDate ? dateOnlyString(batch.expiryDate) : null;
     if (expiry !== null && expiry < today) {
       expired = true;
       continue;
     }
-    available += batch.quantityRemaining;
+    available += warehouse;
     if (expiry !== null && expiry <= warnUntil) expiringSoon = true;
   }
   return { onHand, available, value, low: minStock > 0 && available <= minStock, expiringSoon, expired };
@@ -242,7 +250,7 @@ export function flagsOf(flags: StockFlags): StockFlag[] {
 }
 
 export function isStockFlag(value: unknown): value is StockFlag {
-  return value === "MENIPIS" || value === "SEGERA_KEDALUWARSA" || value === "KEDALUWARSA";
+  return typeof value === "string" && value in STOCK_FLAG_LABEL;
 }
 
 /** Ringkasan di atas daftar barang: nilai stok dan jumlah barang per tanda. */
@@ -268,8 +276,10 @@ export type StockItemInput = {
   sellPrice: number | null;
   minStock: number;
   notes: string;
+  /** Batas meja (spec stok meja SM5); kosong = 0. */
+  counterMinStock?: number;
 };
-export type ValidStockItem = Omit<StockItemInput, "notes"> & { notes: string | null };
+export type ValidStockItem = Omit<StockItemInput, "notes" | "counterMinStock"> & { notes: string | null; counterMinStock: number };
 
 export function validateStockItem(raw: unknown): Validation<ValidStockItem> {
   if (!isObject(raw)) return fail(INVALID_FORM);
@@ -288,10 +298,12 @@ export function validateStockItem(raw: unknown): Validation<ValidStockItem> {
   const sellPrice = raw.sellPrice === null || raw.sellPrice === undefined ? null : raw.sellPrice;
   if (sellPrice !== null && !isWhole(sellPrice, 0, MAX_AMOUNT)) return fail("Harga jual tidak sah.");
   if (!isWhole(raw.minStock, 0, MAX_QUANTITY)) return fail("Batas menipis harus bilangan bulat 0 atau lebih.");
+  const counterMinStock = raw.counterMinStock === undefined || raw.counterMinStock === null ? 0 : raw.counterMinStock;
+  if (!isWhole(counterMinStock, 0, MAX_QUANTITY)) return fail("Batas meja harus bilangan bulat 0 atau lebih.");
   if (notes.length > 500) return fail("Catatan paling banyak 500 karakter.");
   return {
     ok: true,
-    value: { code, name, kind: raw.kind, unit, sellPrice, minStock: raw.minStock, notes: notes || null },
+    value: { code, name, kind: raw.kind, unit, sellPrice, minStock: raw.minStock, counterMinStock, notes: notes || null },
   };
 }
 
@@ -421,13 +433,17 @@ export type AdjustmentInput = {
   quantity: number;
   reason: AdjustReasonValue;
   note: string;
+  /** Lokasi yang disesuaikan (spec stok meja 3); kosong = GUDANG. */
+  location?: StockLocationValue;
 };
-export type ValidAdjustment = { batchId: string; delta: number; reason: AdjustReasonValue; note: string | null };
+export type ValidAdjustment = { batchId: string; delta: number; reason: AdjustReasonValue; note: string | null; location: StockLocationValue };
 
 /** Penyesuaian stok (spec stok 5.4): arah menentukan tanda jumlah dan alasan yang boleh. */
 export function validateAdjustment(raw: unknown): Validation<ValidAdjustment> {
   if (!isObject(raw) || typeof raw.batchId !== "string" || !raw.batchId) return fail(INVALID_FORM);
   if (raw.direction !== "KURANGI" && raw.direction !== "TAMBAH") return fail(INVALID_FORM);
+  const location = raw.location === undefined || raw.location === null ? "GUDANG" : raw.location;
+  if (location !== "GUDANG" && location !== "MEJA") return fail(INVALID_FORM);
   if (!isWhole(raw.quantity, 1, MAX_QUANTITY)) return fail("Jumlah harus bilangan bulat lebih dari 0.");
   const allowed = raw.direction === "KURANGI" ? DECREASE_REASONS : INCREASE_REASONS;
   if (!(allowed as readonly unknown[]).includes(raw.reason)) return fail("Pilih alasan penyesuaian.");
@@ -438,7 +454,7 @@ export function validateAdjustment(raw: unknown): Validation<ValidAdjustment> {
   if ((reason === "LAINNYA" || reason === "SELISIH_HITUNG") && !note) return fail("Isi catatan untuk alasan ini.");
   return {
     ok: true,
-    value: { batchId: raw.batchId, delta: raw.direction === "KURANGI" ? -raw.quantity : raw.quantity, reason, note: note || null },
+    value: { batchId: raw.batchId, delta: raw.direction === "KURANGI" ? -raw.quantity : raw.quantity, reason, note: note || null, location },
   };
 }
 

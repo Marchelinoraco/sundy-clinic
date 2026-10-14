@@ -12,7 +12,7 @@ import { AdminDataGrid } from "../mui/admin-data-grid";
 import { TextLink } from "../mui/links";
 import { StatusChip, type StatusTone } from "../mui/status-chip";
 
-const FLAG_TONE: Record<StockFlag, StatusTone> = { MENIPIS: "warning", SEGERA_KEDALUWARSA: "warning", KEDALUWARSA: "error" };
+const FLAG_TONE: Record<StockFlag, StatusTone> = { MENIPIS: "warning", SEGERA_KEDALUWARSA: "warning", KEDALUWARSA: "error", MEJA_MENIPIS: "warning", MEJA_HABIS: "error" };
 
 const COLUMNS: GridColDef<StockItemRow>[] = [
   {
