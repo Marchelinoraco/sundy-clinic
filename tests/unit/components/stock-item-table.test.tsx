@@ -27,8 +27,8 @@ const row = (patch: Partial<StockItemRow> = {}): StockItemRow => ({
   expired: true,
   flags: ["MENIPIS", "KEDALUWARSA"],
   counterMinStock: 0,
-  counterAvailable: 0,
-  counterExpired: 0,
+  counterAvailable: 4,
+  counterExpired: 1,
   ...patch,
 });
 
@@ -57,5 +57,13 @@ describe("StockItemTable", () => {
   it("promo barang tampil di bawah harga jual", () => {
     renderAdmin(<StockItemTable rows={[row({ sellPrice: 150_000, promoName: "Promo Oktober", promoKind: "PERSEN", promoValue: 10 })]} />);
     expect(screen.getByText("Promo Oktober · 10%")).toBeInTheDocument();
+  });
+  it("kolom Gudang dan Meja terpisah; tanda meja tampil (spec stok meja 6)", () => {
+    renderAdmin(<StockItemTable rows={[row({ flags: ["MEJA_MENIPIS"] })]} />);
+    expect(screen.getByRole("columnheader", { name: "Gudang" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Meja" })).toBeInTheDocument();
+    expect(screen.getByText("4 kapsul")).toBeInTheDocument();
+    expect(screen.getByText("1 kedaluwarsa")).toBeInTheDocument();
+    expect(screen.getByText("Meja menipis")).toBeInTheDocument();
   });
 });

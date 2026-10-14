@@ -29,7 +29,7 @@ describe("AdjustStockDialog", () => {
     await user.type(screen.getByLabelText("Jumlah"), "2");
     await user.click(screen.getByRole("button", { name: "Simpan" }));
     await waitFor(() =>
-      expect(adjustStock).toHaveBeenCalledWith({ batchId: "b1", direction: "KURANGI", quantity: 2, reason: "RUSAK", note: "" }),
+      expect(adjustStock).toHaveBeenCalledWith({ batchId: "b1", direction: "KURANGI", quantity: 2, reason: "RUSAK", note: "", location: "GUDANG" }),
     );
   });
 
@@ -48,7 +48,22 @@ describe("AdjustStockDialog", () => {
     const user = await open();
     await user.type(screen.getByLabelText("Jumlah"), "6");
     await user.click(screen.getByRole("button", { name: "Simpan" }));
-    expect(screen.getByRole("alert")).toHaveTextContent("Pengurangan melebihi sisa batch (5 kapsul).");
+    expect(screen.getByRole("alert")).toHaveTextContent("Pengurangan melebihi sisa gudang (5 kapsul).");
     expect(adjustStock).not.toHaveBeenCalled();
+  });
+
+  it("memilih lokasi Meja; batas sisa mengikuti lokasi (spec stok meja 3)", async () => {
+    const user = userEvent.setup();
+    renderAdmin(<AdjustStockDialog batch={{ id: "b1", label: "Amoxicillin batch A", remaining: 10, counterRemaining: 2, unit: "kapsul" }} />);
+    await user.click(screen.getByRole("button", { name: "Penyesuaian Amoxicillin batch A" }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("gudang 10 · meja 2 kapsul");
+    await user.click(screen.getByRole("button", { name: "Meja" }));
+    await user.type(screen.getByLabelText("Jumlah"), "3");
+    await user.click(screen.getByRole("button", { name: "Simpan" }));
+    expect(await screen.findByText("Pengurangan melebihi sisa meja (2 kapsul).")).toBeInTheDocument();
+    await user.clear(screen.getByLabelText("Jumlah"));
+    await user.type(screen.getByLabelText("Jumlah"), "1");
+    await user.click(screen.getByRole("button", { name: "Simpan" }));
+    await waitFor(() => expect(adjustStock).toHaveBeenCalledWith(expect.objectContaining({ batchId: "b1", location: "MEJA", quantity: 1 })));
   });
 });

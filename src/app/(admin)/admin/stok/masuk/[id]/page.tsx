@@ -156,7 +156,7 @@ export default async function PurchasePage({ params }: { params: Promise<{ id: s
                   <TableCell align="right">Jumlah</TableCell>
                   {detail.canSeeCost && <TableCell align="right">Harga beli</TableCell>}
                   {detail.canSeeCost && <TableCell align="right">Subtotal</TableCell>}
-                  <TableCell align="right">Sisa batch</TableCell>
+                  <TableCell align="right">Sisa gudang</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>

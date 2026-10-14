@@ -33,9 +33,24 @@ describe("StockItemDialog", () => {
         unit: "kapsul",
         sellPrice: 2000,
         minStock: 20,
+        counterMinStock: 0,
         notes: "",
       }),
     );
+  });
+
+  it("Batas meja ikut terkirim (spec stok meja SM5)", async () => {
+    const user = userEvent.setup();
+    vi.mocked(createStockItem).mockResolvedValue({ ok: true, data: { id: "i9" } });
+    renderAdmin(<StockItemDialog triggerLabel="+ Barang" canSetPrice={false} />);
+    await user.click(screen.getByRole("button", { name: "+ Barang" }));
+    await user.type(screen.getByLabelText("Kode"), "obt-002");
+    await user.type(screen.getByLabelText("Nama"), "Salep");
+    await user.type(screen.getByLabelText("Satuan"), "tube");
+    await user.clear(screen.getByLabelText("Batas meja"));
+    await user.type(screen.getByLabelText("Batas meja"), "5");
+    await user.click(screen.getByRole("button", { name: "Simpan" }));
+    await waitFor(() => expect(createStockItem).toHaveBeenCalledWith(expect.objectContaining({ counterMinStock: 5 })));
   });
 
   it("galat isian tampil tanpa memanggil server; galat server juga tampil", async () => {

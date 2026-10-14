@@ -74,13 +74,16 @@ describe("barang dan supplier", () => {
 
     await unwrap(updateStockItem(id, item({ name: `${SLUG} Vitamin C 1000`, sellPrice: null })));
     expect(await prisma.stockItem.findUniqueOrThrow({ where: { id } })).toMatchObject({ name: `${SLUG} Vitamin C 1000`, sellPrice: null });
+    // Batas meja (spec stok meja SM5).
+    await unwrap(updateStockItem(id, item({ name: `${SLUG} Vitamin C 1000`, sellPrice: null, counterMinStock: 7 })));
+    expect((await prisma.stockItem.findUniqueOrThrow({ where: { id } })).counterMinStock).toBe(7);
 
     await unwrap(setStockItemActive(id, false));
     const active = await listStockItems({ branchId: world.branchId, q: SLUG });
     const inactive = await listStockItems({ branchId: world.branchId, flag: "NONAKTIF", q: SLUG });
     expect(active.map((row) => row.id)).not.toContain(id);
     expect(inactive.map((row) => row.id)).toContain(id);
-    expect(await prisma.auditLog.count({ where: { action: "stock-item.update", entityId: id } })).toBe(2);
+    expect(await prisma.auditLog.count({ where: { action: "stock-item.update", entityId: id } })).toBe(3);
   });
 
   it("menolak barang yang tidak sah di server", async () => {

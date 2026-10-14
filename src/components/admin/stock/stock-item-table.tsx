@@ -49,19 +49,33 @@ const COLUMNS: GridColDef<StockItemRow>[] = [
   { field: "kind", headerName: "Jenis", minWidth: 110, valueGetter: (_value, row) => STOCK_ITEM_KIND_LABEL[row.kind] },
   {
     field: "available",
-    headerName: "Stok tersedia",
+    headerName: "Gudang",
     type: "number",
     align: "right",
     headerAlign: "right",
-    width: 140,
+    width: 130,
     renderCell: ({ row }) => (
       <Box>
         <Box>
           {row.available} {row.unit}
         </Box>
-        {row.onHand > row.available && (
-          <Box sx={{ fontSize: "0.75rem", color: "error.main" }}>{row.onHand - row.available} kedaluwarsa</Box>
-        )}
+        {row.onHand > row.available && <Box sx={{ fontSize: "0.75rem", color: "error.main" }}>{row.onHand - row.available} kedaluwarsa</Box>}
+      </Box>
+    ),
+  },
+  {
+    field: "counterAvailable",
+    headerName: "Meja",
+    type: "number",
+    align: "right",
+    headerAlign: "right",
+    width: 120,
+    renderCell: ({ row }) => (
+      <Box>
+        <Box>
+          {row.counterAvailable} {row.unit}
+        </Box>
+        {row.counterExpired > 0 && <Box sx={{ fontSize: "0.75rem", color: "error.main" }}>{row.counterExpired} kedaluwarsa</Box>}
       </Box>
     ),
   },

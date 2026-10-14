@@ -1,4 +1,5 @@
 import Box from "@mui/material/Box";
+import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -11,10 +12,13 @@ import { AdminHeader } from "@/components/admin/admin-header";
 import { TextLink } from "@/components/admin/mui/links";
 import { StatusChip } from "@/components/admin/mui/status-chip";
 import { EmptyState, PageBody, PageHeader, SectionCard } from "@/components/admin/page-layout";
+import { FillCounterDialog } from "@/components/admin/counter/fill-counter-dialog";
+import { PullToWarehouseDialog } from "@/components/admin/counter/pull-to-warehouse-dialog";
 import { AdjustStockDialog } from "@/components/admin/stock/adjust-stock-dialog";
 import { StockItemActiveButton } from "@/components/admin/stock/stock-item-active-button";
 import { StockItemDialog } from "@/components/admin/stock/stock-item-dialog";
 import { StockPriceDialog } from "@/components/admin/stock/stock-price-dialog";
+import { STOCK_LOCATION_LABEL } from "@/lib/counter-stock";
 import { formatDateWithYear, formatRupiah } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { ADJUST_REASON_LABEL, dateLabel, MOVEMENT_KIND_LABEL, STOCK_ITEM_KIND_LABEL } from "@/lib/stock";
@@ -43,7 +47,7 @@ export default async function StockItemPage({ params }: { params: Promise<{ id: 
           trail={[{ label: "Stok", href: "/admin/stok" }, { label: item.code }]}
           description={`${STOCK_ITEM_KIND_LABEL[item.kind]} · satuan ${item.unit} · harga jual ${
             item.sellPrice === null ? "belum diisi" : formatRupiah(item.sellPrice)
-          } · promo ${promoLabel(item) ?? "—"} · batas menipis ${item.minStock}`}
+          } · promo ${promoLabel(item) ?? "—"} · batas menipis ${item.minStock} · batas meja ${item.counterMinStock}`}
           actions={
             canManage || canSetPrice ? (
               <>
@@ -58,9 +62,17 @@ export default async function StockItemPage({ params }: { params: Promise<{ id: 
                       unit: item.unit,
                       sellPrice: item.sellPrice,
                       minStock: item.minStock,
+                      counterMinStock: item.counterMinStock,
                       notes: item.notes ?? "",
                     }}
                     canSetPrice={canSetPrice}
+                  />
+                )}
+                {canManage && detail.moveOptions.length > 0 && (
+                  <FillCounterDialog
+                    triggerLabel="Pindah ke meja"
+                    item={{ id: item.id, name: item.name, unit: item.unit }}
+                    branches={detail.moveOptions.map((option) => ({ id: option.branchId, name: option.branchName, warehouseAvailable: option.warehouseAvailable }))}
                   />
                 )}
                 {canSetPrice && <StockPriceDialog itemId={item.id} itemName={item.name} sellPrice={item.sellPrice} promo={item} />}
@@ -86,7 +98,8 @@ export default async function StockItemPage({ params }: { params: Promise<{ id: 
                     <TableCell>Cabang</TableCell>
                     <TableCell>Batch</TableCell>
                     <TableCell>Kedaluwarsa</TableCell>
-                    <TableCell align="right">Sisa</TableCell>
+                    <TableCell align="right">Gudang</TableCell>
+                    <TableCell align="right">Meja</TableCell>
                     {canPrice && <TableCell align="right">Harga beli</TableCell>}
                     <TableCell>Faktur</TableCell>
                     {canManage && <TableCell>Aksi</TableCell>}
@@ -108,6 +121,9 @@ export default async function StockItemPage({ params }: { params: Promise<{ id: 
                       <TableCell align="right">
                         {batch.quantityRemaining} {item.unit}
                       </TableCell>
+                      <TableCell align="right">
+                        {batch.counterRemaining} {item.unit}
+                      </TableCell>
                       {canPrice && <TableCell align="right">{batch.unitCost === null ? "—" : formatRupiah(batch.unitCost)}</TableCell>}
                       <TableCell>
                         <TextLink href={`/admin/stok/masuk/${batch.invoiceId}`}>{batch.invoiceNumber}</TextLink>
@@ -118,14 +134,14 @@ export default async function StockItemPage({ params }: { params: Promise<{ id: 
                       {canManage && (
                         <TableCell>
                           {!batch.invoiceCancelled && (
-                            <AdjustStockDialog
-                              batch={{
-                                id: batch.id,
-                                label: `${item.name} batch ${batch.batchNumber ?? "-"}`,
-                                remaining: batch.quantityRemaining,
-                                unit: item.unit,
-                              }}
-                            />
+                            <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: "wrap" }}>
+                              <AdjustStockDialog
+                                batch={{ id: batch.id, label: `${item.name} batch ${batch.batchNumber ?? "-"}`, remaining: batch.quantityRemaining, counterRemaining: batch.counterRemaining, unit: item.unit }}
+                              />
+                              {batch.counterRemaining > 0 && (
+                                <PullToWarehouseDialog batch={{ id: batch.id, label: `${item.name} batch ${batch.batchNumber ?? "-"}`, counterRemaining: batch.counterRemaining, unit: item.unit }} />
+                              )}
+                            </Stack>
                           )}
                         </TableCell>
                       )}
@@ -147,6 +163,7 @@ export default async function StockItemPage({ params }: { params: Promise<{ id: 
                   <TableRow>
                     <TableCell>Waktu</TableCell>
                     <TableCell>Jenis</TableCell>
+                    <TableCell>Lokasi</TableCell>
                     <TableCell align="right">Jumlah</TableCell>
                     <TableCell>Batch</TableCell>
                     <TableCell>Staf</TableCell>
@@ -160,6 +177,7 @@ export default async function StockItemPage({ params }: { params: Promise<{ id: 
                         {formatDateWithYear(movement.createdAt)} {minutesToTimeLabel(witaMinutesOfDay(movement.createdAt))}
                       </TableCell>
                       <TableCell>{MOVEMENT_KIND_LABEL[movement.kind]}</TableCell>
+                      <TableCell>{STOCK_LOCATION_LABEL[movement.location]}</TableCell>
                       <TableCell align="right">
                         {movement.quantity > 0 ? "+" : ""}
                         {movement.quantity}

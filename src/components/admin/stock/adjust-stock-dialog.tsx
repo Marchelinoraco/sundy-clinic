@@ -14,6 +14,7 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { STOCK_LOCATION_LABEL, type StockLocationValue } from "@/lib/counter-stock";
 import { ADJUST_REASON_LABEL, DECREASE_REASONS, INCREASE_REASONS, validateAdjustment, type AdjustReasonValue } from "@/lib/stock";
 import { adjustStock } from "@/server/stock-movements";
 import { DialogCloseButton } from "../mui/dialog-close-button";
@@ -22,13 +23,14 @@ import { SelectField } from "../mui/select-field";
 type Direction = "KURANGI" | "TAMBAH";
 
 /** Penyesuaian satu batch (spec stok 5.4). Batas sisa diperiksa lagi di server secara atomik. */
-export function AdjustStockDialog({ batch }: { batch: { id: string; label: string; remaining: number; unit: string } }) {
+export function AdjustStockDialog({ batch }: { batch: { id: string; label: string; remaining: number; counterRemaining?: number; unit: string } }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [direction, setDirection] = useState<Direction>("KURANGI");
   const [quantity, setQuantity] = useState("");
   const [reason, setReason] = useState<AdjustReasonValue>(DECREASE_REASONS[0]);
   const [note, setNote] = useState("");
+  const [location, setLocation] = useState<StockLocationValue>(batch.remaining > 0 || !batch.counterRemaining ? "GUDANG" : "MEJA");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const reasons = direction === "KURANGI" ? DECREASE_REASONS : INCREASE_REASONS;
@@ -40,14 +42,15 @@ export function AdjustStockDialog({ batch }: { batch: { id: string; label: strin
   }
 
   function save() {
-    const input = { batchId: batch.id, direction, quantity: Number(quantity), reason, note };
+    const input = { batchId: batch.id, direction, quantity: Number(quantity), reason, note, location };
     const checked = validateAdjustment(input);
     if (!checked.ok) {
       setError(checked.message);
       return;
     }
-    if (checked.value.delta < 0 && -checked.value.delta > batch.remaining) {
-      setError(`Pengurangan melebihi sisa batch (${batch.remaining} ${batch.unit}).`);
+    const left = location === "MEJA" ? (batch.counterRemaining ?? 0) : batch.remaining;
+    if (checked.value.delta < 0 && -checked.value.delta > left) {
+      setError(`Pengurangan melebihi sisa ${location === "MEJA" ? "meja" : "gudang"} (${left} ${batch.unit}).`);
       return;
     }
     setError(null);
@@ -84,9 +87,16 @@ export function AdjustStockDialog({ batch }: { batch: { id: string; label: strin
         <DialogCloseButton onClick={close} />
         <DialogContent>
           <DialogContentText>
-            {batch.label} · sisa {batch.remaining} {batch.unit}
+            {batch.label} · gudang {batch.remaining} · meja {batch.counterRemaining ?? 0} {batch.unit}
           </DialogContentText>
           <Stack spacing={2} sx={{ pt: 2 }}>
+            <ToggleButtonGroup exclusive size="small" aria-label="Lokasi" value={location} onChange={(_, next: StockLocationValue | null) => next && setLocation(next)}>
+              {(["GUDANG", "MEJA"] as const).map((value) => (
+                <ToggleButton key={value} value={value} sx={{ px: 2 }}>
+                  {STOCK_LOCATION_LABEL[value]}
+                </ToggleButton>
+              ))}
+            </ToggleButtonGroup>
             <ToggleButtonGroup
               exclusive
               size="small"

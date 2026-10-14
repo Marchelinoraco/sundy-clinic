@@ -125,7 +125,9 @@ async function ItemsTab({ params, canPrice }: { params: Search; canPrice: boolea
 
   const rows = await listStockItems({ branchId: branch.id, kind, flag, q });
   // Ringkasan selalu untuk seluruh barang aktif cabang, bukan hanya hasil saringan.
-  const summary = summarizeStock(filtered ? await listStockItems({ branchId: branch.id }) : rows);
+  const all = filtered ? await listStockItems({ branchId: branch.id }) : rows;
+  const summary = summarizeStock(all);
+  const counterFlagged = all.filter((row) => row.flags.includes("MEJA_MENIPIS") || row.flags.includes("MEJA_HABIS")).length;
 
   return (
     <>
@@ -136,7 +138,7 @@ async function ItemsTab({ params, canPrice }: { params: Search; canPrice: boolea
             m: 0,
             display: "grid",
             gap: 2,
-            gridTemplateColumns: { xs: "1fr", sm: `repeat(${canPrice ? 4 : 3}, 1fr)` },
+            gridTemplateColumns: { xs: "1fr", sm: `repeat(${canPrice ? 5 : 4}, 1fr)` },
             fontSize: "0.875rem",
             "& dt": { color: "text.secondary" },
             "& dd": { m: 0, fontSize: "1.125rem", fontWeight: 600 },
@@ -160,6 +162,10 @@ async function ItemsTab({ params, canPrice }: { params: Search; canPrice: boolea
           <div>
             <dt>Kedaluwarsa</dt>
             <dd>{summary.expired} barang</dd>
+          </div>
+          <div>
+            <dt>Meja menipis / habis</dt>
+            <dd>{counterFlagged} barang</dd>
           </div>
         </Box>
       </SectionCard>

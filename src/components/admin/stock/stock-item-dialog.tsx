@@ -18,7 +18,7 @@ import { DialogCloseButton } from "../mui/dialog-close-button";
 import { SelectField } from "../mui/select-field";
 import { RupiahInput } from "../rupiah-input";
 
-const EMPTY: StockItemInput = { code: "", name: "", kind: "OBAT", unit: "", sellPrice: null, minStock: 0, notes: "" };
+const EMPTY: StockItemInput = { code: "", name: "", kind: "OBAT", unit: "", sellPrice: null, minStock: 0, counterMinStock: 0, notes: "" };
 const KINDS = Object.keys(STOCK_ITEM_KIND_LABEL) as StockItemKindValue[];
 
 /** Tambah atau ubah barang (spec stok 5.1). Aturan isian diulang di server. */
@@ -113,6 +113,16 @@ export function StockItemDialog({
               type="number"
               value={value.minStock}
               onChange={(e) => set("minStock", e.target.value === "" ? 0 : Number(e.target.value))}
+              fullWidth
+              slotProps={{ htmlInput: { min: 0, inputMode: "numeric" } }}
+            />
+            <TextField
+              id="stock-item-counter-min"
+              label="Batas meja"
+              type="number"
+              value={value.counterMinStock ?? 0}
+              onChange={(e) => set("counterMinStock", e.target.value === "" ? 0 : Number(e.target.value))}
+              helperText="0 = tidak dipantau di meja"
               fullWidth
               slotProps={{ htmlInput: { min: 0, inputMode: "numeric" } }}
             />
