@@ -26,6 +26,8 @@ import { dispensingNotice } from "@/lib/dispensing";
 import { INVOICE_LINE_KIND_LABEL, validateLineEdit } from "@/lib/invoice";
 import { packageOptionsSummary, type PackageOption } from "@/lib/treatment-package";
 import type { ActionResult } from "@/lib/action-result";
+import { counterShortages } from "@/lib/counter-stock";
+import type { CounterItemRow } from "@/server/counter-read";
 import { removeInvoiceLine, refreshCatalogPrices, restorePrescriptionLine, updateInvoiceLine } from "@/server/invoice-drafts";
 import { finalizeInvoice } from "@/server/invoice-lifecycle";
 import type { BillingItem, InvoiceDetail, InvoiceLineRow } from "@/server/invoice-read";
@@ -44,6 +46,7 @@ import { DiscountForm } from "./discount-form";
 import { InvoiceNotesForm } from "./invoice-notes-form";
 import { LineDiscountDialog, LineDiscountNote } from "./line-discount-dialog";
 import { ReducePrescriptionDialog } from "./reduce-prescription-dialog";
+import { RestockRequestDialog } from "../counter/restock-request-dialog";
 
 /** Jalankan aksi server: tampilkan kesalahan apa adanya, muat ulang halaman bila berhasil. */
 export function useInvoiceAction() {
@@ -69,9 +72,11 @@ export function useInvoiceAction() {
   return { run, error, setError, pending };
 }
 
-function LineRow({ detail, line, options, performers, disabled, run, fail }: {
+function LineRow({ detail, line, options, performers, disabled, run, fail, shortage }: {
   detail: InvoiceDetail;
   line: InvoiceLineRow;
+  /** Stok meja kurang untuk barang baris ini (spec stok meja 4.1). */
+  shortage: { needed: number; available: number } | null;
   options: readonly PackageOption[];
   performers: readonly { id: string; name: string }[];
   disabled: boolean;
@@ -99,6 +104,11 @@ function LineRow({ detail, line, options, performers, disabled, run, fail }: {
         <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>
           {INVOICE_LINE_KIND_LABEL[line.kind]}
         </Typography>
+        {shortage && (
+          <Typography variant="caption" component="div" sx={{ color: "warning.main" }}>
+            Stok meja kurang (tersedia {shortage.available})
+          </Typography>
+        )}
         <LinePerformerSelect invoiceId={detail.id} version={detail.version} line={line} performers={performers} disabled={disabled} />
         <LineDiscountNote line={line} />
         {line.packageNote && (
@@ -192,6 +202,7 @@ export function InvoiceDraftEditor({
   packageOptions = [],
   performers = [],
   services = [],
+  restock = null,
 }: {
   detail: InvoiceDetail;
   items: BillingItem[];
@@ -201,6 +212,8 @@ export function InvoiceDraftEditor({
   packageOptions?: PackageOption[];
   performers?: { id: string; name: string }[];
   services?: InternalServiceOption[];
+  /** Resepsionis yang boleh meminta restock meja (spec stok meja 4.1); null bila tidak. */
+  restock?: { branchId: string; options: CounterItemRow[] } | null;
 }) {
   const { run, error, setError, pending } = useInvoiceAction();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -208,6 +221,14 @@ export function InvoiceDraftEditor({
 
   // Resep dokter tidak melewati penyerahan Apoteker, jadi "Obat sudah diserahkan." tidak berlaku (spec resep dokter 4).
   const notice = detail.dispensingSource === "DOKTER" ? null : dispensingNotice(detail.dispensing);
+  // Tagihan mengambil stok meja (spec stok meja 4.1): baris yang meja-nya kurang diberi tanda, dan resepsionis bisa
+  // langsung meminta restock untuk kekurangannya.
+  const shortages = counterShortages(detail.lines, new Map(items.map((item) => [item.id, item.available])));
+  const requestable = restock
+    ? [...shortages]
+        .filter(([itemId]) => !restock.options.find((option) => option.id === itemId)?.requested)
+        .map(([itemId, short]) => ({ itemId, quantity: Math.min(short.needed - short.available, 9999) }))
+    : [];
 
   return (
     <Stack spacing={3}>
@@ -228,6 +249,7 @@ export function InvoiceDraftEditor({
         >
           Segarkan harga katalog
         </Button>
+        {restock && requestable.length > 0 && <RestockRequestDialog branchId={restock.branchId} options={restock.options} initial={requestable} />}
         {detail.hasPrescription && (
           <LinkButton href={`/admin/tagihan/${detail.id}/etiket`} variant="outlined">
             Cetak etiket
@@ -266,7 +288,7 @@ export function InvoiceDraftEditor({
                 </TableCell>
               </TableRow>
             ) : (
-              detail.lines.map((line) => <LineRow key={`${line.id}-${detail.version}`} detail={detail} line={line} options={packageOptions} performers={performers} disabled={pending} run={run} fail={setError} />)
+              detail.lines.map((line) => <LineRow key={`${line.id}-${detail.version}`} detail={detail} line={line} options={packageOptions} performers={performers} disabled={pending} run={run} fail={setError} shortage={line.itemId ? (shortages.get(line.itemId) ?? null) : null} />)
             )}
           </TableBody>
         </Table>

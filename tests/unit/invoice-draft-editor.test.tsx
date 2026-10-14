@@ -39,6 +39,7 @@ vi.mock("@/server/invoice-drafts", () => ({
   restorePrescriptionLine: mocks.restorePrescriptionLine,
 }));
 vi.mock("@/server/invoice-lifecycle", () => ({ finalizeInvoice: mocks.finalizeInvoice, cancelInvoice: mocks.cancelInvoice }));
+vi.mock("@/server/restock", () => ({ createRestockRequest: vi.fn() }));
 
 function detail(patch: Partial<InvoiceDetail> = {}): InvoiceDetail {
   const lines: InvoiceDetail["lines"] = [
@@ -265,5 +266,28 @@ describe("editor draf tagihan", () => {
     expect(screen.getByRole("button", { name: `Lepas paket ${withPackage.lines[0].name}` })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: `Diskon ${withPackage.lines[0].name}` })).not.toBeInTheDocument();
     expect(screen.queryByLabelText(`Harga ${withPackage.lines[0].name}`)).not.toBeInTheDocument();
+  });
+
+  it("stok meja kurang: baris ditandai dan tombol Minta restock tampil (spec stok meja 4.1)", async () => {
+    const base = detail();
+    const lines = base.lines.map((line) => (line.id === "l2" ? { ...line, quantity: 5 } : line));
+    const counter = [{ id: "it1", code: "VC", name: "Vitamin C", unit: "tablet", kind: "PRODUK" as const, available: 2, expired: 0, counterMinStock: 0, flag: null, requested: false }];
+    renderAdmin(
+      <InvoiceDraftEditor
+        detail={{ ...base, lines }}
+        items={items.map((item) => (item.id === "it1" ? { ...item, available: 2 } : item))}
+        canExceedDiscount={false}
+        restock={{ branchId: "b1", options: counter }}
+      />,
+    );
+    expect(screen.getByText("Stok meja kurang (tersedia 2)")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Minta restock" }));
+    expect(screen.getByLabelText("Jumlah 1")).toHaveValue(3);
+  });
+
+  it("stok meja cukup: tanpa tanda dan tanpa tombol", () => {
+    renderAdmin(<InvoiceDraftEditor detail={detail()} items={items} canExceedDiscount={false} restock={{ branchId: "b1", options: [] }} />);
+    expect(screen.queryByText(/Stok meja kurang/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Minta restock" })).toBeNull();
   });
 });
