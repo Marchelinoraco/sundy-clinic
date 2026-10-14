@@ -28,4 +28,15 @@ describe("ReducePrescriptionDialog (spec resep dokter 4)", { timeout: 15_000 }, 
     await user.click(screen.getByRole("button", { name: "Simpan" }));
     await waitFor(() => expect(reducePrescriptionLine).toHaveBeenCalledWith({ invoiceId: "inv", version: 1, lineId: "l1", quantity: 4, reason: "Stok kurang" }));
   });
+
+  it("jumlah dikosongkan tidak dibaca 0 (obat tidak terhapus tanpa sengaja)", async () => {
+    const user = userEvent.setup();
+    renderAdmin(<ReducePrescriptionDialog invoiceId="inv" version={1} line={{ id: "l1", name: "Amoxicillin", quantity: 10, prescription: { prescribedQuantity: 10, usage: "3 x 1" } }} />);
+    await user.click(screen.getByRole("button", { name: "Kurangi Amoxicillin" }));
+    await user.clear(screen.getByLabelText("Jumlah ditagih"));
+    await user.type(screen.getByLabelText("Alasan"), "Stok kurang");
+    await user.click(screen.getByRole("button", { name: "Simpan" }));
+    expect(await screen.findByText("Jumlah ditagih harus 0–9.")).toBeInTheDocument();
+    expect(reducePrescriptionLine).not.toHaveBeenCalled();
+  });
 });

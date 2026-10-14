@@ -29,7 +29,8 @@ export function ReducePrescriptionDialog({ invoiceId, version, line, disabled }:
   const prescribed = line.prescription.prescribedQuantity;
 
   function save() {
-    const checked = validateReduction({ quantity: Number(quantity), reason }, { prescribed });
+    // Kolom kosong bukan 0: tanpa ini obat terhapus dari tagihan tanpa sengaja.
+    const checked = validateReduction({ quantity: quantity.trim() === "" ? Number.NaN : Number(quantity), reason }, { prescribed });
     if (!checked.ok) {
       setError(checked.message);
       return;

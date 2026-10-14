@@ -461,7 +461,7 @@ export async function getInvoicePrescriptionLabel(invoiceId: string): Promise<Pr
     where: { id: String(invoiceId ?? "") },
     select: {
       patient: { select: { name: true } },
-      appointment: { select: { startAt: true, staff: { select: { name: true } } } },
+      appointment: { select: { startAt: true, staff: { select: { name: true } }, encounter: { select: { finalizedByName: true } } } },
       lines: {
         where: { dispensingLine: { dispensing: { source: "DOKTER" } } },
         orderBy: { sortOrder: "asc" },
@@ -473,7 +473,8 @@ export async function getInvoicePrescriptionLabel(invoiceId: string): Promise<Pr
   return {
     patientName: invoice.patient.name,
     startAt: invoice.appointment.startAt,
-    doctorName: invoice.appointment.staff.name,
+    // Dokter yang menulis resep (memfinalkan catatan), bukan staf booking: booking treatment bisa atas nama terapis.
+    doctorName: invoice.appointment.encounter?.finalizedByName ?? invoice.appointment.staff.name,
     lines: invoice.lines.map((l) => ({ name: l.name, quantity: l.quantity, usage: l.dispensingLine?.usage ?? "" })),
   };
 }

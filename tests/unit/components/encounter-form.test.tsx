@@ -309,6 +309,14 @@ describe("EncounterForm", () => {
   it("tidak ada lagi kolom Catatan untuk Apoteker (diganti resep, spec resep dokter 3)", () => {
     renderForm();
     expect(screen.queryByLabelText("Catatan untuk Apoteker")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Catatan untuk Apoteker/)).not.toBeInTheDocument();
+  });
+
+  it("draf lama berisi Catatan untuk Apoteker: catatannya tampil baca-saja dengan ajakan memindahkannya ke Resep", () => {
+    renderForm({ legacyPharmacyNote: "Amoxicillin 3x1 selama 5 hari" });
+    const note = screen.getByRole("note", { name: "Catatan untuk Apoteker (lama)" });
+    expect(note).toHaveTextContent("Amoxicillin 3x1 selama 5 hari");
+    expect(note).toHaveTextContent("Tidak lagi dikirim ke Apoteker. Tulis obatnya di bagian Resep.");
   });
 });
 

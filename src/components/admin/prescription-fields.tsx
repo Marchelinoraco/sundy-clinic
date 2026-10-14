@@ -77,7 +77,7 @@ export function PrescriptionFields({ rows, medicines, onChange }: { rows: Prescr
         );
       })}
       <Box>
-        <Button type="button" variant="outlined" onClick={() => onChange([...rows, { itemId: medicines[0]?.id ?? "", quantity: "1", usage: "" }])}>
+        <Button type="button" variant="outlined" onClick={() => onChange([...rows, { itemId: "", quantity: "1", usage: "" }])}>
           Tambah obat
         </Button>
       </Box>

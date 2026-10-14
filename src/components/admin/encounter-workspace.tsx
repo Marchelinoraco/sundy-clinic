@@ -70,6 +70,7 @@ export function EncounterWorkspace({ encounter, bia, canWrite }: { encounter: En
             initialVersion={encounter.version}
             initialDraft={encounter.draft}
             options={encounter.options}
+            legacyPharmacyNote={encounter.pharmacyNote}
             weightHistory={weightHistory}
             onVitalsChange={setCurrentVitals}
             subjectiveRef={subjectiveRef}

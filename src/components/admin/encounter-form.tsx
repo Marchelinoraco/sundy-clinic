@@ -19,6 +19,7 @@ import { appendToSubjective } from "@/lib/food-recall";
 import {
   ENCOUNTER_TEXT_MAX,
   FINALIZE_NEEDS_ASSESSMENT,
+  PHARMACY_NOTE_LABEL,
   TEXT_FIELDS,
   TREATMENT_TEXT_MAX,
   VITALS,
@@ -195,6 +196,8 @@ export type EncounterFormProps = {
   subjectiveRef?: Ref<SubjectiveHandle>;
   /** Ada angka BIA yang diketik tetapi belum disimpan di tab BIA (spec hasil BIA 6.2). */
   biaUnsaved?: boolean;
+  /** Catatan untuk Apoteker dari draf sebelum resep dokter; tampil baca-saja (spec resep dokter 3). */
+  legacyPharmacyNote?: string | null;
 };
 
 /** Catatan draf S/O/A/P + treatment dengan simpan otomatis (spec 4–5, 7). */
@@ -359,6 +362,19 @@ export function EncounterForm(props: EncounterFormProps) {
       </Section>
 
       <Section id="bagian-resep" title="Resep">
+        {props.legacyPharmacyNote && (
+          <Alert severity="info" role="note" aria-label={`${PHARMACY_NOTE_LABEL} (lama)`}>
+            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+              {PHARMACY_NOTE_LABEL} (lama)
+            </Typography>
+            <Typography variant="body2" sx={{ whiteSpace: "pre-line" }}>
+              {props.legacyPharmacyNote}
+            </Typography>
+            <Typography variant="caption" component="div" sx={{ mt: 0.5 }}>
+              Tidak lagi dikirim ke Apoteker. Tulis obatnya di bagian Resep.
+            </Typography>
+          </Alert>
+        )}
         <PrescriptionFields
           rows={draft.prescriptions}
           medicines={options.medicines}

@@ -46,7 +46,8 @@ describe("etiket dari tagihan (spec resep dokter 5)", () => {
   it("memuat pasien, dokter, obat, jumlah ditagih, aturan pakai; tanpa harga dan data klinis (Review Focus 5)", async () => {
     const label = (await getInvoicePrescriptionLabel(invoiceId))!;
     expect(label).toMatchObject({ patientName: `Pasien ${SLUG}`, lines: [{ name: `${SLUG} Amoxicillin`, quantity: 6, usage: "2 x 1 sesudah makan" }] });
-    expect(label.doctorName).toBeTruthy();
+    // Dokter yang memfinalkan catatan, bukan staf booking (booking dunia uji atas nama "dr. Uji Publik").
+    expect(label.doctorName).toBe("dr. Uji");
     expect(JSON.stringify(label)).not.toMatch(/RAHASIA-KLINIS|unitPrice|sellPrice|2000/);
   });
 

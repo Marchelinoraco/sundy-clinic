@@ -76,10 +76,14 @@ describe("peristiwa langsung", () => {
     expect(forReceptionist.length).toBeGreaterThanOrEqual(1);
     expect(forReceptionist.some((e) => e.id.startsWith("SIAP_DITAGIH:"))).toBe(true);
     expect(mine((await liveEventsFor("APOTEKER", since)).events).filter((e) => e.kind === "SIAP_DITAGIH")).toEqual([]);
-    // Kunjungan dengan catatan untuk Apoteker tidak dihitung sebagai "siap ditagih" biasa.
+    // Kunjungan yang menunggu penyerahan Apoteker tidak dihitung sebagai "siap ditagih" biasa (Resep baru yang memberi tahu).
     const withNote = await finalVisit(world, { pharmacyNote: "Obat" });
+    await seedDispensing(world, withNote.appointmentId);
+    // Draf lama berisi catatan yang difinalkan sesudah resep dokter: tidak ada penyerahan, jadi langsung siap ditagih (spec resep dokter 3).
+    const legacyNote = await finalVisit(world, { pharmacyNote: "Catatan lama" });
     const ids = mine((await liveEventsFor("RESEPSIONIS", since)).events).filter((e) => e.kind === "SIAP_DITAGIH").map((e) => e.entityId);
     expect(ids).not.toContain(withNote.encounterId);
+    expect(ids).toContain(legacyNote.encounterId);
     expect(ids).toContain(visit.encounterId);
   });
 

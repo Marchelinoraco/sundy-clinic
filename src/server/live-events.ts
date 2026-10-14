@@ -59,7 +59,9 @@ export async function liveEventsFor(role: Role, since: Date, now: Date = new Dat
   }
   if (kinds.includes("SIAP_DITAGIH")) {
     const rows = await prisma.encounter.findMany({
-      where: { status: "FINAL", pharmacyNote: null, finalizedAt: range },
+      // Kunjungan yang menunggu penyerahan Apoteker diberitahukan lewat Resep baru/selesai; sisanya (termasuk resep dokter
+      // dan draf lama berisi Catatan untuk Apoteker yang difinalkan sesudah resep dokter) langsung siap ditagih.
+      where: { status: "FINAL", finalizedAt: range, NOT: { appointment: { dispensing: { is: { source: "APOTEKER" } } } } },
       orderBy: { finalizedAt: "asc" },
       take: LIMIT,
       select: { id: true, finalizedAt: true, appointment: { select: { patient: { select: { name: true } } } } },
