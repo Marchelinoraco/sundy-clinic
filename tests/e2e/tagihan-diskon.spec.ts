@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { E2E_ADMIN, E2E_APOTEKER, E2E_RESEPSIONIS } from "./credentials";
 import { aturHargaJual } from "./helpers/harga";
+import { isiMeja } from "./helpers/stok-meja";
 import { isiTanggal, pilihOpsi, tungguHidrasi } from "./helpers/mui";
 import { buatPasienBaru } from "./helpers/pasien-baru";
 import { signIn } from "./helpers/quiz";
@@ -50,6 +51,8 @@ test("promo barang, diskon baris dalam batas 20%, catatan, dan transfer ke reken
   await isiTanggal(ap, "Kedaluwarsa baris 1", "2030-12-31");
   await ap.getByRole("button", { name: "Simpan barang masuk" }).click();
   await expect(ap).toHaveURL(/\/admin\/stok\/masuk\/(?!baru)[^/]+$/, { timeout: 30_000 });
+  // Tagihan mengambil stok meja (spec stok meja SM1).
+  await isiMeja(browser, itemName, "5");
   await apoteker.close();
 
   // Admin Keuangan mengisi harga dan promo 10%.

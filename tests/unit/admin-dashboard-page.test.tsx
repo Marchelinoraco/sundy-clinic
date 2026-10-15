@@ -23,6 +23,8 @@ vi.mock("@/server/payable-read", () => ({ payablesOverview: vi.fn() }));
 vi.mock("@/server/report-read", () => ({ getMonthProfit: vi.fn() }));
 vi.mock("@/server/dispensing-read", () => ({ countPendingDispensings: vi.fn() }));
 vi.mock("@/server/invoice-read", () => ({ countBillable: vi.fn(), unpaidOverview: vi.fn() }));
+vi.mock("@/server/counter-read", () => ({ countCounterAlerts: vi.fn(async () => 0) }));
+vi.mock("@/server/restock-read", () => ({ countPendingRestock: vi.fn(async () => 0) }));
 
 const WORK = {
   pending: 0,

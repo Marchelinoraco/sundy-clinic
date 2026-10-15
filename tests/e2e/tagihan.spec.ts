@@ -2,6 +2,7 @@ import { expect, test, type TestInfo } from "@playwright/test";
 import { E2E_APOTEKER, E2E_KEUANGAN, E2E_RESEPSIONIS } from "./credentials";
 import { isiTanggal, pilihOpsi } from "./helpers/mui";
 import { aturHargaJual } from "./helpers/harga";
+import { isiMeja } from "./helpers/stok-meja";
 import { signIn } from "./helpers/quiz";
 import { buatPasienBaru } from "./helpers/pasien-baru";
 
@@ -50,6 +51,8 @@ test("apoteker menyiapkan barang dengan stok 10", async ({ page, browser }, test
   await isiTanggal(page, "Kedaluwarsa baris 1", dayFromToday(365));
   await page.getByRole("button", { name: "Simpan barang masuk" }).click();
   await expect(page).toHaveURL(/\/admin\/stok\/masuk\/(?!baru)[^/]+$/, { timeout: 30_000 });
+  // Tagihan mengambil stok meja (spec stok meja SM1).
+  await isiMeja(browser, itemName, "10");
 });
 
 test("resepsionis menagih penjualan langsung, memfinalkan, dan menerima pembayaran bertahap", async ({ page }, testInfo) => {

@@ -1,6 +1,7 @@
 import { expect, test, type TestInfo } from "@playwright/test";
 import { E2E_ADMIN, E2E_APOTEKER, E2E_KEUANGAN, E2E_RESEPSIONIS } from "./credentials";
 import { aturHargaJual, isiHargaBeli } from "./helpers/harga";
+import { isiMeja } from "./helpers/stok-meja";
 import { isiTanggal, pilihOpsi, tungguHidrasi } from "./helpers/mui";
 import { signIn } from "./helpers/quiz";
 
@@ -17,7 +18,7 @@ let encounterPath: string | null = null;
 test("apoteker menyiapkan dua obat", async ({ page, browser }, testInfo) => {
   const t = tag(testInfo);
   await signIn(page, E2E_APOTEKER);
-  for (const [suffix, name] of [["AMX", `Kapsul Dokter ${t}`], ["VIT", `Vitamin Dokter ${t}`]] as const) {
+  for (const [suffix, name] of [["RDK", `Kapsul Dokter ${t}`], ["RDV", `Vitamin Dokter ${t}`]] as const) {
     await page.goto("/admin/stok");
     await page.getByRole("button", { name: "+ Barang" }).click();
     const dialog = page.getByRole("dialog", { name: "Tambah barang" });
@@ -36,18 +37,21 @@ test("apoteker menyiapkan dua obat", async ({ page, browser }, testInfo) => {
   await supplier.getByRole("button", { name: "Simpan" }).click();
   await expect(supplier).toBeHidden({ timeout: 30_000 });
   await page.getByLabel("Nomor faktur").fill(`RSD-E2E-${t}-001`);
-  await pilihOpsi(page, "Barang baris 1", `Kapsul Dokter ${t} (E2E-${t}-AMX)`);
+  await pilihOpsi(page, "Barang baris 1", `Kapsul Dokter ${t} (E2E-${t}-RDK)`);
   await page.getByLabel("Jumlah baris 1").fill("10");
   await page.getByLabel("Batch baris 1").fill("A-01");
   await isiTanggal(page, "Kedaluwarsa baris 1", dayFromToday(365));
   await page.getByRole("button", { name: "+ Tambah baris" }).click();
-  await pilihOpsi(page, "Barang baris 2", `Vitamin Dokter ${t} (E2E-${t}-VIT)`);
+  await pilihOpsi(page, "Barang baris 2", `Vitamin Dokter ${t} (E2E-${t}-RDV)`);
   await page.getByLabel("Jumlah baris 2").fill("2");
   await page.getByLabel("Batch baris 2").fill("V-01");
   await isiTanggal(page, "Kedaluwarsa baris 2", dayFromToday(365));
   await page.getByRole("button", { name: "Simpan barang masuk" }).click();
   await expect(page).toHaveURL(/\/admin\/stok\/masuk\/(?!baru)[^/]+$/, { timeout: 30_000 });
   await isiHargaBeli(browser, new URL(page.url()).pathname, ["1000", "1000"]);
+  // Tagihan mengambil stok meja (spec stok meja SM1).
+  await isiMeja(browser, `Kapsul Dokter ${t}`, "10");
+  await isiMeja(browser, `Vitamin Dokter ${t}`, "2");
 });
 
 test("dokter menulis resep dua obat dengan peringatan stok lalu memfinalkan", async ({ page }, testInfo) => {
@@ -61,12 +65,12 @@ test("dokter menulis resep dua obat dengan peringatan stok lalu memfinalkan", as
 
   await page.getByRole("button", { name: "Tambah obat" }).click();
   const first = page.getByRole("group", { name: "Obat 1" });
-  await first.getByLabel("Obat").selectOption({ label: `Kapsul Dokter ${t} (E2E-${t}-AMX)` });
+  await first.getByLabel("Obat").selectOption({ label: `Kapsul Dokter ${t} (E2E-${t}-RDK)` });
   await first.getByLabel("Jumlah").fill("6");
   await first.getByLabel("Aturan pakai").fill("3 x 1 sesudah makan");
   await page.getByRole("button", { name: "Tambah obat" }).click();
   const second = page.getByRole("group", { name: "Obat 2" });
-  await second.getByLabel("Obat").selectOption({ label: `Vitamin Dokter ${t} (E2E-${t}-VIT)` });
+  await second.getByLabel("Obat").selectOption({ label: `Vitamin Dokter ${t} (E2E-${t}-RDV)` });
   await second.getByLabel("Jumlah").fill("5");
   await second.getByLabel("Aturan pakai").fill("1 x 1 pagi");
   await expect(second.getByRole("alert")).toContainText("Sisa stok 2 tablet");
