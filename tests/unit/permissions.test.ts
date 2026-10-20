@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { isNavItemVisible, NAV_GROUPS } from "@/components/admin/app-sidebar";
 import { can, CAPABILITIES_BY_ROLE, type Capability } from "@/lib/permissions";
 
 describe("hak akses", () => {
-  it("memberi super admin seluruh kemampuan", () => {
+  it("memberi super admin seluruh kemampuan, kecuali bunyi check-in milik perawat", () => {
     const all = new Set(Object.values(CAPABILITIES_BY_ROLE).flat());
+    all.delete("checkin:notify");
     for (const capability of all) {
       expect(can("SUPER_ADMIN", capability)).toBe(true);
     }
@@ -40,9 +42,17 @@ describe("hak akses", () => {
     expect(can("DOKTER", "staff:manage")).toBe(false);
   });
 
-  it("tidak memberi terapis akses apa pun ke panel", () => {
-    // Terapis ada sebagai sumber daya jadwal, bukan sebagai pengguna panel.
-    expect(CAPABILITIES_BY_ROLE.TERAPIS).toEqual([]);
+  it("Perawat (TERAPIS): kerja perawat, pemberitahuan check-in, unggah BIA — tanpa rekam medis", () => {
+    expect(CAPABILITIES_BY_ROLE.TERAPIS).toEqual(["nurse:work", "checkin:notify", "bia:upload"]);
+    expect(can("TERAPIS", "record:read")).toBe(false);
+    expect(can("SUPER_ADMIN", "nurse:work")).toBe(true);
+    expect(can("SUPER_ADMIN", "checkin:notify")).toBe(false);
+    expect(can("DOKTER", "nurse:work")).toBe(false);
+  });
+
+  it("menu Perawat hanya Dasbor", () => {
+    const visible = NAV_GROUPS.flatMap((g) => g.items).filter((item) => isNavItemVisible("TERAPIS", item)).map((i) => i.title);
+    expect(visible).toEqual(["Dasbor"]);
   });
 
   it("hanya memberi super admin akses jejak audit", () => {
@@ -169,9 +179,9 @@ describe("hak akses pengeluaran dan laporan (spec laporan 6)", () => {
 });
 
 describe("hak akses hasil BIA (spec hasil BIA 5)", () => {
-  it("Super Admin, Dokter, dan Resepsionis boleh mengunggah; peran lain tidak", () => {
-    for (const role of ["SUPER_ADMIN", "DOKTER", "RESEPSIONIS"] as const) expect(can(role, "bia:upload")).toBe(true);
-    for (const role of ["APOTEKER", "ADMIN_KEUANGAN", "TERAPIS"] as const) expect(can(role, "bia:upload")).toBe(false);
+  it("Super Admin, Dokter, Resepsionis, dan Perawat boleh mengunggah; peran lain tidak", () => {
+    for (const role of ["SUPER_ADMIN", "DOKTER", "RESEPSIONIS", "TERAPIS"] as const) expect(can(role, "bia:upload")).toBe(true);
+    for (const role of ["APOTEKER", "ADMIN_KEUANGAN"] as const) expect(can(role, "bia:upload")).toBe(false);
   });
 
   it("Resepsionis tetap tidak membaca rekam medis", () => {

@@ -12,7 +12,7 @@ export default async function StaffPage() {
     <>
       <AdminHeader title="Staf" />
       <PageBody>
-        <PageHeader title="Staf" description="Akun staf dan perannya di panel. Staf berperan Terapis tidak punya akun login." />
+        <PageHeader title="Staf" description="Akun staf dan perannya di panel." />
         <StaffManager rows={rows} currentStaffId={staff.staffId} />
       </PageBody>
     </>

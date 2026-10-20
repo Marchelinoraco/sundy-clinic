@@ -8,6 +8,10 @@ describe("peran staf", () => {
     expect(STAFF_ROLE_LABEL.SUPER_ADMIN).toBe("Super Admin");
   });
 
+  it("TERAPIS ditampilkan sebagai Perawat", () => {
+    expect(STAFF_ROLE_LABEL.TERAPIS).toBe("Perawat");
+  });
+
   it("argumen peran skrip create-admin: kosong berarti Super Admin, huruf kecil diterima, nilai asing ditolak", () => {
     expect(parseStaffRole(undefined)).toBe("SUPER_ADMIN");
     expect(parseStaffRole("")).toBe("SUPER_ADMIN");

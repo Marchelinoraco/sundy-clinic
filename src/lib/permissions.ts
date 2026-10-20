@@ -32,7 +32,9 @@ export type Capability =
   | "catalog:manage"
   | "payroll:manage"
   | "counter:read"
-  | "restock:request";
+  | "restock:request"
+  | "nurse:work"
+  | "checkin:notify";
 
 export const CAPABILITIES_BY_ROLE: Record<StaffRole, readonly Capability[]> = {
   SUPER_ADMIN: [
@@ -61,6 +63,8 @@ export const CAPABILITIES_BY_ROLE: Record<StaffRole, readonly Capability[]> = {
     "payroll:manage",
     "counter:read",
     "restock:request",
+    // Super Admin bisa mengerjakan tugas perawat, tetapi tidak ikut berbunyi setiap check-in (spec peran perawat 5).
+    "nurse:work",
   ],
 
   // Dokter memegang rekam medis, tetapi tidak mengelola akun staf.
@@ -73,9 +77,8 @@ export const CAPABILITIES_BY_ROLE: Record<StaffRole, readonly Capability[]> = {
   // Resepsionis juga melihat stok meja dan meminta restock ke Apoteker (spec stok meja 7).
   RESEPSIONIS: ["booking:manage", "schedule:manage", "invoice:read", "invoice:manage", "bia:upload", "counter:read", "restock:request"],
 
-  // Terapis adalah sumber daya jadwal, bukan pengguna panel. Ia punya baris
-  // Staff agar dapat dijadwalkan, tanpa akses apa pun ke panel admin.
-  TERAPIS: [],
+  // Perawat (enum TERAPIS): food recall dan BIA pasien hari ini, serta pemberitahuan check-in (spec peran perawat 5).
+  TERAPIS: ["nurse:work", "checkin:notify", "bia:upload"],
 
   // Apoteker mengelola barang, barang masuk, retur, dan penyesuaian stok (spec stok 7).
   // Ia mengisi harga beli dari faktur kertas, tetapi tidak mengurus pembayaran hutang.

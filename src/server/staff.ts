@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db";
 import { validateBio, validateSpecialty } from "@/lib/doctor-profile";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { slugify } from "@/lib/slug";
-import { roleCanHaveLogin, staffChangeBlock, validateLoginEmail, validateStaffName } from "@/lib/staff-accounts";
+import { loginEmailRequired, staffChangeBlock, validateLoginEmail, validateStaffName } from "@/lib/staff-accounts";
 import { STAFF_ROLE_LABEL, isStaffRole } from "@/lib/staff-role";
 import { recordAudit } from "@/server/audit";
 import { requireCapability } from "@/server/session";
@@ -149,8 +149,10 @@ export async function createStaffWithAccount(input: {
     if (!isStaffRole(input?.role)) throw new UserFacingError("Pilih peran.");
     const role = input.role;
 
+    // Akun dibuat bila email diisi; hanya Perawat yang boleh tanpa email (spec peran perawat 4).
     let email: string | null = null;
-    if (roleCanHaveLogin(role)) {
+    const emailGiven = typeof input.email === "string" && input.email.trim() !== "";
+    if (emailGiven || loginEmailRequired(role)) {
       const checked = validateLoginEmail(input.email);
       if (!checked.ok) throw new UserFacingError(checked.message);
       await assertEmailFree(checked.value);
@@ -185,7 +187,6 @@ export async function createAccountForStaff(input: { staffId: string; email: str
     const staff = await prisma.staff.findUnique({ where: { id: String(input?.staffId ?? "") }, include: { user: { select: { id: true } } } });
     if (!staff) throw new UserFacingError(NOT_FOUND);
     if (staff.user) throw new UserFacingError("Staf ini sudah punya akun.");
-    if (!roleCanHaveLogin(staff.role)) throw new UserFacingError("Staf berperan Terapis tidak bisa punya akun.");
     if (!staff.isActive) throw new UserFacingError("Aktifkan staf dulu sebelum membuat akunnya.");
     const email = validateLoginEmail(input.email);
     if (!email.ok) throw new UserFacingError(email.message);

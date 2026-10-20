@@ -6,7 +6,7 @@ import { CLINIC_BEAUTY_TAGLINE } from "@/lib/clinic";
 
 /** Empat nilai jual dari materi promosi klinik. */
 const VALUE_PROPS = [
-  { title: "Professional Treatment", body: "Ditangani dokter dan terapis berpengalaman.", icon: Stethoscope },
+  { title: "Professional Treatment", body: "Ditangani dokter dan perawat berpengalaman.", icon: Stethoscope },
   { title: "Premium Technology", body: "Peralatan modern untuk hasil yang optimal.", icon: Sparkles },
   { title: "Safe & Hygienic", body: "Prosedur dan alat yang steril serta terkontrol.", icon: ShieldCheck },
   { title: "Beauty For You", body: "Perawatan yang disesuaikan dengan kondisi Anda.", icon: HeartHandshake },

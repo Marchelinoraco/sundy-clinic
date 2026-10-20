@@ -41,7 +41,7 @@ const ROLE_LABEL: Record<string, string> = {
   SUPER_ADMIN: "Super Admin",
   DOKTER: "Dokter",
   RESEPSIONIS: "Resepsionis",
-  TERAPIS: "Terapis",
+  TERAPIS: "Perawat",
   APOTEKER: "Apoteker",
   ADMIN_KEUANGAN: "Admin Keuangan",
   SISTEM: "Sistem",

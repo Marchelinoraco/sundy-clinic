@@ -26,8 +26,8 @@ export function validateLoginEmail(raw: unknown): Parsed<string> {
   return { ok: true, value: email };
 }
 
-/** Terapis adalah sumber daya jadwal tanpa kemampuan panel: tidak punya akun (spec K6). */
-export function roleCanHaveLogin(role: StaffRole): boolean {
+/** Semua peran boleh punya akun; hanya Perawat yang boleh dibuat tanpa email, sebagai tenaga jadwal (spec peran perawat 4). */
+export function loginEmailRequired(role: StaffRole): boolean {
   return role !== "TERAPIS";
 }
 
@@ -42,9 +42,6 @@ export function staffChangeBlock(input: { actorStaffId: string; target: StaffTar
   if (change.kind === "deactivate" && self) return "Anda tidak bisa menonaktifkan akun Anda sendiri.";
   if (change.kind === "role" && self && target.role === "SUPER_ADMIN" && change.to !== "SUPER_ADMIN") {
     return "Anda tidak bisa menurunkan peran Anda sendiri.";
-  }
-  if (change.kind === "role" && change.to === "TERAPIS" && target.hasLogin) {
-    return "Staf yang punya akun tidak bisa berperan Terapis. Nonaktifkan akunnya atau pilih peran lain.";
   }
 
   const losesSuperAdmin = target.role === "SUPER_ADMIN" && target.isActive && target.hasLogin && (change.kind === "deactivate" || change.to !== "SUPER_ADMIN");
