@@ -8,7 +8,10 @@ import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import { useState } from "react";
-import { foodRecallRows, type FoodRecallEntry } from "@/lib/food-recall";
+import { FOOD_RECALL_AUTHOR_LABEL, foodRecallRows, type FoodRecallAuthor, type FoodRecallEntry } from "@/lib/food-recall";
+
+/** Warna lencana penulis: dokter biru, perawat hijau, pasien abu (spec peran perawat 8). */
+const AUTHOR_COLOR: Record<FoodRecallAuthor, "info" | "success" | "text"> = { DOKTER: "info", PERAWAT: "success", CUSTOMER: "text" };
 
 /** Tabel 06.00–22.00 (spec check-in 5.1); jam kosong disembunyikan sampai diminta. */
 export function FoodRecallTable({ entries, label }: { entries: readonly FoodRecallEntry[]; label: string }) {
@@ -34,11 +37,23 @@ export function FoodRecallTable({ entries, label }: { entries: readonly FoodReca
                       {entry.kindLabel}:
                     </Box>{" "}
                     {entry.text}
-                    {entry.byDoctor && (
-                      <Box component="span" sx={{ ml: 0.5, borderRadius: 1, px: 0.5, fontSize: "0.75rem", color: "info.main", bgcolor: "rgba(var(--mui-palette-info-mainChannel) / 0.12)" }}>
-                        dilengkapi dokter
-                      </Box>
-                    )}
+                    <Box
+                      component="span"
+                      sx={
+                        AUTHOR_COLOR[entry.by] === "text"
+                          ? { ml: 0.5, borderRadius: 1, px: 0.5, fontSize: "0.75rem", color: "text.secondary", bgcolor: "action.hover" }
+                          : {
+                              ml: 0.5,
+                              borderRadius: 1,
+                              px: 0.5,
+                              fontSize: "0.75rem",
+                              color: `${AUTHOR_COLOR[entry.by]}.main`,
+                              bgcolor: `rgba(var(--mui-palette-${AUTHOR_COLOR[entry.by]}-mainChannel) / 0.12)`,
+                            }
+                      }
+                    >
+                      {FOOD_RECALL_AUTHOR_LABEL[entry.by]}
+                    </Box>
                   </Box>
                 ))}
               </TableCell>

@@ -4,11 +4,12 @@ import type { Prisma } from "@prisma/client";
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
 import { prisma } from "@/lib/db";
 import { recallDateFor, validateStaffEntries, type FoodRecallLinkInfo } from "@/lib/food-recall";
+import { NURSE_OUT_OF_SCOPE, nurseCanWork } from "@/lib/nurse";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { recordAudit } from "@/server/audit";
 import { isRecordLockedError } from "@/server/db-errors";
 import { foodRecallLinkInfo, loadFoodRecallForAppointment } from "@/server/food-recall-store";
-import { requireCapability } from "@/server/session";
+import { requireCapability, type CurrentStaff } from "@/server/session";
 
 const LOCKED = "Catatan dokter sudah final; food recall tidak bisa diubah.";
 const NOT_CHECKED_IN = "Food recall hanya untuk customer yang sudah check-in.";
@@ -18,7 +19,7 @@ const recallDateValue = (startAt: Date) => new Date(`${recallDateFor(startAt)}T0
 function loadBooking(appointmentId: unknown) {
   return prisma.appointment.findUnique({
     where: { id: String(appointmentId ?? "") },
-    select: { id: true, code: true, status: true, startAt: true, encounter: { select: { id: true, status: true } } },
+    select: { id: true, code: true, status: true, channel: true, startAt: true, encounter: { select: { id: true, status: true } } },
   });
 }
 
@@ -64,33 +65,53 @@ export async function offerFoodRecall(appointmentId: string): Promise<ActionResu
 export async function saveFoodRecallByStaff(input: { appointmentId: string; entries: unknown }): Promise<ActionResult<void>> {
   return runAction(async () => {
     const actor = await requireCapability("record:write");
-    const checked = validateStaffEntries(input?.entries);
-    if (!checked.ok) throw new UserFacingError(checked.message);
-    const booking = await loadBooking(input?.appointmentId);
-    if (!booking) throw new UserFacingError("Booking tidak ditemukan.");
-    if (booking.encounter?.status === "FINAL") throw new UserFacingError(LOCKED);
-    if (booking.status !== "HADIR") throw new UserFacingError(NOT_CHECKED_IN);
-
-    const data = {
-      status: "DIISI" as const,
-      entries: checked.entries as Prisma.InputJsonValue,
-      completedByStaffId: actor.staffId,
-      completedByName: actor.name,
-      completedAt: new Date(),
-    };
-    try {
-      await prisma.foodRecall.upsert({
-        where: { appointmentId: booking.id },
-        create: { appointmentId: booking.id, recallDate: recallDateValue(booking.startAt), ...data },
-        update: data,
-      });
-    } catch (error) {
-      if (isRecordLockedError(error)) throw new UserFacingError(LOCKED);
-      throw error;
-    }
-
-    await recordAudit({ actor, action: "food-recall.complete", entity: "Appointment", entityId: booking.id, summary: booking.code });
-    if (booking.encounter) safeRevalidatePath(`/admin/kunjungan/${booking.encounter.id}`);
-    safeRevalidatePath("/admin/booking");
+    await saveStaffFoodRecall(actor, input, "DOKTER");
   });
+}
+
+/**
+ * Perawat mengisi food recall dari halaman Tangani (spec peran perawat 7): tambahannya bertanda PERAWAT,
+ * hanya untuk booking klinik hari ini yang Hadir. Baris dibuat bila belum ditawarkan saat check-in.
+ */
+export async function saveFoodRecallByNurse(input: { appointmentId: string; entries: unknown }): Promise<ActionResult<void>> {
+  return runAction(async () => {
+    const actor = await requireCapability("nurse:work");
+    await saveStaffFoodRecall(actor, input, "PERAWAT");
+  });
+}
+
+async function saveStaffFoodRecall(actor: CurrentStaff, input: { appointmentId: string; entries: unknown }, author: "DOKTER" | "PERAWAT") {
+  const checked = validateStaffEntries(input?.entries, author);
+  if (!checked.ok) throw new UserFacingError(checked.message);
+  const booking = await loadBooking(input?.appointmentId);
+  if (!booking) throw new UserFacingError("Booking tidak ditemukan.");
+  if (booking.encounter?.status === "FINAL") throw new UserFacingError(LOCKED);
+  if (author === "PERAWAT" && !nurseCanWork(booking, new Date())) throw new UserFacingError(NURSE_OUT_OF_SCOPE);
+  if (booking.status !== "HADIR") throw new UserFacingError(NOT_CHECKED_IN);
+
+  const data = {
+    status: "DIISI" as const,
+    entries: checked.entries as Prisma.InputJsonValue,
+    completedByStaffId: actor.staffId,
+    completedByName: actor.name,
+    completedAt: new Date(),
+  };
+  try {
+    await prisma.foodRecall.upsert({
+      where: { appointmentId: booking.id },
+      create: { appointmentId: booking.id, recallDate: recallDateValue(booking.startAt), ...data },
+      update: data,
+    });
+  } catch (error) {
+    if (isRecordLockedError(error)) throw new UserFacingError(LOCKED);
+    throw error;
+  }
+
+  await recordAudit({ actor, action: author === "PERAWAT" ? "food-recall.nurse" : "food-recall.complete", entity: "Appointment", entityId: booking.id, summary: booking.code });
+  if (booking.encounter) safeRevalidatePath(`/admin/kunjungan/${booking.encounter.id}`);
+  safeRevalidatePath("/admin/booking");
+  if (author === "PERAWAT") {
+    safeRevalidatePath(`/admin/perawat/${booking.id}`);
+    safeRevalidatePath("/admin");
+  }
 }

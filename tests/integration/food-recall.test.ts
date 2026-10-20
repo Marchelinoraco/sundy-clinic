@@ -4,7 +4,8 @@ import type { AppointmentStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { FOOD_RECALL_CLOSED, FOOD_RECALL_RECEIVED, recallDateLabel } from "@/lib/food-recall";
 import { addDaysToDateString, witaDateString } from "@/lib/time";
-import { getFoodRecallLink, offerFoodRecall, saveFoodRecallByStaff } from "@/server/food-recall-admin";
+import { NURSE_OUT_OF_SCOPE } from "@/lib/nurse";
+import { getFoodRecallLink, offerFoodRecall, saveFoodRecallByNurse, saveFoodRecallByStaff } from "@/server/food-recall-admin";
 import { foodRecallCode } from "@/server/food-recall-code";
 import { getFoodRecallPage, submitFoodRecall } from "@/server/food-recall-public";
 import { quizLinkCode } from "@/server/quiz-link-code";
@@ -16,7 +17,7 @@ const { actor } = vi.hoisted(() => ({
     userId: "u1",
     staffId: "s1",
     name: "dr. Uji Food Recall",
-    role: "DOKTER" as "DOKTER" | "RESEPSIONIS" | "SUPER_ADMIN",
+    role: "DOKTER" as "DOKTER" | "RESEPSIONIS" | "SUPER_ADMIN" | "TERAPIS",
     email: "uji@sundy.test",
   },
 }));
@@ -47,7 +48,7 @@ describe("food recall: link, kiriman customer, suntingan dokter", () => {
   let slot = 0;
 
   /** Booking pada tanggal hari ini + offset, mulai 04.00 bergeser 30 menit agar tidak bertindihan. */
-  async function booking(status: AppointmentStatus = "HADIR", offsetDays = 0) {
+  async function booking(status: AppointmentStatus = "HADIR", offsetDays = 0, channel: "KLINIK" | "ONLINE" = "KLINIK") {
     slot += 1;
     const minutes = 4 * 60 + slot * 30;
     const time = `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
@@ -60,6 +61,8 @@ describe("food recall: link, kiriman customer, suntingan dokter", () => {
         endAt: new Date(startAt.getTime() + 30 * 60_000),
         status,
         source: "WALK_IN",
+        channel,
+        servicePrice: channel === "ONLINE" ? 250_000 : null,
         branchId: world.branchId,
         staffId: world.doctorId,
         serviceId: world.consultationId,
@@ -208,6 +211,60 @@ describe("food recall: link, kiriman customer, suntingan dokter", () => {
     expect(await saveFoodRecallByStaff({ appointmentId: appointment.id, entries: [CUSTOMER_ROW] })).toEqual({
       ok: false,
       error: "Catatan dokter sudah final; food recall tidak bisa diubah.",
+    });
+  });
+
+  describe("perawat (spec peran perawat 7)", () => {
+    beforeEach(() => {
+      actor.role = "TERAPIS";
+      actor.name = "Perawat Uji";
+    });
+    afterAll(() => {
+      actor.name = "dr. Uji Food Recall";
+    });
+
+    it("mengisi food recall yang belum ditawarkan: baris dibuat DIISI, bertanda PERAWAT", async () => {
+      const appointment = await booking();
+      await unwrap(saveFoodRecallByNurse({ appointmentId: appointment.id, entries: [CUSTOMER_ROW] }));
+      const row = await prisma.foodRecall.findUniqueOrThrow({ where: { appointmentId: appointment.id } });
+      expect(row).toMatchObject({ status: "DIISI", completedByName: "Perawat Uji", entries: [{ ...CUSTOMER_ROW, by: "PERAWAT" }] });
+      expect(row.recallDate.toISOString().slice(0, 10)).toBe(addDaysToDateString(today, -1));
+    });
+
+    it("melengkapi kiriman pasien: baris pasien tetap, link pasien tertutup", async () => {
+      const { appointment, code } = await offered();
+      await unwrap(submitFoodRecall({ code, entries: [CUSTOMER_ROW], website: "" }));
+      await unwrap(saveFoodRecallByNurse({ appointmentId: appointment.id, entries: [{ ...CUSTOMER_ROW, by: "CUSTOMER" }, { hour: 9, kind: "OLAHRAGA", text: "Jalan" }] }));
+      const row = await prisma.foodRecall.findUniqueOrThrow({ where: { appointmentId: appointment.id } });
+      expect((row.entries as { by: string }[]).map((e) => e.by)).toEqual(["CUSTOMER", "PERAWAT"]);
+      expect(await submitFoodRecall({ code, entries: [CUSTOMER_ROW], website: "" })).toEqual({ ok: false, error: FOOD_RECALL_RECEIVED });
+    });
+
+    it("di luar batas: booking kemarin, belum check-in, dan konsultasi online ditolak", async () => {
+      for (const appointment of [await booking("HADIR", -1), await booking("TERKONFIRMASI"), await booking("HADIR", 0, "ONLINE")]) {
+        expect(await saveFoodRecallByNurse({ appointmentId: appointment.id, entries: [CUSTOMER_ROW] })).toEqual({ ok: false, error: NURSE_OUT_OF_SCOPE });
+      }
+    });
+
+    it("setelah catatan dokter final ditolak dengan pesan terkunci", async () => {
+      const appointment = await booking();
+      await prisma.encounter.create({
+        data: { appointmentId: appointment.id, createdById: world.doctorId, createdByName: "dr. Uji", assessment: "Obesitas", status: "FINAL", finalizedAt: new Date(), finalizedById: world.doctorId, finalizedByName: "dr. Uji" },
+      });
+      expect(await saveFoodRecallByNurse({ appointmentId: appointment.id, entries: [CUSTOMER_ROW] })).toEqual({
+        ok: false,
+        error: "Catatan dokter sudah final; food recall tidak bisa diubah.",
+      });
+    });
+
+    it("dokter tidak memakai aksi perawat; Super Admin dari halaman perawat menandai PERAWAT", async () => {
+      const appointment = await booking();
+      actor.role = "DOKTER";
+      await expect(saveFoodRecallByNurse({ appointmentId: appointment.id, entries: [CUSTOMER_ROW] })).rejects.toThrow("forbidden: nurse:work");
+      actor.role = "SUPER_ADMIN";
+      await unwrap(saveFoodRecallByNurse({ appointmentId: appointment.id, entries: [CUSTOMER_ROW] }));
+      const row = await prisma.foodRecall.findUniqueOrThrow({ where: { appointmentId: appointment.id } });
+      expect(row.entries).toEqual([{ ...CUSTOMER_ROW, by: "PERAWAT" }]);
     });
   });
 

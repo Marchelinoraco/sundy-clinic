@@ -1,5 +1,6 @@
 "use client";
 
+import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
@@ -11,6 +12,7 @@ import Typography from "@mui/material/Typography";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import type { ActionResult } from "@/lib/action-result";
 import { foodRecallHeader, foodRecallSubjectiveText, type FoodRecallAuthor, type FoodRecallView } from "@/lib/food-recall";
 import { formatShortIndonesianDate } from "@/lib/format";
 import type { ActivityEntry } from "@/lib/kuis/v1/answers";
@@ -23,7 +25,7 @@ import { FoodRecallTable } from "./food-recall-table";
 /** Jalan ke kolom S formulir kunjungan (spec check-in 5.2). Tidak ada saat catatan final atau hanya-baca. */
 export type SubjectiveCopy = { has: (text: string) => boolean; append: (block: string) => boolean };
 
-/** Baris di penyunting: baris lama membawa penandanya, tambahan dokter belum (server menandainya DOKTER). */
+/** Baris di penyunting: baris lama membawa penandanya, tambahan baru belum (server menandai DOKTER atau PERAWAT). */
 type EditableEntry = ActivityEntry & { by?: FoodRecallAuthor };
 
 const at = (date: Date) => `${formatShortIndonesianDate(date)} ${minutesToTimeLabel(witaMinutesOfDay(date))}`;
@@ -35,13 +37,19 @@ export function EncounterFoodRecallTab({
   patientName,
   editable,
   copy,
+  save: saveAction = saveFoodRecallByStaff,
+  customerLink = true,
 }: {
   foodRecall: FoodRecallView;
   appointmentCode: string;
   patientName: string;
-  /** Catatan masih draf dan staf memegang record:write. */
+  /** Catatan masih draf dan staf memegang record:write (atau perawat dalam batasnya). */
   editable: boolean;
   copy?: SubjectiveCopy;
+  /** Aksi simpan; halaman perawat memakai saveFoodRecallByNurse (spec peran perawat 7). */
+  save?: (input: { appointmentId: string; entries: unknown }) => Promise<ActionResult<void>>;
+  /** false di halaman perawat: tanpa QR/link pasien dan tanpa "Tawarkan sekarang". */
+  customerLink?: boolean;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -73,7 +81,7 @@ export function EncounterFoodRecallTab({
   function save() {
     startTransition(async () => {
       try {
-        const result = await saveFoodRecallByStaff({ appointmentId: foodRecall.appointmentId, entries });
+        const result = await saveAction({ appointmentId: foodRecall.appointmentId, entries });
         if (!result.ok) {
           toast.error(result.error);
           return;
@@ -139,9 +147,22 @@ export function EncounterFoodRecallTab({
       ) : (
         <>
           <Typography variant="body2" sx={{ color: "text.secondary" }}>
-            {foodRecall.state === "WAITING" ? "Customer belum mengisi food recall." : "Food recall tidak ditawarkan saat check-in."}
+            {!customerLink
+              ? foodRecall.state === "WAITING"
+                ? "Pasien belum mengisi food recall di tablet."
+                : "Belum ada food recall."
+              : foodRecall.state === "WAITING"
+                ? "Customer belum mengisi food recall."
+                : "Food recall tidak ditawarkan saat check-in."}
           </Typography>
-          {editable && (
+          {editable && !customerLink && (
+            <Box>
+              <Button size="small" variant="outlined" onClick={startEditing}>
+                Isi food recall
+              </Button>
+            </Box>
+          )}
+          {editable && customerLink && (
             <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
               <Button size="small" variant="outlined" onClick={() => setLinkOpen(true)}>
                 {foodRecall.state === "WAITING" ? "Buka QR dan link" : "Tawarkan sekarang"}

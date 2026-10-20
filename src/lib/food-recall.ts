@@ -11,8 +11,11 @@ import { addDaysToDateString, minutesToTimeLabel, witaDateString } from "@/lib/t
  */
 export const FOOD_RECALL_MAX_ENTRIES = 40;
 
-export const FOOD_RECALL_AUTHORS = ["CUSTOMER", "DOKTER"] as const;
+export const FOOD_RECALL_AUTHORS = ["CUSTOMER", "DOKTER", "PERAWAT"] as const;
 export type FoodRecallAuthor = (typeof FOOD_RECALL_AUTHORS)[number];
+
+/** Lencana penulis tiap baris di tabel (spec peran perawat 8). */
+export const FOOD_RECALL_AUTHOR_LABEL: Record<FoodRecallAuthor, string> = { CUSTOMER: "pasien", DOKTER: "dokter", PERAWAT: "perawat" };
 
 export const foodRecallEntrySchema = activityEntrySchema.extend({ by: z.enum(FOOD_RECALL_AUTHORS) });
 export type FoodRecallEntry = ActivityEntry & { by: FoodRecallAuthor };
@@ -42,17 +45,17 @@ export function validateCustomerEntries(raw: unknown): EntriesValidation {
 }
 
 /**
- * Simpanan dokter (spec 5.3): baris yang dibawa dari isian customer tetap
- * CUSTOMER; baris tanpa penanda adalah tambahan dokter.
+ * Simpanan staf (spec 5.3, spec peran perawat 7): baris yang dibawa tetap
+ * bertanda aslinya; baris tanpa penanda adalah tambahan penyimpan (dokter atau perawat).
  */
-export function validateStaffEntries(raw: unknown): EntriesValidation {
+export function validateStaffEntries(raw: unknown, author: "DOKTER" | "PERAWAT" = "DOKTER"): EntriesValidation {
   const countProblem = checkCount(raw);
   if (countProblem) return { ok: false, message: countProblem };
   const parsed = z
     .array(activityEntrySchema.extend({ by: z.enum(FOOD_RECALL_AUTHORS).optional() }))
     .safeParse(raw);
   if (!parsed.success) return { ok: false, message: FOOD_RECALL_INVALID };
-  const entries = parsed.data.map((entry) => ({ ...entry, text: entry.text.trim(), by: entry.by ?? ("DOKTER" as const) }));
+  const entries = parsed.data.map((entry) => ({ ...entry, text: entry.text.trim(), by: entry.by ?? author }));
   if (entries.some((entry) => !entry.text)) return { ok: false, message: FOOD_RECALL_INVALID };
   return { ok: true, entries };
 }
@@ -85,7 +88,7 @@ export function recallDateShortLabel(recallDate: string): string {
 export type FoodRecallRow = {
   hour: number;
   label: string;
-  entries: { kindLabel: string; text: string; byDoctor: boolean }[];
+  entries: { kindLabel: string; text: string; by: FoodRecallAuthor }[];
 };
 
 /** Tabel 06.00–22.00 yang dilihat dokter; jam tanpa catatan tetap ada (komponen boleh menyembunyikannya). */
@@ -97,7 +100,7 @@ export function foodRecallRows(entries: readonly FoodRecallEntry[]): FoodRecallR
       label: minutesToTimeLabel(hour * 60),
       entries: entries
         .filter((entry) => entry.hour === hour)
-        .map((entry) => ({ kindLabel: ACTIVITY_KINDS[entry.kind], text: entry.text, byDoctor: entry.by === "DOKTER" })),
+        .map((entry) => ({ kindLabel: ACTIVITY_KINDS[entry.kind], text: entry.text, by: entry.by })),
     });
   }
   return rows;
