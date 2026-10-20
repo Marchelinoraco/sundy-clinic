@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { liveEventsFor } from "@/server/live-events";
 import { cleanupBillingWorld, createBillingWorld, finalVisit, seedDispensing, type BillingWorld } from "./invoice-world";
 
-type Role = "SUPER_ADMIN" | "RESEPSIONIS" | "ADMIN_KEUANGAN" | "APOTEKER" | "DOKTER";
+type Role = "SUPER_ADMIN" | "RESEPSIONIS" | "ADMIN_KEUANGAN" | "APOTEKER" | "DOKTER" | "TERAPIS";
 const { actor, session } = vi.hoisted(() => ({
   actor: { userId: "u1", staffId: "s1", name: "Uji", role: "APOTEKER" as Role, email: "uji@sundy.test" },
   session: { signedIn: true },
@@ -125,8 +125,43 @@ describe("peristiwa langsung", () => {
     expect(future.events).toEqual([]);
   });
 
-  it("Dokter, Admin Keuangan, dan Terapis tidak diawasi: kosong dan watching false", async () => {
-    for (const role of ["DOKTER", "ADMIN_KEUANGAN", "TERAPIS"] as const) {
+  it("check-in klinik: hanya untuk perawat, dengan layanan dan jam WITA (spec peran perawat 9)", async () => {
+    const checkedIn = async (code: string, hourUtc: number, channel: "KLINIK" | "ONLINE", checkedInAt: Date) => {
+      const startAt = new Date(Date.UTC(2031, 0, 20, hourUtc, 0));
+      return prisma.appointment.create({
+        data: {
+          code,
+          type: "KONSULTASI",
+          channel,
+          servicePrice: channel === "ONLINE" ? 250000 : null,
+          startAt,
+          endAt: new Date(startAt.getTime() + 30 * 60_000),
+          status: "HADIR",
+          checkedInAt,
+          source: "WALK_IN",
+          branchId: world.branchId,
+          staffId: world.doctorId,
+          serviceId: world.consultationId,
+          patientId: world.patientId,
+        },
+        select: { id: true },
+      });
+    };
+    const klinik = await checkedIn(`CHK-${SLUG}-1`, 2, "KLINIK", new Date());
+    await checkedIn(`CHK-${SLUG}-2`, 4, "ONLINE", new Date());
+    await checkedIn(`CHK-${SLUG}-3`, 6, "KLINIK", new Date(Date.now() - 2 * 60 * 60_000));
+
+    const nurse = mine((await liveEventsFor("TERAPIS", since)).events);
+    expect(nurse).toHaveLength(1);
+    expect(nurse[0]).toMatchObject({ kind: "PASIEN_CHECKIN", entityId: klinik.id, startLabel: "10.00" });
+    expect(nurse[0].serviceName).toBeTruthy();
+    for (const role of ["RESEPSIONIS", "SUPER_ADMIN", "DOKTER"] as const) {
+      expect((await liveEventsFor(role, since)).events.some((e) => e.kind === "PASIEN_CHECKIN")).toBe(false);
+    }
+  });
+
+  it("Dokter dan Admin Keuangan tidak diawasi: kosong dan watching false", async () => {
+    for (const role of ["DOKTER", "ADMIN_KEUANGAN"] as const) {
       const result = await liveEventsFor(role, since);
       expect(result).toMatchObject({ watching: false, events: [] });
     }

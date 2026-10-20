@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import type { can } from "@/lib/permissions";
 import { watchedKinds, type LiveEvent } from "@/lib/live-events";
+import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
 
 // Tanpa "use server": dipanggil rute pemberitahuan, bukan browser. Hanya nama pasien yang dibawa; isi Catatan
 // untuk Apoteker dan data klinis tidak pernah ikut.
@@ -12,7 +13,8 @@ const LIMIT = 20;
 
 /**
  * Peristiwa sejak `since` (eksklusif) sampai `now`, untuk peran ini (spec pemberitahuan): resep baru
- * (penyerahan dibuat), obat diserahkan atau tanpa obat (penyerahan selesai), siap ditagih (catatan final tanpa resep), dan restock meja (permintaan dibuat, dikirim, ditolak).
+ * (penyerahan dibuat), obat diserahkan atau tanpa obat (penyerahan selesai), siap ditagih (catatan final tanpa resep), restock meja (permintaan dibuat, dikirim, ditolak),
+ * dan pasien check-in untuk perawat.
  * `since` yang terlalu lama dibatasi 10 menit. Dihitung dari data yang sudah ada, tanpa tabel baru.
  */
 export async function liveEventsFor(role: Role, since: Date, now: Date = new Date()): Promise<{ watching: boolean; serverTime: string; events: LiveEvent[] }> {
@@ -100,6 +102,28 @@ export async function liveEventsFor(role: Role, since: Date, now: Date = new Dat
         at: at.toISOString(),
         entityId: row.id,
         ...(kind === "RESTOCK_SELESAI" ? { count: row.lines.filter((line) => (line.sentQuantity ?? 0) > 0).length } : { reason: row.rejectReason ?? "" }),
+      });
+    }
+  }
+
+  if (kinds.includes("PASIEN_CHECKIN")) {
+    // Pasien klinik yang baru check-in, untuk perawat (spec peran perawat 9). Konsultasi online tidak check-in di klinik.
+    const rows = await prisma.appointment.findMany({
+      where: { checkedInAt: range, channel: "KLINIK" },
+      orderBy: { checkedInAt: "asc" },
+      take: LIMIT,
+      select: { id: true, type: true, checkedInAt: true, startAt: true, service: { select: { name: true } }, patient: { select: { name: true } } },
+    });
+    for (const row of rows) {
+      const at = row.checkedInAt as Date;
+      events.push({
+        id: `PASIEN_CHECKIN:${row.id}:${at.getTime()}`,
+        kind: "PASIEN_CHECKIN",
+        patientName: nameOf(row.patient),
+        at: at.toISOString(),
+        entityId: row.id,
+        serviceName: row.service?.name ?? (row.type === "KONSULTASI" ? "Konsultasi" : "Treatment"),
+        startLabel: minutesToTimeLabel(witaMinutesOfDay(row.startAt)),
       });
     }
   }
