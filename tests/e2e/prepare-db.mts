@@ -6,7 +6,7 @@ import "dotenv/config";
 import { auth } from "../../src/lib/auth";
 import { prisma } from "../../src/lib/db";
 import { addDaysToDateString, combineWitaDateAndMinutes, witaDateString, witaWeekday } from "../../src/lib/time";
-import { E2E_ADMIN, E2E_APOTEKER, E2E_KEUANGAN, E2E_RESEPSIONIS } from "./credentials";
+import { E2E_ADMIN, E2E_APOTEKER, E2E_KEUANGAN, E2E_PERAWAT, E2E_RESEPSIONIS } from "./credentials";
 import { purgeEncounters } from "../purge-encounters";
 import { slimmingNewPatient } from "../fixtures/quiz-answers-v2";
 
@@ -59,17 +59,22 @@ await prisma.stockItem.deleteMany();
 async function ensureAccount(
   account: { email: string; password: string; name: string },
   slug: string,
-  role: "SUPER_ADMIN" | "RESEPSIONIS" | "APOTEKER" | "ADMIN_KEUANGAN",
+  role: "SUPER_ADMIN" | "RESEPSIONIS" | "APOTEKER" | "ADMIN_KEUANGAN" | "TERAPIS",
 ) {
-  const existing = await prisma.user.findFirst({ where: { email: account.email } });
-  if (existing) return;
-  const created = await auth.api.signUpEmail({
-    body: { email: account.email, password: account.password, name: account.name },
-  });
   const staff = await prisma.staff.upsert({
     where: { slug },
     update: { role, isActive: true },
     create: { slug, name: account.name, role },
+  });
+  // Uji integrasi memakai basis data yang sama dan sebagian menghapus semua staf: akun yang sudah ada
+  // ditautkan ulang ke stafnya, kalau tidak panel menganggapnya belum masuk.
+  const existing = await prisma.user.findFirst({ where: { email: account.email }, select: { id: true, staffId: true } });
+  if (existing) {
+    if (existing.staffId !== staff.id) await prisma.user.update({ where: { id: existing.id }, data: { staffId: staff.id } });
+    return;
+  }
+  const created = await auth.api.signUpEmail({
+    body: { email: account.email, password: account.password, name: account.name },
   });
   await prisma.user.update({ where: { id: created.user.id }, data: { staffId: staff.id } });
 }
@@ -86,6 +91,7 @@ await ensureAccount(E2E_ADMIN, "staf-e2e", "SUPER_ADMIN");
 await ensureAccount(E2E_RESEPSIONIS, "resepsionis-e2e", "RESEPSIONIS");
 await ensureAccount(E2E_APOTEKER, "apoteker-e2e", "APOTEKER");
 await ensureAccount(E2E_KEUANGAN, "keuangan-e2e", "ADMIN_KEUANGAN");
+await ensureAccount(E2E_PERAWAT, "perawat-e2e", "TERAPIS");
 
 // Rekening uji: halaman sukses menampilkan instruksi transfer yang lengkap.
 await prisma.clinicSetting.update({
@@ -493,6 +499,29 @@ for (const [index, project] of ["desktop", "mobile"].entries()) {
       staffId: visitDoctor.id,
       serviceId: visitService.id,
       patientId: duplicate.id,
+    },
+  });
+}
+
+// Perawat (perawat.spec.ts): booking terkonfirmasi HARI INI per proyek pukul 08.00/08.30, di luar jam buka,
+// pasien dengan alergi dan data diri lengkap agar dialog check-in hanya meminta NIK (spec peran perawat 6–7).
+for (const [index, project] of ["desktop", "mobile"].entries()) {
+  const patient = await prisma.patient.create({
+    data: { medicalRecordNumber: `SDY-E2E-PERAWAT-${index + 1}`, name: `Pasien Perawat ${project}`, whatsapp: `6281200083${index}01`, allergies: "Udang", ...identity },
+  });
+  const startAt = combineWitaDateAndMinutes(today, 8 * 60 + index * 30);
+  await prisma.appointment.create({
+    data: {
+      code: `E2E-PERAWAT-${index + 1}`,
+      type: "KONSULTASI",
+      startAt,
+      endAt: new Date(startAt.getTime() + 30 * 60_000),
+      status: "TERKONFIRMASI",
+      source: "WALK_IN",
+      branchId: visitBranch.id,
+      staffId: visitDoctor.id,
+      serviceId: visitService.id,
+      patientId: patient.id,
     },
   });
 }
