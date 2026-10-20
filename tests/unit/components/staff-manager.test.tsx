@@ -73,7 +73,8 @@ describe("daftar dan menu aksi", () => {
     renderManager();
     expect(items(await openMenu(user, "Dr. Diane"))).toEqual(["Ubah", "Buat akun", "Nonaktifkan"]);
     await user.keyboard("{Escape}");
-    expect(items(await openMenu(user, "Terapis Mahakeret"))).toEqual(["Ubah", "Nonaktifkan"]);
+    // Perawat tanpa akun bisa diberi akun (spec peran perawat 4).
+    expect(items(await openMenu(user, "Terapis Mahakeret"))).toEqual(["Ubah", "Buat akun", "Nonaktifkan"]);
     await user.keyboard("{Escape}");
     expect(items(await openMenu(user, "Rina Baru"))).toEqual(["Ubah", "Reset kata sandi", "Ganti email", "Nonaktifkan"]);
     await user.keyboard("{Escape}");
@@ -139,7 +140,7 @@ describe("tambah staf", () => {
     expect(refresh).toHaveBeenCalled();
   });
 
-  it("peran Terapis menyembunyikan isian email dan tidak meminta akun", async () => {
+  it("peran Perawat: email login opsional, boleh dikosongkan tanpa akun", async () => {
     vi.mocked(createStaffWithAccount).mockResolvedValue({ ok: true, data: { staffId: "t", credentials: null } });
     const user = userEvent.setup();
     renderManager();
@@ -147,11 +148,10 @@ describe("tambah staf", () => {
     const form = await screen.findByRole("dialog", { name: "Tambah staf" });
     expect(within(form).getByLabelText("Email login")).toBeInTheDocument();
     await user.selectOptions(within(form).getByLabelText("Peran"), "TERAPIS");
-    expect(within(form).queryByLabelText("Email login")).toBeNull();
-    expect(within(form).getByText("Terapis tidak punya akun login.")).toBeInTheDocument();
-    await user.type(within(form).getByLabelText("Nama"), "Terapis Baru");
+    expect(within(form).getByLabelText("Email login (opsional)")).toBeInTheDocument();
+    await user.type(within(form).getByLabelText("Nama"), "Perawat Baru");
     await user.click(within(form).getByRole("button", { name: "Tambah staf" }));
-    await waitFor(() => expect(createStaffWithAccount).toHaveBeenCalledWith({ name: "Terapis Baru", role: "TERAPIS", showOnWebsite: false, email: undefined }));
+    await waitFor(() => expect(createStaffWithAccount).toHaveBeenCalledWith({ name: "Perawat Baru", role: "TERAPIS", showOnWebsite: false, email: "" }));
     expect(screen.queryByRole("dialog", { name: /Kata sandi sementara/ })).toBeNull();
   });
 
