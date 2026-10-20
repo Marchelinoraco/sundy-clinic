@@ -3,28 +3,38 @@
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
 import { biaAccess, parseBiaInput, type BiaInput } from "@/lib/bia";
 import { prisma } from "@/lib/db";
+import { NURSE_OUT_OF_SCOPE, nurseCanWork } from "@/lib/nurse";
+import { can } from "@/lib/permissions";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { validateReason } from "@/lib/stock";
 import { recordAudit } from "@/server/audit";
 import { ensureActiveMeasurement } from "@/server/bia-upload";
 import { isUniqueViolation } from "@/server/db-errors";
-import { requireCapability } from "@/server/session";
+import { requireAnyCapability, requireCapability } from "@/server/session";
 
 function revalidate(patientId: string) {
   safeRevalidatePath("/admin/booking");
   safeRevalidatePath("/admin/kunjungan");
+  safeRevalidatePath("/admin/perawat");
+  safeRevalidatePath("/admin");
   safeRevalidatePath(`/admin/pasien/${patientId}`);
 }
 
-/** Memulai pengukuran untuk booking ini (atau mengembalikan yang aktif). Hanya peran yang menulis catatan klinis. */
+/** Perawat tanpa record:write hanya boleh untuk booking klinik hari ini yang Hadir (spec peran perawat 5). */
+function assertNurseScope(actor: { role: Parameters<typeof can>[0] }, appointment: { status: string; channel: "KLINIK" | "ONLINE"; startAt: Date }) {
+  if (!can(actor.role, "record:write") && !nurseCanWork(appointment, new Date())) throw new UserFacingError(NURSE_OUT_OF_SCOPE);
+}
+
+/** Memulai pengukuran untuk booking ini (atau mengembalikan yang aktif). Peran yang menulis catatan klinis, atau perawat. */
 export async function startBiaMeasurement(appointmentId: string): Promise<ActionResult<{ measurementId: string }>> {
   return runAction(async () => {
-    const actor = await requireCapability("record:write");
+    const actor = await requireAnyCapability("record:write", "nurse:work");
     const appointment = await prisma.appointment.findUnique({
       where: { id: String(appointmentId ?? "") },
-      select: { id: true, status: true, channel: true, patientId: true },
+      select: { id: true, status: true, channel: true, startAt: true, patientId: true },
     });
     if (!appointment) throw new UserFacingError("Booking tidak ditemukan.");
+    assertNurseScope(actor, appointment);
     if (!appointment.patientId) throw new UserFacingError("Booking ini belum punya pasien. Cocokkan pasien dulu.");
     if (!biaAccess(actor.role, appointment).editNumbers) throw new UserFacingError("Hasil BIA hanya untuk booking klinik yang pasiennya sudah check-in.");
     const patientId = appointment.patientId;
@@ -49,7 +59,7 @@ export async function saveBiaNumbers(input: {
   note: string;
 }): Promise<ActionResult<{ version: number }>> {
   return runAction(async () => {
-    const actor = await requireCapability("record:write");
+    const actor = await requireAnyCapability("record:write", "nurse:work");
     if (!Number.isInteger(input?.version)) throw new UserFacingError("Isian angka BIA tidak lengkap. Muat ulang halaman.");
     const parsed = parseBiaInput(input?.numbers, input?.note ?? "");
     if (!parsed.ok) throw new UserFacingError(parsed.message);
@@ -57,9 +67,10 @@ export async function saveBiaNumbers(input: {
 
     const row = await prisma.biaMeasurement.findUnique({
       where: { id },
-      select: { id: true, patientId: true, voidedAt: true, numbersAt: true, appointment: { select: { code: true, status: true, channel: true } } },
+      select: { id: true, patientId: true, voidedAt: true, numbersAt: true, appointment: { select: { code: true, status: true, channel: true, startAt: true } } },
     });
     if (!row) throw new UserFacingError("Pengukuran tidak ditemukan.");
+    assertNurseScope(actor, row.appointment);
     if (row.voidedAt) throw new UserFacingError("Pengukuran ini sudah dibatalkan.");
     if (!biaAccess(actor.role, row.appointment).editNumbers) throw new UserFacingError("Anda tidak bisa mengisi angka BIA untuk booking ini.");
     if (row.appointment.status === "SELESAI" && row.numbersAt) {

@@ -157,7 +157,9 @@ export function biaAccess(role: StaffRole, appointment: { status: string; channe
   const clinical = can(role, "record:write");
   const uploader = can(role, "bia:upload");
   if (appointment.status === "HADIR") {
-    return { upload: uploader, editNumbers: clinical, voidAny: clinical, voidOwnFile: uploader, view };
+    // Perawat mengetik angka sebelum pasien masuk ke dokter; batas hari ini diperiksa aksi servernya (spec peran perawat 7).
+    const nurse = can(role, "nurse:work");
+    return { upload: uploader, editNumbers: clinical || nurse, voidAny: clinical, voidOwnFile: uploader, view };
   }
   if (appointment.status === "SELESAI") {
     return { upload: uploader && clinical, editNumbers: clinical, voidAny: clinical, voidOwnFile: false, view };

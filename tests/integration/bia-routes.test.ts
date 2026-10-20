@@ -4,11 +4,12 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
+import { combineWitaDateAndMinutes, witaDateString } from "@/lib/time";
 import { GET } from "@/app/(admin)/admin/bia/berkas/[id]/route";
 import { POST } from "@/app/(admin)/admin/bia/unggah/route";
 import { cleanupBillingWorld, createBillingWorld, finalVisit, type BillingWorld } from "./invoice-world";
 
-type Role = "SUPER_ADMIN" | "DOKTER" | "RESEPSIONIS" | "APOTEKER";
+type Role = "SUPER_ADMIN" | "DOKTER" | "RESEPSIONIS" | "APOTEKER" | "TERAPIS";
 const { state } = vi.hoisted(() => ({
   state: { staff: null as null | { userId: string; staffId: string; name: string; role: Role; email: string } },
 }));
@@ -31,6 +32,28 @@ function form(appointmentId: string, bytes: Uint8Array = PNG, name = "hasil.png"
 const post = (body: FormData | string, headers: Record<string, string> = { origin: ORIGIN, host: "sundyclinic.com" }) =>
   POST(new Request(`${ORIGIN}/admin/bia/unggah`, { method: "POST", body, headers }));
 const get = (id: string, query = "") => GET(new Request(`${ORIGIN}/admin/bia/berkas/${id}${query}`), { params: Promise.resolve({ id }) });
+
+/** Booking klinik Hadir hari ini (WITA) tanpa catatan dokter, untuk perawat (spec peran perawat 5). */
+let todaySlot = 0;
+async function todayVisit(world: BillingWorld): Promise<string> {
+  todaySlot += 1;
+  const startAt = combineWitaDateAndMinutes(witaDateString(new Date()), 6 * 60 + todaySlot * 37);
+  const appointment = await prisma.appointment.create({
+    data: {
+      code: `NRS-${world.slug.slice(0, 4).toUpperCase()}-${todaySlot}`,
+      type: "KONSULTASI",
+      startAt,
+      endAt: new Date(startAt.getTime() + 30 * 60_000),
+      status: "HADIR",
+      source: "WALK_IN",
+      branchId: world.branchId,
+      staffId: world.doctorId,
+      serviceId: world.consultationId,
+      patientId: world.patientId,
+    },
+  });
+  return appointment.id;
+}
 
 describe("rute hasil BIA", () => {
   let world: BillingWorld;
@@ -160,5 +183,18 @@ describe("rute hasil BIA", () => {
     const pdfResponse = await get(pdf.fileId);
     expect(pdfResponse.headers.get("content-type")).toBe("application/pdf");
     expect(pdfResponse.headers.get("content-security-policy")).toBeNull();
+  });
+
+  it("buka berkas oleh perawat: hanya booking klinik hari ini yang Hadir (spec peran perawat 7)", async () => {
+    const today = await todayVisit(world);
+    as("RESEPSIONIS");
+    const { fileId: todayFile } = (await (await post(form(today))).json()) as { fileId: string };
+    const { fileId: otherDayFile } = (await (await post(form(hadir))).json()) as { fileId: string };
+
+    as("TERAPIS");
+    expect((await get(todayFile)).status).toBe(200);
+    expect((await get(otherDayFile)).status).toBe(403);
+    await prisma.appointment.update({ where: { id: today }, data: { status: "SELESAI" } });
+    expect((await get(todayFile)).status).toBe(403);
   });
 });
