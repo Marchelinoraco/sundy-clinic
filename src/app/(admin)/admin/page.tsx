@@ -61,8 +61,9 @@ export default async function AdminDashboardPage({
     can(staff.role, "stock:manage") ? settle(countPendingRestock(), "permintaan restock") : null,
     can(staff.role, "nurse:work") ? settle(listNurseWorklist(now), "pasien perawat") : null,
   ]);
-  // Peran yang juga melihat daftar dokter (Super Admin) mendapat judul berbeda agar dua kotak "Pasien hari ini" tidak tertukar.
-  const nurseTitle = can(staff.role, "record:read") ? "Pasien hari ini — food recall & BIA" : "Pasien hari ini";
+  // Peran yang juga melihat daftar dokter (Super Admin) mendapat judul yang tidak memuat "Pasien hari ini" sama sekali:
+  // pembaca layar dan uji (yang mencocokkan nama sebagian) tidak boleh tertukar dengan kotak dokter.
+  const nurseTitle = can(staff.role, "record:read") ? "Food recall & BIA hari ini" : "Pasien hari ini";
 
   const dayLabel =
     schedule?.ok === true

@@ -42,7 +42,7 @@ describe("NurseWorklistView (spec peran perawat 6)", () => {
   });
 
   it("judul bisa dibedakan untuk peran yang juga melihat daftar dokter", () => {
-    renderAdmin(<NurseWorklistView rows={[]} title="Pasien hari ini — food recall & BIA" />);
-    expect(screen.getByRole("region", { name: "Pasien hari ini — food recall & BIA" })).toBeInTheDocument();
+    renderAdmin(<NurseWorklistView rows={[]} title="Food recall & BIA hari ini" />);
+    expect(screen.getByRole("region", { name: "Food recall & BIA hari ini" })).toBeInTheDocument();
   });
 });

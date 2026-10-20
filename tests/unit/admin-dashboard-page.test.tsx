@@ -230,7 +230,8 @@ describe("halaman Dasbor (spec D 4)", () => {
     vi.mocked(payablesOverview).mockRejectedValue(new Error("bukan pokok uji"));
     await renderPage();
     log.mockRestore();
-    expect(screen.getByRole("region", { name: "Pasien hari ini — food recall & BIA" })).toBeInTheDocument();
-    expect(screen.getAllByRole("region", { name: "Pasien hari ini" })).toHaveLength(1);
+    expect(screen.getByRole("region", { name: "Food recall & BIA hari ini" })).toBeInTheDocument();
+    // Playwright mencocokkan nama region sebagian: judul kotak perawat tidak boleh memuat "Pasien hari ini" milik dokter.
+    expect(screen.getAllByRole("region", { name: /Pasien hari ini/ })).toHaveLength(1);
   });
 });
