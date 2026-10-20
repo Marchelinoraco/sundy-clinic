@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import type { can } from "@/lib/permissions";
-import { watchedKinds, type LiveEvent } from "@/lib/live-events";
+import { LIVE_MAX_LOOKBACK_MS, watchedKinds, type LiveEvent } from "@/lib/live-events";
 import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
 
 // Tanpa "use server": dipanggil rute pemberitahuan, bukan browser. Hanya nama pasien yang dibawa; isi Catatan
@@ -8,7 +8,6 @@ import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
 
 type Role = Parameters<typeof can>[0];
 
-const MAX_LOOKBACK_MS = 10 * 60_000;
 const LIMIT = 20;
 
 /**
@@ -22,7 +21,7 @@ export async function liveEventsFor(role: Role, since: Date, now: Date = new Dat
   const serverTime = now.toISOString();
   if (kinds.length === 0) return { watching: false, serverTime, events: [] };
 
-  const floor = new Date(now.getTime() - MAX_LOOKBACK_MS);
+  const floor = new Date(now.getTime() - LIVE_MAX_LOOKBACK_MS);
   const from = since < floor ? floor : since;
   const range = { gt: from, lte: now };
   const events: LiveEvent[] = [];

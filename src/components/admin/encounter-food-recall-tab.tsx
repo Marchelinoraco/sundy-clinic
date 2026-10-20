@@ -47,13 +47,16 @@ export function EncounterFoodRecallTab({
   editable: boolean;
   copy?: SubjectiveCopy;
   /** Aksi simpan; halaman perawat memakai saveFoodRecallByNurse (spec peran perawat 7). */
-  save?: (input: { appointmentId: string; entries: unknown }) => Promise<ActionResult<void>>;
+  save?: (input: { appointmentId: string; entries: unknown; baseVersion?: string | null }) => Promise<ActionResult<void>>;
   /** false di halaman perawat: tanpa QR/link pasien dan tanpa "Tawarkan sekarang". */
   customerLink?: boolean;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [entries, setEntries] = useState<EditableEntry[]>(foodRecall.entries);
+  // Versi saat penyunting dibuka: halaman bisa dimuat ulang pemberitahuan langsung selama menyunting, jadi versi
+  // dari data terbaru tidak boleh dipakai (kiriman pasien di tengahnya akan tertimpa).
+  const [baseVersion, setBaseVersion] = useState<string | null>(foodRecall.version);
   const [confirmCopy, setConfirmCopy] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -75,13 +78,14 @@ export function EncounterFoodRecallTab({
 
   function startEditing() {
     setEntries(foodRecall.entries);
+    setBaseVersion(foodRecall.version);
     setEditing(true);
   }
 
   function save() {
     startTransition(async () => {
       try {
-        const result = await saveAction({ appointmentId: foodRecall.appointmentId, entries });
+        const result = await saveAction({ appointmentId: foodRecall.appointmentId, entries, baseVersion });
         if (!result.ok) {
           toast.error(result.error);
           return;

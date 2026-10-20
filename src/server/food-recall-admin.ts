@@ -7,12 +7,16 @@ import { recallDateFor, validateStaffEntries, type FoodRecallLinkInfo } from "@/
 import { NURSE_OUT_OF_SCOPE, nurseCanWork } from "@/lib/nurse";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { recordAudit } from "@/server/audit";
-import { isRecordLockedError } from "@/server/db-errors";
+import { isRecordLockedError, isUniqueViolation } from "@/server/db-errors";
 import { foodRecallLinkInfo, loadFoodRecallForAppointment } from "@/server/food-recall-store";
 import { requireCapability, type CurrentStaff } from "@/server/session";
 
 const LOCKED = "Catatan dokter sudah final; food recall tidak bisa diubah.";
 const NOT_CHECKED_IN = "Food recall hanya untuk customer yang sudah check-in.";
+const STALE = "Food recall baru saja diubah, mungkin pasien mengirim dari tablet. Muat ulang halaman, lalu lengkapi lagi.";
+
+/** Simpanan staf: `baseVersion` = versi (updatedAt ISO, atau null bila belum ada baris) saat penyunting dibuka. */
+type StaffFoodRecallInput = { appointmentId: string; entries: unknown; baseVersion?: string | null };
 
 const recallDateValue = (startAt: Date) => new Date(`${recallDateFor(startAt)}T00:00:00Z`);
 
@@ -62,7 +66,7 @@ export async function offerFoodRecall(appointmentId: string): Promise<ActionResu
  * customer tetap bertanda CUSTOMER, tambahan dokter bertanda DOKTER, dan
  * completedAt menutup link customer agar tambahan ini tidak tertimpa.
  */
-export async function saveFoodRecallByStaff(input: { appointmentId: string; entries: unknown }): Promise<ActionResult<void>> {
+export async function saveFoodRecallByStaff(input: StaffFoodRecallInput): Promise<ActionResult<void>> {
   return runAction(async () => {
     const actor = await requireCapability("record:write");
     await saveStaffFoodRecall(actor, input, "DOKTER");
@@ -73,14 +77,14 @@ export async function saveFoodRecallByStaff(input: { appointmentId: string; entr
  * Perawat mengisi food recall dari halaman Tangani (spec peran perawat 7): tambahannya bertanda PERAWAT,
  * hanya untuk booking klinik hari ini yang Hadir. Baris dibuat bila belum ditawarkan saat check-in.
  */
-export async function saveFoodRecallByNurse(input: { appointmentId: string; entries: unknown }): Promise<ActionResult<void>> {
+export async function saveFoodRecallByNurse(input: StaffFoodRecallInput): Promise<ActionResult<void>> {
   return runAction(async () => {
     const actor = await requireCapability("nurse:work");
     await saveStaffFoodRecall(actor, input, "PERAWAT");
   });
 }
 
-async function saveStaffFoodRecall(actor: CurrentStaff, input: { appointmentId: string; entries: unknown }, author: "DOKTER" | "PERAWAT") {
+async function saveStaffFoodRecall(actor: CurrentStaff, input: StaffFoodRecallInput, author: "DOKTER" | "PERAWAT") {
   const checked = validateStaffEntries(input?.entries, author);
   if (!checked.ok) throw new UserFacingError(checked.message);
   const booking = await loadBooking(input?.appointmentId);
@@ -96,14 +100,27 @@ async function saveStaffFoodRecall(actor: CurrentStaff, input: { appointmentId: 
     completedByName: actor.name,
     completedAt: new Date(),
   };
+  // Kiriman pasien atau simpanan staf lain yang masuk setelah penyunting dibuka tidak boleh tertimpa diam-diam
+  // (temuan tinjauan peran perawat): simpan hanya bila barisnya masih versi yang sama. Tanpa baseVersion (klien lama)
+  // perilaku lama dipertahankan.
   try {
-    await prisma.foodRecall.upsert({
-      where: { appointmentId: booking.id },
-      create: { appointmentId: booking.id, recallDate: recallDateValue(booking.startAt), ...data },
-      update: data,
-    });
+    if (input?.baseVersion === undefined) {
+      await prisma.foodRecall.upsert({
+        where: { appointmentId: booking.id },
+        create: { appointmentId: booking.id, recallDate: recallDateValue(booking.startAt), ...data },
+        update: data,
+      });
+    } else if (input.baseVersion === null) {
+      await prisma.foodRecall.create({ data: { appointmentId: booking.id, recallDate: recallDateValue(booking.startAt), ...data } });
+    } else {
+      const base = new Date(String(input.baseVersion));
+      if (Number.isNaN(base.getTime())) throw new UserFacingError(STALE);
+      const { count } = await prisma.foodRecall.updateMany({ where: { appointmentId: booking.id, updatedAt: base }, data });
+      if (count === 0) throw new UserFacingError(STALE);
+    }
   } catch (error) {
     if (isRecordLockedError(error)) throw new UserFacingError(LOCKED);
+    if (isUniqueViolation(error)) throw new UserFacingError(STALE);
     throw error;
   }
 

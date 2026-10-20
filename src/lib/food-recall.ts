@@ -60,10 +60,26 @@ export function validateStaffEntries(raw: unknown, author: "DOKTER" | "PERAWAT" 
   return { ok: true, entries };
 }
 
-/** Baris tersimpan; bentuk yang rusak dibaca kosong agar halaman dokter tidak gagal. */
+/**
+ * Baris tersimpan, dibaca per baris: baris rusak saja yang dibuang, dan penulis yang belum dikenal rilis ini
+ * dibaca sebagai tambahan staf (DOKTER) agar catatannya tetap tampil dan tidak tertimpa (temuan tinjauan peran perawat).
+ */
 export function parseStoredEntries(raw: unknown): FoodRecallEntry[] {
-  const parsed = z.array(foodRecallEntrySchema).max(FOOD_RECALL_MAX_ENTRIES).safeParse(raw);
-  return parsed.success ? parsed.data : [];
+  if (!Array.isArray(raw)) return [];
+  const entries: FoodRecallEntry[] = [];
+  for (const item of raw.slice(0, FOOD_RECALL_MAX_ENTRIES)) {
+    const known = foodRecallEntrySchema.safeParse(item);
+    if (known.success) {
+      entries.push(known.data);
+      continue;
+    }
+    if (typeof item !== "object" || item === null) continue;
+    const rest = { ...(item as Record<string, unknown>) };
+    delete rest.by;
+    const base = activityEntrySchema.safeParse(rest);
+    if (base.success) entries.push({ ...base.data, by: "DOKTER" });
+  }
+  return entries;
 }
 
 /** Tanggal "kemarin": tanggal booking (WITA) dikurangi satu hari. */
@@ -177,6 +193,8 @@ export type FoodRecallView = {
   submittedAt: Date | null;
   completedAt: Date | null;
   completedByName: string | null;
+  /** updatedAt baris (ISO) saat dibaca, atau null bila belum ada baris: simpanan staf menolak bila sudah berubah. */
+  version: string | null;
 };
 
 /** Baris food recall tersimpan, seperti dibaca halaman kunjungan. */
@@ -187,6 +205,7 @@ export type StoredFoodRecall = {
   submittedAt: Date | null;
   completedAt: Date | null;
   completedByName: string | null;
+  updatedAt: Date;
 };
 
 /** Food recall sebuah kunjungan; tanpa baris pun tanggal H-1 dihitung dari tanggal booking. */
@@ -201,6 +220,7 @@ export function foodRecallView(appointment: { id: string; startAt: Date }, row: 
     submittedAt: row?.submittedAt ?? null,
     completedAt: row?.completedAt ?? null,
     completedByName: row?.completedByName ?? null,
+    version: row ? row.updatedAt.toISOString() : null,
   };
 }
 
@@ -212,4 +232,5 @@ export const FOOD_RECALL_SELECT = {
   submittedAt: true,
   completedAt: true,
   completedByName: true,
+  updatedAt: true,
 } as const;

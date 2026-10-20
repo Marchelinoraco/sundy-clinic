@@ -59,7 +59,7 @@ function FileList({ files, canVoid, onPreview, onVoid }: { files: BiaFileView[];
                 Buka
               </Button>
             )}
-            {canVoid && !file.voided && (
+            {(canVoid || file.canVoid) && !file.voided && (
               <Button size="small" color="error" aria-label={`Batalkan ${file.originalName}`} onClick={() => onVoid(file)}>
                 Batalkan
               </Button>

@@ -140,7 +140,7 @@ describe("profil dokter di situs publik", () => {
     expect(await files()).toEqual([]);
 
     const reception = await prisma.staff.create({ data: { slug: `${SLUG}-resepsionis`, name: "Profil Resepsionis", role: "RESEPSIONIS" } });
-    await refuse(uploadStaffPhoto({ actor, staffId: reception.id, bytes: await png() }), "Foto hanya untuk dokter dan terapis.");
+    await refuse(uploadStaffPhoto({ actor, staffId: reception.id, bytes: await png() }), "Foto hanya untuk dokter dan perawat.");
     await refuse(uploadStaffPhoto({ actor, staffId: "tidak-ada", bytes: await png() }), "Staf tidak ditemukan.");
     expect(await files()).toEqual([]);
   });

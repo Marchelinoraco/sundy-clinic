@@ -158,6 +158,7 @@ describe("foodRecallView", () => {
     submittedAt: new Date("2026-10-03T02:00:00Z"),
     completedAt: null,
     completedByName: null,
+    updatedAt: new Date("2026-10-03T02:00:00Z"),
   };
 
   it("belum ditawarkan: tanggal H-1 tetap dihitung dari tanggal booking", () => {
@@ -170,12 +171,13 @@ describe("foodRecallView", () => {
       submittedAt: null,
       completedAt: null,
       completedByName: null,
+      version: null,
     });
   });
 
   it("ditawarkan tetapi belum diisi, dan sudah diisi", () => {
     expect(foodRecallView(appointment, { ...stored, status: "DITAWARKAN", entries: [] }).state).toBe("WAITING");
-    expect(foodRecallView(appointment, stored)).toMatchObject({ state: "FILLED", entries: stored.entries });
+    expect(foodRecallView(appointment, stored)).toMatchObject({ state: "FILLED", entries: stored.entries, version: "2026-10-03T02:00:00.000Z" });
   });
 });
 
@@ -204,5 +206,17 @@ describe("food recall oleh perawat (spec peran perawat 7)", () => {
 
   it("baris tersimpan bertanda PERAWAT terbaca", () => {
     expect(parseStoredEntries([{ hour: 7, kind: "MAKAN_MINUM", text: "Nasi", by: "PERAWAT" }])).toHaveLength(1);
+  });
+
+  it("baris tersimpan dibaca per baris: penulis tak dikenal tetap tampil sebagai staf, baris rusak saja yang dibuang (aman untuk rilis berikutnya)", () => {
+    const entries = parseStoredEntries([
+      { hour: 7, kind: "MAKAN_MINUM", text: "Nasi", by: "CUSTOMER" },
+      { hour: 8, kind: "OLAHRAGA", text: "Jalan", by: "BIDAN" },
+      { hour: 9, kind: "MAKAN_MINUM" },
+    ]);
+    expect(entries).toEqual([
+      { hour: 7, kind: "MAKAN_MINUM", text: "Nasi", by: "CUSTOMER" },
+      { hour: 8, kind: "OLAHRAGA", text: "Jalan", by: "DOKTER" },
+    ]);
   });
 });

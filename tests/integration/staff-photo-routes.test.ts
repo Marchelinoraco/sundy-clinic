@@ -98,7 +98,7 @@ describe("rute foto dokter", () => {
     expect(small.status).toBe(422);
     expect(await small.json()).toEqual({ ok: false, error: "Foto terlalu kecil. Sisi terpendek minimal 600 px." });
     const reception = await prisma.staff.create({ data: { slug: `${SLUG}-resepsionis`, name: "Resepsionis Rute", role: "RESEPSIONIS" } });
-    expect(await (await post(form(reception.id, await png()))).json()).toEqual({ ok: false, error: "Foto hanya untuk dokter dan terapis." });
+    expect(await (await post(form(reception.id, await png()))).json()).toEqual({ ok: false, error: "Foto hanya untuk dokter dan perawat." });
     expect(await (await post(form("tidak-ada", await png()))).json()).toEqual({ ok: false, error: "Staf tidak ditemukan." });
     expect((await prisma.staff.findUniqueOrThrow({ where: { id: doctorId } })).photoUrl).toBeNull();
     expect(await readdir(path.join(root, "dokter")).catch(() => [])).toEqual([]);

@@ -257,6 +257,29 @@ describe("food recall: link, kiriman customer, suntingan dokter", () => {
       });
     });
 
+    it("kiriman pasien yang masuk setelah penyunting dibuka tidak ditimpa diam-diam (temuan tinjauan akhir)", async () => {
+      const { appointment, code } = await offered();
+      const opened = await prisma.foodRecall.findUniqueOrThrow({ where: { appointmentId: appointment.id } });
+      const baseVersion = opened.updatedAt.toISOString();
+      await unwrap(submitFoodRecall({ code, entries: [CUSTOMER_ROW], website: "" }));
+      expect(await saveFoodRecallByNurse({ appointmentId: appointment.id, entries: [{ hour: 9, kind: "OLAHRAGA", text: "Jalan" }], baseVersion })).toEqual({
+        ok: false,
+        error: "Food recall baru saja diubah, mungkin pasien mengirim dari tablet. Muat ulang halaman, lalu lengkapi lagi.",
+      });
+      const row = await prisma.foodRecall.findUniqueOrThrow({ where: { appointmentId: appointment.id } });
+      expect(row.entries).toEqual([{ ...CUSTOMER_ROW, by: "CUSTOMER" }]);
+
+      const fresh = row.updatedAt.toISOString();
+      await unwrap(saveFoodRecallByNurse({ appointmentId: appointment.id, entries: [{ ...CUSTOMER_ROW, by: "CUSTOMER" }, { hour: 9, kind: "OLAHRAGA", text: "Jalan" }], baseVersion: fresh }));
+    });
+
+    it("baris yang dibuat orang lain setelah halaman dibuka (versi kosong) juga ditolak", async () => {
+      const { appointment } = await offered();
+      await prisma.foodRecall.deleteMany({ where: { appointmentId: appointment.id } });
+      await unwrap(saveFoodRecallByNurse({ appointmentId: appointment.id, entries: [CUSTOMER_ROW], baseVersion: null }));
+      expect((await saveFoodRecallByNurse({ appointmentId: appointment.id, entries: [CUSTOMER_ROW], baseVersion: null })).ok).toBe(false);
+    });
+
     it("dokter tidak memakai aksi perawat; Super Admin dari halaman perawat menandai PERAWAT", async () => {
       const appointment = await booking();
       actor.role = "DOKTER";

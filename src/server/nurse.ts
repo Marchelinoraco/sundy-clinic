@@ -1,6 +1,6 @@
 import type { BiaVisitView } from "@/server/bia-read";
 import { prisma } from "@/lib/db";
-import { foodRecallView, type FoodRecallView } from "@/lib/food-recall";
+import { FOOD_RECALL_SELECT, foodRecallView, type FoodRecallView } from "@/lib/food-recall";
 import { nurseCanWork } from "@/lib/nurse";
 import { placeLabel } from "@/lib/online-consultation";
 import { addDaysToDateString, combineWitaDateAndMinutes, witaDateString } from "@/lib/time";
@@ -96,7 +96,7 @@ export async function getNurseVisit(appointmentId: string, now: Date = new Date(
       staff: { select: { name: true } },
       branch: { select: { name: true } },
       patient: { select: { name: true, medicalRecordNumber: true, allergies: true } },
-      foodRecall: { select: { status: true, recallDate: true, entries: true, submittedAt: true, completedAt: true, completedByName: true } },
+      foodRecall: { select: FOOD_RECALL_SELECT },
     },
   });
   if (!row?.patient || !nurseCanWork(row, now)) return null;

@@ -6,6 +6,8 @@ type Role = Parameters<typeof can>[0];
 
 /** Jeda antar pemeriksaan di layar admin yang terbuka. */
 export const LIVE_POLL_MS = 10_000;
+/** Server tidak melihat lebih jauh dari ini ke belakang; tab yang tersembunyi lebih lama memuat ulang layarnya saat kembali. */
+export const LIVE_MAX_LOOKBACK_MS = 10 * 60_000;
 /** Kursor berikutnya mundur sebesar ini; peristiwa yang terlihat dua kali dibuang lewat id. */
 export const LIVE_OVERLAP_MS = 30_000;
 

@@ -143,4 +143,23 @@ describe("pembacaan hasil BIA", () => {
     actor.role = "DOKTER";
     await expect(getBiaForNurse(today)).rejects.toThrow("forbidden: nurse:work");
   });
+
+  it("berkas yang diunggah sendiri bisa dibatalkan perawat; unggahan orang lain tidak", async () => {
+    const today = await todayVisit(world);
+    const active = await create(today);
+    const fileOf = (uploadedById: string, originalName: string) =>
+      prisma.biaFile.create({
+        data: { measurementId: active.id, storageName: `2035/01/${crypto.randomUUID()}.png`, originalName, mimeType: "image/png", sizeBytes: 5, sha256: "d".repeat(64), uploadedById, uploadedByName: "Uji" },
+      });
+    await fileOf(actor.staffId, "milik-saya.png");
+    await fileOf("s-lain", "orang-lain.png");
+    actor.role = "TERAPIS";
+    const view = await getBiaForNurse(today);
+    expect(view?.active?.files.map((f) => [f.originalName, f.canVoid])).toEqual([
+      ["milik-saya.png", true],
+      ["orang-lain.png", false],
+    ]);
+    actor.role = "DOKTER";
+    expect((await getBiaForVisit(today)).active?.files.every((f) => f.canVoid)).toBe(true);
+  });
 });

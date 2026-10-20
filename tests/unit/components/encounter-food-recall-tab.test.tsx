@@ -28,6 +28,7 @@ const FILLED: FoodRecallView = {
   submittedAt: new Date("2026-10-01T02:30:00Z"),
   completedAt: new Date("2026-10-01T03:00:00Z"),
   completedByName: "dr. Diane",
+  version: "2026-10-01T03:00:00.000Z",
 };
 
 function copyStub(has = false, append = true): SubjectiveCopy {
@@ -98,6 +99,7 @@ describe("EncounterFoodRecallTab", () => {
       expect(saveFoodRecallByStaff).toHaveBeenCalledWith({
         appointmentId: "a1",
         entries: [FILLED.entries[0], { hour: 7, kind: "MAKAN_MINUM", text: "Teh tawar" }],
+        baseVersion: "2026-10-01T03:00:00.000Z",
       }),
     );
     expect(refresh).toHaveBeenCalled();
@@ -121,7 +123,7 @@ describe("EncounterFoodRecallTab", () => {
   it("halaman perawat: tanpa link pasien, mengisi dari kosong, dan memakai aksi simpan perawat", async () => {
     const save = vi.fn().mockResolvedValue({ ok: true, data: undefined });
     const user = userEvent.setup();
-    renderTab({ foodRecall: { ...FILLED, state: "NOT_OFFERED", entries: [], submittedAt: null, completedAt: null, completedByName: null }, copy: undefined, customerLink: false, save });
+    renderTab({ foodRecall: { ...FILLED, state: "NOT_OFFERED", entries: [], submittedAt: null, completedAt: null, completedByName: null, version: null }, copy: undefined, customerLink: false, save });
     expect(screen.getByText("Belum ada food recall.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Tawarkan sekarang" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Buka QR dan link" })).toBeNull();
@@ -129,7 +131,7 @@ describe("EncounterFoodRecallTab", () => {
     await user.type(screen.getByLabelText("Isi catatan"), "Nasi uduk");
     await user.click(screen.getByRole("button", { name: "＋ Tambah catatan" }));
     await user.click(screen.getByRole("button", { name: "Simpan food recall" }));
-    await waitFor(() => expect(save).toHaveBeenCalledWith({ appointmentId: "a1", entries: [expect.objectContaining({ text: "Nasi uduk" })] }));
+    await waitFor(() => expect(save).toHaveBeenCalledWith({ appointmentId: "a1", entries: [expect.objectContaining({ text: "Nasi uduk" })], baseVersion: null }));
     expect(saveFoodRecallByStaff).not.toHaveBeenCalled();
   });
 });
