@@ -134,15 +134,15 @@ describe("tampilan tagihan final", () => {
   });
 
   it("margin hanya tampil bila diizinkan", () => {
-    const withMargin = finalDetail({ margin: { revenue: 160_000, stockCost: 9000, materialCost: 40_000, toolCost: 10_000, commission: 25_000, margin: 76_000, missingStockCost: true } });
+    const withMargin = finalDetail({ margin: { revenue: 160_000, stockCost: 9000, materialCost: 40_000, toolCost: 10_000, otherCost: 8000, commission: 25_000, margin: 68_000, missingStockCost: true } });
     const { rerender } = renderAdmin(<InvoiceFinalView detail={withMargin} today="2026-10-07" canManage canCorrect={false} canSeeCost={false} />);
     expect(screen.queryByRole("region", { name: "Margin" })).not.toBeInTheDocument();
     rerender(<InvoiceFinalView detail={withMargin} today="2026-10-07" canManage canCorrect={false} canSeeCost />);
     const margin = screen.getByRole("region", { name: "Margin" });
     expect(margin).toHaveTextContent("Harga pokok barangRp 9.000");
-    expect(margin).toHaveTextContent("Bahan dan alatRp 50.000");
+    expect(margin).toHaveTextContent("Bahan, alat, dan lainnyaRp 58.000");
     expect(margin).toHaveTextContent("KomisiRp 25.000");
-    expect(margin).toHaveTextContent("MarginRp 76.000");
+    expect(margin).toHaveTextContent("MarginRp 68.000");
     expect(margin).toHaveTextContent("Harga pokok belum lengkap: menunggu harga beli.");
   });
 

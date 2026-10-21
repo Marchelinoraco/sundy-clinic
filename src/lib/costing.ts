@@ -6,6 +6,11 @@ import { MAX_AMOUNT, type Validation } from "./stock";
 export type CommissionKindValue = "NOMINAL" | "PERSEN";
 export type ServiceCostInput = { materialCost: number; toolCost: number; commissionKind: CommissionKindValue | null; commissionValue: number };
 export type CostedService = { promoPrice: number } & ServiceCostInput;
+/** Satu biaya lainnya per sesi dengan nama bebas (spec biaya lainnya BL1). */
+export type OtherCost = { name: string; amount: number };
+
+export const OTHER_COST_NAME_MAX = 60;
+export const OTHER_COST_LINES_MAX = 20;
 
 const INVALID_FORM = "Data tidak sah. Muat ulang halaman lalu coba lagi.";
 const fail = <T>(message: string): Validation<T> => ({ ok: false, message });
@@ -27,15 +32,54 @@ export function validateServiceCost(raw: unknown): Validation<ServiceCostInput> 
   };
 }
 
+/**
+ * Baris "Biaya lainnya" dari dialog (spec biaya lainnya BL11): nama dirapikan, baris yang nama dan nominalnya kosong
+ * diabaikan, urutan dijaga, nama ganda tanpa beda huruf ditolak.
+ */
+export function validateOtherCosts(raw: unknown): Validation<OtherCost[]> {
+  if (!Array.isArray(raw)) return fail(INVALID_FORM);
+  const value: OtherCost[] = [];
+  for (const [index, entry] of (raw as unknown[]).entries()) {
+    if (typeof entry !== "object" || entry === null) return fail(INVALID_FORM);
+    const { name, amount } = entry as Record<string, unknown>;
+    if (typeof name !== "string" || (amount !== null && typeof amount !== "number")) return fail(INVALID_FORM);
+    const trimmed = name.trim();
+    if (!trimmed && amount === null) continue;
+    if (!trimmed || amount === null) return fail(`Isi nama dan nominal biaya lainnya baris ${index + 1}.`);
+    if (trimmed.length > OTHER_COST_NAME_MAX) return fail(`Nama biaya lainnya paling banyak ${OTHER_COST_NAME_MAX} karakter.`);
+    if (!isWhole(amount, 1, MAX_AMOUNT)) return fail(`Nominal biaya lainnya baris ${index + 1} tidak sah.`);
+    if (value.some((other) => other.name.toLowerCase() === trimmed.toLowerCase())) return fail(`Nama biaya lainnya "${trimmed}" dipakai dua kali.`);
+    value.push({ name: trimmed, amount });
+  }
+  if (value.length > OTHER_COST_LINES_MAX) return fail(`Biaya lainnya paling banyak ${OTHER_COST_LINES_MAX} baris.`);
+  return { ok: true, value };
+}
+
 function commissionPerSession(cost: ServiceCostInput, price: number): number {
   if (cost.commissionKind === "NOMINAL") return cost.commissionValue;
   if (cost.commissionKind === "PERSEN") return Math.floor((price * cost.commissionValue) / 100);
   return 0;
 }
 
-/** Biaya satu sesi melebihi harga jual: boleh disimpan, tetapi diberi peringatan (spec 5). */
-export function costWarning(cost: ServiceCostInput, price: number): string | null {
-  return cost.materialCost + cost.toolCost + commissionPerSession(cost, price) > price ? "Biaya melebihi harga jual." : null;
+const sumOther = (otherCosts: readonly OtherCost[]) => otherCosts.reduce((sum, other) => sum + other.amount, 0);
+
+/** Total biaya per sesi = bahan + alat + komisi per sesi pada harga itu + biaya lainnya (spec biaya lainnya BL4). */
+export function totalCostPerSession(cost: ServiceCostInput, otherCosts: readonly OtherCost[], price: number): number {
+  return cost.materialCost + cost.toolCost + commissionPerSession(cost, price) + sumOther(otherCosts);
+}
+
+/** Dialog Harga & biaya: total melebihi harga berlaku ditolak, sama dengan harga boleh (BL4). */
+export function costOverPrice(cost: ServiceCostInput, otherCosts: readonly OtherCost[], price: number): string | null {
+  const total = totalCostPerSession(cost, otherCosts, price);
+  return total > price ? `Total biaya ${formatRupiah(total)} melebihi harga berlaku ${formatRupiah(price)}. Naikkan harga berlaku atau kurangi biaya.` : null;
+}
+
+/** Jalan pengubah harga lain (tabel, Ubah, Konsultasi Online; BL5): harga baru tidak boleh di bawah total biaya pada harga itu. */
+export function priceBelowCost(cost: ServiceCostInput, otherCosts: readonly OtherCost[], price: number): string | null {
+  const total = totalCostPerSession(cost, otherCosts, price);
+  return total > price
+    ? `Harga berlaku ${formatRupiah(price)} di bawah total biaya per sesi ${formatRupiah(total)}. Naikkan harga atau kurangi biaya lewat tombol Harga & biaya.`
+    : null;
 }
 
 export function commissionLabel(kind: CommissionKindValue | null, value: number): string {
@@ -44,22 +88,30 @@ export function commissionLabel(kind: CommissionKindValue | null, value: number)
   return "tanpa komisi";
 }
 
-export function serviceCostSummary(cost: ServiceCostInput): string {
-  return `bahan ${formatRupiah(cost.materialCost)} · alat ${formatRupiah(cost.toolCost)} · komisi ${commissionLabel(cost.commissionKind, cost.commissionValue)}`;
+export function serviceCostSummary(cost: ServiceCostInput, otherCosts: readonly OtherCost[] = []): string {
+  const base = `bahan ${formatRupiah(cost.materialCost)} · alat ${formatRupiah(cost.toolCost)} · komisi ${commissionLabel(cost.commissionKind, cost.commissionValue)}`;
+  return otherCosts.length > 0 ? `${base} · lainnya ${formatRupiah(sumOther(otherCosts))}` : base;
 }
 
-/** Salinan biaya baris treatment saat final (spec 6, M10): komisi persen dari harga katalog × jumlah, dibulatkan ke bawah. */
-export function lineCosts(input: { quantity: number; hasPerformer: boolean; service: CostedService | null }): { materialCost: number; toolCost: number; commissionAmount: number } {
+/**
+ * Salinan biaya baris treatment saat final (spec 6, M10): komisi persen dari harga katalog × jumlah, dibulatkan ke bawah;
+ * biaya lainnya × jumlah (spec biaya lainnya BL2).
+ */
+export function lineCosts(input: {
+  quantity: number;
+  hasPerformer: boolean;
+  service: (CostedService & { otherCosts: readonly OtherCost[] }) | null;
+}): { materialCost: number; toolCost: number; otherCost: number; commissionAmount: number } {
   const { quantity, service } = input;
-  if (!service) return { materialCost: 0, toolCost: 0, commissionAmount: 0 };
+  if (!service) return { materialCost: 0, toolCost: 0, otherCost: 0, commissionAmount: 0 };
   let commissionAmount = 0;
   if (input.hasPerformer && service.commissionKind === "NOMINAL") commissionAmount = service.commissionValue * quantity;
   if (input.hasPerformer && service.commissionKind === "PERSEN") commissionAmount = Math.floor((service.promoPrice * quantity * service.commissionValue) / 100);
-  return { materialCost: service.materialCost * quantity, toolCost: service.toolCost * quantity, commissionAmount };
+  return { materialCost: service.materialCost * quantity, toolCost: service.toolCost * quantity, otherCost: sumOther(service.otherCosts) * quantity, commissionAmount };
 }
 
-export function marginOf(input: { revenue: number; stockCost: number; materialCost: number; toolCost: number; commission: number }): number {
-  return input.revenue - input.stockCost - input.materialCost - input.toolCost - input.commission;
+export function marginOf(input: { revenue: number; stockCost: number; materialCost: number; toolCost: number; otherCost: number; commission: number }): number {
+  return input.revenue - input.stockCost - input.materialCost - input.toolCost - input.otherCost - input.commission;
 }
 
 /** Persen margin satu desimal; null bila pendapatan 0 (rencana keputusan 6). */

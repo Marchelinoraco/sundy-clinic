@@ -1,10 +1,19 @@
 "use server";
 
+import type { Prisma } from "@prisma/client";
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { prisma } from "@/lib/db";
 import { CONSULTATION_SERVICE_SLUG, isConsultationDuration } from "@/lib/booking-rules";
-import { serviceCostSummary, validateServiceCost, type ServiceCostInput } from "@/lib/costing";
+import {
+  costOverPrice,
+  priceBelowCost,
+  serviceCostSummary,
+  validateOtherCosts,
+  validateServiceCost,
+  type OtherCost,
+  type ServiceCostInput,
+} from "@/lib/costing";
 import { formatRupiah } from "@/lib/format";
 import { ONLINE_SERVICE_SLUG } from "@/lib/online-consultation";
 import { validatePriceChange, type PriceInput } from "@/lib/price-validation";
@@ -25,10 +34,15 @@ export async function updateServicePrice(
     const error = validatePriceChange(input);
     if (error) throw new UserFacingError(error);
 
-    const before = await prisma.service.findUniqueOrThrow({ where: { id: input.id } });
-    const after = await prisma.service.update({
-      where: { id: input.id },
-      data: { normalPrice: input.normalPrice, promoPrice: input.promoPrice },
+    const { before, after } = await prisma.$transaction(async (tx) => {
+      const before = await lockServiceCosts(tx, String(input?.id ?? ""));
+      if (!before) throw new UserFacingError(SERVICE_NOT_FOUND);
+      assertPriceCoversCost(before, input.promoPrice);
+      const after = await tx.service.update({
+        where: { id: before.id },
+        data: { normalPrice: input.normalPrice, promoPrice: input.promoPrice },
+      });
+      return { before, after };
     });
 
     await recordAudit({
@@ -45,21 +59,80 @@ export async function updateServicePrice(
   });
 }
 
-/** Biaya bahan, alat, dan komisi pelaksana per sesi (spec harga modal 5). */
-export async function updateServiceCost(input: { id: string } & ServiceCostInput): Promise<ActionResult> {
-  return runAction(async () => {
-    const actor = await requireCapability("price:manage");
-    const checked = validateServiceCost(input);
-    if (!checked.ok) throw new UserFacingError(checked.message);
-    const service = await prisma.service.findUnique({ where: { id: String(input?.id ?? "") }, select: { id: true, name: true } });
-    if (!service) throw new UserFacingError("Layanan tidak ditemukan.");
-    await prisma.service.update({ where: { id: service.id }, data: checked.value });
-    await recordAudit({ actor, action: "service.cost", entity: "Service", entityId: service.id, summary: `${service.name}: ${serviceCostSummary(checked.value)}` });
-    safeRevalidatePath("/admin/layanan");
+const SERVICE_NOT_FOUND = "Layanan tidak ditemukan.";
+
+type LockedService = { id: string; slug: string; name: string; promoPrice: number; cost: ServiceCostInput; otherCosts: OtherCost[] };
+
+/**
+ * Mengunci baris layanan lalu membaca harga dan biayanya di transaksi yang sama, supaya ubah harga dan ubah biaya yang
+ * bersamaan tidak bisa saling menembus aturan harga ≥ biaya (spec biaya lainnya BL14).
+ */
+async function lockServiceCosts(tx: Prisma.TransactionClient, id: string): Promise<LockedService | null> {
+  await tx.$queryRaw`SELECT id FROM "Service" WHERE id = ${id} FOR UPDATE`;
+  const row = await tx.service.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      slug: true,
+      name: true,
+      promoPrice: true,
+      materialCost: true,
+      toolCost: true,
+      commissionKind: true,
+      commissionValue: true,
+      costLines: { orderBy: { sortOrder: "asc" }, select: { name: true, amount: true } },
+    },
   });
+  if (!row) return null;
+  const { materialCost, toolCost, commissionKind, commissionValue, costLines, ...service } = row;
+  return { ...service, cost: { materialCost, toolCost, commissionKind, commissionValue }, otherCosts: costLines };
 }
 
-const SERVICE_NOT_FOUND = "Layanan tidak ditemukan.";
+/** Jalan pengubah harga selain dialog Harga & biaya: diperiksa hanya bila harga berlaku berubah (BL5, BL13). */
+function assertPriceCoversCost(service: LockedService, promoPrice: number): void {
+  if (promoPrice === service.promoPrice) return;
+  const error = priceBelowCost(service.cost, service.otherCosts, promoPrice);
+  if (error) throw new UserFacingError(error);
+}
+
+/**
+ * Dialog "Harga & biaya" (spec biaya lainnya BL6): harga, biaya, dan biaya lainnya disimpan sekaligus; total biaya per sesi
+ * tidak boleh melebihi harga berlaku (BL4).
+ */
+export async function updateServicePricing(
+  input: { id: string; normalPrice: number | null; promoPrice: number; otherCosts: { name: string; amount: number | null }[] } & ServiceCostInput,
+): Promise<ActionResult> {
+  return runAction(async () => {
+    const actor = await requireCapability("price:manage");
+    const priceError = validatePriceChange({ normalPrice: input?.normalPrice ?? null, promoPrice: input?.promoPrice });
+    if (priceError) throw new UserFacingError(priceError);
+    const cost = validateServiceCost(input);
+    if (!cost.ok) throw new UserFacingError(cost.message);
+    const others = validateOtherCosts(input?.otherCosts);
+    if (!others.ok) throw new UserFacingError(others.message);
+    const over = costOverPrice(cost.value, others.value, input.promoPrice);
+    if (over) throw new UserFacingError(over);
+
+    const service = await prisma.$transaction(async (tx) => {
+      const locked = await lockServiceCosts(tx, String(input?.id ?? ""));
+      if (!locked || locked.slug === ONLINE_SERVICE_SLUG) throw new UserFacingError(SERVICE_NOT_FOUND);
+      await tx.service.update({ where: { id: locked.id }, data: { normalPrice: input.normalPrice ?? null, promoPrice: input.promoPrice, ...cost.value } });
+      await tx.serviceCostLine.deleteMany({ where: { serviceId: locked.id } });
+      if (others.value.length > 0) {
+        await tx.serviceCostLine.createMany({ data: others.value.map((other, index) => ({ serviceId: locked.id, name: other.name, amount: other.amount, sortOrder: index })) });
+      }
+      return locked;
+    });
+    await recordAudit({
+      actor,
+      action: "service.pricing",
+      entity: "Service",
+      entityId: service.id,
+      summary: `${service.name}: harga ${formatRupiah(input.promoPrice)}; ${serviceCostSummary(cost.value, others.value)}`,
+    });
+    await revalidateServicePages(service.id);
+  });
+}
 
 /** Layanan yang boleh diubah lewat katalog internal: semua kecuali Konsultasi Online, yang punya kartunya sendiri. */
 async function findEditableService(id: unknown) {
@@ -129,7 +202,12 @@ export async function updateInternalService(input: { id: string } & InternalServ
     await assertCategory(value.categoryId);
     await assertUniqueName(value.name, before.id);
 
-    await prisma.service.update({ where: { id: before.id }, data: value });
+    await prisma.$transaction(async (tx) => {
+      const locked = await lockServiceCosts(tx, before.id);
+      if (!locked) throw new UserFacingError(SERVICE_NOT_FOUND);
+      assertPriceCoversCost(locked, value.promoPrice);
+      await tx.service.update({ where: { id: before.id }, data: value });
+    });
     await recordAudit({
       actor,
       action: "service.update",
@@ -179,9 +257,12 @@ export async function updateOnlineService(input: OnlineServiceSettings): Promise
     if (!ONLINE_DURATIONS.includes(durationMin)) throw new UserFacingError("Durasi harus 15, 30, 45, atau 60 menit.");
     if (active && price <= 0) throw new UserFacingError("Isi harga Konsultasi Online sebelum mengaktifkannya.");
 
-    const updated = await prisma.service.update({
-      where: { slug: ONLINE_SERVICE_SLUG },
-      data: { promoPrice: price, durationMin, isActive: active },
+    const updated = await prisma.$transaction(async (tx) => {
+      const found = await tx.service.findUnique({ where: { slug: ONLINE_SERVICE_SLUG }, select: { id: true } });
+      const locked = found ? await lockServiceCosts(tx, found.id) : null;
+      if (!locked) throw new UserFacingError(SERVICE_NOT_FOUND);
+      assertPriceCoversCost(locked, price);
+      return tx.service.update({ where: { id: locked.id }, data: { promoPrice: price, durationMin, isActive: active } });
     });
     await recordAudit({
       actor,

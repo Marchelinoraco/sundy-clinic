@@ -6,10 +6,10 @@ import { updateServicePrice } from "@/server/service-admin";
 import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
-vi.mock("@/server/service-admin", () => ({ updateServicePrice: vi.fn(), updateServiceCost: vi.fn(), createInternalService: vi.fn(), updateInternalService: vi.fn(), setServiceActive: vi.fn() }));
+vi.mock("@/server/service-admin", () => ({ updateServicePrice: vi.fn(), updateServicePricing: vi.fn(), createInternalService: vi.fn(), updateInternalService: vi.fn(), setServiceActive: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
-const NO_COST = { materialCost: 0, toolCost: 0, commissionKind: null, commissionValue: 0, slug: "x", categoryId: "c1", durationMin: 60, requiresDoctor: false, isActive: true, siteCount: 1 };
+const NO_COST = { materialCost: 0, toolCost: 0, commissionKind: null, commissionValue: 0, otherCosts: [], slug: "x", categoryId: "c1", durationMin: 60, requiresDoctor: false, isActive: true, siteCount: 1 };
 
 const CATEGORIES: PriceCategory[] = [
   {
@@ -131,5 +131,39 @@ describe("ServicePriceTable (spec D 5.4)", () => {
     await user.type(screen.getByRole("textbox", { name: "Harga coret Relaxing Facial" }), "200000");
     await user.click(within(screen.getByRole("row", { name: /Relaxing Facial/ })).getByRole("button", { name: "Simpan" }));
     await waitFor(() => expect(updateServicePrice).toHaveBeenCalledWith({ id: "s1", normalPrice: 200000, promoPrice: 150000 }));
+  });
+
+  it("kolom biaya menyebut biaya lainnya dan totalnya; layanan yang terlanjur rugi ditandai (spec biaya lainnya 4.2, BL12)", () => {
+    const costly = { materialCost: 20_000, toolCost: 10_000, commissionKind: "NOMINAL" as const, commissionValue: 15_000, otherCosts: [{ name: "Laundry", amount: 5000 }, { name: "Listrik", amount: 3000 }] };
+    const categories: PriceCategory[] = [
+      {
+        id: "c1",
+        name: "Facial Treatment",
+        services: [
+          { id: "s1", name: "Relaxing Facial", normalPrice: null, promoPrice: 149000, ...NO_COST, ...costly },
+          { id: "s2", name: "Facial Acne", normalPrice: null, promoPrice: 249000, ...NO_COST, materialCost: 300_000 },
+        ],
+      },
+    ];
+    renderAdmin(<ServicePriceTable categories={categories} categoryOptions={[]} />);
+    const relaxing = screen.getByRole("row", { name: /Relaxing Facial/ });
+    expect(relaxing).toHaveTextContent("bahan Rp 20.000 · alat Rp 10.000 · komisi Rp 15.000/sesi · lainnya Rp 8.000");
+    expect(relaxing).toHaveTextContent("total Rp 53.000");
+    expect(relaxing).not.toHaveTextContent("Biaya melebihi harga");
+    expect(within(relaxing).getByRole("button", { name: "Harga & biaya Relaxing Facial" })).toBeInTheDocument();
+    expect(screen.getByRole("row", { name: /Facial Acne/ })).toHaveTextContent("Biaya melebihi harga");
+  });
+
+  it("harga yang baru disimpan di baris ikut terbawa ke dialog Harga & biaya, sehingga dialog tidak menimpa dengan harga lama", async () => {
+    const user = userEvent.setup();
+    renderAdmin(<ServicePriceTable categories={CATEGORIES} categoryOptions={[]} />);
+    const row = screen.getByRole("row", { name: /Relaxing Facial/ });
+    await user.clear(within(row).getByRole("textbox", { name: "Harga berlaku Relaxing Facial" }));
+    await user.type(within(row).getByRole("textbox", { name: "Harga berlaku Relaxing Facial" }), "160000");
+    await user.click(within(row).getByRole("button", { name: "Simpan" }));
+    await waitFor(() => expect(within(row).queryByRole("button", { name: "Simpan" })).not.toBeInTheDocument());
+    await user.click(within(row).getByRole("button", { name: "Harga & biaya Relaxing Facial" }));
+    const dialog = await screen.findByRole("dialog", { name: "Harga & biaya Relaxing Facial" });
+    expect(within(dialog).getByLabelText("Harga berlaku")).toHaveValue("Rp 160.000");
   });
 });

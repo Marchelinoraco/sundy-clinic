@@ -52,7 +52,7 @@ beforeAll(async () => {
       finalizedAt: new Date(),
       lines: {
         create: [
-          { kind: "TREATMENT", name: "Facial Uji", quantity: 1, unitPrice: 250_000, serviceId: world.treatmentId, materialCost: 40_000, toolCost: 10_000, commissionAmount: 25_000, performerId: world.therapistId, performerName: "Terapis Uji" },
+          { kind: "TREATMENT", name: "Facial Uji", quantity: 1, unitPrice: 250_000, serviceId: world.treatmentId, materialCost: 40_000, toolCost: 10_000, otherCost: 8000, commissionAmount: 25_000, performerId: world.therapistId, performerName: "Terapis Uji" },
           {
             kind: "BARANG",
             name: "Serum C",
@@ -72,9 +72,9 @@ afterAll(async () => {
 });
 
 describe("harga pokok laporan untung-rugi", () => {
-  it("harga pokok = barang + bahan + alat; komisi tidak ikut; harga pokok kosong dihitung dan diperingatkan", async () => {
+  it("harga pokok = barang + bahan + alat + biaya lainnya; komisi tidak ikut; harga pokok kosong dihitung dan diperingatkan", async () => {
     const report = await getProfitReport({ period: monthPeriod(witaDateString(new Date()).slice(0, 7)), branchId: world.branchId });
-    expect(report.current.totals.cogs).toBe(3000 + 40_000 + 10_000);
+    expect(report.current.totals.cogs).toBe(3000 + 40_000 + 10_000 + 8000);
     expect(report.current.missingCost).toBe(1);
   });
 });

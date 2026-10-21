@@ -187,7 +187,7 @@ export function InvoiceFinalView({
           <Box component="section" aria-label="Margin" className="print:hidden" sx={{ alignSelf: "flex-end", width: "100%", maxWidth: 320, fontSize: "0.875rem", pt: 1, borderTop: 1, borderColor: "divider" }}>
             <Stack spacing={0.5}>
               <Stack direction="row" sx={row}><span>Harga pokok barang</span><span>{formatRupiah(detail.margin.stockCost)}</span></Stack>
-              <Stack direction="row" sx={row}><span>Bahan dan alat</span><span>{formatRupiah(detail.margin.materialCost + detail.margin.toolCost)}</span></Stack>
+              <Stack direction="row" sx={row}><span>Bahan, alat, dan lainnya</span><span>{formatRupiah(detail.margin.materialCost + detail.margin.toolCost + detail.margin.otherCost)}</span></Stack>
               <Stack direction="row" sx={row}><span>Komisi</span><span>{formatRupiah(detail.margin.commission)}</span></Stack>
               <Stack direction="row" sx={{ ...row, fontWeight: 600 }}><span>Margin</span><span>{formatRupiah(detail.margin.margin)}</span></Stack>
               {detail.margin.missingStockCost && (

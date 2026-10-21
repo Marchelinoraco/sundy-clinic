@@ -26,12 +26,20 @@ test("Admin Keuangan mengisi biaya treatment; resepsionis menagih dengan pelaksa
   await signIn(page, E2E_KEUANGAN);
   await page.goto("/admin/layanan");
   await tungguHidrasi(page);
-  await page.getByRole("button", { name: "Biaya Relaxing Facial" }).click();
-  const cost = page.getByRole("dialog", { name: "Biaya Relaxing Facial" });
+  await page.getByRole("button", { name: "Harga & biaya Relaxing Facial" }).click();
+  const cost = page.getByRole("dialog", { name: "Harga & biaya Relaxing Facial" });
+  // Total biaya di atas harga berlaku: Simpan tidak bisa ditekan (spec biaya lainnya BL4).
+  await cost.getByLabel("Biaya bahan").fill("200000");
+  await expect(cost.getByRole("alert")).toContainText("melebihi harga berlaku");
+  await expect(cost.getByRole("button", { name: "Simpan" })).toBeDisabled();
   await cost.getByLabel("Biaya bahan").fill("30000");
   await cost.getByLabel("Biaya alat").fill("5000");
-  await cost.getByLabel("Komisi").selectOption("NOMINAL");
+  await cost.getByLabel("Komisi", { exact: true }).selectOption("NOMINAL");
   await cost.getByLabel("Komisi per sesi").fill("15000");
+  await cost.getByRole("button", { name: "+ Biaya lainnya" }).click();
+  await cost.getByLabel("Nama biaya lainnya 1").fill("Laundry handuk");
+  await cost.getByLabel("Nominal biaya lainnya 1").fill("5000");
+  await expect(cost).toContainText("Total biaya per sesi Rp 55.000");
   await cost.getByRole("button", { name: "Simpan" }).click();
   await expect(cost).toBeHidden({ timeout: 30_000 });
 
@@ -56,7 +64,7 @@ test("Admin Keuangan mengisi biaya treatment; resepsionis menagih dengan pelaksa
   await page.goto(invoiceUrl);
   await tungguHidrasi(page);
   const margin = page.getByRole("region", { name: "Margin" });
-  await expect(margin).toContainText("Bahan dan alatRp 35.000", { timeout: 30_000 });
+  await expect(margin).toContainText("Bahan, alat, dan lainnyaRp 40.000", { timeout: 30_000 });
   await expect(margin).toContainText("KomisiRp 15.000");
   await page.goto("/admin/laporan?tab=komisi");
   await tungguHidrasi(page);

@@ -105,7 +105,7 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
           </>
         )}
         {tab === "margin" && (
-          <SectionCard title="Margin" description="Pendapatan bersih dikurangi harga pokok barang, bahan, alat, dan komisi treatment. Hanya tagihan final." flush>
+          <SectionCard title="Margin" description="Pendapatan bersih dikurangi harga pokok barang, bahan, alat, biaya lainnya, dan komisi treatment. Hanya tagihan final." flush>
             <MarginReportView report={await getMarginReport({ period, branchId })} />
           </SectionCard>
         )}

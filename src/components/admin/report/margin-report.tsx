@@ -22,8 +22,8 @@ const total = { "& > td": { fontWeight: 600 } } as const;
 /** Tab "Margin" laporan (spec harga modal 7): per kelompok, lalu per barang dan per treatment. */
 export function MarginReportView({ report }: { report: MarginReport }) {
   const goodsCost = report.goods.stockCost;
-  const goodsMargin = marginOf({ ...report.goods, materialCost: 0, toolCost: 0, commission: 0 });
-  const treatmentCost = report.treatment.materialCost + report.treatment.toolCost + report.treatment.commission;
+  const goodsMargin = marginOf({ ...report.goods, materialCost: 0, toolCost: 0, otherCost: 0, commission: 0 });
+  const treatmentCost = report.treatment.materialCost + report.treatment.toolCost + report.treatment.otherCost + report.treatment.commission;
   const treatmentMargin = marginOf({ ...report.treatment, stockCost: 0 });
   const totalMargin = goodsMargin + treatmentMargin + report.packageRevenue + report.serviceRevenue - report.invoiceDiscount;
   const empty = report.goods.revenue === 0 && report.treatment.revenue === 0 && report.packageRevenue === 0 && report.serviceRevenue === 0 && report.byTreatment.length === 0;
@@ -89,7 +89,7 @@ export function MarginReportView({ report }: { report: MarginReport }) {
         </Table>
       </TableContainer>
       <Typography variant="caption" component="p" sx={{ px: 2, mt: -2, color: "text.secondary" }}>
-        Pendapatan paket dihitung saat dijual; bahan, alat, dan komisi sesi paket yang terpakai sudah masuk baris Treatment.
+        Pendapatan paket dihitung saat dijual; bahan, alat, biaya lainnya, dan komisi sesi paket yang terpakai sudah masuk baris Treatment.
       </Typography>
 
       <Box>
@@ -135,6 +135,7 @@ export function MarginReportView({ report }: { report: MarginReport }) {
                 <TableCell align="right">Pendapatan</TableCell>
                 <TableCell align="right">Bahan</TableCell>
                 <TableCell align="right">Alat</TableCell>
+                <TableCell align="right">Lainnya</TableCell>
                 <TableCell align="right">Komisi</TableCell>
                 <TableCell align="right">Margin</TableCell>
               </TableRow>
@@ -147,8 +148,9 @@ export function MarginReportView({ report }: { report: MarginReport }) {
                   <TableCell align="right">{formatRupiah(row.revenue)}</TableCell>
                   <TableCell align="right">{formatRupiah(row.materialCost)}</TableCell>
                   <TableCell align="right">{formatRupiah(row.toolCost)}</TableCell>
+                  <TableCell align="right">{formatRupiah(row.otherCost)}</TableCell>
                   <TableCell align="right">{formatRupiah(row.commission)}</TableCell>
-                  <TableCell align="right">{formatRupiah(row.revenue - row.materialCost - row.toolCost - row.commission)}</TableCell>
+                  <TableCell align="right">{formatRupiah(row.revenue - row.materialCost - row.toolCost - row.otherCost - row.commission)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
