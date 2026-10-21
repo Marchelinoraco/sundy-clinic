@@ -161,9 +161,22 @@ model ServiceCategory {
   siteServices SiteService[]
 }
 
+/// Satu biaya lainnya per sesi treatment, diisi Admin Keuangan (spec biaya lainnya BL1, BL11). CHECK service_cost_line_values.
+model ServiceCostLine {
+  id        String  @id @default(cuid())
+  serviceId String
+  service   Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  name      String
+  /// Rupiah per sesi.
+  amount    Int
+  sortOrder Int     @default(0)
+
+  @@index([serviceId])
+}
+
 model Service {
-  id              String        @id @default(cuid())
-  slug            String        @unique
+  id              String            @id @default(cuid())
+  slug            String            @unique
   name            String
   description     String?
   /// Harga sebelum promo dalam rupiah penuh. null bila tidak ada harga coret.
@@ -172,22 +185,24 @@ model Service {
   promoPrice      Int
   /// Satuan harga yang tampil setelah angka, misal "/ unit" atau "/ 5 titik".
   priceNote       String?
-  durationMin     Int           @default(30)
+  durationMin     Int               @default(30)
   imageUrl        String?
   /// Ditampilkan di bagian "Our Signature Treatment" pada beranda.
-  isSignature     Boolean       @default(false)
-  isActive        Boolean       @default(true)
-  sortOrder       Int           @default(0)
+  isSignature     Boolean           @default(false)
+  isActive        Boolean           @default(true)
+  sortOrder       Int               @default(0)
   /// Menentukan antrean staf mana yang terpakai saat layanan ini dipesan:
   /// true wajib staf berperan DOKTER, false boleh DOKTER atau TERAPIS.
   /// Usulan awal — lihat keputusan D10 pada PRD, perlu dikonfirmasi pemilik.
-  requiresDoctor  Boolean       @default(false)
+  requiresDoctor  Boolean           @default(false)
   /// Biaya operasional per sesi (spec harga modal 5), diisi Admin Keuangan. CHECK service_cost_values.
-  materialCost    Int           @default(0)
-  toolCost        Int           @default(0)
+  materialCost    Int               @default(0)
+  toolCost        Int               @default(0)
   /// Komisi pelaksana per sesi: NOMINAL = rupiah, PERSEN = persen dari harga katalog; kosong = tanpa komisi.
   commissionKind  DiscountKind?
-  commissionValue Int           @default(0)
+  commissionValue Int               @default(0)
+  /// Biaya lainnya per sesi dengan nama bebas (spec biaya lainnya BL1).
+  costLines       ServiceCostLine[]
 
   categoryId String
   category   ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
@@ -1279,6 +1294,8 @@ model InvoiceLine {
   /// Salinan biaya saat final (total baris = biaya per sesi × jumlah) dan komisi pelaksana. CHECK invoice_line_cost_values.
   materialCost         Int                   @default(0)
   toolCost             Int                   @default(0)
+  /// Total biaya lainnya baris saat final, tanpa rincian nama (spec biaya lainnya BL2, BL9).
+  otherCost            Int                   @default(0)
   commissionAmount     Int                   @default(0)
 
   stockUses InvoiceStockUse[]
