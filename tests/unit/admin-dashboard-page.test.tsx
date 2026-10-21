@@ -8,6 +8,7 @@ import { countBillable, unpaidOverview } from "@/server/invoice-read";
 import { payablesOverview } from "@/server/payable-read";
 import { countStockAlerts } from "@/server/stock-read";
 import { listDoctorWorklist, listOnlineWork } from "@/server/encounter-read";
+import { listNurseWorklist } from "@/server/nurse";
 import { requireStaff } from "@/server/session";
 import { renderAdmin } from "./helpers/render-admin";
 
@@ -25,6 +26,7 @@ vi.mock("@/server/dispensing-read", () => ({ countPendingDispensings: vi.fn() })
 vi.mock("@/server/invoice-read", () => ({ countBillable: vi.fn(), unpaidOverview: vi.fn() }));
 vi.mock("@/server/counter-read", () => ({ countCounterAlerts: vi.fn(async () => 0) }));
 vi.mock("@/server/restock-read", () => ({ countPendingRestock: vi.fn(async () => 0) }));
+vi.mock("@/server/nurse", () => ({ listNurseWorklist: vi.fn(async () => []) }));
 
 const WORK = {
   pending: 0,
@@ -203,5 +205,33 @@ describe("halaman Dasbor (spec D 4)", () => {
     expect(within(screen.getByRole("region", { name: "Hutang" })).getByText("Gagal dimuat. Muat ulang halaman.")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Stok" })).toBeInTheDocument();
     log.mockRestore();
+  });
+
+  it("Perawat: hanya kotak Pasien hari ini miliknya, tanpa pekerjaan booking, daftar dokter, atau angka (spec peran perawat 6)", async () => {
+    vi.mocked(requireStaff).mockResolvedValue({ userId: "u5", staffId: "s5", name: "Sari Perawat", role: "TERAPIS", email: "p@sundy.test" } as never);
+    vi.mocked(listNurseWorklist).mockResolvedValue([
+      { appointmentId: "a1", startAt: new Date("2031-02-12T03:00:00Z"), patientName: "Mario Sului", patientRecordNumber: "SDY-2026-0013", serviceName: "Konsultasi", staffName: "dr. Diane", branchName: "SunDY Mahakeret", foodRecall: "BELUM", bia: "BELUM" },
+    ]);
+    await renderPage();
+    const region = screen.getByRole("region", { name: "Pasien hari ini" });
+    expect(within(region).getByRole("link", { name: "Tangani Mario Sului" })).toHaveAttribute("href", "/admin/perawat/a1");
+    expect(listDoctorWorklist).not.toHaveBeenCalled();
+    expect(screen.queryByRole("region", { name: "Pekerjaan hari ini" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Angka" })).toBeNull();
+  });
+
+  it("Super Admin: kotak perawat berjudul berbeda dari daftar dokter", async () => {
+    vi.mocked(requireStaff).mockResolvedValue({ userId: "u6", staffId: "s6", name: "Pemilik", role: "SUPER_ADMIN", email: "o@sundy.test" } as never);
+    vi.mocked(listNurseWorklist).mockResolvedValue([]);
+    // Bagian lain Super Admin bukan pokok uji ini: dibuat gagal dimuat agar tetap ringkas.
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    vi.mocked(getDashboardNumbers).mockRejectedValue(new Error("bukan pokok uji"));
+    vi.mocked(countStockAlerts).mockResolvedValue({ low: 0, expiringSoon: 0, expired: 0 });
+    vi.mocked(payablesOverview).mockRejectedValue(new Error("bukan pokok uji"));
+    await renderPage();
+    log.mockRestore();
+    expect(screen.getByRole("region", { name: "Food recall & BIA hari ini" })).toBeInTheDocument();
+    // Playwright mencocokkan nama region sebagian: judul kotak perawat tidak boleh memuat "Pasien hari ini" milik dokter.
+    expect(screen.getAllByRole("region", { name: /Pasien hari ini/ })).toHaveLength(1);
   });
 });

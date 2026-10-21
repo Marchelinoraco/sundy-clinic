@@ -131,8 +131,15 @@ describe("hak atas BIA per peran dan status booking", () => {
     expect(biaAccess("RESEPSIONIS", klinik("SELESAI"))).toEqual({ upload: false, editNumbers: false, voidAny: false, voidOwnFile: false, view: false });
   });
 
+  it("Perawat mengisi angka dan mengunggah saat Hadir, tidak membatalkan, tidak saat Selesai (spec peran perawat 7)", () => {
+    expect(biaAccess("TERAPIS", { status: "HADIR", channel: "KLINIK" })).toMatchObject({ upload: true, editNumbers: true, voidAny: false, view: false });
+    expect(biaAccess("TERAPIS", { status: "SELESAI", channel: "KLINIK" }).editNumbers).toBe(false);
+    expect(biaAccess("TERAPIS", { status: "HADIR", channel: "ONLINE" }).editNumbers).toBe(false);
+  });
+
   it("peran lain, booking online, dan status lain tidak punya akses menulis", () => {
-    for (const role of ["APOTEKER", "ADMIN_KEUANGAN", "TERAPIS"] as const) {
+    // Perawat (TERAPIS) punya hak sendiri; diuji terpisah (spec peran perawat 7).
+    for (const role of ["APOTEKER", "ADMIN_KEUANGAN"] as const) {
       expect(biaAccess(role, klinik("HADIR"))).toEqual({ upload: false, editNumbers: false, voidAny: false, voidOwnFile: false, view: false });
     }
     const online = biaAccess("DOKTER", { status: "HADIR", channel: "ONLINE" });

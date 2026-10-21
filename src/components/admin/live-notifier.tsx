@@ -6,7 +6,7 @@ import IconButton from "@mui/material/IconButton";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { eventHref, eventMessage, freshEvents, LIVE_POLL_MS, nextSince, watchedKinds, type LiveEvent } from "@/lib/live-events";
+import { eventHref, eventMessage, freshEvents, LIVE_MAX_LOOKBACK_MS, LIVE_POLL_MS, nextSince, watchedKinds, type LiveEvent } from "@/lib/live-events";
 import type { can } from "@/lib/permissions";
 
 type Role = Parameters<typeof can>[0];
@@ -45,6 +45,7 @@ export function LiveNotifier({ initialSince, role }: { initialSince: string; rol
   const sinceRef = useRef(initialSince);
   const seenRef = useRef(new Set<string>());
   const busyRef = useRef(false);
+  const hiddenSinceRef = useRef<number | null>(null);
 
   useEffect(() => {
     try {
@@ -107,15 +108,24 @@ export function LiveNotifier({ initialSince, role }: { initialSince: string; rol
   useEffect(() => {
     if (!enabled || !watching) return;
     const timer = setInterval(() => void poll(), LIVE_POLL_MS);
+    if (document.visibilityState === "hidden") hiddenSinceRef.current ??= Date.now();
     const onVisible = () => {
-      if (document.visibilityState === "visible") void poll();
+      if (document.visibilityState === "hidden") {
+        hiddenSinceRef.current ??= Date.now();
+        return;
+      }
+      // Peristiwa selama tab tersembunyi lebih dari batas server tidak pernah datang: segarkan layar (mis. daftar perawat).
+      const away = hiddenSinceRef.current === null ? 0 : Date.now() - hiddenSinceRef.current;
+      hiddenSinceRef.current = null;
+      if (away > LIVE_MAX_LOOKBACK_MS) router.refresh();
+      void poll();
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [enabled, watching, poll]);
+  }, [enabled, watching, poll, router]);
 
   if (!enabled || !watching) return null;
 

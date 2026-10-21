@@ -25,3 +25,10 @@ export const E2E_KEUANGAN = {
   password: process.env.E2E_KEUANGAN_PASSWORD ?? "kataSandiKeuanganE2e123",
   name: "Keuangan E2E",
 };
+
+/** Akun Perawat (enum TERAPIS) khusus uji (spec peran perawat 4). */
+export const E2E_PERAWAT = {
+  email: process.env.E2E_PERAWAT_EMAIL ?? "perawat-e2e@sundy.test",
+  password: process.env.E2E_PERAWAT_PASSWORD ?? "kataSandiPerawatE2e123",
+  name: "Perawat E2E",
+};

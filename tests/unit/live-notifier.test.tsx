@@ -154,4 +154,34 @@ describe("pemberitahuan langsung", () => {
     render(<LiveNotifier initialSince={SINCE} role="RESEPSIONIS" />);
     expect(screen.getByRole("button", { name: "Bunyi notifikasi mati" })).toBeInTheDocument();
   });
+
+  it("tersembunyi lebih dari 10 menit: kembali terlihat memuat ulang layar walau tanpa peristiwa baru (daftar perawat tidak basi)", async () => {
+    fetchMock.mockResolvedValue(respond({ serverTime: "2026-10-08T01:00:20.000Z", events: [] }));
+    render(<LiveNotifier initialSince={SINCE} role="TERAPIS" />);
+    Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await tick(11 * 60_000);
+    Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    expect(mocks.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("tersembunyi sebentar: kembali terlihat hanya memeriksa, tanpa memuat ulang layar", async () => {
+    fetchMock.mockResolvedValue(respond({ serverTime: "2026-10-08T01:00:20.000Z", events: [] }));
+    render(<LiveNotifier initialSince={SINCE} role="TERAPIS" />);
+    Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await tick(2 * 60_000);
+    Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    expect(mocks.refresh).not.toHaveBeenCalled();
+  });
 });

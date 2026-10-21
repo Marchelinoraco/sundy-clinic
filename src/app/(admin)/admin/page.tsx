@@ -3,6 +3,7 @@ import { AdminHeader } from "@/components/admin/admin-header";
 import { DashboardNumbersCard } from "@/components/admin/dashboard-numbers";
 import { DashboardWork } from "@/components/admin/dashboard-work";
 import { DoctorWorklistView } from "@/components/admin/doctor-worklist";
+import { NurseWorklistView } from "@/components/admin/nurse/nurse-worklist";
 import { OnlineWorkView } from "@/components/admin/online-work";
 import { PayableTiles } from "@/components/admin/stock/payable-tiles";
 import { StockAlertTiles } from "@/components/admin/stock/stock-alert-tiles";
@@ -25,6 +26,7 @@ import { DispensingTiles } from "@/components/admin/dispensing/dispensing-tiles"
 import { countPendingDispensings } from "@/server/dispensing-read";
 import { countBillable, unpaidOverview } from "@/server/invoice-read";
 import { payablesOverview } from "@/server/payable-read";
+import { listNurseWorklist } from "@/server/nurse";
 import { requireStaff } from "@/server/session";
 import { countStockAlerts } from "@/server/stock-read";
 import { countCounterAlerts } from "@/server/counter-read";
@@ -43,7 +45,7 @@ export default async function AdminDashboardPage({
   const canBook = can(staff.role, "booking:manage");
 
   // Setiap bagian dimuat sendiri-sendiri dan hanya bila berhak (spec D 4.6–4.7).
-  const [work, schedule, worklist, online, numbers, stock, payables, billable, unpaid, dispensing, profit, counter, restock] = await Promise.all([
+  const [work, schedule, worklist, online, numbers, stock, payables, billable, unpaid, dispensing, profit, counter, restock, nurse] = await Promise.all([
     canBook ? settle(getTodayWork(now), "pekerjaan hari ini") : null,
     canBook ? settle(getTodaySchedule(now), "jadwal hari ini") : null,
     can(staff.role, "record:read") ? settle(listDoctorWorklist(), "daftar dokter") : null,
@@ -57,7 +59,11 @@ export default async function AdminDashboardPage({
     can(staff.role, "profit:read") ? settle(getMonthProfit(), "laporan") : null,
     can(staff.role, "counter:read") && !can(staff.role, "stock:manage") ? settle(countCounterAlerts(), "stok meja") : null,
     can(staff.role, "stock:manage") ? settle(countPendingRestock(), "permintaan restock") : null,
+    can(staff.role, "nurse:work") ? settle(listNurseWorklist(now), "pasien perawat") : null,
   ]);
+  // Peran yang juga melihat daftar dokter (Super Admin) mendapat judul yang tidak memuat "Pasien hari ini" sama sekali:
+  // pembaca layar dan uji (yang mencocokkan nama sebagian) tidak boleh tertukar dengan kotak dokter.
+  const nurseTitle = can(staff.role, "record:read") ? "Food recall & BIA hari ini" : "Pasien hari ini";
 
   const dayLabel =
     schedule?.ok === true
@@ -82,6 +88,7 @@ export default async function AdminDashboardPage({
             ) : undefined
           }
         />
+        {nurse && (nurse.ok ? <NurseWorklistView rows={nurse.data} title={nurseTitle} /> : <FailedSection title={nurseTitle} />)}
         {work && (work.ok ? <DashboardWork work={work.data} today={witaDateString(now)} /> : <FailedSection title="Pekerjaan hari ini" />)}
         {schedule &&
           (schedule.ok ? (

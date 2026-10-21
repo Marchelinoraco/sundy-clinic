@@ -106,11 +106,17 @@ describe("pengelolaan akun staf", () => {
     expect(actions).toEqual(expect.arrayContaining(["staff.create", "staff.account.create", "staff.account.reset"]));
   });
 
-  it("Terapis ditambah tanpa akun dan tanpa kata sandi", async () => {
-    const { staffId, credentials } = await unwrap(createStaffWithAccount({ name: "Kelola Terapis Uji", role: "TERAPIS", email: mail("abaikan") }));
+  it("Perawat tanpa email ditambah tanpa akun dan tanpa kata sandi", async () => {
+    const { staffId, credentials } = await unwrap(createStaffWithAccount({ name: "Kelola Perawat Tanpa Akun", role: "TERAPIS", email: "  " }));
     expect(credentials).toBeNull();
     expect(await prisma.user.count({ where: { staffId } })).toBe(0);
-    expect(await prisma.user.count({ where: { email: mail("abaikan") } })).toBe(0);
+  });
+
+  it("Perawat dengan email mendapat akun, kata sandi sementara, dan wajib ganti kata sandi", async () => {
+    const { staffId, credentials } = await unwrap(createStaffWithAccount({ name: "Kelola Perawat Uji", role: "TERAPIS", email: mail("perawat") }));
+    expect(credentials!.email).toBe(mail("perawat"));
+    expect(await prisma.user.findFirstOrThrow({ where: { staffId } })).toMatchObject({ email: mail("perawat"), mustChangePassword: true });
+    expect((await login("perawat", credentials!.tempPassword)).user.email).toBe(mail("perawat"));
   });
 
   it("menolak email tidak sah, nama kosong, dan peran tak dikenal tanpa meninggalkan staf", async () => {
@@ -138,15 +144,16 @@ describe("pengelolaan akun staf", () => {
     expect(await prisma.user.count({ where: { email: mail("gagal") } })).toBe(0);
   });
 
-  it("membuat akun untuk staf yang sudah ada; menolak yang sudah punya akun, Terapis, dan staf nonaktif", async () => {
+  it("membuat akun untuk staf yang sudah ada, termasuk Perawat; menolak yang sudah punya akun dan staf nonaktif", async () => {
     const dokter = await prisma.staff.create({ data: { slug: `${SLUG}-dokter`, name: "Dokter Tanpa Akun", role: "DOKTER" } });
     const { credentials } = await unwrap(createAccountForStaff({ staffId: dokter.id, email: mail("dokter") }));
     expect((await login("dokter", credentials.tempPassword)).user.email).toBe(mail("dokter"));
     expect((await prisma.user.findFirstOrThrow({ where: { staffId: dokter.id } })).mustChangePassword).toBe(true);
 
     expect(await createAccountForStaff({ staffId: dokter.id, email: mail("lain") })).toEqual({ ok: false, error: "Staf ini sudah punya akun." });
-    const terapis = await prisma.staff.create({ data: { slug: `${SLUG}-terapis`, name: "Terapis", role: "TERAPIS" } });
-    expect(await createAccountForStaff({ staffId: terapis.id, email: mail("terapis") })).toEqual({ ok: false, error: "Staf berperan Terapis tidak bisa punya akun." });
+    const perawat = await prisma.staff.create({ data: { slug: `${SLUG}-perawat`, name: "Perawat Tanpa Akun", role: "TERAPIS" } });
+    const perawatAkun = await unwrap(createAccountForStaff({ staffId: perawat.id, email: mail("perawat-lama") }));
+    expect((await login("perawat-lama", perawatAkun.credentials.tempPassword)).user.email).toBe(mail("perawat-lama"));
     const off = await prisma.staff.create({ data: { slug: `${SLUG}-off`, name: "Nonaktif", role: "DOKTER", isActive: false } });
     expect(await createAccountForStaff({ staffId: off.id, email: mail("off") })).toEqual({ ok: false, error: "Aktifkan staf dulu sebelum membuat akunnya." });
     expect(await createAccountForStaff({ staffId: "tidak-ada", email: mail("z") })).toEqual({ ok: false, error: "Staf tidak ditemukan." });
@@ -160,12 +167,10 @@ describe("pengelolaan akun staf", () => {
     expect((await prisma.auditLog.findFirstOrThrow({ where: { action: "staff.update", entityId: staff.id } })).summary).toContain("Resepsionis → Apoteker");
   });
 
-  it("pengaman perubahan peran: tidak ke Terapis bila punya akun, tidak menurunkan diri sendiri, tidak menghabiskan Super Admin", async () => {
+  it("pengaman perubahan peran: staf berakun boleh jadi Perawat, tidak menurunkan diri sendiri, tidak menghabiskan Super Admin", async () => {
     const { staff } = await seedAccount("peran", "DOKTER");
-    expect(await updateStaff({ id: staff.id, name: "Staf peran", role: "TERAPIS", showOnWebsite: false })).toEqual({
-      ok: false,
-      error: "Staf yang punya akun tidak bisa berperan Terapis. Nonaktifkan akunnya atau pilih peran lain.",
-    });
+    await unwrap(updateStaff({ id: staff.id, name: "Staf peran", role: "TERAPIS", showOnWebsite: false }));
+    expect((await prisma.staff.findUniqueOrThrow({ where: { id: staff.id } })).role).toBe("TERAPIS");
     expect(await updateStaff({ id: actorStaffId, name: "Pemilik Uji", role: "DOKTER", showOnWebsite: false })).toEqual({ ok: false, error: "Anda tidak bisa menurunkan peran Anda sendiri." });
 
     // Super Admin kedua: menurunkannya boleh selama pemilik masih ada; setelah pemilik berhenti jadi Super Admin aktif, yang terakhir terlindungi.

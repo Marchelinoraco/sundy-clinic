@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isStaffRole } from "@/lib/staff-role";
-import { MIN_PASSWORD_LENGTH, roleCanHaveLogin, staffChangeBlock, validateLoginEmail, validateOwnPasswordChange, validateStaffName } from "@/lib/staff-accounts";
+import { loginEmailRequired, MIN_PASSWORD_LENGTH, staffChangeBlock, validateLoginEmail, validateOwnPasswordChange, validateStaffName } from "@/lib/staff-accounts";
 
 describe("validasi nama dan email", () => {
   it("nama dipangkas, dirapikan, dan dibatasi 100 karakter", () => {
@@ -22,9 +22,9 @@ describe("validasi nama dan email", () => {
 });
 
 describe("peran dan akun", () => {
-  it("hanya Terapis yang tidak boleh punya akun", () => {
-    expect(roleCanHaveLogin("TERAPIS")).toBe(false);
-    for (const role of ["SUPER_ADMIN", "DOKTER", "RESEPSIONIS", "APOTEKER", "ADMIN_KEUANGAN"] as const) expect(roleCanHaveLogin(role)).toBe(true);
+  it("email login wajib untuk semua peran kecuali Perawat", () => {
+    expect(loginEmailRequired("TERAPIS")).toBe(false);
+    for (const role of ["SUPER_ADMIN", "DOKTER", "RESEPSIONIS", "APOTEKER", "ADMIN_KEUANGAN"] as const) expect(loginEmailRequired(role)).toBe(true);
   });
 
   it("mengenali nama peran yang sah", () => {
@@ -57,9 +57,8 @@ describe("pengaman perubahan staf", () => {
     expect(block({ target: target({ role: "SUPER_ADMIN", isActive: false }), activeSuperAdminsWithLogin: 1, change: { kind: "role", to: "DOKTER" } })).toBeNull();
   });
 
-  it("staf yang punya akun tidak boleh dijadikan Terapis", () => {
-    expect(block({ change: { kind: "role", to: "TERAPIS" } })).toBe("Staf yang punya akun tidak bisa berperan Terapis. Nonaktifkan akunnya atau pilih peran lain.");
-    expect(block({ target: target({ hasLogin: false }), change: { kind: "role", to: "TERAPIS" } })).toBeNull();
+  it("staf yang punya akun boleh dijadikan Perawat", () => {
+    expect(block({ change: { kind: "role", to: "TERAPIS" } })).toBeNull();
   });
 });
 

@@ -2,11 +2,13 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { EMPTY_BIA_INPUT } from "@/lib/bia";
 import { prisma } from "@/lib/db";
+import { NURSE_OUT_OF_SCOPE } from "@/lib/nurse";
+import { combineWitaDateAndMinutes, witaDateString } from "@/lib/time";
 import { listBiaUploads, saveBiaNumbers, startBiaMeasurement, voidBiaFile, voidBiaMeasurement } from "@/server/bia-actions";
 import { cleanupBillingWorld, createBillingWorld, finalVisit, type BillingWorld } from "./invoice-world";
 import { unwrap } from "./unwrap";
 
-type Role = "SUPER_ADMIN" | "DOKTER" | "RESEPSIONIS" | "APOTEKER";
+type Role = "SUPER_ADMIN" | "DOKTER" | "RESEPSIONIS" | "APOTEKER" | "TERAPIS";
 const { actor } = vi.hoisted(() => ({
   actor: { userId: "u1", staffId: "s-dokter", name: "dr. Uji", role: "DOKTER" as Role, email: "uji@sundy.test" },
 }));
@@ -17,12 +19,38 @@ vi.mock("@/server/session", async () => {
       if (!can(actor.role, capability)) throw new Error(`forbidden: ${capability}`);
       return actor;
     }),
+    requireAnyCapability: vi.fn(async (...capabilities: Parameters<typeof can>[1][]) => {
+      if (!capabilities.some((capability) => can(actor.role, capability))) throw new Error(`forbidden: ${capabilities.join("|")}`);
+      return actor;
+    }),
   };
 });
 
 const SLUG = "aksi-bia";
 const WA = "6281200009102";
 const numbers = (patch: Partial<typeof EMPTY_BIA_INPUT> = {}) => ({ ...EMPTY_BIA_INPUT, bodyFatPercent: "28,5", muscleMassKg: "41", ...patch });
+
+/** Booking klinik Hadir hari ini (WITA) tanpa catatan dokter, untuk perawat (spec peran perawat 5). */
+let todaySlot = 0;
+async function todayVisit(world: BillingWorld): Promise<string> {
+  todaySlot += 1;
+  const startAt = combineWitaDateAndMinutes(witaDateString(new Date()), 6 * 60 + todaySlot * 37);
+  const appointment = await prisma.appointment.create({
+    data: {
+      code: `NRS-${world.slug.slice(0, 4).toUpperCase()}-${todaySlot}`,
+      type: "KONSULTASI",
+      startAt,
+      endAt: new Date(startAt.getTime() + 30 * 60_000),
+      status: "HADIR",
+      source: "WALK_IN",
+      branchId: world.branchId,
+      staffId: world.doctorId,
+      serviceId: world.consultationId,
+      patientId: world.patientId,
+    },
+  });
+  return appointment.id;
+}
 
 describe("aksi hasil BIA", () => {
   let world: BillingWorld;
@@ -166,5 +194,37 @@ describe("aksi hasil BIA", () => {
     expect(await saveBiaNumbers({ measurementId: id, version: "x" as never, numbers: numbers(), note: "" })).toEqual(expected);
     expect(await saveBiaNumbers({ measurementId: id, version: 1.5, numbers: numbers(), note: "" })).toEqual(expected);
     expect(await voidBiaMeasurement({ measurementId: undefined as never, reason: "Alasan" })).toEqual({ ok: false, error: "Pengukuran tidak ditemukan." });
+  });
+
+  describe("perawat (spec peran perawat 7)", () => {
+    beforeEach(() => {
+      actor.role = "TERAPIS";
+      actor.staffId = "s-perawat";
+      actor.name = "Perawat Uji";
+    });
+    afterAll(() => {
+      actor.name = "dr. Uji";
+    });
+
+    it("memulai pengukuran dan menyimpan angka untuk pasien hari ini; nama perawat tercatat", async () => {
+      const today = await todayVisit(world);
+      const measurementId = await measurementFor(today);
+      await unwrap(saveBiaNumbers({ measurementId, version: 1, numbers: numbers(), note: "" }));
+      expect(await prisma.biaMeasurement.findUniqueOrThrow({ where: { id: measurementId } })).toMatchObject({ numbersByName: "Perawat Uji", numbersById: "s-perawat" });
+    });
+
+    it("di luar batas (bukan hari ini) ditolak, baik memulai maupun menyimpan angka", async () => {
+      expect(await startBiaMeasurement(hadir)).toEqual({ ok: false, error: NURSE_OUT_OF_SCOPE });
+      actor.role = "DOKTER";
+      const measurementId = await measurementFor(hadir);
+      actor.role = "TERAPIS";
+      expect(await saveBiaNumbers({ measurementId, version: 1, numbers: numbers(), note: "" })).toEqual({ ok: false, error: NURSE_OUT_OF_SCOPE });
+    });
+
+    it("perawat tidak bisa membatalkan pengukuran", async () => {
+      const today = await todayVisit(world);
+      const measurementId = await measurementFor(today);
+      await expect(voidBiaMeasurement({ measurementId, reason: "Salah timbang" })).rejects.toThrow("forbidden: record:write");
+    });
   });
 });

@@ -1,10 +1,10 @@
 import type { StaffRole } from "@prisma/client";
 
-/** Nama peran di panel dan di jejak audit. */
+/** Nama peran di panel dan di jejak audit. Enum TERAPIS ditampilkan sebagai Perawat (spec peran perawat 3). */
 export const STAFF_ROLE_LABEL: Record<StaffRole, string> = {
   SUPER_ADMIN: "Super Admin",
   DOKTER: "Dokter",
-  TERAPIS: "Terapis",
+  TERAPIS: "Perawat",
   RESEPSIONIS: "Resepsionis",
   APOTEKER: "Apoteker",
   ADMIN_KEUANGAN: "Admin Keuangan",

@@ -80,3 +80,10 @@ export async function requireCapability(capability: Capability): Promise<Current
   if (!can(staff.role, capability)) forbidden();
   return staff;
 }
+
+/** Seperti requireCapability, tetapi cukup salah satu kemampuan (mis. angka BIA: dokter atau perawat). */
+export async function requireAnyCapability(...capabilities: Capability[]): Promise<CurrentStaff> {
+  const staff = await requireStaff();
+  if (!capabilities.some((capability) => can(staff.role, capability))) forbidden();
+  return staff;
+}

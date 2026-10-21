@@ -1,10 +1,11 @@
 // @vitest-environment node
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
-import { getBiaForVisit, getBiaHistory } from "@/server/bia-read";
+import { combineWitaDateAndMinutes, witaDateString } from "@/lib/time";
+import { getBiaForNurse, getBiaForVisit, getBiaHistory } from "@/server/bia-read";
 import { cleanupBillingWorld, createBillingWorld, finalVisit, type BillingWorld } from "./invoice-world";
 
-type Role = "SUPER_ADMIN" | "DOKTER" | "RESEPSIONIS";
+type Role = "SUPER_ADMIN" | "DOKTER" | "RESEPSIONIS" | "TERAPIS";
 const { actor } = vi.hoisted(() => ({ actor: { userId: "u1", staffId: "s-dokter", name: "dr. Uji", role: "DOKTER" as Role, email: "uji@sundy.test" } }));
 vi.mock("@/server/session", async () => {
   const { can } = await import("@/lib/permissions");
@@ -13,11 +14,37 @@ vi.mock("@/server/session", async () => {
       if (!can(actor.role, capability)) throw new Error(`forbidden: ${capability}`);
       return actor;
     }),
+    requireAnyCapability: vi.fn(async (...capabilities: Parameters<typeof can>[1][]) => {
+      if (!capabilities.some((capability) => can(actor.role, capability))) throw new Error(`forbidden: ${capabilities.join("|")}`);
+      return actor;
+    }),
   };
 });
 
 const SLUG = "baca-bia";
 const WA = "6281200009103";
+
+/** Booking klinik Hadir hari ini (WITA) tanpa catatan dokter, untuk perawat (spec peran perawat 5). */
+let todaySlot = 0;
+async function todayVisit(world: BillingWorld): Promise<string> {
+  todaySlot += 1;
+  const startAt = combineWitaDateAndMinutes(witaDateString(new Date()), 6 * 60 + todaySlot * 37);
+  const appointment = await prisma.appointment.create({
+    data: {
+      code: `NRS-${world.slug.slice(0, 4).toUpperCase()}-${todaySlot}`,
+      type: "KONSULTASI",
+      startAt,
+      endAt: new Date(startAt.getTime() + 30 * 60_000),
+      status: "HADIR",
+      source: "WALK_IN",
+      branchId: world.branchId,
+      staffId: world.doctorId,
+      serviceId: world.consultationId,
+      patientId: world.patientId,
+    },
+  });
+  return appointment.id;
+}
 
 describe("pembacaan hasil BIA", () => {
   let world: BillingWorld;
@@ -101,5 +128,38 @@ describe("pembacaan hasil BIA", () => {
     actor.role = "RESEPSIONIS";
     await expect(getBiaForVisit(first)).rejects.toThrow("forbidden: record:read");
     await expect(getBiaHistory(world.patientId)).rejects.toThrow("forbidden: record:read");
+  });
+
+  it("perawat: hanya pengukuran kunjungan ini, tanpa titik grafik pasien; null di luar batas", async () => {
+    await create(first, { bodyFatPercent: 30, numbersAt: new Date(), numbersById: "s1", numbersByName: "dr. Uji" });
+    const today = await todayVisit(world);
+    const active = await create(today, { bodyFatPercent: 28.5, numbersAt: new Date(), numbersById: "s2", numbersByName: "Perawat Uji" });
+    actor.role = "TERAPIS";
+    const view = await getBiaForNurse(today);
+    expect(view?.active?.id).toBe(active.id);
+    expect(view?.points).toEqual([]);
+    expect(view?.access).toMatchObject({ upload: true, editNumbers: true, voidAny: false, view: false });
+    expect(await getBiaForNurse(first)).toBeNull();
+    actor.role = "DOKTER";
+    await expect(getBiaForNurse(today)).rejects.toThrow("forbidden: nurse:work");
+  });
+
+  it("berkas yang diunggah sendiri bisa dibatalkan perawat; unggahan orang lain tidak", async () => {
+    const today = await todayVisit(world);
+    const active = await create(today);
+    const fileOf = (uploadedById: string, originalName: string) =>
+      prisma.biaFile.create({
+        data: { measurementId: active.id, storageName: `2035/01/${crypto.randomUUID()}.png`, originalName, mimeType: "image/png", sizeBytes: 5, sha256: "d".repeat(64), uploadedById, uploadedByName: "Uji" },
+      });
+    await fileOf(actor.staffId, "milik-saya.png");
+    await fileOf("s-lain", "orang-lain.png");
+    actor.role = "TERAPIS";
+    const view = await getBiaForNurse(today);
+    expect(view?.active?.files.map((f) => [f.originalName, f.canVoid])).toEqual([
+      ["milik-saya.png", true],
+      ["orang-lain.png", false],
+    ]);
+    actor.role = "DOKTER";
+    expect((await getBiaForVisit(today)).active?.files.every((f) => f.canVoid)).toBe(true);
   });
 });

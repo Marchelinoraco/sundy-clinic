@@ -26,6 +26,7 @@ const file = (patch: Record<string, unknown> = {}) => ({
   uploadedAt: new Date("2026-10-09T02:42:00Z"),
   previewable: true,
   voided: null,
+  canVoid: false,
   ...patch,
 });
 
@@ -115,5 +116,12 @@ describe("tab BIA halaman kunjungan", () => {
     expect(onUnsavedChange).toHaveBeenLastCalledWith(true);
     await userEvent.clear(screen.getByLabelText("Lemak tubuh (%)"));
     expect(onUnsavedChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it("perawat atau resepsionis bisa membatalkan unggahannya sendiri, tidak unggahan orang lain (spec peran perawat 7)", () => {
+    const active = biaMeasurement({ files: [file({ id: "f1", originalName: "milik-saya.png", canVoid: true }), file({ id: "f2", originalName: "orang-lain.png" })] });
+    renderAdmin(<BiaTab bia={biaVisit({ active, access: { upload: true, editNumbers: true, voidAny: false, voidOwnFile: true, view: false } })} appointmentId="a1" />);
+    expect(screen.getByRole("button", { name: "Batalkan milik-saya.png" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Batalkan orang-lain.png" })).toBeNull();
   });
 });

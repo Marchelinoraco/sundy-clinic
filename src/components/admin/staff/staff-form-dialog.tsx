@@ -16,7 +16,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { BIO_MAX, SPECIALTY_MAX, roleHasPublicProfile } from "@/lib/doctor-profile";
-import { roleCanHaveLogin } from "@/lib/staff-accounts";
+import { loginEmailRequired } from "@/lib/staff-accounts";
 import { STAFF_ROLE_LABEL } from "@/lib/staff-role";
 import { createStaffWithAccount, updateStaff, type Credentials, type StaffRow } from "@/server/staff";
 import { SelectField } from "../mui/select-field";
@@ -25,7 +25,7 @@ import { DoctorPhotoField } from "./doctor-photo-field";
 const ROLES = Object.keys(STAFF_ROLE_LABEL) as StaffRole[];
 
 /**
- * Tambah staf (dengan akun bila perannya boleh) atau ubah nama, peran, tampil di situs, dan, untuk dokter dan terapis,
+ * Tambah staf (dengan akun bila email diisi; Perawat boleh tanpa email) atau ubah nama, peran, tampil di situs, dan, untuk dokter dan perawat,
  * profil di halaman publik: spesialisasi, deskripsi, dan foto (spec kelola staf 5.1, spec profil dokter 5.1).
  */
 export function StaffFormDialog({
@@ -50,7 +50,8 @@ export function StaffFormDialog({
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const title = mode === "add" ? "Tambah staf" : `Ubah — ${row?.name ?? ""}`;
-  const needsEmail = mode === "add" && roleCanHaveLogin(role);
+  const needsEmail = mode === "add";
+  const emailOptional = !loginEmailRequired(role);
   const hasProfile = mode === "edit" && roleHasPublicProfile(role);
 
   async function submit(event: FormEvent) {
@@ -59,7 +60,7 @@ export function StaffFormDialog({
     setPending(true);
     try {
       if (mode === "add") {
-        const result = await createStaffWithAccount({ name, role, showOnWebsite, email: needsEmail ? email : undefined });
+        const result = await createStaffWithAccount({ name, role, showOnWebsite, email });
         if (!result.ok) {
           setError(result.error);
           return;
@@ -139,20 +140,19 @@ export function StaffFormDialog({
           {needsEmail && (
             <TextField
               id="staf-email"
-              label="Email login"
+              label={emailOptional ? "Email login (opsional)" : "Email login"}
               type="text"
               slotProps={{ htmlInput: { inputMode: "email" } }}
               autoComplete="off"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              helperText="Kata sandi sementara dibuat otomatis dan tampil sekali setelah disimpan."
+              helperText={
+                emailOptional
+                  ? "Kosongkan bila perawat ini hanya dijadwalkan tanpa memakai panel. Bila diisi, kata sandi sementara tampil sekali setelah disimpan."
+                  : "Kata sandi sementara dibuat otomatis dan tampil sekali setelah disimpan."
+              }
               fullWidth
             />
-          )}
-          {mode === "add" && !roleCanHaveLogin(role) && (
-            <Typography variant="body2" sx={{ color: "text.secondary" }}>
-              Terapis tidak punya akun login.
-            </Typography>
           )}
           {error && <Alert severity="error">{error}</Alert>}
         </Stack>

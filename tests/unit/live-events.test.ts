@@ -17,12 +17,24 @@ describe("peristiwa yang diawasi per peran", () => {
     expect(watchedKinds("SUPER_ADMIN")).toEqual(["RESEP_BARU", "RESEP_SELESAI", "SIAP_DITAGIH", "RESTOCK_BARU", "RESTOCK_SELESAI", "RESTOCK_DITOLAK"]);
   });
 
-  it("Dokter, Admin Keuangan, dan Terapis tidak mengawasi apa pun", () => {
-    for (const role of ["DOKTER", "ADMIN_KEUANGAN", "TERAPIS"] as const) expect(watchedKinds(role)).toEqual([]);
+  it("Dokter dan Admin Keuangan tidak mengawasi apa pun", () => {
+    for (const role of ["DOKTER", "ADMIN_KEUANGAN"] as const) expect(watchedKinds(role)).toEqual([]);
+  });
+
+  it("Perawat mengawasi check-in; Super Admin dan resepsionis tidak (spec peran perawat 9)", () => {
+    expect(watchedKinds("TERAPIS")).toEqual(["PASIEN_CHECKIN"]);
+    expect(watchedKinds("SUPER_ADMIN")).not.toContain("PASIEN_CHECKIN");
+    expect(watchedKinds("RESEPSIONIS")).not.toContain("PASIEN_CHECKIN");
   });
 });
 
 describe("pesan dan tautan", () => {
+  it("pesan dan tujuan check-in (spec peran perawat 9)", () => {
+    const e = event({ id: "PASIEN_CHECKIN:a1:1", kind: "PASIEN_CHECKIN", patientName: "Mario Sului", entityId: "a1", serviceName: "Konsultasi gizi", startLabel: "11.00" });
+    expect(eventMessage(e, "TERAPIS")).toEqual({ title: "Pasien check-in: Mario Sului", description: "Konsultasi gizi · 11.00" });
+    expect(eventHref(e, "TERAPIS")).toBe("/admin/perawat/a1");
+  });
+
   it("teks dan tujuan peristiwa restock (spec stok meja 5)", () => {
     const baru = event({ id: "RESTOCK_BARU:r1:1", kind: "RESTOCK_BARU", patientName: "Rina", entityId: "r1", count: 3 });
     expect(eventMessage(baru, "APOTEKER")).toEqual({ title: "Permintaan restock dari Rina: 3 barang", description: "Kirim stok dari gudang ke meja." });

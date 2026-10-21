@@ -79,6 +79,7 @@ export function encounterDetail(patch: Partial<EncounterDetail> = {}): Encounter
       submittedAt: null,
       completedAt: null,
       completedByName: null,
+      version: null,
     },
     ...patch,
   };

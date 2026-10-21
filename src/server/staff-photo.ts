@@ -22,7 +22,7 @@ const NOT_FOUND = "Staf tidak ditemukan.";
 export async function uploadStaffPhoto(input: { actor: CurrentStaff; staffId: string; bytes: Uint8Array }): Promise<{ photoUrl: string }> {
   const staff = await prisma.staff.findUnique({ where: { id: String(input.staffId ?? "") }, select: { id: true, name: true, role: true, photoUrl: true } });
   if (!staff) throw new UserFacingError(NOT_FOUND);
-  if (!roleHasPublicProfile(staff.role)) throw new UserFacingError("Foto hanya untuk dokter dan terapis.");
+  if (!roleHasPublicProfile(staff.role)) throw new UserFacingError("Foto hanya untuk dokter dan perawat.");
 
   const processed = await processDoctorPhoto(input.bytes);
   const name = await writeDoctorPhoto(staff.id, processed);

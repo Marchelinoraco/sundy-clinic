@@ -1,6 +1,7 @@
 import type { BiaMeasurement, BiaFile } from "@prisma/client";
 import { biaAccess, type BiaAccess, type BiaNumbers, type BiaPoint } from "@/lib/bia";
 import { prisma } from "@/lib/db";
+import { nurseCanWork } from "@/lib/nurse";
 import { requireCapability } from "@/server/session";
 
 export type BiaFileView = {
@@ -13,6 +14,8 @@ export type BiaFileView = {
   /** Bisa ditampilkan peramban (bukan HEIC). */
   previewable: boolean;
   voided: { at: Date; by: string; reason: string } | null;
+  /** Staf yang membaca boleh membatalkan berkas ini (unggahan sendiri, atau hak batal penuh). */
+  canVoid: boolean;
 };
 
 export type BiaMeasurementView = {
@@ -94,6 +97,7 @@ function toFileView(file: BiaFile): BiaFileView {
     uploadedByName: file.uploadedByName,
     uploadedAt: file.uploadedAt,
     previewable: file.mimeType !== "image/heic",
+    canVoid: false,
     voided: file.voidedAt ? { at: file.voidedAt, by: file.voidedByName ?? "", reason: file.voidReason ?? "" } : null,
   };
 }
@@ -131,6 +135,18 @@ function pointsOf(items: BiaMeasurementView[]): BiaPoint[] {
     .sort((a, b) => a.at.getTime() - b.at.getTime());
 }
 
+/**
+ * Hak batal per berkas untuk staf yang membaca (temuan tinjauan peran perawat): pemegang hak batal penuh semua berkas,
+ * pengunggah (perawat, resepsionis) hanya unggahannya sendiri selama booking Hadir — aturan yang sama dengan voidBiaFile.
+ */
+function withVoidRights(view: BiaMeasurementView, rows: { id: string; files: { id: string; uploadedById: string }[] }[], access: BiaAccess, staffId: string): BiaMeasurementView {
+  const uploaders = new Map(rows.flatMap((row) => row.files.map((file) => [file.id, file.uploadedById] as const)));
+  return {
+    ...view,
+    files: view.files.map((file) => ({ ...file, canVoid: !file.voided && (access.voidAny || (access.voidOwnFile && uploaders.get(file.id) === staffId)) })),
+  };
+}
+
 /** BIA satu kunjungan. Tidak mencatat audit: halaman Kunjungan sudah mencatat `encounter.view`; berkasnya dicatat saat dibuka. */
 export async function getBiaForVisit(appointmentId: string): Promise<BiaVisitView> {
   const staff = await requireCapability("record:read");
@@ -144,13 +160,37 @@ export async function getBiaForVisit(appointmentId: string): Promise<BiaVisitVie
       ? prisma.biaMeasurement.findMany({ where: { patientId: appointment.patientId, voidedAt: null }, select: MEASUREMENT_SELECT })
       : Promise.resolve([]),
   ]);
-  const views = rows.map(toView);
+  const access = biaAccess(staff.role, appointment ?? { status: "", channel: "KLINIK" });
+  const views = rows.map(toView).map((view) => withVoidRights(view, rows, access, staff.staffId));
   return {
     active: views.find((m) => !m.voided) ?? null,
     voided: views.filter((m) => m.voided),
-    access: biaAccess(staff.role, appointment ?? { status: "", channel: "KLINIK" }),
+    access,
     final: appointment?.status === "SELESAI",
     points: pointsOf(patientRows.map(toView)),
+  };
+}
+
+/**
+ * BIA kunjungan ini untuk halaman Tangani perawat (spec peran perawat 7): tanpa titik grafik dan tanpa
+ * pengukuran kunjungan lain. null di luar batas perawat.
+ */
+export async function getBiaForNurse(appointmentId: string, now: Date = new Date()): Promise<BiaVisitView | null> {
+  const staff = await requireCapability("nurse:work");
+  const appointment = await prisma.appointment.findUnique({
+    where: { id: String(appointmentId ?? "") },
+    select: { status: true, channel: true, startAt: true },
+  });
+  if (!appointment || !nurseCanWork(appointment, now)) return null;
+  const rows = await prisma.biaMeasurement.findMany({ where: { appointmentId: String(appointmentId) }, select: MEASUREMENT_SELECT, orderBy: { createdAt: "desc" } });
+  const access = biaAccess(staff.role, appointment);
+  const views = rows.map(toView).map((view) => withVoidRights(view, rows, access, staff.staffId));
+  return {
+    active: views.find((m) => !m.voided) ?? null,
+    voided: views.filter((m) => m.voided),
+    access,
+    final: false,
+    points: [],
   };
 }
 
@@ -168,13 +208,26 @@ export async function getBiaHistory(patientId: string): Promise<BiaHistory> {
 }
 
 
-/** Data satu berkas untuk rute buka berkas. Tanpa pemeriksaan hak: rute memeriksa login dan record:read lebih dulu. */
-export async function findBiaFileForViewer(
-  fileId: string,
-): Promise<{ storageName: string; originalName: string; mimeType: string; measurementId: string; appointmentCode: string } | null> {
+/**
+ * Data satu berkas untuk rute buka berkas. Tanpa pemeriksaan hak: rute memeriksa login dan record:read lebih dulu,
+ * atau batas perawat lewat `appointment` (spec peran perawat 7).
+ */
+export async function findBiaFileForViewer(fileId: string): Promise<{
+  storageName: string;
+  originalName: string;
+  mimeType: string;
+  measurementId: string;
+  appointmentCode: string;
+  appointment: { status: string; channel: "KLINIK" | "ONLINE"; startAt: Date };
+} | null> {
   const file = await prisma.biaFile.findUnique({
     where: { id: String(fileId ?? "") },
-    select: { storageName: true, originalName: true, mimeType: true, measurement: { select: { id: true, appointment: { select: { code: true } } } } },
+    select: {
+      storageName: true,
+      originalName: true,
+      mimeType: true,
+      measurement: { select: { id: true, appointment: { select: { code: true, status: true, channel: true, startAt: true } } } },
+    },
   });
   if (!file) return null;
   return {
@@ -183,5 +236,6 @@ export async function findBiaFileForViewer(
     mimeType: file.mimeType,
     measurementId: file.measurement.id,
     appointmentCode: file.measurement.appointment.code,
+    appointment: { status: file.measurement.appointment.status, channel: file.measurement.appointment.channel, startAt: file.measurement.appointment.startAt },
   };
 }

@@ -12,7 +12,6 @@ import type { GridColDef } from "@mui/x-data-grid";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
-import { roleCanHaveLogin } from "@/lib/staff-accounts";
 import { STAFF_ROLE_LABEL } from "@/lib/staff-role";
 import { resetStaffPassword, setStaffActive, type Credentials, type StaffRow } from "@/server/staff";
 import { AdminDataGrid } from "../mui/admin-data-grid";
@@ -135,7 +134,7 @@ export function StaffManager({ rows, currentStaffId }: { rows: StaffRow[]; curre
 
       <Menu id={MENU_ID} anchorEl={menu?.anchor ?? null} open={menu !== null} onClose={() => setMenu(null)} anchorOrigin={{ vertical: "bottom", horizontal: "right" }} transformOrigin={{ vertical: "top", horizontal: "right" }}>
         {target && <MenuItem onClick={() => open({ kind: "edit", row: target })}>Ubah</MenuItem>}
-        {target && !target.email && roleCanHaveLogin(target.role) && target.isActive && <MenuItem onClick={() => open({ kind: "account", row: target })}>Buat akun</MenuItem>}
+        {target && !target.email && target.isActive && <MenuItem onClick={() => open({ kind: "account", row: target })}>Buat akun</MenuItem>}
         {target?.email && <MenuItem onClick={() => open({ kind: "reset", row: target })}>Reset kata sandi</MenuItem>}
         {target?.email && <MenuItem onClick={() => open({ kind: "email", row: target })}>Ganti email</MenuItem>}
         {target && target.isActive && !self && (

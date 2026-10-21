@@ -117,6 +117,7 @@ describe("EncounterPageView", () => {
         submittedAt: new Date("2026-10-01T02:30:00Z"),
         completedAt: null,
         completedByName: null,
+        version: null,
       },
     });
     renderAdmin(<EncounterPageView bia={biaVisit()} encounter={encounter} canWrite />);
@@ -139,6 +140,7 @@ describe("EncounterPageView", () => {
         submittedAt: null,
         completedAt: null,
         completedByName: null,
+        version: null,
       },
     });
     renderAdmin(<EncounterPageView bia={biaVisit()} encounter={encounterDetail({ history: [visit] })} canWrite />);

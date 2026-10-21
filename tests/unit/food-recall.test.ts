@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   appendToSubjective,
+  FOOD_RECALL_AUTHOR_LABEL,
   foodRecallHeader,
   foodRecallView,
   foodRecallLinkState,
@@ -77,7 +78,7 @@ describe("validasi baris", () => {
 });
 
 describe("tabel dan teks untuk dokter", () => {
-  it("tabel 06.00–22.00 dengan tanda baris dokter", () => {
+  it("tabel 06.00–22.00 dengan penulis tiap baris", () => {
     const rows = foodRecallRows(ENTRIES);
     expect(rows).toHaveLength(17);
     expect(rows[0].label).toBe("06.00");
@@ -85,8 +86,8 @@ describe("tabel dan teks untuk dokter", () => {
       hour: 7,
       label: "07.00",
       entries: [
-        { kindLabel: "Makan/minum", text: "Nasi kuning 1 piring, teh manis", byDoctor: false },
-        { kindLabel: "Olahraga", text: "Jalan pagi 20 menit", byDoctor: true },
+        { kindLabel: "Makan/minum", text: "Nasi kuning 1 piring, teh manis", by: "CUSTOMER" },
+        { kindLabel: "Olahraga", text: "Jalan pagi 20 menit", by: "DOKTER" },
       ],
     });
   });
@@ -157,6 +158,7 @@ describe("foodRecallView", () => {
     submittedAt: new Date("2026-10-03T02:00:00Z"),
     completedAt: null,
     completedByName: null,
+    updatedAt: new Date("2026-10-03T02:00:00Z"),
   };
 
   it("belum ditawarkan: tanggal H-1 tetap dihitung dari tanggal booking", () => {
@@ -169,11 +171,52 @@ describe("foodRecallView", () => {
       submittedAt: null,
       completedAt: null,
       completedByName: null,
+      version: null,
     });
   });
 
   it("ditawarkan tetapi belum diisi, dan sudah diisi", () => {
     expect(foodRecallView(appointment, { ...stored, status: "DITAWARKAN", entries: [] }).state).toBe("WAITING");
-    expect(foodRecallView(appointment, stored)).toMatchObject({ state: "FILLED", entries: stored.entries });
+    expect(foodRecallView(appointment, stored)).toMatchObject({ state: "FILLED", entries: stored.entries, version: "2026-10-03T02:00:00.000Z" });
+  });
+});
+
+describe("food recall oleh perawat (spec peran perawat 7)", () => {
+  it("baris tanpa tanda dari perawat bertanda PERAWAT; tanda lama dipertahankan", () => {
+    const result = validateStaffEntries(
+      [
+        { hour: 7, kind: "MAKAN_MINUM", text: "Nasi", by: "CUSTOMER" },
+        { hour: 8, kind: "KAPSUL_OBAT", text: "Vitamin", by: "DOKTER" },
+        { hour: 9, kind: "OLAHRAGA", text: "Jalan" },
+      ],
+      "PERAWAT",
+    );
+    expect(result.ok && result.entries.map((entry) => entry.by)).toEqual(["CUSTOMER", "DOKTER", "PERAWAT"]);
+  });
+
+  it("tanpa argumen penulis, baris baru tetap milik dokter", () => {
+    const result = validateStaffEntries([{ hour: 9, kind: "OLAHRAGA", text: "Jalan" }]);
+    expect(result.ok && result.entries[0].by).toBe("DOKTER");
+  });
+
+  it("baris tabel membawa penulis, dan label penulis untuk lencana", () => {
+    expect(foodRecallRows([{ hour: 7, kind: "MAKAN_MINUM", text: "Nasi", by: "PERAWAT" }])[1].entries[0].by).toBe("PERAWAT");
+    expect(FOOD_RECALL_AUTHOR_LABEL).toEqual({ CUSTOMER: "pasien", DOKTER: "dokter", PERAWAT: "perawat" });
+  });
+
+  it("baris tersimpan bertanda PERAWAT terbaca", () => {
+    expect(parseStoredEntries([{ hour: 7, kind: "MAKAN_MINUM", text: "Nasi", by: "PERAWAT" }])).toHaveLength(1);
+  });
+
+  it("baris tersimpan dibaca per baris: penulis tak dikenal tetap tampil sebagai staf, baris rusak saja yang dibuang (aman untuk rilis berikutnya)", () => {
+    const entries = parseStoredEntries([
+      { hour: 7, kind: "MAKAN_MINUM", text: "Nasi", by: "CUSTOMER" },
+      { hour: 8, kind: "OLAHRAGA", text: "Jalan", by: "BIDAN" },
+      { hour: 9, kind: "MAKAN_MINUM" },
+    ]);
+    expect(entries).toEqual([
+      { hour: 7, kind: "MAKAN_MINUM", text: "Nasi", by: "CUSTOMER" },
+      { hour: 8, kind: "OLAHRAGA", text: "Jalan", by: "DOKTER" },
+    ]);
   });
 });

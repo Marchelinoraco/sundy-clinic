@@ -71,6 +71,7 @@ const patient: PatientDetail = {
         submittedAt: null,
         completedAt: null,
         completedByName: null,
+        version: null,
       },
     },
   ],
@@ -173,8 +174,8 @@ describe("PatientDetailView (spec D 5.3)", () => {
         numbers: { bodyFatPercent: 28.5, muscleMassKg: 41, visceralFat: 9, bmr: 1450, metabolicAge: 38, bodyWaterPercent: 47.5, boneMassKg: 2.6 },
         numbersAt: new Date(),
         files: [
-          { id: "f1", originalName: "hasil.pdf", mimeType: "application/pdf", sizeBytes: 10, uploadedByName: "Rina", uploadedAt: new Date(), previewable: true, voided: null },
-          { id: "f2", originalName: "buram.jpg", mimeType: "image/jpeg", sizeBytes: 10, uploadedByName: "Rina", uploadedAt: new Date(), previewable: true, voided: { at: new Date(), by: "dr. Diane", reason: "Foto buram" } },
+          { id: "f1", originalName: "hasil.pdf", mimeType: "application/pdf", sizeBytes: 10, uploadedByName: "Rina", uploadedAt: new Date(), previewable: true, voided: null, canVoid: false },
+          { id: "f2", originalName: "buram.jpg", mimeType: "image/jpeg", sizeBytes: 10, uploadedByName: "Rina", uploadedAt: new Date(), previewable: true, voided: { at: new Date(), by: "dr. Diane", reason: "Foto buram" }, canVoid: false },
         ],
       }),
       biaMeasurement({ id: "m1", appointmentCode: "SDY-0001", voided: { at: new Date(), by: "dr. Diane", reason: "Salah pasien" } }),
