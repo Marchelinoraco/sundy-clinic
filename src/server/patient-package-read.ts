@@ -2,42 +2,98 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { dateOnlyString } from "@/lib/stock";
 import { witaDateString } from "@/lib/time";
-import { packageState, type PackageEntryKindValue, type PackageOption, type PatientPackageState } from "@/lib/treatment-package";
+import { packageExpiresOn, packageState, type PackageEntryKindValue, type PackageOption, type PatientPackageState } from "@/lib/treatment-package";
 import { requireCapability } from "@/server/session";
 
 // Tanpa "use server": dibaca halaman server panel admin, tidak dipanggil browser.
 
 const day = (value: string) => new Date(`${value}T00:00:00Z`);
 
-/** Item paket aktif dan belum kedaluwarsa milik customer, dengan sisa sesudah semua draf yang menandainya (rencana paket keputusan 10). */
-export async function listPackageOptions(patientId: string): Promise<PackageOption[]> {
+/**
+ * Item paket aktif dan belum kedaluwarsa milik customer, dengan sisa sesudah semua draf yang menandainya (rencana paket
+ * keputusan 10). Dengan `invoiceId` draf, isi paket yang sedang dibeli di draf itu ikut, dikurangi baris draf yang sudah
+ * memakainya (spec paket barang PB3).
+ */
+export async function listPackageOptions(patientId: string, invoiceId?: string): Promise<PackageOption[]> {
   await requireCapability("invoice:read");
   const today = witaDateString(new Date());
   const items = await prisma.patientPackageItem.findMany({
     where: { patientPackage: { patientId: String(patientId ?? ""), status: "AKTIF", expiresOn: { gte: day(today) } } },
     orderBy: [{ patientPackage: { expiresOn: "asc" } }, { sortOrder: "asc" }],
-    select: { id: true, serviceId: true, serviceName: true, sessions: true, patientPackage: { select: { id: true, name: true, startsOn: true, expiresOn: true } } },
+    select: {
+      id: true,
+      serviceId: true,
+      itemId: true,
+      serviceName: true,
+      unit: true,
+      sessions: true,
+      patientPackage: { select: { id: true, name: true, startsOn: true, expiresOn: true } },
+    },
   });
-  if (items.length === 0) return [];
   const ids = items.map((item) => item.id);
-  const [sums, pending] = await Promise.all([
-    prisma.packageSessionEntry.groupBy({ by: ["patientPackageItemId"], where: { patientPackageItemId: { in: ids } }, _sum: { delta: true } }),
-    prisma.invoiceLine.groupBy({ by: ["patientPackageItemId"], where: { patientPackageItemId: { in: ids }, invoice: { status: "DRAF" } }, _sum: { quantity: true } }),
-  ]);
-  return items
-    .map((item) => ({
-      patientPackageItemId: item.id,
-      patientPackageId: item.patientPackage.id,
-      packageName: item.patientPackage.name,
-      serviceId: item.serviceId,
-      serviceName: item.serviceName,
-      sessions: item.sessions,
-      remaining:
-        (sums.find((row) => row.patientPackageItemId === item.id)?._sum.delta ?? 0) - (pending.find((row) => row.patientPackageItemId === item.id)?._sum.quantity ?? 0),
-      startsOn: dateOnlyString(item.patientPackage.startsOn),
-      expiresOn: dateOnlyString(item.patientPackage.expiresOn),
-    }))
-    .filter((option) => option.remaining > 0);
+  const [sums, pending] =
+    ids.length === 0
+      ? [[], []]
+      : await Promise.all([
+          prisma.packageSessionEntry.groupBy({ by: ["patientPackageItemId"], where: { patientPackageItemId: { in: ids } }, _sum: { delta: true } }),
+          prisma.invoiceLine.groupBy({ by: ["patientPackageItemId"], where: { patientPackageItemId: { in: ids }, invoice: { status: "DRAF" } }, _sum: { quantity: true } }),
+        ]);
+  const owned: PackageOption[] = items.map((item) => ({
+    patientPackageItemId: item.id,
+    purchaseLineId: null,
+    patientPackageId: item.patientPackage.id,
+    packageName: item.patientPackage.name,
+    serviceId: item.serviceId,
+    itemId: item.itemId,
+    serviceName: item.serviceName,
+    unit: item.unit,
+    sessions: item.sessions,
+    remaining:
+      (sums.find((row) => row.patientPackageItemId === item.id)?._sum.delta ?? 0) - (pending.find((row) => row.patientPackageItemId === item.id)?._sum.quantity ?? 0),
+    startsOn: dateOnlyString(item.patientPackage.startsOn),
+    expiresOn: dateOnlyString(item.patientPackage.expiresOn),
+  }));
+  return [...owned, ...(invoiceId ? await purchasedHere(String(invoiceId), today) : [])].filter((option) => option.remaining > 0);
+}
+
+/** Isi paket yang dibeli di draf ini, menurut katalog; sisa = jumlah katalog dikurangi baris draf yang memakainya. */
+async function purchasedHere(invoiceId: string, today: string): Promise<PackageOption[]> {
+  const lines = await prisma.invoiceLine.findMany({
+    where: { invoiceId, kind: "PAKET", invoice: { status: "DRAF" } },
+    orderBy: { sortOrder: "asc" },
+    select: {
+      id: true,
+      name: true,
+      treatmentPackage: {
+        select: {
+          validDays: true,
+          items: { orderBy: { sortOrder: "asc" }, select: { serviceId: true, itemId: true, sessions: true, service: { select: { name: true } }, item: { select: { name: true, unit: true } } } },
+        },
+      },
+      packageSourceUses: { select: { kind: true, serviceId: true, itemId: true, quantity: true } },
+    },
+  });
+  return lines.flatMap((line) =>
+    (line.treatmentPackage?.items ?? []).map((item) => {
+      const used = line.packageSourceUses
+        .filter((use) => (item.itemId ? use.kind === "BARANG" && use.itemId === item.itemId : use.kind === "TREATMENT" && use.serviceId === item.serviceId))
+        .reduce((sum, use) => sum + use.quantity, 0);
+      return {
+        patientPackageItemId: null,
+        purchaseLineId: line.id,
+        patientPackageId: `baru:${line.id}`,
+        packageName: line.name,
+        serviceId: item.serviceId,
+        itemId: item.itemId,
+        serviceName: item.service?.name ?? item.item?.name ?? "",
+        unit: item.item?.unit ?? null,
+        sessions: item.sessions,
+        remaining: item.sessions - used,
+        startsOn: today,
+        expiresOn: packageExpiresOn(today, line.treatmentPackage!.validDays),
+      };
+    }),
+  );
 }
 
 export type PatientPackageSummary = {
@@ -46,7 +102,8 @@ export type PatientPackageSummary = {
   startsOn: string;
   expiresOn: string;
   state: PatientPackageState;
-  items: { serviceName: string; sessions: number; remaining: number }[];
+  /** `unit` terisi untuk barang (spec paket barang PB6). */
+  items: { serviceName: string; unit: string | null; sessions: number; remaining: number }[];
   purchaseInvoice: { id: string; number: string | null };
   patient: { id: string; name: string; medicalRecordNumber: string };
 };
@@ -74,7 +131,7 @@ const SUMMARY_SELECT = {
   status: true,
   patient: { select: { id: true, name: true, medicalRecordNumber: true } },
   purchaseLine: { select: { invoice: { select: { id: true, number: true } } } },
-  items: { orderBy: { sortOrder: "asc" }, select: { id: true, serviceName: true, sessions: true } },
+  items: { orderBy: { sortOrder: "asc" }, select: { id: true, serviceName: true, unit: true, sessions: true } },
 } as const;
 type SummaryRow = Prisma.PatientPackageGetPayload<{ select: typeof SUMMARY_SELECT }>;
 
@@ -89,6 +146,7 @@ async function summarize(rows: SummaryRow[]): Promise<(PatientPackageSummary & {
   const summaries = rows.map((row) => {
     const items = row.items.map((item) => ({
       serviceName: item.serviceName,
+      unit: item.unit,
       sessions: item.sessions,
       remaining: sums.find((sum) => sum.patientPackageItemId === item.id)?._sum.delta ?? 0,
     }));

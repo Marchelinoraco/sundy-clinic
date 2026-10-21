@@ -7,6 +7,8 @@ export const PACKAGE_NAME_MAX = 120;
 export const PACKAGE_DESCRIPTION_MAX = 500;
 export const PACKAGE_VALID_DAYS_MAX = 3650;
 export const PACKAGE_SESSIONS_MAX = 100;
+/** Jumlah satuan barang per isi paket (spec paket barang PB1). */
+export const PACKAGE_GOODS_MAX = 1000;
 export const PACKAGE_REASON_MAX = 200;
 const LAST_DATE = "2100-12-31";
 
@@ -27,8 +29,18 @@ export const PACKAGE_STATE_LABEL: Record<PatientPackageState, string> = {
   DIBATALKAN: "Dibatalkan",
 };
 
-export type TreatmentPackageInput = { name: string; price: number; validDays: number; description: string; items: { serviceId: string; sessions: number }[] };
-export type ValidTreatmentPackage = Omit<TreatmentPackageInput, "description"> & { description: string | null };
+/** Isi paket: treatment (serviceId, jumlah sesi) atau barang stok (itemId, jumlah satuan) — spec paket barang PB1. */
+export type TreatmentPackageInput = {
+  name: string;
+  price: number;
+  validDays: number;
+  description: string;
+  items: { serviceId?: string; itemId?: string; sessions: number }[];
+};
+export type ValidTreatmentPackage = Omit<TreatmentPackageInput, "description" | "items"> & {
+  description: string | null;
+  items: { serviceId: string | null; itemId: string | null; sessions: number }[];
+};
 
 const INVALID_FORM = "Data tidak sah. Muat ulang halaman lalu coba lagi.";
 const fail = <T>(message: string): Validation<T> => ({ ok: false, message });
@@ -47,15 +59,24 @@ export function validateTreatmentPackage(raw: unknown): Validation<ValidTreatmen
   if (!isWhole(input.price, 0, MAX_AMOUNT)) return fail("Harga paket tidak sah.");
   if (!isWhole(input.validDays, 1, PACKAGE_VALID_DAYS_MAX)) return fail(`Masa berlaku 1–${PACKAGE_VALID_DAYS_MAX} hari.`);
   if (description.length > PACKAGE_DESCRIPTION_MAX) return fail(`Keterangan paling banyak ${PACKAGE_DESCRIPTION_MAX} karakter.`);
-  if (input.items.length === 0) return fail("Tambahkan minimal satu treatment.");
+  if (input.items.length === 0) return fail("Tambahkan minimal satu isi paket.");
   const items: ValidTreatmentPackage["items"] = [];
   for (const raw of input.items as unknown[]) {
     if (typeof raw !== "object" || raw === null) return fail(INVALID_FORM);
     const item = raw as Record<string, unknown>;
+    const goods = "itemId" in item && item.itemId !== undefined;
+    if (goods && "serviceId" in item && item.serviceId !== undefined) return fail(INVALID_FORM);
+    if (goods) {
+      if (typeof item.itemId !== "string" || !item.itemId) return fail("Pilih barang.");
+      if (!isWhole(item.sessions, 1, PACKAGE_GOODS_MAX)) return fail(`Jumlah barang 1–${PACKAGE_GOODS_MAX}.`);
+      if (items.some((other) => other.itemId === item.itemId)) return fail("Barang yang sama tidak boleh dua kali.");
+      items.push({ serviceId: null, itemId: item.itemId, sessions: item.sessions as number });
+      continue;
+    }
     if (typeof item.serviceId !== "string" || !item.serviceId) return fail("Pilih treatment.");
     if (!isWhole(item.sessions, 1, PACKAGE_SESSIONS_MAX)) return fail(`Jumlah sesi 1–${PACKAGE_SESSIONS_MAX}.`);
     if (items.some((other) => other.serviceId === item.serviceId)) return fail("Treatment yang sama tidak boleh dua kali.");
-    items.push({ serviceId: item.serviceId, sessions: item.sessions as number });
+    items.push({ serviceId: item.serviceId, itemId: null, sessions: item.sessions as number });
   }
   return { ok: true, value: { name, price: input.price as number, validDays: input.validDays as number, description: description || null, items } };
 }
@@ -65,8 +86,13 @@ export function packageExpiresOn(startsOn: string, validDays: number): string {
   return addDaysToDateString(startsOn, validDays - 1);
 }
 
-export function packageContentsLabel(items: readonly { name: string; sessions: number }[]): string {
-  return items.map((item) => `${item.sessions}× ${item.name}`).join(", ");
+/** Satu isi paket: "4× Facial" untuk treatment, "30 kapsul Slimming" untuk barang. */
+function contentLabel(item: { name: string; sessions: number; unit?: string | null }): string {
+  return item.unit ? `${item.sessions} ${item.unit} ${item.name}` : `${item.sessions}× ${item.name}`;
+}
+
+export function packageContentsLabel(items: readonly { name: string; sessions: number; unit?: string | null }[]): string {
+  return items.map(contentLabel).join(", ");
 }
 
 export function packageState(input: { status: "AKTIF" | "DIBATALKAN"; expiresOn: string; remaining: number }, today: string): PatientPackageState {
@@ -76,28 +102,60 @@ export function packageState(input: { status: "AKTIF" | "DIBATALKAN"; expiresOn:
   return "AKTIF";
 }
 
-/** Satu item paket customer yang bisa dipakai di draf; `remaining` sudah dikurangi baris draf lain (rencana paket keputusan 6). */
+/**
+ * Satu isi paket yang bisa dipakai di draf; `remaining` sudah dikurangi baris draf lain (rencana paket keputusan 6).
+ * Paket customer punya `patientPackageItemId`; paket yang dibeli di draf yang sama punya `purchaseLineId` (baris PAKET-nya)
+ * dan `patientPackageId` "baru:<purchaseLineId>" (spec paket barang PB3).
+ */
 export type PackageOption = {
-  patientPackageItemId: string;
+  patientPackageItemId: string | null;
+  purchaseLineId: string | null;
   patientPackageId: string;
   packageName: string;
-  serviceId: string;
+  serviceId: string | null;
+  itemId: string | null;
+  /** Nama isi: treatment atau barang. */
   serviceName: string;
+  /** Satuan barang; kosong untuk treatment. */
+  unit: string | null;
   sessions: number;
   remaining: number;
   startsOn: string;
   expiresOn: string;
 };
 
-/** Paket yang bisa dipakai untuk treatment ini, kedaluwarsa terdekat lebih dulu (spec paket 6). */
-export function packageOptionsFor(options: readonly PackageOption[], serviceId: string, quantity: number): PackageOption[] {
+export const optionKey = (option: Pick<PackageOption, "patientPackageItemId" | "purchaseLineId" | "serviceId" | "itemId">): string =>
+  option.patientPackageItemId ?? `baru:${option.purchaseLineId}:${option.serviceId ?? option.itemId}`;
+
+/**
+ * Paket yang bisa dipakai untuk baris ini, kedaluwarsa terdekat lebih dulu (spec paket 6): treatment dicocokkan
+ * lewat layanan, barang lewat barang stok (spec paket barang PB4).
+ */
+export function packageOptionsFor(
+  options: readonly PackageOption[],
+  line: { kind: string; serviceId: string | null; itemId: string | null },
+  quantity: number,
+): PackageOption[] {
+  const matches = (option: PackageOption) =>
+    line.kind === "TREATMENT" ? line.serviceId !== null && option.serviceId === line.serviceId : line.kind === "BARANG" && line.itemId !== null && option.itemId === line.itemId;
   return options
-    .filter((option) => option.serviceId === serviceId && option.remaining >= quantity)
-    .sort((a, b) => a.expiresOn.localeCompare(b.expiresOn) || a.startsOn.localeCompare(b.startsOn) || a.patientPackageItemId.localeCompare(b.patientPackageItemId));
+    .filter((option) => matches(option) && option.remaining >= quantity)
+    .sort((a, b) => a.expiresOn.localeCompare(b.expiresOn) || a.startsOn.localeCompare(b.startsOn) || optionKey(a).localeCompare(optionKey(b)));
 }
 
-export function sessionNote(input: { packageName: string; remaining: number; sessions: number }): string {
-  return `Sesi paket ${input.packageName} · sisa ${input.remaining} dari ${input.sessions}`;
+/** "Sesi paket A · sisa 3 dari 5" untuk treatment, "Jatah paket A · sisa 20 dari 30 kapsul" untuk barang. */
+export function sessionNote(input: { packageName: string; remaining: number; sessions: number; unit?: string | null }): string {
+  return input.unit
+    ? `Jatah paket ${input.packageName} · sisa ${input.remaining} dari ${input.sessions} ${input.unit}`
+    : `Sesi paket ${input.packageName} · sisa ${input.remaining} dari ${input.sessions}`;
+}
+
+/** Teks satu pilihan paket di dialog "Pakai". */
+export function packageTargetLabel(option: PackageOption): string {
+  const left = option.unit ? `${option.remaining} ${option.unit}` : `${option.remaining}`;
+  return option.purchaseLineId
+    ? `${option.packageName} (dibeli di tagihan ini) · sisa ${left}`
+    : `${option.packageName} · sisa ${left} · berlaku s.d. ${dateLabel(option.expiresOn)}`;
 }
 
 export function validateExtension(raw: unknown, ctx: { currentExpiresOn: string }): Validation<{ expiresOn: string; reason: string }> {
@@ -118,7 +176,8 @@ export function packageOptionsSummary(options: readonly PackageOption[]): string
   const groups = new Map<string, PackageOption[]>();
   for (const option of options) groups.set(option.patientPackageId, [...(groups.get(option.patientPackageId) ?? []), option]);
   return [...groups.values()].map((items) => {
-    const sessions = items.map((item) => `${item.remaining} ${item.serviceName}`).join(", ");
+    const sessions = items.map((item) => (item.unit ? `${item.remaining} ${item.unit} ${item.serviceName}` : `${item.remaining} ${item.serviceName}`)).join(", ");
+    if (items[0].purchaseLineId) return `${items[0].packageName} (dibeli di tagihan ini: ${sessions})`;
     return `${items[0].packageName} (sisa ${sessions}; berlaku s.d. ${dateLabel(items[0].expiresOn)})`;
   });
 }

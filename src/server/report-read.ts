@@ -115,7 +115,7 @@ export type ProfitReport = {
   comparison: Comparison;
   trend: TrendPoint[];
   /** Sesi paket terpakai per treatment di periode berjalan (spec paket 8). */
-  packageSessions: { name: string; sessions: number }[];
+  packageSessions: { name: string; unit: string | null; sessions: number }[];
 };
 
 /** Laporan satu periode dan cabang, dengan pembanding dan tren 12 bulan (spec laporan 3, 7). */

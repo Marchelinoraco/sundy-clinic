@@ -92,7 +92,11 @@ export default async function ReportPage({ searchParams }: { searchParams: Promi
               <CashFlowCard cash={report.current.cash} />
             </SectionCard>
           </Box>
-          <SectionCard title="Sesi paket terpakai" description="Sesi dari paket customer yang dipakai di tagihan final periode ini; pendapatannya sudah dihitung saat paket dijual." flush>
+          <SectionCard
+            title="Sesi paket terpakai"
+            description="Sesi dan barang dari paket customer yang dipakai di tagihan final periode ini; pendapatannya sudah dihitung saat paket dijual."
+            flush
+          >
             <PackageSessionsTable rows={report.packageSessions} />
           </SectionCard>
           <SectionCard title="Tren 12 bulan">

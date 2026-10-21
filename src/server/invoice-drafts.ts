@@ -1,5 +1,6 @@
 "use server";
 
+import type { Prisma } from "@prisma/client";
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
 import { prisma } from "@/lib/db";
 import { CONSULTATION_SERVICE_SLUG } from "@/lib/booking-rules";
@@ -37,9 +38,10 @@ const PROMO_SELECT = { promoName: true, promoKind: true, promoValue: true, promo
 const OVER_LIMIT = "Diskon di atas 20% diberikan oleh Admin Keuangan.";
 const NO_DISCOUNT = { discountAmount: 0, discountReason: null, discountSource: null } as const;
 const PACKAGE_QUANTITY = "Jumlah paket selalu 1. Tambahkan baris paket lagi untuk paket berikutnya.";
-const NOT_PACKAGE_LINE = "Hanya baris treatment dari katalog yang bisa memakai sesi paket.";
+const NOT_PACKAGE_LINE = "Hanya baris treatment atau barang dari katalog yang bisa memakai paket.";
 const PACKAGE_PRICE = "Baris sesi paket selalu Rp 0. Klik Lepas paket untuk menagih harga biasa.";
 const PACKAGE_DISCOUNT = "Baris sesi paket tidak bisa diberi diskon.";
+const TAKE_QUANTITY = "Jumlah barang 1–9999.";
 const DISPENSED_REMOVE = "Obat dari penyerahan tidak bisa dihapus. Minta Apoteker membuka kembali penyerahan.";
 const PRESCRIPTION_QUANTITY = "Jumlah obat dari resep dokter diubah lewat tombol Kurangi.";
 const PRESCRIPTION_REMOVE = "Obat dari resep dokter dihapus lewat tombol Kurangi (jumlah 0) dengan alasan.";
@@ -319,47 +321,94 @@ export async function addPackageLine(input: { invoiceId: string; version: number
   });
 }
 
+/** Sumber jatah paket untuk satu baris: paket customer (patientPackageItemId) atau paket yang dibeli di draf ini (purchaseLineId). */
+type PackageSource = { patientPackageItemId?: string | null; purchaseLineId?: string | null };
+type PackageTarget = { kind: "TREATMENT" | "BARANG"; serviceId: string | null; itemId: string | null; name: string; quantity: number };
+type PackageLink = { patientPackageItemId: string | null; packageSourceLineId: string | null; summary: string };
+
+function shortMessage(target: PackageTarget, packageName: string, available: number): string {
+  const left = Math.max(0, available);
+  return target.kind === "BARANG"
+    ? `Jatah ${target.name} di paket ${packageName} tinggal ${left}. Kurangi jumlahnya.`
+    : `Sesi ${target.name} di paket ${packageName} tinggal ${left}. Lepas paket atau kurangi jumlahnya.`;
+}
+
 /**
- * Tandai baris treatment sebagai sesi paket customer (spec paket 6): Rp 0 tanpa diskon. Sisa dicek perkiraan di sini
- * (dikurangi draf lain); yang mengikat adalah pengecekan saat finalisasi.
+ * Periksa sumber jatah untuk satu baris (spec paket 6; paket barang PB3–PB4) dan kembalikan kolom tautannya. Sisa dicek
+ * perkiraan di sini (dikurangi draf lain, atau baris lain di draf ini untuk paket yang baru dibeli); yang mengikat adalah
+ * pengecekan saat finalisasi.
  */
-export async function applyPackageSession(input: { invoiceId: string; version: number; lineId: string; patientPackageItemId: string }): Promise<EditResult> {
+async function packageLink(tx: Prisma.TransactionClient, invoice: { id: string; patientId: string }, target: PackageTarget, source: PackageSource, exceptLineId: string | null): Promise<PackageLink> {
+  const content = target.kind === "TREATMENT" ? { serviceId: target.serviceId } : { itemId: target.itemId };
+  const others = exceptLineId ? { id: { not: exceptLineId } } : {};
+  if (source.purchaseLineId) {
+    const purchase = await tx.invoiceLine.findFirst({
+      where: { id: String(source.purchaseLineId), invoiceId: invoice.id, kind: "PAKET" },
+      select: { id: true, name: true, treatmentPackageId: true },
+    });
+    if (!purchase?.treatmentPackageId) throw new UserFacingError("Paket tidak ditemukan.");
+    const item = await tx.treatmentPackageItem.findFirst({ where: { packageId: purchase.treatmentPackageId, ...content }, select: { sessions: true } });
+    if (!item) throw new UserFacingError(`Paket ${purchase.name} tidak berisi ${target.kind === "TREATMENT" ? "treatment " : ""}${target.name}.`);
+    const used = await tx.invoiceLine.aggregate({ where: { invoiceId: invoice.id, packageSourceLineId: purchase.id, kind: target.kind, ...content, ...others }, _sum: { quantity: true } });
+    const available = item.sessions - (used._sum.quantity ?? 0);
+    if (available < target.quantity) throw new UserFacingError(shortMessage(target, purchase.name, available));
+    return { patientPackageItemId: null, packageSourceLineId: purchase.id, summary: `Pakai paket ${purchase.name} (dibeli di tagihan ini) untuk ${target.name}` };
+  }
+
+  const item = await tx.patientPackageItem.findUnique({
+    where: { id: String(source.patientPackageItemId ?? "") },
+    select: { id: true, serviceId: true, itemId: true, patientPackage: { select: { name: true, patientId: true, status: true, expiresOn: true } } },
+  });
+  if (!item) throw new UserFacingError("Paket tidak ditemukan.");
+  const pkg = item.patientPackage;
+  if (pkg.patientId !== invoice.patientId) throw new UserFacingError("Paket ini milik customer lain.");
+  if (pkg.status !== "AKTIF") throw new UserFacingError(`Paket ${pkg.name} sudah dibatalkan.`);
+  const expires = dateOnlyString(pkg.expiresOn);
+  if (expires < witaDateString(new Date())) {
+    throw new UserFacingError(`Paket ${pkg.name} sudah kedaluwarsa ${dateLabel(expires)}. Lepas paket atau minta Admin Keuangan memperpanjang.`);
+  }
+  const matches = target.kind === "TREATMENT" ? target.serviceId !== null && item.serviceId === target.serviceId : target.itemId !== null && item.itemId === target.itemId;
+  if (!matches) throw new UserFacingError(`Paket ${pkg.name} tidak berisi ${target.kind === "TREATMENT" ? "treatment " : ""}${target.name}.`);
+  const left = (await remainingByItem(tx, [item.id])).get(item.id) ?? 0;
+  const pending = await tx.invoiceLine.aggregate({ where: { patientPackageItemId: item.id, invoice: { status: "DRAF" }, ...others }, _sum: { quantity: true } });
+  const available = left - (pending._sum.quantity ?? 0);
+  if (available < target.quantity) throw new UserFacingError(shortMessage(target, pkg.name, available));
+  return { patientPackageItemId: item.id, packageSourceLineId: null, summary: `Pakai ${target.kind === "BARANG" ? "jatah" : "sesi"} paket ${pkg.name} untuk ${target.name}` };
+}
+
+/**
+ * Tandai baris treatment atau barang sebagai pemakaian paket (spec paket 6; paket barang PB3–PB4): Rp 0 tanpa diskon.
+ * Baris obat dari resep dokter boleh memakai jatah barang paket.
+ */
+export async function applyPackageSession(input: { invoiceId: string; version: number; lineId: string } & PackageSource): Promise<EditResult> {
   return runAction(async () => {
     const actor = await requireCapability("invoice:manage");
-    const invoiceId = String(input?.invoiceId ?? "");
+    const invoiceId = String(input.invoiceId ?? "");
 
     const result = await prisma.$transaction(async (tx) => {
       const version = await touchDraft(tx, invoiceId, input.version);
-      const invoice = await tx.invoice.findUniqueOrThrow({ where: { id: invoiceId }, select: { patientId: true } });
+      const invoice = await tx.invoice.findUniqueOrThrow({ where: { id: invoiceId }, select: { id: true, patientId: true } });
       const line = await tx.invoiceLine.findFirst({
         where: { id: String(input.lineId ?? ""), invoiceId },
-        select: { id: true, name: true, kind: true, quantity: true, serviceId: true, dispensingLineId: true },
+        select: { id: true, name: true, kind: true, quantity: true, serviceId: true, itemId: true, dispensingLineId: true },
       });
       if (!line) throw new UserFacingError("Baris tidak ditemukan.");
-      if (line.kind !== "TREATMENT" || !line.serviceId || line.dispensingLineId) throw new UserFacingError(NOT_PACKAGE_LINE);
-      const item = await tx.patientPackageItem.findUnique({
-        where: { id: String(input.patientPackageItemId ?? "") },
-        select: { id: true, serviceId: true, patientPackage: { select: { name: true, patientId: true, status: true, expiresOn: true } } },
-      });
-      if (!item) throw new UserFacingError("Paket tidak ditemukan.");
-      const pkg = item.patientPackage;
-      if (pkg.patientId !== invoice.patientId) throw new UserFacingError("Paket ini milik customer lain.");
-      if (pkg.status !== "AKTIF") throw new UserFacingError(`Paket ${pkg.name} sudah dibatalkan.`);
-      const expires = dateOnlyString(pkg.expiresOn);
-      if (expires < witaDateString(new Date())) {
-        throw new UserFacingError(`Paket ${pkg.name} sudah kedaluwarsa ${dateLabel(expires)}. Lepas paket atau minta Admin Keuangan memperpanjang.`);
-      }
-      if (item.serviceId !== line.serviceId) throw new UserFacingError(`Paket ${pkg.name} tidak berisi treatment ${line.name}.`);
-      const left = (await remainingByItem(tx, [item.id])).get(item.id) ?? 0;
-      const pending = await tx.invoiceLine.aggregate({ where: { patientPackageItemId: item.id, id: { not: line.id }, invoice: { status: "DRAF" } }, _sum: { quantity: true } });
-      const available = left - (pending._sum.quantity ?? 0);
-      if (available < line.quantity) {
-        throw new UserFacingError(`Sesi ${line.name} di paket ${pkg.name} tinggal ${Math.max(0, available)}. Lepas paket atau kurangi jumlahnya.`);
-      }
+      const usable = (line.kind === "TREATMENT" && line.serviceId && !line.dispensingLineId) || (line.kind === "BARANG" && line.itemId);
+      if (!usable) throw new UserFacingError(NOT_PACKAGE_LINE);
+      const link = await packageLink(
+        tx,
+        invoice,
+        { kind: line.kind as PackageTarget["kind"], serviceId: line.serviceId, itemId: line.itemId, name: line.name, quantity: line.quantity },
+        input,
+        line.id,
+      );
       await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
-        await tx.invoiceLine.update({ where: { id: line.id }, data: { unitPrice: 0, priceNote: null, ...NO_DISCOUNT, patientPackageItemId: item.id } });
+        await tx.invoiceLine.update({
+          where: { id: line.id },
+          data: { unitPrice: 0, priceNote: null, ...NO_DISCOUNT, patientPackageItemId: link.patientPackageItemId, packageSourceLineId: link.packageSourceLineId },
+        });
       });
-      return { version, summary: `Pakai sesi paket ${pkg.name} untuk ${line.name}` };
+      return { version, summary: link.summary };
     });
 
     await recordAudit({ actor, action: "invoice.update", entity: "Invoice", entityId: invoiceId, summary: result.summary });
@@ -368,20 +417,88 @@ export async function applyPackageSession(input: { invoiceId: string; version: n
   });
 }
 
-/** Lepas paket dari baris (rencana paket keputusan 8): harga kembali ke harga katalog layanan. */
-export async function releasePackageSession(input: { invoiceId: string; version: number; lineId: string }): Promise<EditResult> {
+/**
+ * "Ambil" jatah barang paket (spec paket barang PB4): baris BARANG Rp 0 baru, dari paket customer atau dari paket yang
+ * dibeli di draf ini (dengan `itemId` barang yang diambil). Stok meja berkurang saat tagihan difinalkan.
+ */
+export async function takePackageItem(input: { invoiceId: string; version: number; quantity: number; itemId?: string } & PackageSource): Promise<EditResult> {
   return runAction(async () => {
     const actor = await requireCapability("invoice:manage");
-    const invoiceId = String(input?.invoiceId ?? "");
+    const invoiceId = String(input.invoiceId ?? "");
+    const quantity = input?.quantity;
+    if (typeof quantity !== "number" || !Number.isInteger(quantity) || quantity < 1 || quantity > 9999) throw new UserFacingError(TAKE_QUANTITY);
 
     const result = await prisma.$transaction(async (tx) => {
       const version = await touchDraft(tx, invoiceId, input.version);
-      const line = await tx.invoiceLine.findFirst({ where: { id: String(input.lineId ?? ""), invoiceId }, select: { id: true, name: true, serviceId: true, patientPackageItemId: true } });
-      if (!line) throw new UserFacingError("Baris tidak ditemukan.");
-      if (!line.patientPackageItemId) throw new UserFacingError("Baris ini tidak memakai sesi paket.");
-      const price = line.serviceId ? ((await tx.service.findUnique({ where: { id: line.serviceId }, select: { promoPrice: true } }))?.promoPrice ?? 0) : 0;
+      const invoice = await tx.invoice.findUniqueOrThrow({ where: { id: invoiceId }, select: { id: true, patientId: true } });
+      const itemId = input.purchaseLineId
+        ? String(input.itemId ?? "")
+        : ((await tx.patientPackageItem.findUnique({ where: { id: String(input.patientPackageItemId ?? "") }, select: { itemId: true, serviceId: true } })) ?? { itemId: "", serviceId: null }).itemId;
+      if (itemId === null) throw new UserFacingError("Hanya jatah barang yang bisa diambil. Sesi treatment dipakai di baris treatment.");
+      const stock = itemId ? await tx.stockItem.findUnique({ where: { id: itemId }, select: { id: true, name: true } }) : null;
+      if (!stock) throw new UserFacingError("Paket tidak ditemukan.");
+      const link = await packageLink(tx, invoice, { kind: "BARANG", serviceId: null, itemId: stock.id, name: stock.name, quantity }, input, null);
       await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
-        await tx.invoiceLine.update({ where: { id: line.id }, data: { unitPrice: price, priceNote: null, patientPackageItemId: null } });
+        await tx.invoiceLine.create({
+          data: {
+            invoiceId,
+            kind: "BARANG",
+            name: stock.name,
+            quantity,
+            unitPrice: 0,
+            itemId: stock.id,
+            patientPackageItemId: link.patientPackageItemId,
+            packageSourceLineId: link.packageSourceLineId,
+            sortOrder: await nextSortOrder(tx, invoiceId),
+          },
+        });
+      });
+      return { version, summary: `Ambil ${stock.name} ×${quantity}: ${link.summary}` };
+    });
+
+    await recordAudit({ actor, action: "invoice.update", entity: "Invoice", entityId: invoiceId, summary: result.summary });
+    revalidateInvoices(invoiceId);
+    return { version: result.version };
+  });
+}
+
+/**
+ * Harga katalog baris yang dilepas dari paket: harga layanan untuk treatment; harga jual dan promo yang berlaku untuk
+ * barang, sama seperti saat barang ditambahkan.
+ */
+async function releaseLines(tx: Prisma.TransactionClient, lineIds: readonly string[]): Promise<void> {
+  const lines = await tx.invoiceLine.findMany({ where: { id: { in: [...lineIds] } }, select: { id: true, quantity: true, serviceId: true, itemId: true } });
+  const unlink = { priceNote: null, patientPackageItemId: null, packageSourceLineId: null };
+  for (const line of lines) {
+    if (line.itemId) {
+      const item = await tx.stockItem.findUnique({ where: { id: line.itemId }, select: { sellPrice: true, ...PROMO_SELECT } });
+      const unitPrice = item?.sellPrice ?? 0;
+      const promo = item ? promoDiscount(item, { quantity: line.quantity, unitPrice }, witaDateString(new Date())) : null;
+      const discount = promo ? { discountAmount: promo.amount, discountReason: promo.reason, discountSource: "PROMO" as const } : NO_DISCOUNT;
+      await tx.invoiceLine.update({ where: { id: line.id }, data: { unitPrice, ...discount, ...unlink } });
+      continue;
+    }
+    const price = line.serviceId ? ((await tx.service.findUnique({ where: { id: line.serviceId }, select: { promoPrice: true } }))?.promoPrice ?? 0) : 0;
+    await tx.invoiceLine.update({ where: { id: line.id }, data: { unitPrice: price, ...unlink } });
+  }
+}
+
+/** Lepas paket dari baris (rencana paket keputusan 8): harga kembali ke harga katalog layanan atau barang. */
+export async function releasePackageSession(input: { invoiceId: string; version: number; lineId: string }): Promise<EditResult> {
+  return runAction(async () => {
+    const actor = await requireCapability("invoice:manage");
+    const invoiceId = String(input.invoiceId ?? "");
+
+    const result = await prisma.$transaction(async (tx) => {
+      const version = await touchDraft(tx, invoiceId, input.version);
+      const line = await tx.invoiceLine.findFirst({
+        where: { id: String(input.lineId ?? ""), invoiceId },
+        select: { id: true, name: true, patientPackageItemId: true, packageSourceLineId: true },
+      });
+      if (!line) throw new UserFacingError("Baris tidak ditemukan.");
+      if (!line.patientPackageItemId && !line.packageSourceLineId) throw new UserFacingError("Baris ini tidak memakai sesi paket.");
+      await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
+        await releaseLines(tx, [line.id]);
       });
       return { version, summary: `Lepas paket dari ${line.name}` };
     });
@@ -451,6 +568,7 @@ export async function updateInvoiceLine(input: {
           kind: true,
           treatmentPackageId: true,
           patientPackageItemId: true,
+          packageSourceLineId: true,
           dispensingLine: { select: { dispensing: { select: { source: true } } } },
         },
       });
@@ -459,7 +577,7 @@ export async function updateInvoiceLine(input: {
         throw new UserFacingError(line.dispensingLine?.dispensing.source === "DOKTER" ? PRESCRIPTION_QUANTITY : DISPENSED_QUANTITY);
       }
       if (line.kind === "PAKET" && input.quantity !== 1) throw new UserFacingError(PACKAGE_QUANTITY);
-      if (line.patientPackageItemId && input.unitPrice !== 0) throw new UserFacingError(PACKAGE_PRICE);
+      if ((line.patientPackageItemId || line.packageSourceLineId) && input.unitPrice !== 0) throw new UserFacingError(PACKAGE_PRICE);
 
       const catalogPrice = line.itemId
         ? (await tx.stockItem.findUnique({ where: { id: line.itemId }, select: { sellPrice: true } }))?.sellPrice ?? null
@@ -513,13 +631,21 @@ export async function removeInvoiceLine(input: { invoiceId: string; version: num
       const version = await touchDraft(tx, invoiceId, input.version);
       const line = await tx.invoiceLine.findFirst({
         where: { id: String(input.lineId ?? ""), invoiceId },
-        select: { id: true, name: true, dispensingLineId: true, dispensingLine: { select: { dispensing: { select: { source: true } } } } },
+        select: {
+          id: true,
+          name: true,
+          dispensingLineId: true,
+          dispensingLine: { select: { dispensing: { select: { source: true } } } },
+          packageSourceUses: { select: { id: true } },
+        },
       });
       if (!line) throw new UserFacingError("Baris tidak ditemukan.");
       if (line.dispensingLineId) {
         throw new UserFacingError(line.dispensingLine?.dispensing.source === "DOKTER" ? PRESCRIPTION_REMOVE : DISPENSED_REMOVE);
       }
       await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
+        // Baris yang memakai jatah paket ini kembali ke harga katalog (spec paket barang 4).
+        if (line.packageSourceUses.length > 0) await releaseLines(tx, line.packageSourceUses.map((use) => use.id));
         await tx.invoiceLine.delete({ where: { id: line.id } });
       });
       return { version, summary: `Hapus baris ${line.name}` };
@@ -652,7 +778,7 @@ export async function refreshCatalogPrices(input: { invoiceId: string; version: 
     const result = await prisma.$transaction(async (tx) => {
       const version = await touchDraft(tx, invoiceId, input.version);
       const lines = await tx.invoiceLine.findMany({
-        where: { invoiceId, patientPackageItemId: null, OR: [{ itemId: { not: null } }, { serviceId: { not: null } }, { treatmentPackageId: { not: null } }] },
+        where: { invoiceId, patientPackageItemId: null, packageSourceLineId: null, OR: [{ itemId: { not: null } }, { serviceId: { not: null } }, { treatmentPackageId: { not: null } }] },
         select: { id: true, quantity: true, unitPrice: true, itemId: true, serviceId: true, treatmentPackageId: true, discountAmount: true, discountSource: true },
       });
       const today = witaDateString(new Date());
@@ -758,9 +884,12 @@ export async function setLineDiscount(input: {
     const invoiceId = String(input?.invoiceId ?? "");
     const result = await prisma.$transaction(async (tx) => {
       const version = await touchDraft(tx, invoiceId, input.version);
-      const line = await tx.invoiceLine.findFirst({ where: { id: String(input.lineId ?? ""), invoiceId }, select: { id: true, name: true, quantity: true, unitPrice: true, patientPackageItemId: true } });
+      const line = await tx.invoiceLine.findFirst({
+        where: { id: String(input.lineId ?? ""), invoiceId },
+        select: { id: true, name: true, quantity: true, unitPrice: true, patientPackageItemId: true, packageSourceLineId: true },
+      });
       if (!line) throw new UserFacingError("Baris tidak ditemukan.");
-      if (line.patientPackageItemId) throw new UserFacingError(PACKAGE_DISCOUNT);
+      if (line.patientPackageItemId || line.packageSourceLineId) throw new UserFacingError(PACKAGE_DISCOUNT);
       const checked = validateLineDiscount(input, { gross: line.quantity * line.unitPrice });
       if (!checked.ok) throw new UserFacingError(checked.message);
       await guardDiscount(

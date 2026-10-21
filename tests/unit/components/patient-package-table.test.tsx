@@ -11,8 +11,9 @@ const row: PatientPackageSummary = {
   expiresOn: "2027-04-10",
   state: "AKTIF",
   items: [
-    { serviceName: "Facial", sessions: 3, remaining: 2 },
-    { serviceName: "Peeling", sessions: 2, remaining: 2 },
+    { serviceName: "Facial", unit: null, sessions: 3, remaining: 2 },
+    { serviceName: "Peeling", unit: null, sessions: 2, remaining: 2 },
+    { serviceName: "Slimming", unit: "kapsul", sessions: 30, remaining: 20 },
   ],
   purchaseInvoice: { id: "inv1", number: "TG-2026-0042" },
   patient: { id: "p1", name: "Ani Uji", medicalRecordNumber: "SDY-2026-0001" },
@@ -27,6 +28,7 @@ describe("PatientPackageTable", () => {
     expect(screen.getByRole("link", { name: "Paket Glowing" })).toHaveAttribute("href", "/admin/paket/pp1");
     expect(table).toHaveTextContent("Facial 2 dari 3");
     expect(table).toHaveTextContent("Peeling 2 dari 2");
+    expect(table).toHaveTextContent("Slimming 20 dari 30 kapsul");
     expect(table).toHaveTextContent("10 Apr 2027");
     expect(table).toHaveTextContent("Aktif");
     expect(table).toHaveTextContent("Kedaluwarsa");

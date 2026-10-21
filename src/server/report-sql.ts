@@ -117,22 +117,23 @@ export async function invoiceAggregates(start: Date, end: Date, branchId: string
 }
 
 /**
- * Sesi paket terpakai per treatment (rencana paket keputusan 5): Σ −delta baris PAKAI yang tagihan pemakaiannya
- * masih FINAL dengan `finalizedAt` di [start, end), menurut cabang tagihan pemakaian.
+ * Sesi paket terpakai per treatment, dan jatah barang terambil per barang dengan satuannya (rencana paket keputusan 5;
+ * paket barang PB2): Σ −delta baris PAKAI yang tagihan pemakaiannya masih FINAL dengan `finalizedAt` di [start, end),
+ * menurut cabang tagihan pemakaian.
  */
-export async function packageSessionsUsed(start: Date, end: Date, branchId: string | null): Promise<{ name: string; sessions: number }[]> {
+export async function packageSessionsUsed(start: Date, end: Date, branchId: string | null): Promise<{ name: string; unit: string | null; sessions: number }[]> {
   const branch = branchId ? Prisma.sql`AND i."branchId" = ${branchId}` : Prisma.empty;
-  const rows = await prisma.$queryRaw<{ name: string; sessions: bigint | number }[]>`
-    SELECT ppi."serviceName" AS name, SUM(-e."delta") AS sessions
+  const rows = await prisma.$queryRaw<{ name: string; unit: string | null; sessions: bigint | number }[]>`
+    SELECT ppi."serviceName" AS name, ppi."unit" AS unit, SUM(-e."delta") AS sessions
     FROM "PackageSessionEntry" e
     JOIN "PatientPackageItem" ppi ON ppi."id" = e."patientPackageItemId"
     JOIN "InvoiceLine" l ON l."id" = e."invoiceLineId"
     JOIN "Invoice" i ON i."id" = l."invoiceId"
     WHERE e."kind" = 'PAKAI' AND i."status" = 'FINAL' AND i."finalizedAt" >= ${start} AND i."finalizedAt" < ${end} ${branch}
-    GROUP BY ppi."serviceName"
-    ORDER BY 2 DESC, 1
+    GROUP BY ppi."serviceName", ppi."unit"
+    ORDER BY 3 DESC, 1
   `;
-  return rows.map((row) => ({ name: row.name, sessions: Number(row.sessions) }));
+  return rows.map((row) => ({ name: row.name, unit: row.unit, sessions: Number(row.sessions) }));
 }
 
 export type MarginGroup = { revenue: number; stockCost: number; materialCost: number; toolCost: number; commission: number };

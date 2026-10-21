@@ -936,9 +936,10 @@ model StockItem {
   createdAt       DateTime                @default(now())
   updatedAt       DateTime                @updatedAt
 
-  purchaseLines PurchaseLine[]
-  batches       StockBatch[]
-  restockLines  RestockRequestLine[]
+  purchaseLines         PurchaseLine[]
+  batches               StockBatch[]
+  restockLines          RestockRequestLine[]
+  treatmentPackageItems TreatmentPackageItem[]
 
   @@index([isActive, name])
 }
@@ -1267,6 +1268,10 @@ model InvoiceLine {
   patientPackageItem   PatientPackageItem?   @relation("PackageSessionLine", fields: [patientPackageItemId], references: [id], onDelete: Restrict)
   /// Paket customer yang lahir dari baris PAKET ini saat tagihan difinalkan.
   purchasedPackage     PatientPackage?       @relation("PackagePurchase")
+  /// Baris PAKET di tagihan yang sama yang jatahnya dipakai baris ini (spec paket barang PB3); diterjemahkan ke patientPackageItemId saat final.
+  packageSourceLineId  String?
+  packageSourceLine    InvoiceLine?          @relation("PackageSource", fields: [packageSourceLineId], references: [id], onDelete: SetNull)
+  packageSourceUses    InvoiceLine[]         @relation("PackageSource")
   packageEntries       PackageSessionEntry[] @relation("PackageEntryLine")
   /// Pelaksana treatment (spec harga modal 6); disalin dari catatan kunjungan atau dipilih resepsionis.
   performerId          String?
@@ -1280,6 +1285,7 @@ model InvoiceLine {
 
   @@unique([invoiceId, encounterTreatmentId])
   @@index([patientPackageItemId])
+  @@index([packageSourceLineId])
   @@index([invoiceId])
   @@index([performerId, payrollItemId])
 }
@@ -1356,16 +1362,21 @@ model TreatmentPackage {
   @@index([isActive, sortOrder])
 }
 
+/// Isi paket katalog: treatment × sesi, atau barang stok × jumlah (spec paket barang PB1). CHECK treatment_package_item_shape.
 model TreatmentPackageItem {
   id        String           @id @default(cuid())
   packageId String
   package   TreatmentPackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
-  serviceId String
-  service   Service          @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  serviceId String?
+  service   Service?         @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  itemId    String?
+  item      StockItem?       @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  /// Jumlah sesi (treatment) atau jumlah satuan barang.
   sessions  Int
   sortOrder Int              @default(0)
 
   @@unique([packageId, serviceId])
+  @@unique([packageId, itemId])
 }
 
 /// Paket milik customer; nama, harga, dan isi disalin saat tagihan pembelian difinalkan.
@@ -1393,7 +1404,12 @@ model PatientPackageItem {
   id               String                @id @default(cuid())
   patientPackageId String
   patientPackage   PatientPackage        @relation(fields: [patientPackageId], references: [id], onDelete: Cascade)
-  serviceId        String
+  /// Tepat satu dari serviceId (treatment) atau itemId (barang stok) terisi. CHECK patient_package_item_shape.
+  serviceId        String?
+  itemId           String?
+  /// Satuan barang yang disalin saat dibeli (mis. kapsul); kosong untuk treatment.
+  unit             String?
+  /// Nama tampil isi paket, treatment maupun barang (disalin).
   serviceName      String
   /// Jatah awal. Sisa = Σ delta buku sesi.
   sessions         Int
@@ -1402,6 +1418,7 @@ model PatientPackageItem {
   invoiceLines     InvoiceLine[]         @relation("PackageSessionLine")
 
   @@unique([patientPackageId, serviceId])
+  @@unique([patientPackageId, itemId])
 }
 
 /// Buku sesi paket (spec paket 3): hanya ditambah, tidak pernah diubah.

@@ -50,7 +50,7 @@ export async function finalizeInvoice(input: { invoiceId: string; version: numbe
           patientId: true,
           branch: { select: { name: true } },
           ...TOTALS_SELECT,
-          lines: { orderBy: { sortOrder: "asc" }, select: { id: true, kind: true, name: true, itemId: true, quantity: true, unitPrice: true, discountAmount: true, discountSource: true, treatmentPackageId: true, patientPackageItemId: true, serviceId: true, performerId: true } },
+          lines: { orderBy: { sortOrder: "asc" }, select: { id: true, kind: true, name: true, itemId: true, quantity: true, unitPrice: true, discountAmount: true, discountSource: true, treatmentPackageId: true, patientPackageItemId: true, packageSourceLineId: true, serviceId: true, performerId: true } },
         },
       });
       if (!invoice) throw new UserFacingError("Tagihan tidak ditemukan.");
@@ -122,9 +122,11 @@ export async function finalizeInvoice(input: { invoiceId: string; version: numbe
         }
       }
 
-      // Sesi paket yang dipakai dipotong, lalu paket yang dijual menjadi milik customer, di transaksi yang sama (spec paket 5–6).
-      await consumePackageSessions(tx, { patientId: invoice.patientId, lines: invoice.lines }, actor, today);
-      await activatePurchasedPackages(tx, { patientId: invoice.patientId, lines: invoice.lines }, actor, today);
+      // Paket yang dijual menjadi milik customer dulu, supaya baris yang memakai paket baru itu bisa dipotong; lalu semua
+      // sesi dan jatah barang yang dipakai dipotong, di transaksi yang sama (spec paket 5–6; paket barang PB3).
+      const resolved = await activatePurchasedPackages(tx, { patientId: invoice.patientId, lines: invoice.lines }, actor, today);
+      const uses = invoice.lines.map((line) => ({ ...line, patientPackageItemId: resolved.get(line.id) ?? line.patientPackageItemId }));
+      await consumePackageSessions(tx, { patientId: invoice.patientId, lines: uses }, actor, today);
 
       const year = Number(today.slice(0, 4));
       const number = formatInvoiceNumber(year, await nextInvoiceSequence(tx, year));

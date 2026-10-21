@@ -25,7 +25,7 @@ export function PatientPackageTable({ rows, showPatient = true }: { rows: Patien
           <TableRow>
             {showPatient && <TableCell>Customer</TableCell>}
             <TableCell>Paket</TableCell>
-            <TableCell>Sisa sesi</TableCell>
+            <TableCell>Sisa</TableCell>
             <TableCell>Berlaku s.d.</TableCell>
             <TableCell>Status</TableCell>
           </TableRow>
@@ -50,6 +50,7 @@ export function PatientPackageTable({ rows, showPatient = true }: { rows: Patien
                 {row.items.map((item) => (
                   <div key={item.serviceName}>
                     {item.serviceName} {item.remaining} dari {item.sessions}
+                    {item.unit && ` ${item.unit}`}
                   </div>
                 ))}
               </TableCell>

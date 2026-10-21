@@ -123,7 +123,7 @@ describe("memakai sesi paket", () => {
     const consult = await prisma.invoiceLine.findFirstOrThrow({ where: { invoiceId: second.id, kind: "LAYANAN" } });
     expect(await applyPackageSession({ invoiceId: second.id, version: await versionOf(second.id), lineId: consult.id, patientPackageItemId: own.itemId })).toEqual({
       ok: false,
-      error: "Hanya baris treatment dari katalog yang bisa memakai sesi paket.",
+      error: "Hanya baris treatment atau barang dari katalog yang bisa memakai paket.",
     });
   });
 

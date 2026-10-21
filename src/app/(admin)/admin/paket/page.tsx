@@ -11,7 +11,7 @@ import { resolveTab } from "@/lib/page-tabs";
 import { can } from "@/lib/permissions";
 import { searchPatientPackages } from "@/server/patient-package-read";
 import { requireCapability } from "@/server/session";
-import { listPackageServices, listTreatmentPackages } from "@/server/treatment-package-catalog";
+import { listPackageServices, listPackageStockItems, listTreatmentPackages } from "@/server/treatment-package-catalog";
 
 export const metadata = { title: "Paket" };
 
@@ -30,7 +30,7 @@ export default async function PackagesPage({ searchParams }: { searchParams: Pro
     <>
       <AdminHeader title="Paket" />
       <PageBody>
-        <PageHeader title="Paket treatment" description="Paket yang dibeli customer dan sisa sesinya, serta katalog paket." />
+        <PageHeader title="Paket treatment" description="Paket yang dibeli customer dan sisa sesi atau barangnya, serta katalog paket." />
         <PageTabs label="Bagian paket" active={active} tabs={tabs} />
         {active === "customer" && (
           <>
@@ -54,7 +54,9 @@ export default async function PackagesPage({ searchParams }: { searchParams: Pro
             </SectionCard>
           </>
         )}
-        {active === "katalog" && canCatalog && <TreatmentPackageCatalog packages={await listTreatmentPackages()} services={await listPackageServices()} />}
+        {active === "katalog" && canCatalog && (
+          <TreatmentPackageCatalog packages={await listTreatmentPackages()} services={await listPackageServices()} stockItems={await listPackageStockItems()} />
+        )}
       </PageBody>
     </>
   );

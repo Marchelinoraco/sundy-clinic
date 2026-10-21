@@ -179,8 +179,11 @@ export type InvoiceLineRow = {
   performerName: string | null;
   /** Baris PAKET: paket katalog yang dijual (spec paket 5). */
   treatmentPackageId: string | null;
-  /** Baris TREATMENT yang memakai sesi paket customer (spec paket 6). */
-  packageUse: { patientPackageItemId: string; packageName: string } | null;
+  /**
+   * Baris TREATMENT atau BARANG yang memakai paket (spec paket 6; paket barang PB3–PB4): paket customer
+   * (patientPackageItemId) atau paket yang dibeli di tagihan ini (purchaseLineId, baris PAKET-nya).
+   */
+  packageUse: { patientPackageItemId: string | null; purchaseLineId: string | null; packageName: string } | null;
   /** Keterangan paket di bawah nama baris (isi dan masa berlaku, atau sesi paket yang dipakai). */
   packageNote: string | null;
   /**
@@ -320,6 +323,8 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
           commissionAmount: true,
           treatmentPackageId: true,
           patientPackageItemId: true,
+          packageSourceLineId: true,
+          packageSourceLine: { select: { name: true } },
           performerId: true,
           performerName: true,
           patientPackageItem: { select: { patientPackage: { select: { name: true } } } },
@@ -364,7 +369,14 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
     itemId: line.itemId,
     catalogLinked: line.serviceId !== null || line.itemId !== null || line.treatmentPackageId !== null,
     treatmentPackageId: line.treatmentPackageId,
-    packageUse: line.patientPackageItemId ? { patientPackageItemId: line.patientPackageItemId, packageName: line.patientPackageItem?.patientPackage.name ?? "" } : null,
+    packageUse:
+      line.patientPackageItemId || line.packageSourceLineId
+        ? {
+            patientPackageItemId: line.patientPackageItemId,
+            purchaseLineId: line.packageSourceLineId,
+            packageName: line.patientPackageItem?.patientPackage.name ?? line.packageSourceLine?.name ?? "",
+          }
+        : null,
     packageNote: notes.get(line.id) ?? null,
     fromDispensing: line.dispensingLineId !== null,
     prescription:
