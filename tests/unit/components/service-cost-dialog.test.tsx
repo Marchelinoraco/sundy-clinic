@@ -40,6 +40,8 @@ describe("ServiceCostDialog — Harga & biaya (spec biaya lainnya BL6)", () => {
     await user.type(within(dialog).getByLabelText("Nominal biaya lainnya 2"), "3000");
     expect(dialog).toHaveTextContent("Total biaya per sesi Rp 53.000 · harga berlaku Rp 149.000");
     expect(dialog).toHaveTextContent("Sisa Rp 96.000 per sesi");
+    // Biaya per sesi yang dicatat di sini tidak boleh dicatat lagi di Pengeluaran, supaya laba tidak terpotong dua kali.
+    expect(dialog).toHaveTextContent("Biaya yang dicatat di sini jangan dicatat lagi di Pengeluaran.");
     await user.click(within(dialog).getByRole("button", { name: "Simpan" }));
     await waitFor(() =>
       expect(updateServicePricing).toHaveBeenCalledWith({

@@ -89,7 +89,7 @@ export function MarginReportView({ report }: { report: MarginReport }) {
         </Table>
       </TableContainer>
       <Typography variant="caption" component="p" sx={{ px: 2, mt: -2, color: "text.secondary" }}>
-        Pendapatan paket dihitung saat dijual; bahan, alat, dan komisi sesi paket yang terpakai sudah masuk baris Treatment.
+        Pendapatan paket dihitung saat dijual; bahan, alat, biaya lainnya, dan komisi sesi paket yang terpakai sudah masuk baris Treatment.
       </Typography>
 
       <Box>

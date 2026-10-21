@@ -153,7 +153,8 @@ export function ServiceCostDialog({ service }: { service: PricedService }) {
               Biaya per sesi
             </Typography>
             <Typography variant="body2" sx={{ color: "text.secondary" }}>
-              Per sesi. Bahan, alat, dan biaya lainnya masuk harga pokok laporan; komisi untuk pelaksana treatment.
+              Per sesi. Bahan, alat, dan biaya lainnya masuk harga pokok laporan; komisi untuk pelaksana treatment. Biaya yang dicatat di
+              sini jangan dicatat lagi di Pengeluaran.
             </Typography>
             <RupiahInput id={`cost-material-${service.id}`} label="Biaya bahan" value={draft.materialCost} onChange={(materialCost) => setDraft((d) => ({ ...d, materialCost }))} fullWidth />
             <RupiahInput id={`cost-tool-${service.id}`} label="Biaya alat" value={draft.toolCost} onChange={(toolCost) => setDraft((d) => ({ ...d, toolCost }))} fullWidth />

@@ -27,6 +27,7 @@ describe("MarginReportView", () => {
     expect(screen.getByRole("table", { name: "Margin per barang" })).toHaveTextContent("Serum C");
     const treatments = screen.getByRole("table", { name: "Margin per treatment" });
     expect(treatments).toHaveTextContent("Lainnya");
+    expect(screen.getByText(/bahan, alat, biaya lainnya, dan komisi sesi paket/)).toBeInTheDocument();
     expect(treatments).toHaveTextContent("Facial Uji2Rp 450.000Rp 80.000Rp 20.000Rp 16.000Rp 50.000Rp 284.000");
   });
 });
