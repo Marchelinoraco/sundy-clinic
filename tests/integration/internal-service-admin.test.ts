@@ -83,6 +83,18 @@ describe("aksi layanan internal (spec layanan situs 5.1)", () => {
     }
   });
 
+  it("harga lewat Ubah tidak boleh turun di bawah biaya; ganti nama saja tetap boleh pada layanan yang terlanjur rugi (BL5, BL13)", async () => {
+    const { id } = await unwrap(createInternalService({ ...base(), name: `${NAME} Biaya` }));
+    await prisma.service.update({ where: { id }, data: { materialCost: 60_000 } });
+    expect(await updateInternalService({ id, ...base(), name: `${NAME} Biaya`, promoPrice: 50_000 })).toEqual({
+      ok: false,
+      error: "Harga berlaku Rp 50.000 di bawah total biaya per sesi Rp 60.000. Naikkan harga atau kurangi biaya lewat tombol Harga & biaya.",
+    });
+    await prisma.service.update({ where: { id }, data: { materialCost: 100_000 } });
+    await unwrap(updateInternalService({ id, ...base(), name: `${NAME} Biaya Ganti` }));
+    expect((await prisma.service.findUniqueOrThrow({ where: { id } })).name).toBe(`${NAME} Biaya Ganti`);
+  });
+
   it("menonaktifkan dan mengaktifkan; tercatat di audit", async () => {
     const { id } = await unwrap(createInternalService({ ...base(), name: `${NAME} Status` }));
     await unwrap(setServiceActive({ id, active: false }));

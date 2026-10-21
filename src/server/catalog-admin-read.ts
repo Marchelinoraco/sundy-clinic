@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import type { ServiceCostInput } from "@/lib/costing";
+import type { OtherCost, ServiceCostInput } from "@/lib/costing";
 import { ONLINE_SERVICE_SLUG } from "@/lib/online-consultation";
 import { requireCapability } from "@/server/session";
 
@@ -16,6 +16,8 @@ export type InternalServiceRow = {
   isActive: boolean;
   /** Jumlah layanan situs aktif yang menautkan layanan ini; 0 = "Hanya internal". */
   siteCount: number;
+  /** Biaya lainnya per sesi, urut seperti di dialog (spec biaya lainnya BL1). */
+  otherCosts: OtherCost[];
 } & ServiceCostInput;
 
 export type InternalCategory = { id: string; name: string; services: InternalServiceRow[] };
@@ -64,6 +66,7 @@ export async function getInternalCatalog(): Promise<InternalCategory[]> {
           toolCost: true,
           commissionKind: true,
           commissionValue: true,
+          costLines: { orderBy: { sortOrder: "asc" }, select: { name: true, amount: true } },
           _count: { select: { siteServices: { where: { isActive: true } } } },
         },
       },
@@ -74,7 +77,7 @@ export async function getInternalCatalog(): Promise<InternalCategory[]> {
     .map((category) => ({
       id: category.id,
       name: category.name,
-      services: category.services.map(({ _count, ...service }) => ({ ...service, siteCount: _count.siteServices })),
+      services: category.services.map(({ _count, costLines, ...service }) => ({ ...service, siteCount: _count.siteServices, otherCosts: costLines })),
     }));
 }
 
