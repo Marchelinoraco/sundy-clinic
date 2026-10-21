@@ -58,6 +58,6 @@ describe("laporan paket", () => {
     const report = await getProfitReport({ period: monthPeriod(witaDateString(new Date()).slice(0, 7)), branchId: world.branchId });
     expect(report.current.totals.package).toBe(600_000);
     expect(report.current.totals.treatment).toBe(0);
-    expect(report.packageSessions).toEqual([{ name: "Facial Uji", sessions: 1 }]);
+    expect(report.packageSessions).toEqual([{ name: "Facial Uji", unit: null, sessions: 1 }]);
   });
 });

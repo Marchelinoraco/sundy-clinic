@@ -36,6 +36,8 @@ await prisma.invoiceLine.deleteMany();
 await prisma.invoice.deleteMany();
 await prisma.invoiceNumberCounter.deleteMany();
 await prisma.treatmentPackage.deleteMany({ where: { name: { startsWith: "Paket E2E" } } });
+// Paket berisi barang (paket.spec.ts) merujuk barang stok yang dibuang di bawah, jadi ikut dibuang.
+await prisma.treatmentPackage.deleteMany({ where: { items: { some: { itemId: { not: null } } } } });
 // Penyerahan obat (resep.spec.ts) merujuk booking dan baris tagihan, jadi dibuang sesudah tagihan dan sebelum booking.
 await prisma.dispensingLine.deleteMany();
 await prisma.dispensing.deleteMany();

@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   refreshCatalogPrices: vi.fn(),
   restorePrescriptionLine: vi.fn(),
   cancelInvoice: vi.fn(),
+  takePackageItem: vi.fn(),
 }));
 vi.mock("@/server/invoice-notes", () => ({ updateInvoiceNotes: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mocks.refresh, push: mocks.push }) }));
@@ -37,6 +38,7 @@ vi.mock("@/server/invoice-drafts", () => ({
   clearLineDiscount: vi.fn(),
   reducePrescriptionLine: vi.fn(),
   restorePrescriptionLine: mocks.restorePrescriptionLine,
+  takePackageItem: mocks.takePackageItem,
 }));
 vi.mock("@/server/invoice-lifecycle", () => ({ finalizeInvoice: mocks.finalizeInvoice, cancelInvoice: mocks.cancelInvoice }));
 vi.mock("@/server/restock", () => ({ createRestockRequest: vi.fn() }));
@@ -254,11 +256,24 @@ describe("editor draf tagihan", () => {
       unitPrice: 0,
       gross: 0,
       amount: 0,
-      packageUse: { patientPackageItemId: "i1", packageName: "Facial 5x" },
+      packageUse: { patientPackageItemId: "i1", purchaseLineId: null, packageName: "Facial 5x" },
       packageNote: "Sesi paket Facial 5x · sisa 2 dari 5",
     };
     const options = [
-      { patientPackageItemId: "i1", patientPackageId: "p1", packageName: "Facial 5x", serviceId: "s1", serviceName: "Konsultasi Gizi", sessions: 5, remaining: 2, startsOn: "2026-10-01", expiresOn: "2027-03-30" },
+      {
+        patientPackageItemId: "i1",
+        purchaseLineId: null,
+        patientPackageId: "p1",
+        packageName: "Facial 5x",
+        serviceId: "s1",
+        itemId: null,
+        serviceName: "Konsultasi Gizi",
+        unit: null,
+        sessions: 5,
+        remaining: 2,
+        startsOn: "2026-10-01",
+        expiresOn: "2027-03-30",
+      },
     ];
     renderAdmin(<InvoiceDraftEditor detail={withPackage} items={items} canExceedDiscount={false} packageOptions={options} />);
     expect(screen.getByRole("alert", { name: "Paket customer" })).toHaveTextContent("Customer punya paket aktif: Facial 5x (sisa 2 Konsultasi Gizi; berlaku s.d. 30 Mar 2027).");
@@ -266,6 +281,40 @@ describe("editor draf tagihan", () => {
     expect(screen.getByRole("button", { name: `Lepas paket ${withPackage.lines[0].name}` })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: `Diskon ${withPackage.lines[0].name}` })).not.toBeInTheDocument();
     expect(screen.queryByLabelText(`Harga ${withPackage.lines[0].name}`)).not.toBeInTheDocument();
+  });
+
+  it("jatah barang paket: Ambil barang paket membuat baris dari paket yang dibeli di tagihan ini (spec paket barang PB3–PB4)", async () => {
+    mocks.takePackageItem.mockResolvedValue({ ok: true, data: { version: 2 } });
+    const goods = {
+      patientPackageItemId: null,
+      purchaseLineId: "pl1",
+      patientPackageId: "baru:pl1",
+      packageName: "Lux",
+      serviceId: null,
+      itemId: "it9",
+      serviceName: "Slimming",
+      unit: "kapsul",
+      sessions: 30,
+      remaining: 30,
+      startsOn: "2026-10-21",
+      expiresOn: "2027-04-18",
+    };
+    const user = userEvent.setup();
+    renderAdmin(<InvoiceDraftEditor detail={detail()} items={items} canExceedDiscount={false} packageOptions={[goods]} />);
+    expect(screen.getByRole("alert", { name: "Paket customer" })).toHaveTextContent("Lux (dibeli di tagihan ini: 30 kapsul Slimming)");
+    await user.click(screen.getByRole("button", { name: "Ambil barang paket" }));
+    const dialog = await screen.findByRole("dialog", { name: "Ambil barang paket" });
+    expect(within(dialog).getByLabelText("Barang")).toHaveValue("baru:pl1:it9");
+    await user.clear(within(dialog).getByLabelText("Jumlah"));
+    await user.type(within(dialog).getByLabelText("Jumlah"), "31");
+    await user.click(within(dialog).getByRole("button", { name: "Ambil" }));
+    expect(within(dialog).getByRole("alert")).toHaveTextContent("Jumlah 1–30.");
+    await user.clear(within(dialog).getByLabelText("Jumlah"));
+    await user.type(within(dialog).getByLabelText("Jumlah"), "10");
+    await user.click(within(dialog).getByRole("button", { name: "Ambil" }));
+    await waitFor(() =>
+      expect(mocks.takePackageItem).toHaveBeenCalledWith({ invoiceId: detail().id, version: detail().version, quantity: 10, itemId: "it9", purchaseLineId: "pl1" }),
+    );
   });
 
   it("stok meja kurang: baris ditandai dan tombol Minta restock tampil (spec stok meja 4.1)", async () => {

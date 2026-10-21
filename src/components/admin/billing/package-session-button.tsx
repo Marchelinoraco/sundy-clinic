@@ -11,16 +11,22 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import type { ActionResult } from "@/lib/action-result";
-import { dateLabel } from "@/lib/stock";
-import { packageOptionsFor, type PackageOption } from "@/lib/treatment-package";
+import { optionKey, packageOptionsFor, packageTargetLabel, type PackageOption } from "@/lib/treatment-package";
 import { applyPackageSession, releasePackageSession } from "@/server/invoice-drafts";
 import type { InvoiceLineRow } from "@/server/invoice-read";
 import { DialogCloseButton } from "../mui/dialog-close-button";
 import { SelectField } from "../mui/select-field";
 
-type LineView = Pick<InvoiceLineRow, "id" | "name" | "kind" | "serviceId" | "quantity" | "fromDispensing" | "packageUse">;
+type LineView = Pick<InvoiceLineRow, "id" | "name" | "kind" | "serviceId" | "itemId" | "quantity" | "fromDispensing" | "packageUse">;
 
-/** "Pakai sesi paket" / "Lepas paket" untuk satu baris treatment draf (spec paket 6). */
+/** Sumber jatah untuk aksi server: paket customer, atau baris PAKET di draf ini (spec paket barang PB3). */
+export const packageSource = (option: PackageOption) =>
+  option.patientPackageItemId ? { patientPackageItemId: option.patientPackageItemId } : { purchaseLineId: option.purchaseLineId ?? "" };
+
+/**
+ * "Pakai sesi paket" untuk baris treatment, "Pakai jatah paket" untuk baris barang (termasuk obat resep), atau
+ * "Lepas paket" (spec paket 6; paket barang PB4).
+ */
 export function PackageSessionButton({
   invoiceId,
   version,
@@ -39,7 +45,10 @@ export function PackageSessionButton({
   const [choice, setChoice] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const candidates = line.kind === "TREATMENT" && line.serviceId && !line.fromDispensing ? packageOptionsFor(options, line.serviceId, line.quantity) : [];
+  const goods = line.kind === "BARANG";
+  const usable = (line.kind === "TREATMENT" && line.serviceId && !line.fromDispensing) || (goods && line.itemId);
+  const candidates = usable ? packageOptionsFor(options, line, line.quantity) : [];
+  const label = goods ? "Pakai jatah paket" : "Pakai sesi paket";
 
   function call(action: () => Promise<ActionResult<{ version: number }>>, success: string) {
     startTransition(async () => {
@@ -58,8 +67,10 @@ export function PackageSessionButton({
       }
     });
   }
-  const apply = (patientPackageItemId: string) =>
-    call(() => applyPackageSession({ invoiceId, version, lineId: line.id, patientPackageItemId }), "Sesi paket dipakai.");
+  const apply = (option: PackageOption | undefined) => {
+    if (!option) return;
+    call(() => applyPackageSession({ invoiceId, version, lineId: line.id, ...packageSource(option) }), goods ? "Jatah paket dipakai." : "Sesi paket dipakai.");
+  };
 
   if (line.packageUse) {
     return (
@@ -84,15 +95,15 @@ export function PackageSessionButton({
         size="small"
         variant="outlined"
         disabled={disabled || pending}
-        aria-label={`Pakai sesi paket ${line.name}`}
+        aria-label={`${label} ${line.name}`}
         onClick={() => {
-          if (candidates.length === 1) return apply(candidates[0].patientPackageItemId);
-          setChoice(candidates[0].patientPackageItemId);
+          if (candidates.length === 1) return apply(candidates[0]);
+          setChoice(optionKey(candidates[0]));
           setError(null);
           setOpen(true);
         }}
       >
-        Pakai sesi paket
+        {label}
       </Button>
       <Dialog open={open} onClose={() => !pending && setOpen(false)} fullWidth maxWidth="xs">
         <DialogTitle sx={{ pr: 6 }}>Pilih paket untuk {line.name}</DialogTitle>
@@ -101,8 +112,8 @@ export function PackageSessionButton({
           <Stack spacing={2} sx={{ pt: 1 }}>
             <SelectField id={`package-choice-${line.id}`} label="Paket" value={choice} onChange={setChoice}>
               {candidates.map((option) => (
-                <option key={option.patientPackageItemId} value={option.patientPackageItemId}>
-                  {option.packageName} · sisa {option.remaining} · berlaku s.d. {dateLabel(option.expiresOn)}
+                <option key={optionKey(option)} value={optionKey(option)}>
+                  {packageTargetLabel(option)}
                 </option>
               ))}
             </SelectField>
@@ -110,7 +121,7 @@ export function PackageSessionButton({
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button type="button" variant="contained" disabled={pending || !choice} onClick={() => apply(choice)}>
+          <Button type="button" variant="contained" disabled={pending || !choice} onClick={() => apply(candidates.find((option) => optionKey(option) === choice))}>
             Pakai
           </Button>
         </DialogActions>

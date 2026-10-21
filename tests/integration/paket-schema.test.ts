@@ -30,10 +30,17 @@ const line = (data: Record<string, unknown>) =>
   prisma.invoiceLine.create({ data: { invoiceId, kind: "PAKET", name: "Facial 3x", quantity: 1, unitPrice: 600_000, treatmentPackageId: packageId, ...data } });
 
 describe("skema paket treatment", () => {
-  it("katalog: harga dan masa berlaku masuk akal, sesi 1..100", async () => {
+  it("katalog: harga dan masa berlaku masuk akal, sesi 1..100, barang 1..1000, tepat satu isi (spec paket barang PB1)", async () => {
     await expect(prisma.treatmentPackage.create({ data: { name: `${SLUG} x`, price: 1, validDays: 0 } })).rejects.toThrow(/treatment_package_values/);
     await expect(prisma.treatmentPackage.create({ data: { name: `${SLUG} y`, price: -1, validDays: 30 } })).rejects.toThrow(/treatment_package_values/);
-    await expect(prisma.treatmentPackageItem.create({ data: { packageId, serviceId: world.slimmingTreatmentId, sessions: 0 } })).rejects.toThrow(/treatment_package_item_sessions/);
+    const shape = /treatment_package_item_shape/;
+    await expect(prisma.treatmentPackageItem.create({ data: { packageId, serviceId: world.slimmingTreatmentId, sessions: 0 } })).rejects.toThrow(shape);
+    await expect(prisma.treatmentPackageItem.create({ data: { packageId, serviceId: world.slimmingTreatmentId, sessions: 101 } })).rejects.toThrow(shape);
+    await expect(prisma.treatmentPackageItem.create({ data: { packageId, itemId: world.productId, sessions: 1001 } })).rejects.toThrow(shape);
+    await expect(prisma.treatmentPackageItem.create({ data: { packageId, sessions: 1 } })).rejects.toThrow(shape);
+    await expect(prisma.treatmentPackageItem.create({ data: { packageId, serviceId: world.slimmingTreatmentId, itemId: world.productId, sessions: 1 } })).rejects.toThrow(shape);
+    const goods = await prisma.treatmentPackageItem.create({ data: { packageId, itemId: world.productId, sessions: 1000 } });
+    await prisma.treatmentPackageItem.delete({ where: { id: goods.id } });
   });
 
   it("baris PAKET wajib merujuk paket katalog, jumlahnya 1, tanpa barang", async () => {
@@ -76,5 +83,18 @@ describe("skema paket treatment", () => {
     await expect(use({ unitPrice: 1000 })).rejects.toThrow(/invoice_line_package_shape/);
     await expect(use({ kind: "LAYANAN" })).rejects.toThrow(/invoice_line_package_shape/);
     expect((await use({})).unitPrice).toBe(0);
+
+    // Jatah barang (spec paket barang PB1–PB3): isi barang wajib menyalin satuan; baris BARANG Rp 0 boleh memakai paket,
+    // termasuk paket yang dibeli di tagihan yang sama, tetapi baris PAKET sendiri tidak.
+    await expect(
+      prisma.patientPackageItem.create({ data: { patientPackageId: owned.id, itemId: world.productId, serviceName: "Produk Uji", sessions: 30 } }),
+    ).rejects.toThrow(/patient_package_item_shape/);
+    const goods = await prisma.patientPackageItem.create({ data: { patientPackageId: owned.id, itemId: world.productId, unit: "botol", serviceName: "Produk Uji", sessions: 30 } });
+    const take = (data: Record<string, unknown>) =>
+      prisma.invoiceLine.create({ data: { invoiceId, kind: "BARANG", name: "Produk Uji", quantity: 2, unitPrice: 0, itemId: world.productId, ...data } });
+    expect((await take({ patientPackageItemId: goods.id })).unitPrice).toBe(0);
+    expect((await take({ packageSourceLineId: purchase.id })).packageSourceLineId).toBe(purchase.id);
+    await expect(take({ packageSourceLineId: purchase.id, unitPrice: 5000 })).rejects.toThrow(/invoice_line_package_shape/);
+    await expect(line({ packageSourceLineId: purchase.id })).rejects.toThrow(/invoice_line_package_shape/);
   });
 });

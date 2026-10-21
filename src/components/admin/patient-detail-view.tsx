@@ -239,7 +239,7 @@ export function PatientDetailView({
       )}
 
       {active === "paket" && packages && (
-        <SectionCard title="Paket treatment" description="Sisa sesi dan masa berlaku; buka paket untuk riwayat dan perpanjangan." flush>
+        <SectionCard title="Paket treatment" description="Sisa sesi atau barang dan masa berlaku; buka paket untuk riwayat dan perpanjangan." flush>
           <PatientPackageTable rows={packages} showPatient={false} />
         </SectionCard>
       )}

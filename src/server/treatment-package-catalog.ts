@@ -17,14 +17,16 @@ export type TreatmentPackageView = {
   description: string | null;
   isActive: boolean;
   sortOrder: number;
-  items: { serviceId: string; serviceName: string; sessions: number }[];
-  /** "3× Facial, 2× Peeling". */
+  /** Treatment (serviceId) atau barang stok (itemId, dengan satuan) — spec paket barang PB1. */
+  items: { serviceId: string | null; itemId: string | null; serviceName: string; unit: string | null; sessions: number }[];
+  /** "3× Facial, 30 kapsul Slimming". */
   contents: string;
   /** Berapa kali paket ini sudah difinalkan di tagihan. */
   soldCount: number;
 };
 export type SellablePackage = { id: string; name: string; price: number; validDays: number; contents: string };
 export type PackageServiceOption = { id: string; name: string; categoryName: string };
+export type PackageStockOption = { id: string; name: string; unit: string; kindLabel: string };
 
 const SELECT = {
   id: true,
@@ -34,13 +36,22 @@ const SELECT = {
   description: true,
   isActive: true,
   sortOrder: true,
-  items: { orderBy: { sortOrder: "asc" }, select: { serviceId: true, sessions: true, service: { select: { name: true } } } },
+  items: {
+    orderBy: { sortOrder: "asc" },
+    select: { serviceId: true, itemId: true, sessions: true, service: { select: { name: true } }, item: { select: { name: true, unit: true } } },
+  },
   _count: { select: { patientPackages: true } },
 } as const;
 type Row = Prisma.TreatmentPackageGetPayload<{ select: typeof SELECT }>;
 
 function view(row: Row): TreatmentPackageView {
-  const items = row.items.map((item) => ({ serviceId: item.serviceId, serviceName: item.service.name, sessions: item.sessions }));
+  const items = row.items.map((item) => ({
+    serviceId: item.serviceId,
+    itemId: item.itemId,
+    serviceName: item.service?.name ?? item.item?.name ?? "",
+    unit: item.item?.unit ?? null,
+    sessions: item.sessions,
+  }));
   return {
     id: row.id,
     name: row.name,
@@ -50,13 +61,14 @@ function view(row: Row): TreatmentPackageView {
     isActive: row.isActive,
     sortOrder: row.sortOrder,
     items,
-    contents: packageContentsLabel(items.map((item) => ({ name: item.serviceName, sessions: item.sessions }))),
+    contents: packageContentsLabel(items.map((item) => ({ name: item.serviceName, sessions: item.sessions, unit: item.unit }))),
     soldCount: row._count.patientPackages,
   };
 }
 
 const summaryOf = (row: TreatmentPackageView) => `${row.name}: ${formatRupiah(row.price)} · ${row.contents} · ${row.validDays} hari`;
-const itemRows = (value: ValidTreatmentPackage) => value.items.map((item, index) => ({ serviceId: item.serviceId, sessions: item.sessions, sortOrder: index }));
+const itemRows = (value: ValidTreatmentPackage) =>
+  value.items.map((item, index) => ({ serviceId: item.serviceId, itemId: item.itemId, sessions: item.sessions, sortOrder: index }));
 
 function revalidate() {
   safeRevalidatePath("/admin/paket");
@@ -72,8 +84,12 @@ async function assertNameFree(name: string, exceptId?: string) {
 }
 
 async function checkCatalog(value: ValidTreatmentPackage, exceptId?: string) {
-  const services = await prisma.service.findMany({ where: { id: { in: value.items.map((item) => item.serviceId) }, isActive: true }, select: { id: true } });
-  if (services.length !== value.items.length) throw new UserFacingError("Treatment tidak ditemukan atau nonaktif.");
+  const serviceIds = value.items.flatMap((item) => (item.serviceId ? [item.serviceId] : []));
+  const itemIds = value.items.flatMap((item) => (item.itemId ? [item.itemId] : []));
+  const services = await prisma.service.findMany({ where: { id: { in: serviceIds }, isActive: true }, select: { id: true } });
+  if (services.length !== serviceIds.length) throw new UserFacingError("Treatment tidak ditemukan atau nonaktif.");
+  const goods = await prisma.stockItem.findMany({ where: { id: { in: itemIds }, isActive: true }, select: { id: true } });
+  if (goods.length !== itemIds.length) throw new UserFacingError("Barang tidak ditemukan atau nonaktif.");
   await assertNameFree(value.name, exceptId);
 }
 
@@ -93,6 +109,13 @@ export async function listPackageServices(): Promise<PackageServiceOption[]> {
     select: { id: true, name: true, category: { select: { name: true } } },
   });
   return services.map((service) => ({ id: service.id, name: service.name, categoryName: service.category.name }));
+}
+
+/** Obat dan produk aktif yang bisa menjadi isi paket (spec paket barang PB1). Tanpa harga: jatah paket tidak berharga sendiri. */
+export async function listPackageStockItems(): Promise<PackageStockOption[]> {
+  await requireCapability("price:manage");
+  const items = await prisma.stockItem.findMany({ where: { isActive: true }, orderBy: [{ kind: "asc" }, { name: "asc" }], select: { id: true, name: true, unit: true, kind: true } });
+  return items.map((item) => ({ id: item.id, name: item.name, unit: item.unit, kindLabel: item.kind === "OBAT" ? "Obat" : "Produk" }));
 }
 
 /** Paket aktif untuk dialog "Jual paket" di tagihan (spec paket 5). */

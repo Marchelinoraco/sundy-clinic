@@ -21,7 +21,7 @@ const glow: TreatmentPackageView = {
   description: null,
   isActive: true,
   sortOrder: 0,
-  items: [{ serviceId: "s1", serviceName: "Relaxing Facial", sessions: 5 }],
+  items: [{ serviceId: "s1", itemId: null, serviceName: "Relaxing Facial", unit: null, sessions: 5 }],
   contents: "5× Relaxing Facial",
   soldCount: 2,
 };
@@ -69,6 +69,42 @@ describe("TreatmentPackageCatalog", () => {
         ],
       }),
     );
+  });
+
+  it("menambah paket berisi barang (spec paket barang PB1)", async () => {
+    vi.mocked(createTreatmentPackage).mockResolvedValue({ ok: true, data: { id: "p9" } });
+    const user = userEvent.setup();
+    const stockItems = [{ id: "it9", name: "Slimming", unit: "kapsul", kindLabel: "Obat" }];
+    renderAdmin(<TreatmentPackageCatalog packages={[]} services={services} stockItems={stockItems} />);
+    await user.click(screen.getByRole("button", { name: "+ Paket" }));
+    const dialog = await screen.findByRole("dialog", { name: "Tambah paket" });
+    await user.type(within(dialog).getByLabelText("Nama paket"), "Paket Lux");
+    await user.type(within(dialog).getByLabelText("Harga"), "2000000");
+    await user.selectOptions(within(dialog).getByLabelText("Treatment 1"), "s1");
+    await user.click(within(dialog).getByRole("button", { name: "+ Barang" }));
+    await user.selectOptions(within(dialog).getByLabelText("Barang 2"), "it9");
+    expect(within(dialog).getByText("kapsul")).toBeInTheDocument();
+    await user.clear(within(dialog).getByLabelText("Jumlah 2"));
+    await user.type(within(dialog).getByLabelText("Jumlah 2"), "30");
+    await user.click(within(dialog).getByRole("button", { name: "Simpan" }));
+    await waitFor(() =>
+      expect(createTreatmentPackage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          items: [
+            { serviceId: "s1", sessions: 1 },
+            { itemId: "it9", sessions: 30 },
+          ],
+        }),
+      ),
+    );
+  });
+
+  it("tanpa barang stok, tombol + Barang tidak tampil", async () => {
+    const user = userEvent.setup();
+    renderAdmin(<TreatmentPackageCatalog packages={[]} services={services} />);
+    await user.click(screen.getByRole("button", { name: "+ Paket" }));
+    const dialog = await screen.findByRole("dialog", { name: "Tambah paket" });
+    expect(within(dialog).queryByRole("button", { name: "+ Barang" })).not.toBeInTheDocument();
   });
 
   it("galat isian tampil tanpa memanggil server; ubah dan nonaktifkan memanggil aksi dengan id", async () => {

@@ -21,7 +21,7 @@ export async function loadReceiptSource(invoiceId: string) {
       branch: { select: { name: true, address: true } },
       lines: {
         orderBy: { sortOrder: "asc" },
-        select: { id: true, kind: true, name: true, quantity: true, unitPrice: true, discountAmount: true, discountSource: true, treatmentPackageId: true, patientPackageItemId: true },
+        select: { id: true, kind: true, name: true, quantity: true, unitPrice: true, discountAmount: true, discountSource: true, treatmentPackageId: true, patientPackageItemId: true, packageSourceLineId: true },
       },
       payments: { orderBy: { createdAt: "asc" }, select: { amount: true, method: true, paidAt: true, revokedAt: true } },
     },

@@ -40,12 +40,12 @@ export default async function PatientPackagePage({ params }: { params: Promise<{
             </>
           }
         />
-        <SectionCard title="Sisa sesi" flush>
+        <SectionCard title="Sisa paket" flush>
           <TableContainer>
-            <Table size="small" aria-label="Sisa sesi">
+            <Table size="small" aria-label="Sisa paket">
               <TableHead>
                 <TableRow>
-                  <TableCell>Treatment</TableCell>
+                  <TableCell>Isi</TableCell>
                   <TableCell align="right">Sisa</TableCell>
                 </TableRow>
               </TableHead>
@@ -55,6 +55,7 @@ export default async function PatientPackagePage({ params }: { params: Promise<{
                     <TableCell>{item.serviceName}</TableCell>
                     <TableCell align="right">
                       {item.remaining} dari {item.sessions}
+                      {item.unit && ` ${item.unit}`}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -72,8 +73,8 @@ export default async function PatientPackagePage({ params }: { params: Promise<{
                   <TableRow>
                     <TableCell>Tanggal</TableCell>
                     <TableCell>Jenis</TableCell>
-                    <TableCell>Treatment</TableCell>
-                    <TableCell align="right">Sesi</TableCell>
+                    <TableCell>Isi</TableCell>
+                    <TableCell align="right">Jumlah</TableCell>
                     <TableCell>Keterangan</TableCell>
                     <TableCell>Staf</TableCell>
                   </TableRow>

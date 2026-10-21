@@ -41,6 +41,7 @@ import { AddItemDialog } from "./add-item-dialog";
 import { AddPackageDialog } from "./add-package-dialog";
 import { LinePerformerSelect } from "./line-performer-select";
 import { PackageSessionButton } from "./package-session-button";
+import { TakePackageItemDialog } from "./take-package-item-dialog";
 import { CancelInvoiceDialog } from "./cancel-invoice-dialog";
 import { DiscountForm } from "./discount-form";
 import { InvoiceNotesForm } from "./invoice-notes-form";
@@ -264,7 +265,15 @@ export function InvoiceDraftEditor({
       )}
 
       {packageOptions.length > 0 && (
-        <Alert severity="info" aria-label="Paket customer">
+        <Alert
+          severity="info"
+          aria-label="Paket customer"
+          action={
+            packageOptions.some((option) => option.itemId) ? (
+              <TakePackageItemDialog invoiceId={detail.id} version={detail.version} options={packageOptions.filter((option) => option.itemId)} disabled={pending} />
+            ) : undefined
+          }
+        >
           Customer punya paket aktif: {packageOptionsSummary(packageOptions).join("; ")}.
         </Alert>
       )}

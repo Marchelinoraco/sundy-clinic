@@ -7,6 +7,7 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
+import InputAdornment from "@mui/material/InputAdornment";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
@@ -27,6 +28,7 @@ import {
   setTreatmentPackageActive,
   updateTreatmentPackage,
   type PackageServiceOption,
+  type PackageStockOption,
   type TreatmentPackageView,
 } from "@/server/treatment-package-catalog";
 import { DialogCloseButton } from "../mui/dialog-close-button";
@@ -35,8 +37,10 @@ import { StatusChip } from "../mui/status-chip";
 import { EmptyState, SectionCard } from "../page-layout";
 import { RupiahInput } from "../rupiah-input";
 
-type Draft = { name: string; price: number | null; validDays: string; description: string; items: { serviceId: string; sessions: string }[] };
-const EMPTY: Draft = { name: "", price: null, validDays: "180", description: "", items: [{ serviceId: "", sessions: "1" }] };
+/** Satu isi paket di form: treatment (id layanan, sesi) atau barang (id barang stok, jumlah) — spec paket barang PB1. */
+type DraftItem = { goods: boolean; id: string; sessions: string };
+type Draft = { name: string; price: number | null; validDays: string; description: string; items: DraftItem[] };
+const EMPTY: Draft = { name: "", price: null, validDays: "180", description: "", items: [{ goods: false, id: "", sessions: "1" }] };
 
 function draftOf(pkg: TreatmentPackageView): Draft {
   return {
@@ -44,7 +48,7 @@ function draftOf(pkg: TreatmentPackageView): Draft {
     price: pkg.price,
     validDays: String(pkg.validDays),
     description: pkg.description ?? "",
-    items: pkg.items.map((item) => ({ serviceId: item.serviceId, sessions: String(item.sessions) })),
+    items: pkg.items.map((item) => ({ goods: item.itemId !== null, id: item.itemId ?? item.serviceId ?? "", sessions: String(item.sessions) })),
   };
 }
 
@@ -54,12 +58,22 @@ function inputOf(draft: Draft): TreatmentPackageInput {
     price: draft.price ?? Number.NaN,
     validDays: Number(draft.validDays),
     description: draft.description,
-    items: draft.items.map((item) => ({ serviceId: item.serviceId, sessions: Number(item.sessions) })),
+    items: draft.items.map((item) => (item.goods ? { itemId: item.id, sessions: Number(item.sessions) } : { serviceId: item.id, sessions: Number(item.sessions) })),
   };
 }
 
-/** Tambah atau ubah satu paket katalog (spec paket 4). */
-function PackageDialog({ pkg, services, triggerLabel }: { pkg?: TreatmentPackageView; services: PackageServiceOption[]; triggerLabel: string }) {
+/** Tambah atau ubah satu paket katalog (spec paket 4; paket barang PB1). */
+function PackageDialog({
+  pkg,
+  services,
+  stockItems,
+  triggerLabel,
+}: {
+  pkg?: TreatmentPackageView;
+  services: PackageServiceOption[];
+  stockItems: PackageStockOption[];
+  triggerLabel: string;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<Draft>(EMPTY);
@@ -133,41 +147,63 @@ function PackageDialog({ pkg, services, triggerLabel }: { pkg?: TreatmentPackage
             <Typography component="h3" variant="subtitle2">
               Isi paket
             </Typography>
-            {draft.items.map((item, index) => (
-              <Stack key={index} direction="row" spacing={1} sx={{ alignItems: "center" }}>
-                <SelectField aria-label={`Treatment ${index + 1}`} value={item.serviceId} onChange={(serviceId) => setItem(index, { serviceId })}>
-                  <option value="">Pilih treatment</option>
-                  {services.map((service) => (
-                    <option key={service.id} value={service.id}>
-                      {service.name} ({service.categoryName})
-                    </option>
-                  ))}
-                </SelectField>
-                <TextField
-                  type="number"
-                  value={item.sessions}
-                  onChange={(e) => setItem(index, { sessions: e.target.value })}
-                  sx={{ width: 96, flexShrink: 0 }}
-                  slotProps={{ htmlInput: { "aria-label": `Sesi ${index + 1}`, min: 1, max: 100, inputMode: "numeric" } }}
-                />
-                {draft.items.length > 1 && (
-                  <Button
-                    type="button"
-                    size="small"
-                    variant="text"
-                    aria-label={`Hapus treatment ${index + 1}`}
-                    onClick={() => setDraft((d) => ({ ...d, items: d.items.filter((_, i) => i !== index) }))}
-                  >
-                    Hapus
-                  </Button>
-                )}
-              </Stack>
-            ))}
-            <Box>
-              <Button type="button" size="small" variant="outlined" onClick={() => setDraft((d) => ({ ...d, items: [...d.items, { serviceId: "", sessions: "1" }] }))}>
+            {draft.items.map((item, index) => {
+              const unit = item.goods ? stockItems.find((stock) => stock.id === item.id)?.unit : undefined;
+              return (
+                <Stack key={index} direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                  {item.goods ? (
+                    <SelectField aria-label={`Barang ${index + 1}`} value={item.id} onChange={(id) => setItem(index, { id })}>
+                      <option value="">Pilih obat atau produk</option>
+                      {stockItems.map((stock) => (
+                        <option key={stock.id} value={stock.id}>
+                          {stock.name} ({stock.kindLabel}, {stock.unit})
+                        </option>
+                      ))}
+                    </SelectField>
+                  ) : (
+                    <SelectField aria-label={`Treatment ${index + 1}`} value={item.id} onChange={(id) => setItem(index, { id })}>
+                      <option value="">Pilih treatment</option>
+                      {services.map((service) => (
+                        <option key={service.id} value={service.id}>
+                          {service.name} ({service.categoryName})
+                        </option>
+                      ))}
+                    </SelectField>
+                  )}
+                  <TextField
+                    type="number"
+                    value={item.sessions}
+                    onChange={(e) => setItem(index, { sessions: e.target.value })}
+                    sx={{ width: item.goods ? 140 : 96, flexShrink: 0 }}
+                    slotProps={{
+                      htmlInput: { "aria-label": `${item.goods ? "Jumlah" : "Sesi"} ${index + 1}`, min: 1, max: item.goods ? 1000 : 100, inputMode: "numeric" },
+                      input: unit ? { endAdornment: <InputAdornment position="end">{unit}</InputAdornment> } : undefined,
+                    }}
+                  />
+                  {draft.items.length > 1 && (
+                    <Button
+                      type="button"
+                      size="small"
+                      variant="text"
+                      aria-label={`Hapus ${item.goods ? "barang" : "treatment"} ${index + 1}`}
+                      onClick={() => setDraft((d) => ({ ...d, items: d.items.filter((_, i) => i !== index) }))}
+                    >
+                      Hapus
+                    </Button>
+                  )}
+                </Stack>
+              );
+            })}
+            <Stack direction="row" spacing={1}>
+              <Button type="button" size="small" variant="outlined" onClick={() => setDraft((d) => ({ ...d, items: [...d.items, { goods: false, id: "", sessions: "1" }] }))}>
                 + Treatment
               </Button>
-            </Box>
+              {stockItems.length > 0 && (
+                <Button type="button" size="small" variant="outlined" onClick={() => setDraft((d) => ({ ...d, items: [...d.items, { goods: true, id: "", sessions: "1" }] }))}>
+                  + Barang
+                </Button>
+              )}
+            </Stack>
             {error && <Alert severity="error">{error}</Alert>}
           </Stack>
         </DialogContent>
@@ -181,8 +217,16 @@ function PackageDialog({ pkg, services, triggerLabel }: { pkg?: TreatmentPackage
   );
 }
 
-/** Katalog paket treatment untuk Admin Keuangan dan Super Admin (spec paket 4). */
-export function TreatmentPackageCatalog({ packages, services }: { packages: TreatmentPackageView[]; services: PackageServiceOption[] }) {
+/** Katalog paket untuk Admin Keuangan dan Super Admin (spec paket 4): isi treatment, obat, dan produk. */
+export function TreatmentPackageCatalog({
+  packages,
+  services,
+  stockItems = [],
+}: {
+  packages: TreatmentPackageView[];
+  services: PackageServiceOption[];
+  stockItems?: PackageStockOption[];
+}) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
@@ -205,8 +249,8 @@ export function TreatmentPackageCatalog({ packages, services }: { packages: Trea
   return (
     <SectionCard
       title="Katalog paket"
-      description="Paket yang dijual resepsionis di tagihan. Mengubah paket tidak mengubah paket yang sudah dibeli customer."
-      actions={<PackageDialog services={services} triggerLabel="+ Paket" />}
+      description="Paket yang dijual resepsionis di tagihan, berisi treatment, obat, atau produk. Mengubah paket tidak mengubah paket yang sudah dibeli customer."
+      actions={<PackageDialog services={services} stockItems={stockItems} triggerLabel="+ Paket" />}
       flush
     >
       {packages.length === 0 ? (
@@ -245,7 +289,7 @@ export function TreatmentPackageCatalog({ packages, services }: { packages: Trea
                   </TableCell>
                   <TableCell align="right">
                     <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end" }}>
-                      <PackageDialog pkg={pkg} services={services} triggerLabel="Ubah" />
+                      <PackageDialog pkg={pkg} services={services} stockItems={stockItems} triggerLabel="Ubah" />
                       <Button
                         type="button"
                         size="small"

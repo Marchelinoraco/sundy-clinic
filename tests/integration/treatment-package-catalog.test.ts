@@ -3,6 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { prisma } from "@/lib/db";
 import {
   createTreatmentPackage,
+  listPackageStockItems,
   listSellablePackages,
   listTreatmentPackages,
   setTreatmentPackageActive,
@@ -80,7 +81,28 @@ describe("katalog paket treatment", () => {
     await prisma.service.update({ where: { id: world.slimmingTreatmentId }, data: { isActive: false } });
     expect(await createTreatmentPackage({ ...input(), name: `${SLUG} Lain` })).toEqual({ ok: false, error: "Treatment tidak ditemukan atau nonaktif." });
     await prisma.service.update({ where: { id: world.slimmingTreatmentId }, data: { isActive: true } });
-    expect(await createTreatmentPackage({ ...input(), items: [] })).toEqual({ ok: false, error: "Tambahkan minimal satu treatment." });
+    expect(await createTreatmentPackage({ ...input(), items: [] })).toEqual({ ok: false, error: "Tambahkan minimal satu isi paket." });
+  });
+
+  it("paket berisi treatment dan barang: isi tersimpan dengan satuan; barang nonaktif ditolak (spec paket barang PB1)", async () => {
+    const { id } = await unwrap(
+      createTreatmentPackage({ ...input(), name: `${SLUG} Lux`, items: [{ serviceId: world.treatmentId, sessions: 4 }, { itemId: world.drugId, sessions: 30 }] }),
+    );
+    const created = (await listTreatmentPackages()).find((row) => row.id === id)!;
+    expect(created.contents).toBe(`4× Facial Uji, 30 kapsul ${SLUG} Amoxicillin`);
+    expect(created.items).toEqual([
+      { serviceId: world.treatmentId, itemId: null, serviceName: "Facial Uji", unit: null, sessions: 4 },
+      { serviceId: null, itemId: world.drugId, serviceName: `${SLUG} Amoxicillin`, unit: "kapsul", sessions: 30 },
+    ]);
+    expect((await listPackageStockItems()).find((item) => item.id === world.drugId)).toMatchObject({ name: `${SLUG} Amoxicillin`, unit: "kapsul" });
+
+    await prisma.stockItem.update({ where: { id: world.productId }, data: { isActive: false } });
+    expect(await createTreatmentPackage({ ...input(), name: `${SLUG} Serum`, items: [{ itemId: world.productId, sessions: 1 }] })).toEqual({
+      ok: false,
+      error: "Barang tidak ditemukan atau nonaktif.",
+    });
+    expect((await listPackageStockItems()).map((item) => item.id)).not.toContain(world.productId);
+    await prisma.stockItem.update({ where: { id: world.productId }, data: { isActive: true } });
   });
 
   it("resepsionis tidak bisa mengelola katalog", async () => {

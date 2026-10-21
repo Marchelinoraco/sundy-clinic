@@ -8,12 +8,20 @@ import { packageContentsLabel, packageExpiresOn, sessionNote } from "@/lib/treat
 
 type Db = Prisma.TransactionClient;
 
-export type PackageNoteLine = { id: string; kind: string; treatmentPackageId: string | null; patientPackageItemId: string | null };
+export type PackageNoteLine = {
+  id: string;
+  kind: string;
+  name: string;
+  treatmentPackageId: string | null;
+  patientPackageItemId: string | null;
+  packageSourceLineId: string | null;
+};
 
 /**
- * Keterangan di bawah nama baris (spec paket 5, 8):
- * - baris PAKET draf: "3× Facial · berlaku 90 hari";
- * - baris PAKET final: "3× Facial · berlaku s.d. 12 Apr 2027".
+ * Keterangan di bawah nama baris (spec paket 5, 8; paket barang 4):
+ * - baris PAKET draf: "3× Facial, 30 kapsul Slimming · berlaku 90 hari";
+ * - baris PAKET final: "3× Facial, 30 kapsul Slimming · berlaku s.d. 12 Apr 2027";
+ * - baris yang memakai paket yang dibeli di draf ini: "Dari paket Lux yang dibeli di tagihan ini".
  */
 export async function packageLineNotes(db: Db, lines: readonly PackageNoteLine[], options: { draft: boolean }): Promise<Map<string, string>> {
   const notes = new Map<string, string>();
@@ -22,22 +30,28 @@ export async function packageLineNotes(db: Db, lines: readonly PackageNoteLine[]
     const [bought, catalog] = await Promise.all([
       db.patientPackage.findMany({
         where: { purchaseLineId: { in: packageLines.map((line) => line.id) } },
-        select: { purchaseLineId: true, expiresOn: true, items: { orderBy: { sortOrder: "asc" }, select: { serviceName: true, sessions: true } } },
+        select: { purchaseLineId: true, expiresOn: true, items: { orderBy: { sortOrder: "asc" }, select: { serviceName: true, sessions: true, unit: true } } },
       }),
       db.treatmentPackage.findMany({
         where: { id: { in: packageLines.map((line) => line.treatmentPackageId!) } },
-        select: { id: true, validDays: true, items: { orderBy: { sortOrder: "asc" }, select: { sessions: true, service: { select: { name: true } } } } },
+        select: {
+          id: true,
+          validDays: true,
+          items: { orderBy: { sortOrder: "asc" }, select: { sessions: true, service: { select: { name: true } }, item: { select: { name: true, unit: true } } } },
+        },
       }),
     ]);
     for (const line of packageLines) {
       const own = bought.find((row) => row.purchaseLineId === line.id);
       if (own) {
-        const contents = packageContentsLabel(own.items.map((item) => ({ name: item.serviceName, sessions: item.sessions })));
+        const contents = packageContentsLabel(own.items.map((item) => ({ name: item.serviceName, sessions: item.sessions, unit: item.unit })));
         notes.set(line.id, `${contents} · berlaku s.d. ${dateLabel(dateOnlyString(own.expiresOn))}`);
         continue;
       }
       const pkg = catalog.find((row) => row.id === line.treatmentPackageId);
-      if (pkg) notes.set(line.id, `${packageContentsLabel(pkg.items.map((item) => ({ name: item.service.name, sessions: item.sessions })))} · berlaku ${pkg.validDays} hari`);
+      if (!pkg) continue;
+      const contents = packageContentsLabel(pkg.items.map((item) => ({ name: item.service?.name ?? item.item?.name ?? "", sessions: item.sessions, unit: item.item?.unit ?? null })));
+      notes.set(line.id, `${contents} · berlaku ${pkg.validDays} hari`);
     }
   }
   // Baris sesi: "Sesi paket {nama} · sisa n dari m". Di draf, sisa sesudah semua draf yang menandai item itu (rencana paket
@@ -46,7 +60,7 @@ export async function packageLineNotes(db: Db, lines: readonly PackageNoteLine[]
   if (useLines.length > 0) {
     const ids = [...new Set(useLines.map((line) => line.patientPackageItemId!))];
     const [items, sums, pending] = await Promise.all([
-      db.patientPackageItem.findMany({ where: { id: { in: ids } }, select: { id: true, sessions: true, patientPackage: { select: { name: true } } } }),
+      db.patientPackageItem.findMany({ where: { id: { in: ids } }, select: { id: true, sessions: true, unit: true, patientPackage: { select: { name: true } } } }),
       db.packageSessionEntry.groupBy({ by: ["patientPackageItemId"], where: { patientPackageItemId: { in: ids } }, _sum: { delta: true } }),
       options.draft
         ? db.invoiceLine.groupBy({ by: ["patientPackageItemId"], where: { patientPackageItemId: { in: ids }, invoice: { status: "DRAF" } }, _sum: { quantity: true } })
@@ -56,8 +70,14 @@ export async function packageLineNotes(db: Db, lines: readonly PackageNoteLine[]
       const item = items.find((row) => row.id === line.patientPackageItemId);
       if (!item) continue;
       const left = (sums.find((row) => row.patientPackageItemId === item.id)?._sum.delta ?? 0) - (pending.find((row) => row.patientPackageItemId === item.id)?._sum.quantity ?? 0);
-      notes.set(line.id, sessionNote({ packageName: item.patientPackage.name, remaining: Math.max(0, left), sessions: item.sessions }));
+      notes.set(line.id, sessionNote({ packageName: item.patientPackage.name, remaining: Math.max(0, left), sessions: item.sessions, unit: item.unit }));
     }
+  }
+  // Paket yang dibeli di draf ini belum punya buku sesi; sesudah final barisnya memakai item paket customer di atas.
+  for (const line of lines) {
+    if (line.patientPackageItemId || !line.packageSourceLineId) continue;
+    const purchase = lines.find((row) => row.id === line.packageSourceLineId);
+    if (purchase) notes.set(line.id, `Dari paket ${purchase.name} yang dibeli di tagihan ini`);
   }
   return notes;
 }
@@ -80,18 +100,41 @@ export async function remainingByItem(tx: Db, itemIds: readonly string[]): Promi
   return new Map(ids.map((id) => [id, sums.find((row) => row.patientPackageItemId === id)?._sum.delta ?? 0]));
 }
 
-/** Setiap baris PAKET menjadi satu paket customer dengan buku BELI per treatment (spec paket 5). */
+type PurchaseLine = {
+  id: string;
+  kind: string;
+  name: string;
+  unitPrice: number;
+  treatmentPackageId: string | null;
+  packageSourceLineId: string | null;
+  serviceId: string | null;
+  itemId: string | null;
+};
+
+/**
+ * Setiap baris PAKET menjadi satu paket customer dengan buku BELI per isi (spec paket 5; paket barang PB1, PB6). Baris yang
+ * memakai paket yang dibeli di tagihan ini diarahkan ke item paket customer yang baru (PB3); hasilnya id baris → id item.
+ */
 export async function activatePurchasedPackages(
   tx: Db,
-  invoice: { patientId: string; lines: readonly { id: string; kind: string; name: string; unitPrice: number; treatmentPackageId: string | null }[] },
+  invoice: { patientId: string; lines: readonly PurchaseLine[] },
   actor: Actor,
   today: string,
-): Promise<void> {
+): Promise<Map<string, string>> {
+  const resolved = new Map<string, string>();
   for (const line of invoice.lines) {
     if (line.kind !== "PAKET" || !line.treatmentPackageId) continue;
     const pkg = await tx.treatmentPackage.findUnique({
       where: { id: line.treatmentPackageId },
-      select: { name: true, validDays: true, isActive: true, items: { orderBy: { sortOrder: "asc" }, select: { serviceId: true, sessions: true, service: { select: { name: true } } } } },
+      select: {
+        name: true,
+        validDays: true,
+        isActive: true,
+        items: {
+          orderBy: { sortOrder: "asc" },
+          select: { serviceId: true, itemId: true, sessions: true, service: { select: { name: true } }, item: { select: { name: true, unit: true } } },
+        },
+      },
     });
     if (!pkg || !pkg.isActive) throw new UserFacingError(`Paket ${line.name} sudah tidak dijual. Hapus barisnya.`);
     const created = await tx.patientPackage.create({
@@ -103,14 +146,30 @@ export async function activatePurchasedPackages(
         purchaseLineId: line.id,
         startsOn: day(today),
         expiresOn: day(packageExpiresOn(today, pkg.validDays)),
-        items: { create: pkg.items.map((item, index) => ({ serviceId: item.serviceId, serviceName: item.service.name, sessions: item.sessions, sortOrder: index })) },
+        items: {
+          create: pkg.items.map((item, index) => ({
+            serviceId: item.serviceId,
+            itemId: item.itemId,
+            serviceName: item.service?.name ?? item.item?.name ?? "",
+            unit: item.item?.unit ?? null,
+            sessions: item.sessions,
+            sortOrder: index,
+          })),
+        },
       },
-      select: { items: { select: { id: true, sessions: true } } },
+      select: { items: { select: { id: true, sessions: true, serviceId: true, itemId: true } } },
     });
     await tx.packageSessionEntry.createMany({
       data: created.items.map((item) => ({ patientPackageItemId: item.id, kind: "BELI" as const, delta: item.sessions, invoiceLineId: line.id, staffId: actor.staffId, staffName: actor.name })),
     });
+    for (const use of invoice.lines.filter((row) => row.packageSourceLineId === line.id)) {
+      const target = created.items.find((item) => (use.kind === "BARANG" ? use.itemId !== null && item.itemId === use.itemId : use.serviceId !== null && item.serviceId === use.serviceId));
+      if (!target) throw new UserFacingError(`Paket ${pkg.name} tidak berisi ${use.name}. Lepas paket dari baris ${use.name}.`);
+      await tx.invoiceLine.update({ where: { id: use.id }, data: { patientPackageItemId: target.id } });
+      resolved.set(use.id, target.id);
+    }
   }
+  return resolved;
 }
 
 /**
@@ -122,8 +181,9 @@ export async function cancelPurchasedPackages(tx: Db, invoiceId: string, actor: 
   if (packages.length === 0) return;
   const ids = packages.map((pkg) => pkg.id);
   await lockPatientPackages(tx, ids);
+  // Pemakaian di tagihan ini sendiri sudah dikembalikan restoreUsedSessions (spec paket barang 4), jadi tidak menghalangi.
   const used = await tx.packageSessionEntry.findFirst({
-    where: { kind: "PAKAI", item: { patientPackageId: { in: ids } }, invoiceLine: { invoice: { status: "FINAL" } } },
+    where: { kind: "PAKAI", item: { patientPackageId: { in: ids } }, invoiceLine: { invoiceId: { not: invoiceId }, invoice: { status: "FINAL" } } },
     orderBy: { createdAt: "asc" },
     select: { item: { select: { patientPackage: { select: { name: true } } } }, invoiceLine: { select: { invoice: { select: { number: true } } } } },
   });
@@ -141,7 +201,7 @@ export async function cancelPurchasedPackages(tx: Db, invoiceId: string, actor: 
 }
 
 /**
- * Finalisasi tagihan pemakaian (spec paket 6): paket dikunci, lalu setiap baris sesi dicek (milik customer ini,
+ * Finalisasi tagihan pemakaian (spec paket 6; paket barang PB2): paket dikunci, lalu setiap baris sesi atau jatah barang dicek (milik customer ini,
  * aktif, belum kedaluwarsa, sisa cukup) dan dicatat PAKAI. Gagal satu, seluruh finalisasi batal.
  */
 export async function consumePackageSessions(
@@ -153,7 +213,7 @@ export async function consumePackageSessions(
   const uses = invoice.lines.filter((line) => line.patientPackageItemId);
   if (uses.length === 0) return;
   const itemIds = uses.map((line) => line.patientPackageItemId!);
-  const owners = await tx.patientPackageItem.findMany({ where: { id: { in: itemIds } }, select: { id: true, serviceName: true, patientPackageId: true } });
+  const owners = await tx.patientPackageItem.findMany({ where: { id: { in: itemIds } }, select: { id: true, serviceName: true, itemId: true, patientPackageId: true } });
   await lockPatientPackages(tx, owners.map((item) => item.patientPackageId));
   const packages = await tx.patientPackage.findMany({
     where: { id: { in: owners.map((item) => item.patientPackageId) } },
@@ -169,7 +229,9 @@ export async function consumePackageSessions(
     const expires = dateOnlyString(pkg.expiresOn);
     if (expires < today) throw new UserFacingError(`Paket ${pkg.name} sudah kedaluwarsa ${dateLabel(expires)}. Lepas paket atau minta Admin Keuangan memperpanjang.`);
     const left = remaining.get(item.id) ?? 0;
-    if (left < line.quantity) throw new UserFacingError(`Sesi ${item.serviceName} di paket ${pkg.name} tinggal ${left}. Lepas paket atau kurangi jumlahnya.`);
+    if (left < line.quantity) {
+      throw new UserFacingError(`${item.itemId ? "Jatah" : "Sesi"} ${item.serviceName} di paket ${pkg.name} tinggal ${Math.max(0, left)}. Lepas paket atau kurangi jumlahnya.`);
+    }
     remaining.set(item.id, left - line.quantity);
     await tx.packageSessionEntry.create({
       data: { patientPackageItemId: item.id, kind: "PAKAI", delta: -line.quantity, invoiceLineId: line.id, staffId: actor.staffId, staffName: actor.name },

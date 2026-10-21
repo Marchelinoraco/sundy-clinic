@@ -47,7 +47,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
               canExceedDiscount={can(staff.role, "invoice:correct")}
               canEditNotes={canEditNotes}
               packages={await listSellablePackages()}
-              packageOptions={await listPackageOptions(detail.patient.id)}
+              packageOptions={await listPackageOptions(detail.patient.id, detail.id)}
               performers={await listPerformers()}
               services={await listInternalServiceOptions()}
               restock={can(staff.role, "restock:request") ? { branchId: detail.branchId, options: await listCounterItems(detail.branchId) } : null}

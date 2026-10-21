@@ -10,13 +10,16 @@ vi.mock("@/server/invoice-drafts", () => ({ applyPackageSession: vi.fn(), releas
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
-const line = { id: "l1", name: "Relaxing Facial", kind: "TREATMENT" as const, serviceId: "s1", quantity: 1, fromDispensing: false, packageUse: null };
+const line = { id: "l1", name: "Relaxing Facial", kind: "TREATMENT" as const, serviceId: "s1", itemId: null, quantity: 1, fromDispensing: false, packageUse: null };
 const option = (patch: Partial<PackageOption>): PackageOption => ({
   patientPackageItemId: "i1",
+  purchaseLineId: null,
   patientPackageId: "p1",
   packageName: "Facial 5x",
   serviceId: "s1",
+  itemId: null,
   serviceName: "Relaxing Facial",
+  unit: null,
   sessions: 5,
   remaining: 3,
   startsOn: "2026-10-01",
@@ -48,11 +51,21 @@ describe("PackageSessionButton", () => {
     await waitFor(() => expect(applyPackageSession).toHaveBeenCalledWith({ invoiceId: "inv", version: 2, lineId: "l1", patientPackageItemId: "late" }));
   });
 
+  it("baris barang (juga obat resep) memakai jatah paket, termasuk paket yang dibeli di tagihan ini (spec paket barang PB4)", async () => {
+    vi.mocked(applyPackageSession).mockResolvedValue({ ok: true, data: { version: 3 } });
+    const user = userEvent.setup();
+    const goodsLine = { ...line, name: "Slimming", kind: "BARANG" as const, serviceId: null, itemId: "it9", quantity: 10, fromDispensing: true };
+    const fresh = option({ patientPackageItemId: null, purchaseLineId: "pl1", patientPackageId: "baru:pl1", packageName: "Lux", serviceId: null, itemId: "it9", unit: "kapsul", sessions: 30, remaining: 30 });
+    renderAdmin(<PackageSessionButton invoiceId="inv" version={2} line={goodsLine} options={[option({}), fresh, { ...fresh, purchaseLineId: "pl2", remaining: 5 }]} />);
+    await user.click(screen.getByRole("button", { name: "Pakai jatah paket Slimming" }));
+    await waitFor(() => expect(applyPackageSession).toHaveBeenCalledWith({ invoiceId: "inv", version: 2, lineId: "l1", purchaseLineId: "pl1" }));
+  });
+
   it("baris yang memakai paket menawarkan Lepas paket; baris tanpa paket cocok tidak menampilkan tombol", async () => {
     vi.mocked(releasePackageSession).mockResolvedValue({ ok: true, data: { version: 3 } });
     const user = userEvent.setup();
     const { unmount } = renderAdmin(
-      <PackageSessionButton invoiceId="inv" version={2} line={{ ...line, packageUse: { patientPackageItemId: "i1", packageName: "Facial 5x" } }} options={[]} />,
+      <PackageSessionButton invoiceId="inv" version={2} line={{ ...line, packageUse: { patientPackageItemId: "i1", purchaseLineId: null, packageName: "Facial 5x" } }} options={[]} />,
     );
     await user.click(screen.getByRole("button", { name: "Lepas paket Relaxing Facial" }));
     await waitFor(() => expect(releasePackageSession).toHaveBeenCalledWith({ invoiceId: "inv", version: 2, lineId: "l1" }));
