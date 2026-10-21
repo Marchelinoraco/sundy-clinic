@@ -79,7 +79,7 @@ Migrasi hanya menambah:
 ### 4.2 Kotak harga di tabel Layanan & Harga
 
 - Simpan harga di baris tabel memakai aturan BL4 dengan biaya yang tersimpan.
-- Bila harga baru di bawah total biaya, penyimpanan ditolak dengan pesan "Harga berlaku paling rendah Rp X, sama dengan total biaya per sesi. Kurangi biaya lewat tombol Harga & biaya bila perlu."
+- Bila harga baru di bawah total biaya, penyimpanan ditolak dengan pesan "Harga berlaku Rp Y di bawah total biaya per sesi Rp X. Naikkan harga atau kurangi biaya lewat tombol Harga & biaya." Total X dihitung pada harga Y, karena komisi persen ikut berubah bersama harga.
 - Kolom "Biaya per sesi" menampilkan "bahan · alat · komisi · lainnya Rp N", ditambah baris **total Rp T**, serta tanda merah dari BL12 bila ada.
 
 ### 4.3 Dialog Ubah layanan
