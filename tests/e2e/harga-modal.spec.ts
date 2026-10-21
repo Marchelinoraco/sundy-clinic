@@ -64,7 +64,7 @@ test("Admin Keuangan mengisi biaya treatment; resepsionis menagih dengan pelaksa
   await page.goto(invoiceUrl);
   await tungguHidrasi(page);
   const margin = page.getByRole("region", { name: "Margin" });
-  await expect(margin).toContainText("Bahan dan alatRp 35.000", { timeout: 30_000 });
+  await expect(margin).toContainText("Bahan, alat, dan lainnyaRp 40.000", { timeout: 30_000 });
   await expect(margin).toContainText("KomisiRp 15.000");
   await page.goto("/admin/laporan?tab=komisi");
   await tungguHidrasi(page);

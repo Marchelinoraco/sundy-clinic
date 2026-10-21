@@ -110,8 +110,8 @@ export function lineCosts(input: {
   return { materialCost: service.materialCost * quantity, toolCost: service.toolCost * quantity, otherCost: sumOther(service.otherCosts) * quantity, commissionAmount };
 }
 
-export function marginOf(input: { revenue: number; stockCost: number; materialCost: number; toolCost: number; commission: number }): number {
-  return input.revenue - input.stockCost - input.materialCost - input.toolCost - input.commission;
+export function marginOf(input: { revenue: number; stockCost: number; materialCost: number; toolCost: number; otherCost: number; commission: number }): number {
+  return input.revenue - input.stockCost - input.materialCost - input.toolCost - input.otherCost - input.commission;
 }
 
 /** Persen margin satu desimal; null bila pendapatan 0 (rencana keputusan 6). */

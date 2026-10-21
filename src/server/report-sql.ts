@@ -47,7 +47,7 @@ export async function invoiceAggregates(start: Date, end: Date, branchId: string
              COALESCE(SUM(l."quantity" * l."unitPrice") FILTER (WHERE l."kind" = 'BARANG'), 0) AS goods,
              COALESCE(SUM(l."quantity" * l."unitPrice") FILTER (WHERE l."kind" = 'PAKET'), 0) AS package,
              COALESCE(SUM(l."discountAmount"), 0) AS "itemDiscount",
-             COALESCE(SUM(l."materialCost" + l."toolCost"), 0) AS "treatmentCost",
+             COALESCE(SUM(l."materialCost" + l."toolCost" + l."otherCost"), 0) AS "treatmentCost",
              COALESCE(SUM(l."quantity" * l."unitPrice" - l."discountAmount"), 0) AS subtotal
       FROM "InvoiceLine" l JOIN inv ON inv."id" = l."invoiceId"
       GROUP BY l."invoiceId"
@@ -136,7 +136,7 @@ export async function packageSessionsUsed(start: Date, end: Date, branchId: stri
   return rows.map((row) => ({ name: row.name, unit: row.unit, sessions: Number(row.sessions) }));
 }
 
-export type MarginGroup = { revenue: number; stockCost: number; materialCost: number; toolCost: number; commission: number };
+export type MarginGroup = { revenue: number; stockCost: number; materialCost: number; toolCost: number; otherCost: number; commission: number };
 export type MarginReport = {
   goods: MarginGroup;
   treatment: MarginGroup;
@@ -145,7 +145,7 @@ export type MarginReport = {
   serviceRevenue: number;
   invoiceDiscount: number;
   byItem: { name: string; quantity: number; revenue: number; cost: number }[];
-  byTreatment: { name: string; quantity: number; revenue: number; materialCost: number; toolCost: number; commission: number }[];
+  byTreatment: { name: string; quantity: number; revenue: number; materialCost: number; toolCost: number; otherCost: number; commission: number }[];
 };
 
 /** Margin per kelompok (spec harga modal 7) dari tagihan FINAL di [start, end); pendapatan baris setelah diskon baris. */
@@ -154,12 +154,12 @@ export async function marginAggregates(start: Date, end: Date, branchId: string 
   const inv = Prisma.sql`SELECT i."id", i."discountKind", i."discountValue" FROM "Invoice" i WHERE i."status" = 'FINAL' AND i."finalizedAt" >= ${start} AND i."finalizedAt" < ${end} ${branch}`;
   type N = bigint | number | null;
   const [groups, items, treatments, discounts] = await Promise.all([
-    prisma.$queryRaw<{ kind: string; revenue: N; stock: N; material: N; tool: N; commission: N }[]>`
+    prisma.$queryRaw<{ kind: string; revenue: N; stock: N; material: N; tool: N; other: N; commission: N }[]>`
       WITH inv AS (${inv})
       SELECT l."kind" AS kind,
              SUM(l."quantity" * l."unitPrice" - l."discountAmount") AS revenue,
              SUM((SELECT COALESCE(SUM(u."quantity" * u."unitCost"), 0) FROM "InvoiceStockUse" u WHERE u."lineId" = l."id")) AS stock,
-             SUM(l."materialCost") AS material, SUM(l."toolCost") AS tool, SUM(l."commissionAmount") AS commission
+             SUM(l."materialCost") AS material, SUM(l."toolCost") AS tool, SUM(l."otherCost") AS other, SUM(l."commissionAmount") AS commission
       FROM "InvoiceLine" l JOIN inv ON inv."id" = l."invoiceId"
       GROUP BY l."kind"`,
     prisma.$queryRaw<{ name: string; quantity: N; revenue: N; cost: N }[]>`
@@ -169,10 +169,10 @@ export async function marginAggregates(start: Date, end: Date, branchId: string 
       FROM "InvoiceLine" l JOIN inv ON inv."id" = l."invoiceId"
       WHERE l."kind" = 'BARANG'
       GROUP BY l."name" ORDER BY 3 DESC, 1`,
-    prisma.$queryRaw<{ name: string; quantity: N; revenue: N; material: N; tool: N; commission: N }[]>`
+    prisma.$queryRaw<{ name: string; quantity: N; revenue: N; material: N; tool: N; other: N; commission: N }[]>`
       WITH inv AS (${inv})
       SELECT l."name" AS name, SUM(l."quantity") AS quantity, SUM(l."quantity" * l."unitPrice" - l."discountAmount") AS revenue,
-             SUM(l."materialCost") AS material, SUM(l."toolCost") AS tool, SUM(l."commissionAmount") AS commission
+             SUM(l."materialCost") AS material, SUM(l."toolCost") AS tool, SUM(l."otherCost") AS other, SUM(l."commissionAmount") AS commission
       FROM "InvoiceLine" l JOIN inv ON inv."id" = l."invoiceId"
       WHERE l."kind" = 'TREATMENT'
       GROUP BY l."name" ORDER BY 2 DESC, 1`,
@@ -188,17 +188,32 @@ export async function marginAggregates(start: Date, end: Date, branchId: string 
   const num = (value: N) => Number(value ?? 0);
   const group = (kind: string): MarginGroup => {
     const row = groups.find((g) => g.kind === kind);
-    return { revenue: num(row?.revenue ?? 0), stockCost: num(row?.stock ?? 0), materialCost: num(row?.material ?? 0), toolCost: num(row?.tool ?? 0), commission: num(row?.commission ?? 0) };
+    return {
+      revenue: num(row?.revenue ?? 0),
+      stockCost: num(row?.stock ?? 0),
+      materialCost: num(row?.material ?? 0),
+      toolCost: num(row?.tool ?? 0),
+      otherCost: num(row?.other ?? 0),
+      commission: num(row?.commission ?? 0),
+    };
   };
   const goods = group("BARANG");
   return {
-    goods: { ...goods, materialCost: 0, toolCost: 0, commission: 0 },
+    goods: { ...goods, materialCost: 0, toolCost: 0, otherCost: 0, commission: 0 },
     treatment: { ...group("TREATMENT"), stockCost: 0 },
     packageRevenue: group("PAKET").revenue,
     serviceRevenue: group("LAYANAN").revenue,
     invoiceDiscount: num(discounts[0]?.discount ?? 0),
     byItem: items.map((row) => ({ name: row.name, quantity: num(row.quantity), revenue: num(row.revenue), cost: num(row.cost) })),
-    byTreatment: treatments.map((row) => ({ name: row.name, quantity: num(row.quantity), revenue: num(row.revenue), materialCost: num(row.material), toolCost: num(row.tool), commission: num(row.commission) })),
+    byTreatment: treatments.map((row) => ({
+      name: row.name,
+      quantity: num(row.quantity),
+      revenue: num(row.revenue),
+      materialCost: num(row.material),
+      toolCost: num(row.tool),
+      otherCost: num(row.other),
+      commission: num(row.commission),
+    })),
   };
 }
 

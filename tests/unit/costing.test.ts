@@ -102,7 +102,7 @@ describe("salinan biaya baris", () => {
   });
 
   it("margin dan persennya", () => {
-    expect(marginOf({ revenue: 250_000, stockCost: 0, materialCost: 40_000, toolCost: 10_000, commission: 25_000 })).toBe(175_000);
+    expect(marginOf({ revenue: 250_000, stockCost: 0, materialCost: 40_000, toolCost: 10_000, otherCost: 8000, commission: 25_000 })).toBe(167_000);
     expect(marginPercent(175_000, 250_000)).toBe(70);
     expect(marginPercent(1, 3)).toBe(33.3);
     expect(marginPercent(-50, 0)).toBeNull();

@@ -48,9 +48,9 @@ describe("margin tagihan final", () => {
   it("ringkasan: pendapatan bersih dikurangi bahan, alat, dan komisi; per baris treatment", async () => {
     const detail = (await getInvoiceDetail(invoiceId))!;
     const revenue = detail.totals.total;
-    expect(detail.margin).toEqual({ revenue, stockCost: 0, materialCost: 40_000, toolCost: 10_000, commission: 25_000, margin: revenue - 75_000, missingStockCost: false });
+    expect(detail.margin).toEqual({ revenue, stockCost: 0, materialCost: 40_000, toolCost: 10_000, otherCost: 0, commission: 25_000, margin: revenue - 75_000, missingStockCost: false });
     const treatment = detail.lines.find((line) => line.kind === "TREATMENT")!;
-    expect(treatment.costing).toEqual({ stockCost: null, materialCost: 40_000, toolCost: 10_000, commission: 25_000, cost: 75_000, margin: treatment.amount - 75_000 });
+    expect(treatment.costing).toEqual({ stockCost: null, materialCost: 40_000, toolCost: 10_000, otherCost: 0, commission: 25_000, cost: 75_000, margin: treatment.amount - 75_000 });
   });
 
   it("resepsionis tidak menerima angka margin (Review Focus 5)", async () => {

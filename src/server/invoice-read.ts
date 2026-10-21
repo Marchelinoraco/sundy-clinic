@@ -190,7 +190,7 @@ export type InvoiceLineRow = {
    * Modal dan margin baris (spec harga modal 7), null bagi peran tanpa price:manage. `stockCost` hanya untuk barang,
    * null bila ada harga beli yang belum diisi; `cost` = harga pokok barang + bahan + alat + komisi.
    */
-  costing: { stockCost: number | null; materialCost: number; toolCost: number; commission: number; cost: number; margin: number } | null;
+  costing: { stockCost: number | null; materialCost: number; toolCost: number; otherCost: number; commission: number; cost: number; margin: number } | null;
 };
 
 export type InvoicePaymentRow = {
@@ -247,7 +247,7 @@ export type InvoiceDetail = {
   /** Pernah ada pembayaran (termasuk yang dibatalkan): pembatalan tagihan butuh invoice:correct. */
   everPaid: boolean;
   /** Ringkasan margin tagihan (spec harga modal 7); null bagi peran tanpa price:manage. `revenue` = total tagihan. */
-  margin: { revenue: number; stockCost: number; materialCost: number; toolCost: number; commission: number; margin: number; missingStockCost: boolean } | null;
+  margin: { revenue: number; stockCost: number; materialCost: number; toolCost: number; otherCost: number; commission: number; margin: number; missingStockCost: boolean } | null;
 };
 
 /** Ringkasan margin dari `costing` setiap baris (spec harga modal 7). */
@@ -256,8 +256,9 @@ function marginSummary(lines: readonly InvoiceLineRow[], revenue: number, missin
   const stockCost = sum((c) => c.stockCost ?? 0);
   const materialCost = sum((c) => c.materialCost);
   const toolCost = sum((c) => c.toolCost);
+  const otherCost = sum((c) => c.otherCost);
   const commission = sum((c) => c.commission);
-  return { revenue, stockCost, materialCost, toolCost, commission, margin: marginOf({ revenue, stockCost, materialCost, toolCost, commission }), missingStockCost };
+  return { revenue, stockCost, materialCost, toolCost, otherCost, commission, margin: marginOf({ revenue, stockCost, materialCost, toolCost, otherCost, commission }), missingStockCost };
 }
 
 export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null> {
@@ -320,6 +321,7 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
           discountSource: true,
           materialCost: true,
           toolCost: true,
+          otherCost: true,
           commissionAmount: true,
           treatmentPackageId: true,
           patientPackageItemId: true,
@@ -349,8 +351,8 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
     const stockCost =
       line.kind === "BARANG" ? (line.stockUses.some((use) => use.unitCost === null) ? null : line.stockUses.reduce((sum, use) => sum + use.quantity * use.unitCost!, 0)) : null;
     const amount = line.quantity * line.unitPrice - line.discountAmount;
-    const cost = (stockCost ?? 0) + line.materialCost + line.toolCost + line.commissionAmount;
-    return { stockCost, materialCost: line.materialCost, toolCost: line.toolCost, commission: line.commissionAmount, cost, margin: amount - cost };
+    const cost = (stockCost ?? 0) + line.materialCost + line.toolCost + line.otherCost + line.commissionAmount;
+    return { stockCost, materialCost: line.materialCost, toolCost: line.toolCost, otherCost: line.otherCost, commission: line.commissionAmount, cost, margin: amount - cost };
   };
 
   const lines = invoice.lines.map((line) => ({
