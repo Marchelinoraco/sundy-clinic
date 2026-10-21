@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   commissionLabel,
   costOverPrice,
-  costWarning,
   lineCosts,
   marginOf,
   marginPercent,
@@ -33,9 +32,7 @@ describe("biaya layanan", () => {
     expect(validateServiceCost({ materialCost: 0, toolCost: 0, commissionKind: "X", commissionValue: 1 })).toEqual({ ok: false, message: "Data tidak sah. Muat ulang halaman lalu coba lagi." });
   });
 
-  it("peringatan biaya melebihi harga, label, dan ringkasan", () => {
-    expect(costWarning({ materialCost: 200_000, toolCost: 30_000, commissionKind: "PERSEN", commissionValue: 10 }, 250_000)).toBe("Biaya melebihi harga jual.");
-    expect(costWarning({ materialCost: 40_000, toolCost: 10_000, commissionKind: "NOMINAL", commissionValue: 15_000 }, 250_000)).toBeNull();
+  it("label dan ringkasan", () => {
     expect(commissionLabel("NOMINAL", 15_000)).toBe("Rp 15.000/sesi");
     expect(commissionLabel("PERSEN", 10)).toBe("10%");
     expect(commissionLabel(null, 0)).toBe("tanpa komisi");

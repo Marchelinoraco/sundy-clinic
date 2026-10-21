@@ -15,7 +15,7 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { CONSULTATION_SERVICE_SLUG } from "@/lib/booking-rules";
-import type { ServiceCostInput } from "@/lib/costing";
+import type { OtherCost, ServiceCostInput } from "@/lib/costing";
 import { setServiceActive, updateServicePrice } from "@/server/service-admin";
 import { EmptyState, SectionCard } from "./page-layout";
 import { RupiahInput } from "./rupiah-input";
@@ -35,6 +35,7 @@ type PriceService = {
   isActive: boolean;
   /** Jumlah layanan situs aktif yang menautkan; 0 = "Hanya internal". */
   siteCount: number;
+  otherCosts: OtherCost[];
 } & ServiceCostInput;
 export type PriceCategory = { id: string; name: string; services: PriceService[] };
 
@@ -90,7 +91,8 @@ function PriceRow({ service, hidden, categoryOptions }: { service: PriceService;
         <RupiahInput aria-label={`Harga berlaku ${service.name}`} sx={{ width: 160 }} value={promoPrice} onChange={setPromoPrice} />
       </TableCell>
       <TableCell>
-        <ServiceCostDialog service={service} />
+        {/* Harga yang baru disimpan di baris ini ikut ke dialog, supaya Simpan di dialog tidak menimpanya dengan harga lama. */}
+        <ServiceCostDialog service={{ ...service, normalPrice: saved.normalPrice, promoPrice: saved.promoPrice ?? service.promoPrice }} />
       </TableCell>
       <TableCell sx={{ whiteSpace: "nowrap" }}>{service.siteCount > 0 ? `${service.siteCount} layanan situs` : "Hanya internal"}</TableCell>
       <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>

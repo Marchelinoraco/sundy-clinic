@@ -59,20 +59,6 @@ export async function updateServicePrice(
   });
 }
 
-/** Biaya bahan, alat, dan komisi pelaksana per sesi (spec harga modal 5). */
-export async function updateServiceCost(input: { id: string } & ServiceCostInput): Promise<ActionResult> {
-  return runAction(async () => {
-    const actor = await requireCapability("price:manage");
-    const checked = validateServiceCost(input);
-    if (!checked.ok) throw new UserFacingError(checked.message);
-    const service = await prisma.service.findUnique({ where: { id: String(input?.id ?? "") }, select: { id: true, name: true } });
-    if (!service) throw new UserFacingError("Layanan tidak ditemukan.");
-    await prisma.service.update({ where: { id: service.id }, data: checked.value });
-    await recordAudit({ actor, action: "service.cost", entity: "Service", entityId: service.id, summary: `${service.name}: ${serviceCostSummary(checked.value)}` });
-    safeRevalidatePath("/admin/layanan");
-  });
-}
-
 const SERVICE_NOT_FOUND = "Layanan tidak ditemukan.";
 
 type LockedService = { id: string; slug: string; name: string; promoPrice: number; cost: ServiceCostInput; otherCosts: OtherCost[] };

@@ -61,11 +61,6 @@ function commissionPerSession(cost: ServiceCostInput, price: number): number {
   return 0;
 }
 
-/** Biaya satu sesi melebihi harga jual: boleh disimpan, tetapi diberi peringatan (spec 5). */
-export function costWarning(cost: ServiceCostInput, price: number): string | null {
-  return cost.materialCost + cost.toolCost + commissionPerSession(cost, price) > price ? "Biaya melebihi harga jual." : null;
-}
-
 const sumOther = (otherCosts: readonly OtherCost[]) => otherCosts.reduce((sum, other) => sum + other.amount, 0);
 
 /** Total biaya per sesi = bahan + alat + komisi per sesi pada harga itu + biaya lainnya (spec biaya lainnya BL4). */
