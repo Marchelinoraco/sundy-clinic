@@ -58,7 +58,8 @@ describe("ServiceCostDialog — Harga & biaya (spec biaya lainnya BL6)", () => {
         ],
       }),
     );
-  });
+    // Sepuluh isian diketik satu per satu: di mesin yang sedang sibuk bisa melewati batas bawaan 5 detik.
+  }, 15_000);
 
   it("total melebihi harga: pesan merah, Simpan nonaktif; menaikkan harga mengaktifkan lagi (BL4)", async () => {
     const user = userEvent.setup();

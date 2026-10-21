@@ -1,15 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
   packageContentsLabel,
+  packageCostSummary,
   packageExpiresOn,
   packageOptionsFor,
   packageOptionsSummary,
+  packagePriceError,
   packageState,
   packageTargetLabel,
   sessionNote,
+  type PackageOption,
   validateExtension,
   validateTreatmentPackage,
-  type PackageOption,
 } from "@/lib/treatment-package";
 
 const valid = { name: " Facial Glow 5x ", price: 1_500_000, validDays: 180, description: "", items: [{ serviceId: "s1", sessions: 5 }] };
@@ -147,5 +149,36 @@ describe("packageOptionsSummary", () => {
         { ...base, patientPackageItemId: null, purchaseLineId: "L1", patientPackageId: "baru:L1", itemId: "b1", serviceName: "Slimming", unit: "kapsul", remaining: 30 },
       ]),
     ).toEqual(["Lux (sisa 20 kapsul Slimming; berlaku s.d. 12 Apr 2027)", "Lux (dibeli di tagihan ini: 30 kapsul Slimming)"]);
+  });
+});
+
+describe("biaya dan selisih paket (spec paket informatif PI1–PI4)", () => {
+  const lines = [
+    { name: "Facial Brightening", unitPrice: 249_000, unitCost: 85_000, quantity: 4 },
+    { name: "RF Perut", unitPrice: 350_000, unitCost: 120_000, quantity: 2 },
+    { name: "Slimming Capsule", unitPrice: 5000, unitCost: 2000, quantity: 30 },
+  ];
+
+  it("nilai normal, customer hemat, total biaya, dan selisih", () => {
+    expect(packageCostSummary(1_200_000, lines)).toEqual({ normalValue: 1_846_000, saving: 646_000, cost: 640_000, complete: true, margin: 560_000, missing: [] });
+    expect(packagePriceError(1_200_000, packageCostSummary(1_200_000, lines))).toBeNull();
+  });
+
+  it("harga sama dengan biaya boleh; di bawah biaya ditolak (PI3)", () => {
+    expect(packagePriceError(640_000, packageCostSummary(640_000, lines))).toBeNull();
+    expect(packagePriceError(600_000, packageCostSummary(600_000, lines))).toBe(
+      "Harga paket Rp 600.000 di bawah total biaya isi Rp 640.000. Naikkan harga paket atau kurangi isinya.",
+    );
+  });
+
+  it("barang tanpa harga beli: biaya belum lengkap dan ditolak lebih dulu (PI4)", () => {
+    const missing = [...lines, { name: "Serum Vitamin C", unitPrice: 185_000, unitCost: null, quantity: 1 }];
+    const summary = packageCostSummary(600_000, missing);
+    expect(summary).toMatchObject({ normalValue: 2_031_000, cost: 640_000, complete: false, missing: ["Serum Vitamin C"] });
+    expect(packagePriceError(600_000, summary)).toBe("Harga beli Serum Vitamin C belum diisi. Isi di Stok → Barang masuk.");
+  });
+
+  it("barang tanpa harga jual dihitung Rp 0 pada nilai normal", () => {
+    expect(packageCostSummary(10_000, [{ name: "Sampel", unitPrice: null, unitCost: 1000, quantity: 3 }])).toMatchObject({ normalValue: 0, saving: -10_000, cost: 3000 });
   });
 });

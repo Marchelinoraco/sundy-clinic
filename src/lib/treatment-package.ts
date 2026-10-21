@@ -1,3 +1,4 @@
+import { formatRupiah } from "./format";
 import { dateLabel, isDateString, MAX_AMOUNT, type Validation } from "./stock";
 import { addDaysToDateString } from "./time";
 
@@ -180,4 +181,39 @@ export function packageOptionsSummary(options: readonly PackageOption[]): string
     if (items[0].purchaseLineId) return `${items[0].packageName} (dibeli di tagihan ini: ${sessions})`;
     return `${items[0].packageName} (sisa ${sessions}; berlaku s.d. ${dateLabel(items[0].expiresOn)})`;
   });
+}
+
+/**
+ * Satu isi paket untuk hitungan biaya (spec paket informatif PI1): harga jual dan biaya per satuan. Treatment: total biaya
+ * per sesi; barang: harga beli terakhir, `null` bila belum pernah diisi.
+ */
+export type PackageCostLine = { name: string; unitPrice: number | null; unitCost: number | null; quantity: number };
+export type PackageCostSummary = {
+  /** Harga jual semua isi bila dibeli satuan. */
+  normalValue: number;
+  /** Nilai normal − harga paket. */
+  saving: number;
+  /** Total biaya isi yang sudah diketahui. */
+  cost: number;
+  /** Semua isi punya biaya. */
+  complete: boolean;
+  /** Harga paket − biaya. */
+  margin: number;
+  /** Nama barang yang belum punya harga beli. */
+  missing: string[];
+};
+
+/** Ringkasan di dialog paket (spec paket informatif PI2). */
+export function packageCostSummary(price: number, lines: readonly PackageCostLine[]): PackageCostSummary {
+  const normalValue = lines.reduce((sum, line) => sum + (line.unitPrice ?? 0) * line.quantity, 0);
+  const cost = lines.reduce((sum, line) => sum + (line.unitCost ?? 0) * line.quantity, 0);
+  const missing = lines.filter((line) => line.unitCost === null).map((line) => line.name);
+  return { normalValue, saving: normalValue - price, cost, complete: missing.length === 0, margin: price - cost, missing };
+}
+
+/** Penyimpanan paket ditolak bila ada barang tanpa harga beli (PI4), lalu bila harga di bawah total biaya (PI3); sama dengan boleh. */
+export function packagePriceError(price: number, summary: PackageCostSummary): string | null {
+  if (summary.missing.length > 0) return `Harga beli ${summary.missing[0]} belum diisi. Isi di Stok → Barang masuk.`;
+  if (summary.cost > price) return `Harga paket ${formatRupiah(price)} di bawah total biaya isi ${formatRupiah(summary.cost)}. Naikkan harga paket atau kurangi isinya.`;
+  return null;
 }

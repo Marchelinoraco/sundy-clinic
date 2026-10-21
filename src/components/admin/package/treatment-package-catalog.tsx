@@ -21,12 +21,26 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import type { ActionResult } from "@/lib/action-result";
+import { marginPercent } from "@/lib/costing";
 import { formatRupiah } from "@/lib/format";
-import { validateTreatmentPackage, type TreatmentPackageInput } from "@/lib/treatment-package";
+import { dateLabel } from "@/lib/stock";
+import { witaDateString } from "@/lib/time";
+import {
+  PACKAGE_GOODS_MAX,
+  PACKAGE_SESSIONS_MAX,
+  PACKAGE_VALID_DAYS_MAX,
+  packageCostSummary,
+  packageExpiresOn,
+  packagePriceError,
+  validateTreatmentPackage,
+  type PackageCostLine,
+  type TreatmentPackageInput,
+} from "@/lib/treatment-package";
 import {
   createTreatmentPackage,
   setTreatmentPackageActive,
   updateTreatmentPackage,
+  type CatalogPackage,
   type PackageServiceOption,
   type PackageStockOption,
   type TreatmentPackageView,
@@ -112,6 +126,28 @@ function PackageDialog({
     });
   }
 
+  const today = witaDateString(new Date());
+  const days = Number(draft.validDays);
+  const daysValid = Number.isInteger(days) && days >= 1 && days <= PACKAGE_VALID_DAYS_MAX;
+  // Isi yang sudah dipilih saja yang dihitung; harga jual dan biaya per satuan dari katalog (spec paket informatif PI1).
+  const lines: PackageCostLine[] = draft.items.flatMap((item) => {
+    const quantity = Number(item.sessions) > 0 ? Number(item.sessions) : 0;
+    if (item.goods) {
+      const stock = stockItems.find((option) => option.id === item.id);
+      return stock ? [{ name: stock.name, unitPrice: stock.sellPrice, unitCost: stock.lastUnitCost, quantity }] : [];
+    }
+    const service = services.find((option) => option.id === item.id);
+    return service ? [{ name: service.name, unitPrice: service.price, unitCost: service.costPerSession, quantity }] : [];
+  });
+  const price = draft.price ?? 0;
+  const summary = packageCostSummary(price, lines);
+  // Harga belum diisi: hanya barang tanpa harga beli yang sudah perlu ditandai (PI3, PI4).
+  const costError = draft.price === null && summary.missing.length === 0 ? null : packagePriceError(price, summary);
+  const percentOf = (part: number, whole: number) => {
+    const value = marginPercent(part, whole);
+    return value === null ? "" : ` (${value.toLocaleString("id-ID")}%)`;
+  };
+
   return (
     <>
       <Button type="button" size="small" variant={pkg ? "text" : "contained"} onClick={openDialog} aria-label={pkg ? `Ubah ${pkg.name}` : undefined}>
@@ -122,17 +158,33 @@ function PackageDialog({
         <DialogCloseButton onClick={() => setOpen(false)} />
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
-            <TextField id="package-name" label="Nama paket" value={draft.name} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} fullWidth />
+            <TextField
+              id="package-name"
+              label="Nama paket"
+              value={draft.name}
+              onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
+              helperText="Tampil di tagihan, struk, dan kartu paket customer."
+              fullWidth
+            />
             <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" } }}>
-              <RupiahInput id="package-price" label="Harga" value={draft.price} onChange={(price) => setDraft((d) => ({ ...d, price }))} fullWidth />
+              <RupiahInput
+                id="package-price"
+                label="Harga paket"
+                value={draft.price}
+                onChange={(price) => setDraft((d) => ({ ...d, price }))}
+                helperText="Dibayar customer sekali untuk seluruh isi paket."
+                error={draft.price !== null && summary.complete && summary.cost > price}
+                fullWidth
+              />
               <TextField
                 id="package-days"
                 label="Masa berlaku (hari)"
                 type="number"
                 value={draft.validDays}
                 onChange={(e) => setDraft((d) => ({ ...d, validDays: e.target.value }))}
+                helperText={daysValid ? `Sejak dibeli. Bila dibeli hari ini: s.d. ${dateLabel(packageExpiresOn(today, days))}.` : `1–${PACKAGE_VALID_DAYS_MAX} hari.`}
                 fullWidth
-                slotProps={{ htmlInput: { min: 1, max: 3650, inputMode: "numeric" } }}
+                slotProps={{ htmlInput: { min: 1, max: PACKAGE_VALID_DAYS_MAX, inputMode: "numeric" } }}
               />
             </Box>
             <TextField
@@ -140,58 +192,110 @@ function PackageDialog({
               label="Keterangan (opsional)"
               value={draft.description}
               onChange={(e) => setDraft((d) => ({ ...d, description: e.target.value }))}
+              helperText="Catatan internal untuk staf; tidak tampil di tagihan atau struk."
               fullWidth
               multiline
               minRows={2}
             />
-            <Typography component="h3" variant="subtitle2">
-              Isi paket
-            </Typography>
+            <Box>
+              <Typography component="h3" variant="subtitle2">
+                Isi paket
+              </Typography>
+              <Typography variant="caption" component="p" sx={{ color: "text.secondary" }}>
+                Sesi treatment dipakai di tagihan; obat dan produk diambil bertahap dari stok meja.
+              </Typography>
+            </Box>
             {draft.items.map((item, index) => {
-              const unit = item.goods ? stockItems.find((stock) => stock.id === item.id)?.unit : undefined;
+              const n = index + 1;
+              const stock = item.goods ? stockItems.find((option) => option.id === item.id) : undefined;
+              const service = item.goods ? undefined : services.find((option) => option.id === item.id);
+              const unit = item.goods ? (stock?.unit ?? "") : "sesi";
+              const quantity = Number(item.sessions) > 0 ? Number(item.sessions) : 0;
+              const missingCost = stock !== undefined && stock.lastUnitCost === null;
+              const kind = item.goods ? "Obat / produk" : "Treatment";
+              const info = service
+                ? `Harga jual ${formatRupiah(service.price)}/sesi · biaya ${formatRupiah(service.costPerSession)}/sesi`
+                : stock
+                  ? missingCost
+                    ? "Harga beli belum diisi. Isi di Stok → Barang masuk."
+                    : `Harga jual ${stock.sellPrice === null ? "belum diisi" : `${formatRupiah(stock.sellPrice)}/${stock.unit}`} · harga beli terakhir ${formatRupiah(stock.lastUnitCost ?? 0)}/${stock.unit}`
+                  : item.goods
+                    ? "Pilih obat atau produk dari stok."
+                    : "Pilih treatment dari katalog layanan.";
+              const unitPrice = service?.price ?? stock?.sellPrice ?? null;
+              const unitCost = service ? service.costPerSession : (stock?.lastUnitCost ?? null);
               return (
-                <Stack key={index} direction="row" spacing={1} sx={{ alignItems: "center" }}>
-                  {item.goods ? (
-                    <SelectField aria-label={`Barang ${index + 1}`} value={item.id} onChange={(id) => setItem(index, { id })}>
-                      <option value="">Pilih obat atau produk</option>
-                      {stockItems.map((stock) => (
-                        <option key={stock.id} value={stock.id}>
-                          {stock.name} ({stock.kindLabel}, {stock.unit})
-                        </option>
-                      ))}
-                    </SelectField>
-                  ) : (
-                    <SelectField aria-label={`Treatment ${index + 1}`} value={item.id} onChange={(id) => setItem(index, { id })}>
-                      <option value="">Pilih treatment</option>
-                      {services.map((service) => (
-                        <option key={service.id} value={service.id}>
-                          {service.name} ({service.categoryName})
-                        </option>
-                      ))}
-                    </SelectField>
-                  )}
-                  <TextField
-                    type="number"
-                    value={item.sessions}
-                    onChange={(e) => setItem(index, { sessions: e.target.value })}
-                    sx={{ width: item.goods ? 140 : 96, flexShrink: 0 }}
-                    slotProps={{
-                      htmlInput: { "aria-label": `${item.goods ? "Jumlah" : "Sesi"} ${index + 1}`, min: 1, max: item.goods ? 1000 : 100, inputMode: "numeric" },
-                      input: unit ? { endAdornment: <InputAdornment position="end">{unit}</InputAdornment> } : undefined,
-                    }}
-                  />
-                  {draft.items.length > 1 && (
-                    <Button
-                      type="button"
-                      size="small"
-                      variant="text"
-                      aria-label={`Hapus ${item.goods ? "barang" : "treatment"} ${index + 1}`}
-                      onClick={() => setDraft((d) => ({ ...d, items: d.items.filter((_, i) => i !== index) }))}
+                <Box
+                  key={index}
+                  role="group"
+                  aria-label={`Isi paket ${n}`}
+                  sx={{ border: 1, borderColor: missingCost ? "error.light" : "divider", borderRadius: 1.5, p: 1.5, bgcolor: missingCost ? "action.hover" : undefined }}
+                >
+                  <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+                    <Typography variant="overline" sx={{ color: "primary.main", lineHeight: 1.5 }}>
+                      {kind} {n}
+                    </Typography>
+                    {draft.items.length > 1 && (
+                      <Button
+                        type="button"
+                        size="small"
+                        variant="text"
+                        aria-label={`Hapus ${kind.toLowerCase()} ${n}`}
+                        onClick={() => setDraft((d) => ({ ...d, items: d.items.filter((_, i) => i !== index) }))}
+                      >
+                        Hapus
+                      </Button>
+                    )}
+                  </Stack>
+                  <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+                    <SelectField
+                      label={kind}
+                      aria-label={`${kind} ${n}`}
+                      value={item.id}
+                      onChange={(id) => setItem(index, { id })}
+                      helperText={info}
+                      error={missingCost}
                     >
-                      Hapus
-                    </Button>
+                      {item.goods ? (
+                        <>
+                          <option value="">Pilih obat atau produk</option>
+                          {stockItems.map((option) => (
+                            <option key={option.id} value={option.id}>
+                              {option.name} ({option.kindLabel}, {option.unit})
+                            </option>
+                          ))}
+                        </>
+                      ) : (
+                        <>
+                          <option value="">Pilih treatment</option>
+                          {services.map((option) => (
+                            <option key={option.id} value={option.id}>
+                              {option.name} ({option.categoryName})
+                            </option>
+                          ))}
+                        </>
+                      )}
+                    </SelectField>
+                    <TextField
+                      label={item.goods ? "Jumlah" : "Jumlah sesi"}
+                      type="number"
+                      value={item.sessions}
+                      onChange={(e) => setItem(index, { sessions: e.target.value })}
+                      helperText={item.goods ? `1–${PACKAGE_GOODS_MAX.toLocaleString("id-ID")}${unit ? ` ${unit}` : ""}` : `1–${PACKAGE_SESSIONS_MAX} sesi`}
+                      sx={{ width: { xs: "100%", sm: 170 }, flexShrink: 0 }}
+                      slotProps={{
+                        htmlInput: { "aria-label": `${item.goods ? "Jumlah" : "Jumlah sesi"} ${n}`, min: 1, max: item.goods ? PACKAGE_GOODS_MAX : PACKAGE_SESSIONS_MAX, inputMode: "numeric" },
+                        input: unit ? { endAdornment: <InputAdornment position="end">{unit}</InputAdornment> } : undefined,
+                      }}
+                    />
+                  </Stack>
+                  {(service || stock) && (
+                    <Stack direction="row" sx={{ justifyContent: "space-between", mt: 1, pt: 1, borderTop: 1, borderColor: "divider", borderTopStyle: "dashed" }}>
+                      <Typography variant="caption">Nilai normal {formatRupiah((unitPrice ?? 0) * quantity)}</Typography>
+                      <Typography variant="caption">{unitCost === null ? "Biaya belum diketahui" : `Biaya ${formatRupiah(unitCost * quantity)}`}</Typography>
+                    </Stack>
                   )}
-                </Stack>
+                </Box>
               );
             })}
             <Stack direction="row" spacing={1}>
@@ -200,20 +304,52 @@ function PackageDialog({
               </Button>
               {stockItems.length > 0 && (
                 <Button type="button" size="small" variant="outlined" onClick={() => setDraft((d) => ({ ...d, items: [...d.items, { goods: true, id: "", sessions: "1" }] }))}>
-                  + Barang
+                  + Obat / produk
                 </Button>
               )}
             </Stack>
-            {error && <Alert severity="error">{error}</Alert>}
+            <Box component="section" aria-label="Ringkasan paket" sx={{ p: 1.5, borderRadius: 1.5, bgcolor: "action.hover", fontSize: "0.875rem" }}>
+              <SummaryRow label="Nilai normal isi paket" note="harga jual semua isi bila dibeli satuan" value={formatRupiah(summary.normalValue)} />
+              <SummaryRow label="Harga paket" value={draft.price === null ? "—" : formatRupiah(price)} />
+              {draft.price !== null && <SummaryRow label="Customer hemat" value={`${formatRupiah(summary.saving)}${percentOf(summary.saving, summary.normalValue)}`} />}
+              <SummaryRow label="Total biaya isi paket" note="biaya treatment + harga beli barang" value={summary.complete ? formatRupiah(summary.cost) : "belum lengkap"} />
+              <SummaryRow
+                label="Selisih harga paket − biaya"
+                value={summary.complete && draft.price !== null ? `${formatRupiah(summary.margin)}${percentOf(summary.margin, price)}` : "belum bisa dihitung"}
+                tone={summary.complete && draft.price !== null ? (summary.margin < 0 ? "error.main" : "success.main") : "error.main"}
+                strong
+              />
+            </Box>
+            {(costError ?? error) && <Alert severity="error">{costError ?? error}</Alert>}
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button type="button" variant="contained" disabled={pending} onClick={save}>
+          <Button type="button" variant="contained" disabled={pending || costError !== null} onClick={save}>
             Simpan
           </Button>
         </DialogActions>
       </Dialog>
     </>
+  );
+}
+
+/** Satu baris ringkasan paket: label (dengan penjelasan kecil) dan nilainya. */
+function SummaryRow({ label, note, value, tone, strong = false }: { label: string; note?: string; value: string; tone?: string; strong?: boolean }) {
+  return (
+    <Stack
+      direction="row"
+      sx={{ justifyContent: "space-between", gap: 2, py: 0.25, color: tone, fontWeight: strong ? 700 : undefined, ...(strong ? { borderTop: 1, borderColor: "divider", mt: 0.5, pt: 0.75 } : {}) }}
+    >
+      <span>
+        {label}
+        {note && (
+          <Typography variant="caption" component="span" sx={{ display: "block", color: "text.secondary", fontWeight: 400 }}>
+            {note}
+          </Typography>
+        )}
+      </span>
+      <span>{value}</span>
+    </Stack>
   );
 }
 
@@ -223,7 +359,7 @@ export function TreatmentPackageCatalog({
   services,
   stockItems = [],
 }: {
-  packages: TreatmentPackageView[];
+  packages: CatalogPackage[];
   services: PackageServiceOption[];
   stockItems?: PackageStockOption[];
 }) {
@@ -263,6 +399,8 @@ export function TreatmentPackageCatalog({
                 <TableCell>Paket</TableCell>
                 <TableCell>Isi</TableCell>
                 <TableCell align="right">Harga</TableCell>
+                <TableCell align="right">Biaya isi</TableCell>
+                <TableCell align="right">Selisih</TableCell>
                 <TableCell>Berlaku</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell />
@@ -283,6 +421,10 @@ export function TreatmentPackageCatalog({
                   </TableCell>
                   <TableCell>{pkg.contents}</TableCell>
                   <TableCell align="right">{formatRupiah(pkg.price)}</TableCell>
+                  <TableCell align="right">{pkg.cost === null ? "—" : formatRupiah(pkg.cost)}</TableCell>
+                  <TableCell align="right">
+                    <PackageMarginCell price={pkg.price} cost={pkg.cost} />
+                  </TableCell>
                   <TableCell>{pkg.validDays} hari</TableCell>
                   <TableCell>
                     <StatusChip label={pkg.isActive ? "Aktif" : "Nonaktif"} tone={pkg.isActive ? "success" : "neutral"} />
@@ -309,5 +451,31 @@ export function TreatmentPackageCatalog({
         </TableContainer>
       )}
     </SectionCard>
+  );
+}
+
+/**
+ * Selisih harga paket − biaya isi di tabel (spec paket informatif PI6): paket yang jadi rugi karena biaya naik ditandai,
+ * tanpa diblokir; paket berisi barang tanpa harga beli belum bisa dihitung.
+ */
+function PackageMarginCell({ price, cost }: { price: number; cost: number | null }) {
+  if (cost === null) {
+    return (
+      <Typography variant="caption" sx={{ color: "warning.main" }}>
+        Harga beli belum lengkap
+      </Typography>
+    );
+  }
+  const margin = price - cost;
+  const percent = marginPercent(margin, price);
+  return (
+    <>
+      <Box component="span" sx={{ color: margin < 0 ? "error.main" : undefined, fontWeight: 500 }}>
+        {formatRupiah(margin)}
+      </Box>
+      <Typography variant="caption" component="div" sx={{ color: margin < 0 ? "error.main" : "text.secondary" }}>
+        {margin < 0 ? "Biaya naik, perbarui harga" : percent === null ? "" : `${percent.toLocaleString("id-ID")}%`}
+      </Typography>
+    </>
   );
 }

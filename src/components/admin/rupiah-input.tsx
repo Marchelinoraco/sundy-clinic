@@ -13,6 +13,8 @@ export function RupiahInput({
   placeholder,
   sx,
   fullWidth,
+  helperText,
+  error,
   "aria-label": ariaLabel,
 }: {
   id?: string;
@@ -22,6 +24,8 @@ export function RupiahInput({
   placeholder?: string;
   sx?: SxProps<Theme>;
   fullWidth?: boolean;
+  helperText?: string;
+  error?: boolean;
   "aria-label"?: string;
 }) {
   return (
@@ -33,6 +37,8 @@ export function RupiahInput({
       value={rupiahInputText(value)}
       onChange={(event) => onChange(parseRupiahText(event.target.value))}
       fullWidth={fullWidth}
+      helperText={helperText}
+      error={error}
       sx={sx}
       slotProps={{ htmlInput: { inputMode: "numeric", "aria-label": ariaLabel } }}
     />
