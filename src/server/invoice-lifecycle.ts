@@ -114,10 +114,19 @@ export async function finalizeInvoice(input: { invoiceId: string; version: numbe
       if (treatmentLines.length > 0) {
         const services = await tx.service.findMany({
           where: { id: { in: treatmentLines.map((line) => line.serviceId!) } },
-          select: { id: true, promoPrice: true, materialCost: true, toolCost: true, commissionKind: true, commissionValue: true },
+          select: {
+            id: true,
+            promoPrice: true,
+            materialCost: true,
+            toolCost: true,
+            commissionKind: true,
+            commissionValue: true,
+            costLines: { select: { name: true, amount: true } },
+          },
         });
         for (const line of treatmentLines) {
-          const costs = lineCosts({ quantity: line.quantity, hasPerformer: line.performerId !== null, service: services.find((s) => s.id === line.serviceId) ?? null });
+          const service = services.find((s) => s.id === line.serviceId);
+          const costs = lineCosts({ quantity: line.quantity, hasPerformer: line.performerId !== null, service: service ? { ...service, otherCosts: service.costLines } : null });
           await tx.invoiceLine.update({ where: { id: line.id }, data: costs });
         }
       }
