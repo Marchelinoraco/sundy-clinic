@@ -3,9 +3,18 @@
 import type { Prisma } from "@prisma/client";
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
 import { prisma } from "@/lib/db";
+import { totalCostPerSession } from "@/lib/costing";
 import { formatRupiah } from "@/lib/format";
 import { safeRevalidatePath } from "@/lib/revalidate";
-import { packageContentsLabel, validateTreatmentPackage, type TreatmentPackageInput, type ValidTreatmentPackage } from "@/lib/treatment-package";
+import {
+  packageContentsLabel,
+  packageCostSummary,
+  packagePriceError,
+  validateTreatmentPackage,
+  type PackageCostLine,
+  type TreatmentPackageInput,
+  type ValidTreatmentPackage,
+} from "@/lib/treatment-package";
 import { recordAudit } from "@/server/audit";
 import { requireCapability } from "@/server/session";
 
@@ -24,9 +33,13 @@ export type TreatmentPackageView = {
   /** Berapa kali paket ini sudah difinalkan di tagihan. */
   soldCount: number;
 };
+/** Baris tabel katalog: `cost` = total biaya isi, `null` bila ada barang tanpa harga beli (spec paket informatif PI6). */
+export type CatalogPackage = TreatmentPackageView & { cost: number | null };
 export type SellablePackage = { id: string; name: string; price: number; validDays: number; contents: string };
-export type PackageServiceOption = { id: string; name: string; categoryName: string };
-export type PackageStockOption = { id: string; name: string; unit: string; kindLabel: string };
+/** `price` = harga berlaku, `costPerSession` = total biaya per sesi (spec paket informatif PI1, PI7). */
+export type PackageServiceOption = { id: string; name: string; categoryName: string; price: number; costPerSession: number };
+/** `lastUnitCost` = harga beli terakhir, `null` bila belum pernah diisi (PI8). */
+export type PackageStockOption = { id: string; name: string; unit: string; kindLabel: string; sellPrice: number | null; lastUnitCost: number | null };
 
 const SELECT = {
   id: true,
@@ -83,6 +96,57 @@ async function assertNameFree(name: string, exceptId?: string) {
   if (twin) throw new UserFacingError("Paket dengan nama ini sudah ada.");
 }
 
+type CostFacts = {
+  services: Map<string, { name: string; price: number; costPerSession: number }>;
+  items: Map<string, { name: string; sellPrice: number | null; lastUnitCost: number | null }>;
+};
+
+/**
+ * Harga jual dan biaya per satuan isi paket, dibaca dari basis data (spec paket informatif PI1, PI7, PI8): total biaya per sesi
+ * treatment pada harga katalognya; harga beli terakhir barang = batch terbaru yang sudah berharga.
+ */
+async function costFacts(serviceIds: readonly string[], itemIds: readonly string[]): Promise<CostFacts> {
+  const [services, items, batches] = await Promise.all([
+    prisma.service.findMany({
+      where: { id: { in: [...serviceIds] } },
+      select: {
+        id: true,
+        name: true,
+        promoPrice: true,
+        materialCost: true,
+        toolCost: true,
+        commissionKind: true,
+        commissionValue: true,
+        costLines: { select: { name: true, amount: true } },
+      },
+    }),
+    prisma.stockItem.findMany({ where: { id: { in: [...itemIds] } }, select: { id: true, name: true, sellPrice: true } }),
+    prisma.stockBatch.findMany({
+      where: { itemId: { in: [...itemIds] }, unitCost: { not: null } },
+      orderBy: [{ itemId: "asc" }, { createdAt: "desc" }],
+      distinct: ["itemId"],
+      select: { itemId: true, unitCost: true },
+    }),
+  ]);
+  return {
+    services: new Map(
+      services.map((service) => [service.id, { name: service.name, price: service.promoPrice, costPerSession: totalCostPerSession(service, service.costLines, service.promoPrice) }]),
+    ),
+    items: new Map(items.map((item) => [item.id, { name: item.name, sellPrice: item.sellPrice, lastUnitCost: batches.find((batch) => batch.itemId === item.id)?.unitCost ?? null }])),
+  };
+}
+
+function costLinesOf(items: readonly { serviceId: string | null; itemId: string | null; sessions: number }[], facts: CostFacts): PackageCostLine[] {
+  return items.map((item) => {
+    if (item.serviceId) {
+      const service = facts.services.get(item.serviceId);
+      return { name: service?.name ?? "", unitPrice: service?.price ?? 0, unitCost: service?.costPerSession ?? 0, quantity: item.sessions };
+    }
+    const goods = facts.items.get(item.itemId ?? "");
+    return { name: goods?.name ?? "", unitPrice: goods?.sellPrice ?? null, unitCost: goods?.lastUnitCost ?? null, quantity: item.sessions };
+  });
+}
+
 async function checkCatalog(value: ValidTreatmentPackage, exceptId?: string) {
   const serviceIds = value.items.flatMap((item) => (item.serviceId ? [item.serviceId] : []));
   const itemIds = value.items.flatMap((item) => (item.itemId ? [item.itemId] : []));
@@ -91,13 +155,25 @@ async function checkCatalog(value: ValidTreatmentPackage, exceptId?: string) {
   const goods = await prisma.stockItem.findMany({ where: { id: { in: itemIds }, isActive: true }, select: { id: true } });
   if (goods.length !== itemIds.length) throw new UserFacingError("Barang tidak ditemukan atau nonaktif.");
   await assertNameFree(value.name, exceptId);
+  // Tidak boleh ada barang tanpa harga beli, dan harga paket tidak boleh di bawah total biaya isi (spec paket informatif PI3, PI4).
+  const lines = costLinesOf(value.items, await costFacts(serviceIds, itemIds));
+  const error = packagePriceError(value.price, packageCostSummary(value.price, lines));
+  if (error) throw new UserFacingError(error);
 }
 
-/** Semua paket katalog, aktif dulu (spec paket 4). */
-export async function listTreatmentPackages(): Promise<TreatmentPackageView[]> {
+/** Semua paket katalog, aktif dulu (spec paket 4), dengan total biaya isi saat ini (spec paket informatif PI6). */
+export async function listTreatmentPackages(): Promise<CatalogPackage[]> {
   await requireCapability("price:manage");
   const rows = await prisma.treatmentPackage.findMany({ orderBy: [{ isActive: "desc" }, { sortOrder: "asc" }, { name: "asc" }], select: SELECT });
-  return rows.map(view);
+  const items = rows.flatMap((row) => row.items);
+  const facts = await costFacts(
+    items.flatMap((item) => (item.serviceId ? [item.serviceId] : [])),
+    items.flatMap((item) => (item.itemId ? [item.itemId] : [])),
+  );
+  return rows.map((row) => {
+    const summary = packageCostSummary(row.price, costLinesOf(row.items, facts));
+    return { ...view(row), cost: summary.complete ? summary.cost : null };
+  });
 }
 
 /** Layanan aktif yang bisa menjadi isi paket. */
@@ -108,14 +184,29 @@ export async function listPackageServices(): Promise<PackageServiceOption[]> {
     orderBy: [{ category: { sortOrder: "asc" } }, { sortOrder: "asc" }],
     select: { id: true, name: true, category: { select: { name: true } } },
   });
-  return services.map((service) => ({ id: service.id, name: service.name, categoryName: service.category.name }));
+  const facts = await costFacts(services.map((service) => service.id), []);
+  return services.map((service) => ({
+    id: service.id,
+    name: service.name,
+    categoryName: service.category.name,
+    price: facts.services.get(service.id)?.price ?? 0,
+    costPerSession: facts.services.get(service.id)?.costPerSession ?? 0,
+  }));
 }
 
-/** Obat dan produk aktif yang bisa menjadi isi paket (spec paket barang PB1). Tanpa harga: jatah paket tidak berharga sendiri. */
+/** Obat dan produk aktif yang bisa menjadi isi paket (spec paket barang PB1), dengan harga jual dan harga beli terakhir (spec paket informatif PI1). */
 export async function listPackageStockItems(): Promise<PackageStockOption[]> {
   await requireCapability("price:manage");
   const items = await prisma.stockItem.findMany({ where: { isActive: true }, orderBy: [{ kind: "asc" }, { name: "asc" }], select: { id: true, name: true, unit: true, kind: true } });
-  return items.map((item) => ({ id: item.id, name: item.name, unit: item.unit, kindLabel: item.kind === "OBAT" ? "Obat" : "Produk" }));
+  const facts = await costFacts([], items.map((item) => item.id));
+  return items.map((item) => ({
+    id: item.id,
+    name: item.name,
+    unit: item.unit,
+    kindLabel: item.kind === "OBAT" ? "Obat" : "Produk",
+    sellPrice: facts.items.get(item.id)?.sellPrice ?? null,
+    lastUnitCost: facts.items.get(item.id)?.lastUnitCost ?? null,
+  }));
 }
 
 /** Paket aktif untuk dialog "Jual paket" di tagihan (spec paket 5). */

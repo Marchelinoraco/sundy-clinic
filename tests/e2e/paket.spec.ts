@@ -1,6 +1,6 @@
 import { expect, test, type Locator } from "@playwright/test";
 import { E2E_APOTEKER, E2E_KEUANGAN, E2E_RESEPSIONIS } from "./credentials";
-import { aturHargaJual } from "./helpers/harga";
+import { aturHargaJual, isiHargaBeli } from "./helpers/harga";
 import { isiTanggal, pilihOpsi, tungguHidrasi } from "./helpers/mui";
 import { buatPasienBaru } from "./helpers/pasien-baru";
 import { signIn } from "./helpers/quiz";
@@ -28,10 +28,10 @@ test("paket dijual dengan DP, sesinya dipakai di kunjungan berikutnya, lalu dipe
   await page.getByRole("button", { name: "+ Paket" }).click();
   const create = page.getByRole("dialog", { name: "Tambah paket" });
   await create.getByLabel("Nama paket").fill(packageName);
-  await create.getByLabel("Harga").fill("400000");
+  await create.getByLabel("Harga paket").fill("400000");
   await create.getByLabel("Masa berlaku (hari)").fill("90");
   await pilihMemuat(create.getByLabel("Treatment 1"), "Relaxing Facial");
-  await create.getByLabel("Sesi 1").fill("3");
+  await create.getByLabel("Jumlah sesi 1").fill("3");
   await create.getByRole("button", { name: "Simpan" }).click();
   await expect(create).toBeHidden({ timeout: 30_000 });
   await expect(page.getByRole("table", { name: "Katalog paket" })).toContainText(packageName);
@@ -127,6 +127,8 @@ test("paket berisi barang: jatah kapsul diambil di tagihan pembelian, stok meja 
   await isiTanggal(page, "Kedaluwarsa baris 1", addDaysToDateString(witaDateString(new Date()), 365));
   await page.getByRole("button", { name: "Simpan barang masuk" }).click();
   await expect(page).toHaveURL(/\/admin\/stok\/masuk\/(?!baru)[^/]+$/, { timeout: 30_000 });
+  // Paket berisi barang butuh harga beli (spec paket informatif PI4).
+  await isiHargaBeli(browser, page.url(), ["1500"]);
   await isiMeja(browser, itemName, "50");
 
   // Admin Keuangan membuat paket berisi treatment dan 30 kapsul.
@@ -138,11 +140,13 @@ test("paket berisi barang: jatah kapsul diambil di tagihan pembelian, stok meja 
   await ak.getByRole("button", { name: "+ Paket" }).click();
   const create = ak.getByRole("dialog", { name: "Tambah paket" });
   await create.getByLabel("Nama paket").fill(packageName);
-  await create.getByLabel("Harga").fill("900000");
+  await create.getByLabel("Harga paket").fill("900000");
   await pilihMemuat(create.getByLabel("Treatment 1"), "Relaxing Facial");
-  await create.getByRole("button", { name: "+ Barang" }).click();
-  await pilihMemuat(create.getByLabel("Barang 2", { exact: true }), itemName);
+  await create.getByRole("button", { name: "+ Obat / produk" }).click();
+  await pilihMemuat(create.getByLabel("Obat / produk 2", { exact: true }), itemName);
   await create.getByLabel("Jumlah 2", { exact: true }).fill("30");
+  // Harga beli terakhir 1.500 × 30 kapsul (spec paket informatif PI1).
+  await expect(create.getByRole("group", { name: "Isi paket 2" })).toContainText("Biaya Rp 45.000");
   await create.getByRole("button", { name: "Simpan" }).click();
   await expect(create).toBeHidden({ timeout: 30_000 });
   await expect(ak.getByRole("table", { name: "Katalog paket" })).toContainText(`1× Relaxing Facial, 30 kapsul ${itemName}`);
