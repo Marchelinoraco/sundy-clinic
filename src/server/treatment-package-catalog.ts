@@ -23,11 +23,13 @@ export type TreatmentPackageView = {
   name: string;
   price: number;
   validDays: number;
+  /** Jarak antar kunjungan rencana, hari (spec jadwal paket JP2). */
+  visitIntervalDays: number;
   description: string | null;
   isActive: boolean;
   sortOrder: number;
-  /** Treatment (serviceId) atau barang stok (itemId, dengan satuan) — spec paket barang PB1. */
-  items: { serviceId: string | null; itemId: string | null; serviceName: string; unit: string | null; sessions: number }[];
+  /** Treatment (serviceId) atau barang stok (itemId, dengan satuan dan jumlah per kunjungan) — spec paket barang PB1, jadwal paket JP2. */
+  items: { serviceId: string | null; itemId: string | null; serviceName: string; unit: string | null; sessions: number; perVisit: number | null }[];
   /** "3× Facial, 30 kapsul Slimming". */
   contents: string;
   /** Berapa kali paket ini sudah difinalkan di tagihan. */
@@ -46,12 +48,13 @@ const SELECT = {
   name: true,
   price: true,
   validDays: true,
+  visitIntervalDays: true,
   description: true,
   isActive: true,
   sortOrder: true,
   items: {
     orderBy: { sortOrder: "asc" },
-    select: { serviceId: true, itemId: true, sessions: true, service: { select: { name: true } }, item: { select: { name: true, unit: true } } },
+    select: { serviceId: true, itemId: true, sessions: true, perVisit: true, service: { select: { name: true } }, item: { select: { name: true, unit: true } } },
   },
   _count: { select: { patientPackages: true } },
 } as const;
@@ -64,12 +67,14 @@ function view(row: Row): TreatmentPackageView {
     serviceName: item.service?.name ?? item.item?.name ?? "",
     unit: item.item?.unit ?? null,
     sessions: item.sessions,
+    perVisit: item.perVisit,
   }));
   return {
     id: row.id,
     name: row.name,
     price: row.price,
     validDays: row.validDays,
+    visitIntervalDays: row.visitIntervalDays,
     description: row.description,
     isActive: row.isActive,
     sortOrder: row.sortOrder,
@@ -80,17 +85,9 @@ function view(row: Row): TreatmentPackageView {
 }
 
 const summaryOf = (row: TreatmentPackageView) => `${row.name}: ${formatRupiah(row.price)} · ${row.contents} · ${row.validDays} hari`;
-/** Barang tanpa jumlah per kunjungan dibagi rata dengan sesi treatment terbanyak (spec jadwal paket JP15). */
-function itemRows(value: ValidTreatmentPackage) {
-  const maxSessions = Math.max(0, ...value.items.filter((item) => item.serviceId).map((item) => item.sessions));
-  return value.items.map((item, index) => ({
-    serviceId: item.serviceId,
-    itemId: item.itemId,
-    sessions: item.sessions,
-    perVisit: item.itemId ? Math.ceil(item.sessions / Math.max(1, maxSessions)) : null,
-    sortOrder: index,
-  }));
-}
+/** Jumlah per kunjungan barang sudah diisi validasi (isian atau bawaan JP15). */
+const itemRows = (value: ValidTreatmentPackage) =>
+  value.items.map((item, index) => ({ serviceId: item.serviceId, itemId: item.itemId, sessions: item.sessions, perVisit: item.perVisit, sortOrder: index }));
 
 function revalidate() {
   safeRevalidatePath("/admin/paket");
@@ -238,6 +235,7 @@ export async function createTreatmentPackage(input: TreatmentPackageInput): Prom
         name: value.name,
         price: value.price,
         validDays: value.validDays,
+        visitIntervalDays: value.visitIntervalDays,
         description: value.description,
         sortOrder: (last._max.sortOrder ?? -1) + 1,
         items: { create: itemRows(value) },
@@ -264,7 +262,14 @@ export async function updateTreatmentPackage(id: string, input: TreatmentPackage
       await tx.treatmentPackageItem.deleteMany({ where: { packageId: existing.id } });
       return tx.treatmentPackage.update({
         where: { id: existing.id },
-        data: { name: value.name, price: value.price, validDays: value.validDays, description: value.description, items: { create: itemRows(value) } },
+        data: {
+          name: value.name,
+          price: value.price,
+          validDays: value.validDays,
+          visitIntervalDays: value.visitIntervalDays,
+          description: value.description,
+          items: { create: itemRows(value) },
+        },
         select: SELECT,
       });
     });

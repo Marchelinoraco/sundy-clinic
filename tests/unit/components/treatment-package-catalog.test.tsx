@@ -22,7 +22,8 @@ const glow: CatalogPackage = {
   description: null,
   isActive: true,
   sortOrder: 0,
-  items: [{ serviceId: "s1", itemId: null, serviceName: "Relaxing Facial", unit: null, sessions: 5 }],
+  visitIntervalDays: 7,
+  items: [{ serviceId: "s1", itemId: null, serviceName: "Relaxing Facial", unit: null, sessions: 5, perVisit: null }],
   contents: "5× Relaxing Facial",
   soldCount: 2,
   cost: 250_000,
@@ -91,6 +92,46 @@ describe("TreatmentPackageCatalog", () => {
     expect(within(dialog).getByRole("button", { name: "Simpan" })).toBeEnabled();
   });
 
+  it("rencana kunjungan: jarak, jumlah per kunjungan, ringkasan, dan peringatan masa berlaku (spec jadwal paket JP2, JP16)", async () => {
+    vi.mocked(createTreatmentPackage).mockResolvedValue({ ok: true, data: { id: "p9" } });
+    const user = userEvent.setup();
+    renderAdmin(<TreatmentPackageCatalog packages={[]} services={services} stockItems={[slimming]} />);
+    await user.click(screen.getByRole("button", { name: "+ Paket" }));
+    const dialog = await screen.findByRole("dialog", { name: "Tambah paket" });
+    expect(within(dialog).getByLabelText("Jarak antar kunjungan (hari)")).toHaveValue(7);
+    expect(dialog).toHaveTextContent("Kunjungan 1 hari pembelian, berikutnya tiap 7 hari.");
+    await user.type(within(dialog).getByLabelText("Nama paket"), "Paket Lux");
+    await user.type(within(dialog).getByLabelText("Harga paket"), "2000000");
+    await user.selectOptions(within(dialog).getByLabelText("Treatment 1"), "s1");
+    await user.clear(within(dialog).getByLabelText("Jumlah sesi 1"));
+    await user.type(within(dialog).getByLabelText("Jumlah sesi 1"), "4");
+    await user.click(within(dialog).getByRole("button", { name: "+ Obat / produk" }));
+    await user.selectOptions(within(dialog).getByLabelText("Obat / produk 2"), "it9");
+    await user.clear(within(dialog).getByLabelText("Jumlah 2"));
+    await user.type(within(dialog).getByLabelText("Jumlah 2"), "28");
+    expect(within(dialog).getByRole("group", { name: "Isi paket 2" })).toHaveTextContent("Otomatis 7 kapsul bila dikosongkan");
+    const summary = within(dialog).getByRole("region", { name: "Ringkasan paket" });
+    expect(summary).toHaveTextContent("Rencana kunjungan4 kunjungan, ±21 hari");
+    await user.type(within(dialog).getByLabelText("Per kunjungan 2"), "10");
+    expect(summary).toHaveTextContent("Rencana kunjungan4 kunjungan, ±21 hari");
+    await user.clear(within(dialog).getByLabelText("Jarak antar kunjungan (hari)"));
+    await user.type(within(dialog).getByLabelText("Jarak antar kunjungan (hari)"), "60");
+    expect(within(dialog).getByRole("status")).toHaveTextContent("Rencana kunjungan melewati masa berlaku paket.");
+    expect(within(dialog).getByRole("button", { name: "Simpan" })).toBeEnabled();
+    await user.click(within(dialog).getByRole("button", { name: "Simpan" }));
+    await waitFor(() =>
+      expect(createTreatmentPackage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          visitIntervalDays: 60,
+          items: [
+            { serviceId: "s1", sessions: 4 },
+            { itemId: "it9", sessions: 28, perVisit: 10 },
+          ],
+        }),
+      ),
+    );
+  });
+
   it("harga paket di bawah biaya: pesan dan Simpan nonaktif (PI3)", async () => {
     const user = userEvent.setup();
     renderAdmin(<TreatmentPackageCatalog packages={[]} services={services} stockItems={[slimming]} />);
@@ -142,6 +183,7 @@ describe("TreatmentPackageCatalog", () => {
         price: 900_000,
         validDays: 90,
         description: "",
+        visitIntervalDays: 7,
         items: [
           { serviceId: "s1", sessions: 3 },
           { serviceId: "s2", sessions: 2 },
