@@ -162,7 +162,9 @@ export async function activatePurchasedPackages(
         startsOn: day(today),
         expiresOn: day(packageExpiresOn(today, pkg.validDays)),
         visitIntervalDays: pkg.visitIntervalDays,
-        nextVisitOn: day(today),
+        // Kunjungan 1 = tanggal beli + jarak; bila paket langsung dipakai di tagihan ini, consumePackageSessions memberi hasil yang sama
+        // (keputusan pemilik 22 Okt 2026, spec jadwal paket JP11).
+        nextVisitOn: day(addDaysToDateString(today, pkg.visitIntervalDays)),
         items: {
           create: pkg.items.map((item, index) => ({
             serviceId: item.serviceId,
@@ -281,17 +283,17 @@ export async function restoreUsedSessions(tx: Db, invoiceId: string, actor: Acto
 }
 
 /** Rencana kunjungan berikutnya = dasar + jarak, atau kosong bila paket tidak aktif atau sudah habis (spec jadwal paket JP11). */
-async function moveNextVisit(tx: Db, patientPackageId: string, basis: string, offset?: number): Promise<void> {
+async function moveNextVisit(tx: Db, patientPackageId: string, basis: string): Promise<void> {
   const pkg = await tx.patientPackage.findUniqueOrThrow({ where: { id: patientPackageId }, select: { status: true, visitIntervalDays: true, items: { select: { id: true } } } });
   const remaining = await remainingByItem(tx, pkg.items.map((item) => item.id));
   const empty = pkg.status !== "AKTIF" || [...remaining.values()].every((left) => left <= 0);
-  const nextVisitOn = empty ? null : day(addDaysToDateString(basis, offset ?? pkg.visitIntervalDays));
+  const nextVisitOn = empty ? null : day(addDaysToDateString(basis, pkg.visitIntervalDays));
   await tx.patientPackage.update({ where: { id: patientPackageId }, data: { nextVisitOn } });
 }
 
 /**
  * Tagihan pemakaian dibatalkan: dasar rencana kembali ke tagihan pemakaian terakhir yang masih final, atau tanggal beli bila
- * belum pernah dipakai (spec jadwal paket JP11). Tagihan yang sedang dibatalkan masih FINAL di transaksi ini, jadi dikecualikan.
+ * belum pernah dipakai; rencananya dasar + jarak (spec jadwal paket JP11). Tagihan yang sedang dibatalkan masih FINAL di transaksi ini, jadi dikecualikan.
  */
 async function recomputeNextVisit(tx: Db, patientPackageId: string, opts: { excludeInvoiceId?: string }): Promise<void> {
   const last = await tx.packageSessionEntry.findFirst({
@@ -306,5 +308,5 @@ async function recomputeNextVisit(tx: Db, patientPackageId: string, opts: { excl
   const usedAt = last?.invoiceLine?.invoice.finalizedAt;
   if (usedAt) return moveNextVisit(tx, patientPackageId, witaDateString(usedAt));
   const pkg = await tx.patientPackage.findUniqueOrThrow({ where: { id: patientPackageId }, select: { startsOn: true } });
-  return moveNextVisit(tx, patientPackageId, dateOnlyString(pkg.startsOn), 0);
+  return moveNextVisit(tx, patientPackageId, dateOnlyString(pkg.startsOn));
 }
