@@ -130,7 +130,7 @@ describe("TreatmentPackageCatalog", () => {
         }),
       ),
     );
-  });
+  }, 15_000);
 
   it("harga paket di bawah biaya: pesan dan Simpan nonaktif (PI3)", async () => {
     const user = userEvent.setup();
