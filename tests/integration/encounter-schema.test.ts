@@ -114,6 +114,12 @@ describe("skema kunjungan dan trigger penguncian", () => {
     expect(await prisma.encounterTreatment.count({ where: { encounterId: id } })).toBe(1);
   });
 
+  it("treatment boleh tanpa pelaksana (spec aturan pakai PL4)", async () => {
+    const id = await encounter("DRAF");
+    const created = await prisma.encounterTreatment.create({ data: { encounterId: id, serviceId: world.treatmentId, serviceName: "Facial Uji" } });
+    expect(created).toMatchObject({ performerId: null, performerName: null });
+  });
+
   it("draf boleh diubah, lalu dibuang beserta treatment-nya", async () => {
     const id = await encounter("DRAF");
     await prisma.encounter.update({ where: { id }, data: { plan: "Kontrol 1 minggu" } });

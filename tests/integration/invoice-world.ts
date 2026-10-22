@@ -55,6 +55,8 @@ export async function finalVisit(
   world: BillingWorld,
   input: {
     treatments?: { serviceId: string; serviceName: string }[];
+    /** Pelaksana di catatan kunjungan; null = kunjungan sesudah spec aturan pakai PL1 (dokter tidak memilih). */
+    performer?: "therapist" | null;
     channel?: "KLINIK" | "ONLINE";
     serviceId?: string;
     finalizedAt?: Date;
@@ -91,8 +93,8 @@ export async function finalVisit(
         create: treatments.map((t, index) => ({
           serviceId: t.serviceId,
           serviceName: t.serviceName,
-          performerId: world.therapistId,
-          performerName: "Terapis Uji",
+          performerId: input.performer === null ? null : world.therapistId,
+          performerName: input.performer === null ? null : "Terapis Uji",
           sortOrder: index,
         })),
       },

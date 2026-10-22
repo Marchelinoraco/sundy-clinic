@@ -38,6 +38,8 @@ function RecordText({ label, value }: { label: string; value: string }) {
 /** Catatan kunjungan baca-saja: final, atau draf yang dibuka tanpa hak menulis. */
 export function EncounterRecord({ encounter }: { encounter: EncounterDetail }) {
   const { draft } = encounter;
+  // Kunjungan lama mencatat pelaksana; yang baru tidak (dipilih resepsionis di tagihan, spec aturan pakai PL4).
+  const withPerformer = encounter.treatments.some((row) => row.performerName);
   return (
     <Stack spacing={3}>
       <Part id="bagian-s" title="S — Subjective">
@@ -107,7 +109,7 @@ export function EncounterRecord({ encounter }: { encounter: EncounterDetail }) {
                   <TableCell>Treatment</TableCell>
                   <TableCell>Area</TableCell>
                   <TableCell>Dosis</TableCell>
-                  <TableCell>Pelaksana</TableCell>
+                  {withPerformer && <TableCell>Pelaksana</TableCell>}
                   <TableCell>Catatan pasca-tindakan</TableCell>
                 </TableRow>
               </TableHead>
@@ -117,7 +119,7 @@ export function EncounterRecord({ encounter }: { encounter: EncounterDetail }) {
                     <TableCell>{row.serviceName}</TableCell>
                     <TableCell>{row.area ?? "—"}</TableCell>
                     <TableCell>{row.dose ?? "—"}</TableCell>
-                    <TableCell>{row.performerName}</TableCell>
+                    {withPerformer && <TableCell>{row.performerName ?? "—"}</TableCell>}
                     <TableCell sx={{ whiteSpace: "pre-line" }}>{row.notes ?? "—"}</TableCell>
                   </TableRow>
                 ))}

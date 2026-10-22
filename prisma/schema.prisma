@@ -832,8 +832,9 @@ model EncounterTreatment {
   serviceName   String
   area          String?
   dose          String?
-  performerId   String
-  performerName String
+  /// Kosong untuk kunjungan baru: pelaksana dipilih resepsionis di tagihan (spec aturan pakai PL1, PL4).
+  performerId   String?
+  performerName String?
   notes         String?
   sortOrder     Int       @default(0)
 

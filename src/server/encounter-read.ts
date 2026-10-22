@@ -52,7 +52,8 @@ export type EncounterTreatmentSummary = {
   serviceName: string;
   area: string | null;
   dose: string | null;
-  performerName: string;
+  /** Kosong untuk kunjungan sesudah spec aturan pakai PL1: pelaksana dipilih di tagihan. */
+  performerName: string | null;
   notes: string | null;
 };
 
@@ -198,7 +199,7 @@ function toTreatmentSummary(row: {
   serviceName: string;
   area: string | null;
   dose: string | null;
-  performerName: string;
+  performerName: string | null;
   notes: string | null;
 }): EncounterTreatmentSummary {
   return { serviceName: row.serviceName, area: row.area, dose: row.dose, performerName: row.performerName, notes: row.notes };
@@ -235,35 +236,21 @@ async function loadEncounterIntake(
 }
 
 /**
- * Pilihan formulir: layanan dan pelaksana aktif, ditambah yang sudah dipakai
- * draf atau booking ini walau kini nonaktif, agar pilihannya tidak hilang.
+ * Pilihan formulir: layanan aktif, ditambah yang sudah dipakai draf atau booking ini walau kini nonaktif, agar
+ * pilihannya tidak hilang. Pelaksana tidak dipilih dokter (spec aturan pakai PL1).
  */
-async function loadOptions(
-  used: { serviceIds: string[]; performerIds: string[] },
-  booking: { serviceId: string | null; staffId: string },
-): Promise<Omit<EncounterOptions, "medicines">> {
+async function loadOptions(used: { serviceIds: string[] }, booking: { serviceId: string | null }): Promise<Omit<EncounterOptions, "medicines">> {
   const serviceIds = [...used.serviceIds, ...(booking.serviceId ? [booking.serviceId] : [])];
-  const performerIds = [...used.performerIds, booking.staffId];
-  const [services, performers] = await Promise.all([
-    prisma.service.findMany({
-      where: { OR: [{ isActive: true }, { id: { in: serviceIds } }] },
-      orderBy: [{ category: { sortOrder: "asc" } }, { sortOrder: "asc" }, { name: "asc" }],
-      select: { id: true, name: true },
-    }),
-    prisma.staff.findMany({
-      where: { role: { in: ["DOKTER", "TERAPIS"] }, OR: [{ isActive: true }, { id: { in: performerIds } }] },
-      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-      select: { id: true, name: true },
-    }),
-  ]);
+  const services = await prisma.service.findMany({
+    where: { OR: [{ isActive: true }, { id: { in: serviceIds } }] },
+    orderBy: [{ category: { sortOrder: "asc" } }, { sortOrder: "asc" }, { name: "asc" }],
+    select: { id: true, name: true },
+  });
   const defaultServiceId =
     booking.serviceId && services.some((service) => service.id === booking.serviceId)
       ? booking.serviceId
       : (services[0]?.id ?? "");
-  const defaultPerformerId = performers.some((staff) => staff.id === booking.staffId)
-    ? booking.staffId
-    : (performers[0]?.id ?? "");
-  return { services, performers, defaultServiceId, defaultPerformerId };
+  return { services, defaultServiceId };
 }
 
 /** Halaman kunjungan (spec 4–5). Membuka catatan tercatat di audit, maks. sekali per 30 menit. */
@@ -349,10 +336,7 @@ export async function getEncounterForStaff(encounterId: string): Promise<Encount
 
   const [{ intake, pregnancy, proposal }, options, trail, historyRows, medicines] = await Promise.all([
     loadEncounterIntake(appointment.intake),
-    loadOptions(
-      { serviceIds: row.treatments.map((t) => t.serviceId), performerIds: row.treatments.map((t) => t.performerId) },
-      { serviceId: appointment.serviceId, staffId: appointment.staffId },
-    ),
+    loadOptions({ serviceIds: row.treatments.map((t) => t.serviceId) }, { serviceId: appointment.serviceId }),
     can(staff.role, "audit:read") ? listAuditTrail("Encounter", row.id) : Promise.resolve(null),
     findHistory(patient.id, appointment.startAt, row.id),
     listPrescribableItems(
@@ -406,7 +390,6 @@ export async function getEncounterForStaff(encounterId: string): Promise<Encount
         serviceId: t.serviceId,
         area: t.area ?? "",
         dose: t.dose ?? "",
-        performerId: t.performerId,
         notes: t.notes ?? "",
       })),
       prescriptions: row.prescriptions.map((p) => ({ itemId: p.itemId, quantity: String(p.quantity), usage: parseUsage(p.usage) })),

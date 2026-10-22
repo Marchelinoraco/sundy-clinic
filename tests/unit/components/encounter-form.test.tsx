@@ -25,12 +25,7 @@ const options: EncounterOptions = {
     { id: "svc-konsul", name: "Konsultasi Dokter" },
     { id: "svc-meso", name: "Meso" },
   ],
-  performers: [
-    { id: "st-diane", name: "dr. Diane" },
-    { id: "st-terapis", name: "Terapis A" },
-  ],
   defaultServiceId: "svc-konsul",
-  defaultPerformerId: "st-diane",
   medicines: [],
 };
 
@@ -163,13 +158,13 @@ describe("EncounterForm", () => {
     expect(screen.getByText("IMT 28,3")).toBeInTheDocument();
   });
 
-  it("treatment baru memakai layanan booking dan tenaga terjadwal sebagai usulan", async () => {
+  it("treatment baru memakai layanan booking sebagai usulan; tanpa Pelaksana (spec aturan pakai PL1)", async () => {
     vi.mocked(saveEncounterDraft).mockResolvedValue(saved("v2"));
     renderForm();
     await userEvent.click(screen.getByRole("button", { name: "Tambah treatment" }));
     const row = screen.getByRole("group", { name: "Treatment 1" });
     expect(within(row).getByLabelText("Treatment")).toHaveValue("svc-konsul");
-    expect(within(row).getByLabelText("Pelaksana")).toHaveValue("st-diane");
+    expect(within(row).queryByLabelText("Pelaksana")).toBeNull();
 
     await userEvent.selectOptions(within(row).getByLabelText("Treatment"), "svc-meso");
     await type(within(row).getByLabelText("Area"), "Perut");
@@ -177,7 +172,7 @@ describe("EncounterForm", () => {
       expect(saveEncounterDraft).toHaveBeenLastCalledWith(
         expect.objectContaining({
           draft: expect.objectContaining({
-            treatments: [{ serviceId: "svc-meso", area: "Perut", dose: "", performerId: "st-diane", notes: "" }],
+            treatments: [{ serviceId: "svc-meso", area: "Perut", dose: "", notes: "" }],
           }),
         }),
       ),

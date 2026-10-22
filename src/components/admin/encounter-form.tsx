@@ -126,13 +126,6 @@ function TreatmentFields(props: {
               </option>
             ))}
           </SelectField>
-          <SelectField label="Pelaksana" value={value.performerId} onChange={(performerId) => props.onChange({ performerId })}>
-            {options.performers.map((staff) => (
-              <option key={staff.id} value={staff.id}>
-                {staff.name}
-              </option>
-            ))}
-          </SelectField>
           <TextField
             label="Area"
             value={value.area}
@@ -247,7 +240,7 @@ export function EncounterForm(props: EncounterFormProps) {
       ...draft,
       treatments: [
         ...draft.treatments,
-        { serviceId: options.defaultServiceId, area: "", dose: "", performerId: options.defaultPerformerId, notes: "" },
+        { serviceId: options.defaultServiceId, area: "", dose: "", notes: "" },
       ],
     });
   const removeTreatment = (index: number) =>

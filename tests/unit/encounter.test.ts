@@ -107,15 +107,11 @@ describe("parseEncounterDraft", () => {
     });
   });
 
-  it("treatment wajib punya layanan dan pelaksana; area dibatasi 100 karakter", () => {
-    const row = { serviceId: "s1", area: "", dose: "", performerId: "p1", notes: "" };
+  it("treatment wajib punya layanan, tanpa pelaksana (dipilih resepsionis, spec aturan pakai PL1); area dibatasi 100 karakter", () => {
+    const row = { serviceId: "s1", area: "", dose: "", notes: "" };
     expect(parseEncounterDraft(draft({ treatments: [{ ...row, serviceId: "" }] }))).toEqual({
       ok: false,
       message: "Pilih treatment dari daftar.",
-    });
-    expect(parseEncounterDraft(draft({ treatments: [{ ...row, performerId: "" }] }))).toEqual({
-      ok: false,
-      message: "Pilih pelaksana treatment.",
     });
     expect(parseEncounterDraft(draft({ treatments: [{ ...row, area: "x".repeat(101) }] }))).toEqual({
       ok: false,
@@ -123,7 +119,7 @@ describe("parseEncounterDraft", () => {
     });
     expect(parseEncounterDraft(draft({ treatments: [{ ...row, dose: " 12 unit " }] }))).toMatchObject({
       ok: true,
-      value: { treatments: [{ serviceId: "s1", performerId: "p1", area: null, dose: "12 unit", notes: null }] },
+      value: { treatments: [{ serviceId: "s1", area: null, dose: "12 unit", notes: null }] },
     });
   });
 });

@@ -162,7 +162,7 @@ describe("aksi kunjungan", () => {
         draft: draftWith({
           subjective: "  Berat naik 3 kg  ",
           vitals: { systolic: "120", diastolic: "80", weightKg: "72,5", heightCm: "160" },
-          treatments: [{ serviceId: world.treatmentId, area: "Wajah", dose: "", performerId: world.therapistId, notes: "" }],
+          treatments: [{ serviceId: world.treatmentId, area: "Wajah", dose: "", notes: "" }],
         }),
       }),
     );
@@ -172,7 +172,8 @@ describe("aksi kunjungan", () => {
     expect(row).toMatchObject({ subjective: "Berat naik 3 kg", systolic: 120, diastolic: 80, pulse: null });
     expect(Number(row.weightKg)).toBe(72.5);
     expect(row.treatments).toEqual([
-      expect.objectContaining({ serviceName: "Facial Uji", performerName: "Terapis Uji Publik", area: "Wajah", dose: null, sortOrder: 0 }),
+      // Pelaksana dipilih resepsionis di tagihan (spec aturan pakai PL1, PL4).
+      expect.objectContaining({ serviceName: "Facial Uji", performerId: null, performerName: null, area: "Wajah", dose: null, sortOrder: 0 }),
     ]);
 
     // Simpan berikutnya mengganti seluruh baris treatment.
@@ -284,7 +285,7 @@ describe("aksi kunjungan", () => {
       saveEncounterDraft({
         encounterId,
         version,
-        draft: draftWith({ treatments: [{ serviceId: world.treatmentId, area: "", dose: "", performerId: world.doctorId, notes: "" }] }),
+        draft: draftWith({ treatments: [{ serviceId: world.treatmentId, area: "", dose: "", notes: "" }] }),
       }),
     );
     await unwrap(discardEncounterDraft({ encounterId, version: saved.version }));

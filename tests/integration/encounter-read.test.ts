@@ -128,9 +128,8 @@ describe("membaca kunjungan dan daftar kerja dokter", () => {
     expect(detail!.draft.vitals).toMatchObject({ weightKg: "72,5", heightCm: "160", systolic: "" });
     expect(detail!.vitalLines).toEqual(["Berat badan: 72,5 kg", "Tinggi badan: 160 cm", "IMT 28,3"]);
     expect(detail!.options.defaultServiceId).toBe(world.consultationId);
-    expect(detail!.options.defaultPerformerId).toBe(world.doctorId);
     expect(detail!.options.services.map((s) => s.id)).toEqual(expect.arrayContaining([world.consultationId, world.treatmentId]));
-    expect(detail!.options.performers.map((p) => p.id)).toEqual(expect.arrayContaining([world.doctorId, world.therapistId]));
+    expect(detail!.options).not.toHaveProperty("performers");
   });
 
   it("mencatat 'membuka' paling banyak sekali per 30 menit, dan Super Admin melihat jejaknya", async () => {

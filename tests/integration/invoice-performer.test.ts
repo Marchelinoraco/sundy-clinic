@@ -56,6 +56,13 @@ describe("pelaksana treatment", () => {
     });
   });
 
+  it("kunjungan yang treatment-nya tanpa pelaksana menghasilkan baris tanpa pelaksana (spec aturan pakai PL2, Review Focus 5)", async () => {
+    const { appointmentId } = await finalVisit(world, { performer: null });
+    const { id } = await unwrap(createInvoiceFromVisit(appointmentId));
+    const treatment = (await getInvoiceDetail(id))!.lines.find((line) => line.kind === "TREATMENT")!;
+    expect(treatment).toMatchObject({ performerId: null, performerName: null });
+  });
+
   it("baris treatment bebas boleh tanpa pelaksana; daftar pelaksana hanya dokter dan terapis aktif", async () => {
     const { appointmentId } = await finalVisit(world);
     const { id } = await unwrap(createInvoiceFromVisit(appointmentId));
