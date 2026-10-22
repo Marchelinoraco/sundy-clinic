@@ -18,6 +18,7 @@ const VISIT: NurseVisit = {
   patient: { name: "Mario Sului", medicalRecordNumber: "SDY-2026-0013", allergies: "Udang" },
   foodRecall: { appointmentId: "a1", state: "NOT_OFFERED", recallDate: "2026-10-19", recallDateLabel: "Senin, 19 Oktober", entries: [], submittedAt: null, completedAt: null, completedByName: null, version: null },
   bia: { active: null, voided: [], access: { upload: true, editNumbers: true, voidAny: false, voidOwnFile: true, view: false }, final: false, points: [] },
+  vitals: { inputs: { systolic: "", diastolic: "", pulse: "", temperatureC: "", weightKg: "", heightCm: "", waistCm: "" }, version: null, completed: null },
 };
 
 describe("NurseVisitView (spec peran perawat 7)", () => {

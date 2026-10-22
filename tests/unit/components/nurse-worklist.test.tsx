@@ -5,6 +5,7 @@ import type { NurseWorklistRow } from "@/server/nurse";
 import { renderAdmin } from "../helpers/render-admin";
 
 const row = (patch: Partial<NurseWorklistRow>): NurseWorklistRow => ({
+  handled: false,
   appointmentId: "a1",
   startAt: new Date("2026-10-20T03:00:00Z"), // 11.00 WITA
   patientName: "Mario Sului",

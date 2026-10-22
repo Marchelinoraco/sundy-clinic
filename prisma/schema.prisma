@@ -528,6 +528,7 @@ model Appointment {
   encounter       Encounter?
   biaMeasurements BiaMeasurement[]
   foodRecall      FoodRecall?
+  nurseVitals     NurseVitals?
   /// Jam check-in di meja depan (spec rekam medis bagian 2).
   checkedInAt     DateTime?
 
@@ -1781,4 +1782,26 @@ model PackageVisitReminder {
   staffName        String
 
   @@unique([patientPackageId, visitOn])
+}
+
+/// Angka vital yang diukur perawat di halaman Tangani sebelum dokter memeriksa (spec vital perawat VP1–VP3, VP6). Disalin
+/// ke catatan dokter saat Periksa; terkunci di halaman perawat setelah Selesai ditangani. Batas angka sama dengan Encounter.
+model NurseVitals {
+  id              String      @id @default(cuid())
+  appointmentId   String      @unique
+  appointment     Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  systolic        Int?
+  diastolic       Int?
+  pulse           Int?
+  temperatureC    Decimal?    @db.Decimal(3, 1)
+  weightKg        Decimal?    @db.Decimal(5, 1)
+  heightCm        Decimal?    @db.Decimal(5, 1)
+  waistCm         Decimal?    @db.Decimal(5, 1)
+  /// Perawat yang terakhir mengisi (id dan nama disalin seperti AuditLog).
+  updatedById     String
+  updatedByName   String
+  updatedAt       DateTime    @updatedAt
+  completedAt     DateTime?
+  completedById   String?
+  completedByName String?
 }
