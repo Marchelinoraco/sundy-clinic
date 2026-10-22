@@ -12,9 +12,11 @@ const LOAD_FAILED = "Struk gagal dimuat. Periksa koneksi lalu muat ulang halaman
 /** Membaca kode dari "#" (tidak pernah dikirim browser ke server), lalu memuat struk lewat aksi server. */
 export function ReceiptEntry() {
   const [loaded, setLoaded] = useState<Loaded>(null);
+  const [code, setCode] = useState("");
 
   useEffect(() => {
     const code = decodeURIComponent(window.location.hash.slice(1)).trim();
+    setCode(code);
     if (!code) {
       setLoaded({ state: "INVALID" });
       return;
@@ -40,7 +42,11 @@ export function ReceiptEntry() {
         <p className="struk-tengah struk-tanpa-cetak">
           <button type="button" className="struk-tombol" onClick={() => window.print()}>
             Cetak
-          </button>
+          </button>{" "}
+          {/* Invoice A4 memakai kode tautan yang sama (spec invoice A4 IA8). */}
+          <a className="struk-tombol" href={`/invoice#${encodeURIComponent(code)}`}>
+            Lihat invoice A4
+          </a>
         </p>
       </div>
     );

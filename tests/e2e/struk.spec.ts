@@ -48,6 +48,17 @@ test("resepsionis mengirim struk via WA; tautan terbuka tanpa login; Ganti tauta
   await expect(guest.getByRole("button", { name: "Cetak" })).toBeHidden();
   await guest.emulateMedia({ media: "screen" });
 
+  // Invoice A4 dari tautan yang sama (spec invoice A4 IA8): kop, cap air, dan item.
+  await guest.getByRole("link", { name: "Lihat invoice A4" }).click();
+  const invoice = guest.getByRole("region", { name: /^Invoice TG-\d{4}-\d{4}$/ });
+  await expect(invoice).toContainText(`Layanan Struk ${suffix}`, { timeout: 30_000 });
+  await expect(invoice).toContainText("Nutrition, Slimming & Wellness Clinic");
+  await expect(guest.getByRole("img", { name: "Status BELUM DIBAYAR" })).toBeVisible();
+  await guest.emulateMedia({ media: "print" });
+  await expect(guest.getByRole("button", { name: "Cetak atau simpan PDF" })).toBeHidden();
+  await guest.emulateMedia({ media: "screen" });
+  await guest.goto(receiptUrl);
+
   await page.getByRole("button", { name: "Ganti tautan" }).click();
   await page.getByRole("dialog", { name: "Ganti tautan struk?" }).getByRole("button", { name: "Ganti" }).click();
   await expect(page.getByText("Tautan struk diganti. Kirim ulang struk bila perlu.")).toBeVisible({ timeout: 30_000 });

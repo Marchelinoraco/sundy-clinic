@@ -170,6 +170,7 @@ describe("tampilan tagihan final", () => {
     expect(screen.getByRole("button", { name: "Kirim struk via WA" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ganti tautan" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cetak struk" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Cetak invoice A4" })).toHaveAttribute("href", `/admin/tagihan/${finalDetail().id}/invoice`);
     expect(container.querySelector(".struk-hanya-cetak")).not.toBeNull();
     expect(container.querySelector(".struk-tanpa-cetak")).not.toBeNull();
   });

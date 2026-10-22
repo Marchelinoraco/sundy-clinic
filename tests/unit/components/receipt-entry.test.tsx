@@ -24,6 +24,8 @@ describe("ReceiptEntry", () => {
     expect(getPublicReceipt).toHaveBeenCalledWith("kode.uji");
     await userEvent.setup().click(screen.getByRole("button", { name: "Cetak" }));
     expect(print).toHaveBeenCalled();
+    // Invoice A4 memakai kode yang sama (spec invoice A4 IA8).
+    expect(screen.getByRole("link", { name: "Lihat invoice A4" })).toHaveAttribute("href", "/invoice#kode.uji");
   });
 
   it("tanpa kode: tidak berlaku, tanpa memanggil server", async () => {
