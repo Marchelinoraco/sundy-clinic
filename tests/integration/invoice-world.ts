@@ -174,3 +174,12 @@ export async function cleanupBillingWorld(slug: string, patientWhatsapps: string
 }
 
 export { day };
+
+/**
+ * Pelaksana terapis dunia ini untuk setiap baris treatment draf yang belum punya (spec aturan pakai PL3), langsung di
+ * basis data agar nomor versi tagihan tidak berubah. Dipakai uji yang memfinalkan tagihan berisi treatment tanpa pelaksana.
+ */
+export async function assignPerformers(world: BillingWorld, invoiceId: string): Promise<void> {
+  const therapist = await prisma.staff.findUniqueOrThrow({ where: { id: world.therapistId }, select: { name: true } });
+  await prisma.invoiceLine.updateMany({ where: { invoiceId, kind: "TREATMENT", performerId: null }, data: { performerId: world.therapistId, performerName: therapist.name } });
+}

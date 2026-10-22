@@ -56,6 +56,9 @@ export async function finalizeInvoice(input: { invoiceId: string; version: numbe
       if (!invoice) throw new UserFacingError("Tagihan tidak ditemukan.");
       if (invoice.status !== "DRAF") throw new UserFacingError("Tagihan ini sudah difinalkan atau dibatalkan. Muat ulang halaman.");
       if (invoice.version !== input.version) throw new UserFacingError(STALE_DRAFT);
+      // Pelaksana dipilih resepsionis di draf, termasuk untuk sesi paket, agar komisi tidak terlewat (spec aturan pakai PL3).
+      const unassigned = invoice.lines.find((line) => line.kind === "TREATMENT" && line.performerId === null);
+      if (unassigned) throw new UserFacingError(`Pilih pelaksana untuk ${unassigned.name}.`);
       // Penyerahan obat harus selesai lebih dulu (spec penyerahan 4.4); status dibaca setelah tagihan dikunci.
       if (invoice.appointmentId) {
         const hold = await tx.dispensing.findUnique({ where: { appointmentId: invoice.appointmentId }, select: { status: true } });
