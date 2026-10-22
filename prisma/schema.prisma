@@ -1270,6 +1270,9 @@ model InvoiceLine {
   payrollItem          PayrollItem?          @relation(fields: [payrollItemId], references: [id], onDelete: SetNull)
   /// Treatment di catatan dokter asal baris ini; mencegah treatment yang sama masuk dua kali.
   encounterTreatmentId String?
+  /// Paket yang disarankan dokter asal baris ini (spec vital perawat PR2); dihapus hanya lewat Tidak dibeli (PR3).
+  encounterPackageId   String?
+  encounterPackage     EncounterPackage?     @relation(fields: [encounterPackageId], references: [id], onDelete: SetNull)
   itemId               String?
   /// Catatan bila harga diubah dari harga katalog.
   priceNote            String?
@@ -1306,6 +1309,7 @@ model InvoiceLine {
   stockUses InvoiceStockUse[]
 
   @@unique([invoiceId, encounterTreatmentId])
+  @@unique([invoiceId, encounterPackageId])
   @@index([patientPackageItemId])
   @@index([packageSourceLineId])
   @@index([invoiceId])
@@ -1820,7 +1824,21 @@ model EncounterPackage {
   /// Ringkasan isi, mis. "4× Facial, 28 kapsul Slimming".
   contents    String
   sortOrder   Int              @default(0)
+  decline      EncounterPackageDecline?
+  invoiceLines InvoiceLine[]
 
   @@unique([encounterId, packageId])
   @@index([packageId])
+}
+
+/// Paket dari dokter yang tidak dibeli pasien, dengan alasan dari resepsionis (spec vital perawat PR3). Terpisah dari
+/// catatan dokter yang terkunci; dihapus bila resepsionis mengembalikan paketnya ke tagihan.
+model EncounterPackageDecline {
+  id                 String           @id @default(cuid())
+  encounterPackageId String           @unique
+  encounterPackage   EncounterPackage @relation(fields: [encounterPackageId], references: [id], onDelete: Cascade)
+  reason             String
+  staffId            String
+  staffName          String
+  createdAt          DateTime         @default(now())
 }

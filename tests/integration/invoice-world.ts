@@ -61,6 +61,8 @@ export async function finalVisit(
     serviceId?: string;
     finalizedAt?: Date;
     pharmacyNote?: string;
+    /** Paket yang disarankan dokter di resep (spec vital perawat PR1), ditulis sebelum kunjungan final. */
+    packages?: { packageId: string; packageName: string; contents: string }[];
   } = {},
 ): Promise<{ appointmentId: string; encounterId: string }> {
   visitCount += 1;
@@ -98,6 +100,7 @@ export async function finalVisit(
           sortOrder: index,
         })),
       },
+      packages: { create: (input.packages ?? []).map((p, index) => ({ ...p, sortOrder: index })) },
     },
   });
   await prisma.encounter.update({

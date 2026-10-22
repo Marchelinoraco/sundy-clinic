@@ -303,7 +303,7 @@ export async function getEncounterForStaff(encounterId: string): Promise<Encount
           dispensingLine: { select: { billedQuantity: true, billingNote: true } },
         },
       },
-      packages: { orderBy: { sortOrder: "asc" }, select: { id: true, packageId: true, packageName: true, contents: true } },
+      packages: { orderBy: { sortOrder: "asc" }, select: { id: true, packageId: true, packageName: true, contents: true, decline: { select: { reason: true } } } },
       addenda: ADDENDUM_SELECT,
       appointment: {
         select: {
@@ -429,7 +429,7 @@ export async function getEncounterForStaff(encounterId: string): Promise<Encount
       usage: p.usage,
       billing: p.dispensingLine ? billingLabel({ quantity: p.quantity, ...p.dispensingLine }) : null,
     })),
-    packages: row.packages.map((p) => ({ id: p.id, name: p.packageName, contents: p.contents, declined: null })),
+    packages: row.packages.map((p) => ({ id: p.id, name: p.packageName, contents: p.contents, declined: p.decline ? `Tidak dibeli — ${p.decline.reason}` : null })),
     addenda: row.addenda,
     options: { ...options, medicines },
     trail,

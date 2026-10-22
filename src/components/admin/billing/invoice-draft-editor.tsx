@@ -30,7 +30,7 @@ import { packageOptionsSummary, type PackageOption } from "@/lib/treatment-packa
 import type { ActionResult } from "@/lib/action-result";
 import { counterShortages } from "@/lib/counter-stock";
 import type { CounterItemRow } from "@/server/counter-read";
-import { applyPackageVisit, removeInvoiceLine, refreshCatalogPrices, restorePrescriptionLine, updateInvoiceLine } from "@/server/invoice-drafts";
+import { applyPackageVisit, removeInvoiceLine, refreshCatalogPrices, restoreDoctorPackage, restorePrescriptionLine, updateInvoiceLine } from "@/server/invoice-drafts";
 import { finalizeInvoice } from "@/server/invoice-lifecycle";
 import type { BillingItem, InvoiceDetail, InvoiceLineRow } from "@/server/invoice-read";
 import type { PackageVisitPlan } from "@/server/patient-package-read";
@@ -50,6 +50,7 @@ import { DiscountForm } from "./discount-form";
 import { InvoiceNotesForm } from "./invoice-notes-form";
 import { LineDiscountDialog, LineDiscountNote } from "./line-discount-dialog";
 import { ReducePrescriptionDialog } from "./reduce-prescription-dialog";
+import { DeclinePackageDialog } from "./decline-package-dialog";
 import { RestockRequestDialog } from "../counter/restock-request-dialog";
 
 /** Jalankan aksi server: tampilkan kesalahan apa adanya, muat ulang halaman bila berhasil. */
@@ -120,6 +121,11 @@ function LineRow({ detail, line, options, performers, disabled, run, fail, short
             {line.packageNote}
           </Typography>
         )}
+        {line.fromDoctorPackage && (
+          <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>
+            Paket dari dokter
+          </Typography>
+        )}
         {line.fromDispensing && (
           <Box component="span" sx={{ mt: 0.5, display: "inline-flex", alignItems: "center", gap: 0.5, fontSize: "0.75rem", color: "text.secondary" }}>
             {/* Ikon MUI disembunyikan dari pembaca layar secara bawaan; label ini dipertahankan seperti ikon lama. */}
@@ -167,6 +173,7 @@ function LineRow({ detail, line, options, performers, disabled, run, fail, short
         <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end" }}>
           <PackageSessionButton invoiceId={detail.id} version={detail.version} line={line} options={options} disabled={disabled} />
           {!line.packageUse && <LineDiscountDialog invoiceId={detail.id} version={detail.version} line={line} disabled={disabled} />}
+          {line.fromDoctorPackage && <DeclinePackageDialog invoiceId={detail.id} version={detail.version} line={{ id: line.id, name: line.name }} disabled={disabled} />}
           {line.prescription && (
             <ReducePrescriptionDialog
               invoiceId={detail.id}
@@ -178,7 +185,7 @@ function LineRow({ detail, line, options, performers, disabled, run, fail, short
           <Button type="button" size="small" variant="outlined" disabled={disabled} onClick={save} aria-label={`Simpan baris ${line.name}`}>
             Simpan
           </Button>
-          {!line.fromDispensing && (
+          {!line.fromDispensing && !line.fromDoctorPackage && (
             <Button
               type="button"
               size="small"
@@ -325,6 +332,38 @@ export function InvoiceDraftEditor({
           </TableBody>
         </Table>
       </TableContainer>
+
+      {detail.declinedPackages.length > 0 && (
+        <Box component="section" aria-labelledby="paket-tidak-dibeli" sx={{ p: 1.5, border: 1, borderColor: "divider", borderRadius: 1 }}>
+          <Typography id="paket-tidak-dibeli" component="h2" variant="body2" sx={{ fontWeight: 500, mb: 1 }}>
+            Paket dari dokter yang tidak dibeli
+          </Typography>
+          <Stack spacing={1}>
+            {detail.declinedPackages.map((row) => (
+              <Stack key={row.encounterPackageId} direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
+                <Typography variant="body2" sx={{ minWidth: 0 }}>
+                  {row.name} · {row.reason}
+                </Typography>
+                <Button
+                  type="button"
+                  size="small"
+                  variant="outlined"
+                  disabled={pending}
+                  aria-label={`Kembalikan ${row.name}`}
+                  onClick={() =>
+                    run(
+                      () => restoreDoctorPackage({ invoiceId: detail.id, version: detail.version, encounterPackageId: row.encounterPackageId }),
+                      () => toast.success(`${row.name} dikembalikan ke tagihan.`),
+                    )
+                  }
+                >
+                  Kembalikan
+                </Button>
+              </Stack>
+            ))}
+          </Stack>
+        </Box>
+      )}
 
       {detail.droppedPrescriptions.length > 0 && (
         <Box component="section" aria-labelledby="obat-tidak-ditagih" sx={{ p: 1.5, border: 1, borderColor: "divider", borderRadius: 1 }}>
