@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { UserFacingError } from "@/lib/action-result";
 import { dateLabel, dateOnlyString } from "@/lib/stock";
+import { addDaysToDateString, witaDateString } from "@/lib/time";
 import { packageContentsLabel, packageExpiresOn, sessionNote } from "@/lib/treatment-package";
 
 // Tanpa "use server": pembantu server paket treatment (spec paket 5–8), dipanggil di dalam transaksi tagihan
@@ -129,6 +130,7 @@ export async function activatePurchasedPackages(
       select: {
         name: true,
         validDays: true,
+        visitIntervalDays: true,
         isActive: true,
         items: {
           orderBy: { sortOrder: "asc" },
@@ -146,6 +148,8 @@ export async function activatePurchasedPackages(
         purchaseLineId: line.id,
         startsOn: day(today),
         expiresOn: day(packageExpiresOn(today, pkg.validDays)),
+        visitIntervalDays: pkg.visitIntervalDays,
+        nextVisitOn: day(today),
         items: {
           create: pkg.items.map((item, index) => ({
             serviceId: item.serviceId,
@@ -198,7 +202,7 @@ export async function cancelPurchasedPackages(tx: Db, invoiceId: string, actor: 
     .filter(({ left }) => left > 0)
     .map(({ item, left }) => ({ patientPackageItemId: item.id, kind: "BATAL_PAKET" as const, delta: -left, staffId: actor.staffId, staffName: actor.name }));
   if (entries.length > 0) await tx.packageSessionEntry.createMany({ data: entries });
-  await tx.patientPackage.updateMany({ where: { id: { in: ids } }, data: { status: "DIBATALKAN" } });
+  await tx.patientPackage.updateMany({ where: { id: { in: ids } }, data: { status: "DIBATALKAN", nextVisitOn: null } });
 }
 
 /**
@@ -238,6 +242,8 @@ export async function consumePackageSessions(
       data: { patientPackageItemId: item.id, kind: "PAKAI", delta: -line.quantity, invoiceLineId: line.id, staffId: actor.staffId, staffName: actor.name },
     });
   }
+  // Kunjungan berikutnya bergeser dari kedatangan ini (spec jadwal paket JP4, JP11); paket yang habis tidak punya rencana.
+  for (const pkg of packages) await moveNextVisit(tx, pkg.id, today);
 }
 
 /** Tagihan pemakaian dibatalkan: setiap PAKAI dikembalikan lewat BATAL_PAKAI, walau paketnya sudah kedaluwarsa (spec paket 7). */
@@ -258,4 +264,34 @@ export async function restoreUsedSessions(tx: Db, invoiceId: string, actor: Acto
       staffName: actor.name,
     })),
   });
+  for (const id of new Set(used.map((entry) => entry.item.patientPackageId))) await recomputeNextVisit(tx, id, { excludeInvoiceId: invoiceId });
+}
+
+/** Rencana kunjungan berikutnya = dasar + jarak, atau kosong bila paket tidak aktif atau sudah habis (spec jadwal paket JP11). */
+async function moveNextVisit(tx: Db, patientPackageId: string, basis: string, offset?: number): Promise<void> {
+  const pkg = await tx.patientPackage.findUniqueOrThrow({ where: { id: patientPackageId }, select: { status: true, visitIntervalDays: true, items: { select: { id: true } } } });
+  const remaining = await remainingByItem(tx, pkg.items.map((item) => item.id));
+  const empty = pkg.status !== "AKTIF" || [...remaining.values()].every((left) => left <= 0);
+  const nextVisitOn = empty ? null : day(addDaysToDateString(basis, offset ?? pkg.visitIntervalDays));
+  await tx.patientPackage.update({ where: { id: patientPackageId }, data: { nextVisitOn } });
+}
+
+/**
+ * Tagihan pemakaian dibatalkan: dasar rencana kembali ke tagihan pemakaian terakhir yang masih final, atau tanggal beli bila
+ * belum pernah dipakai (spec jadwal paket JP11). Tagihan yang sedang dibatalkan masih FINAL di transaksi ini, jadi dikecualikan.
+ */
+async function recomputeNextVisit(tx: Db, patientPackageId: string, opts: { excludeInvoiceId?: string }): Promise<void> {
+  const last = await tx.packageSessionEntry.findFirst({
+    where: {
+      kind: "PAKAI",
+      item: { patientPackageId },
+      invoiceLine: { invoice: { status: "FINAL", ...(opts.excludeInvoiceId ? { id: { not: opts.excludeInvoiceId } } : {}) } },
+    },
+    orderBy: { invoiceLine: { invoice: { finalizedAt: "desc" } } },
+    select: { invoiceLine: { select: { invoice: { select: { finalizedAt: true } } } } },
+  });
+  const usedAt = last?.invoiceLine?.invoice.finalizedAt;
+  if (usedAt) return moveNextVisit(tx, patientPackageId, witaDateString(usedAt));
+  const pkg = await tx.patientPackage.findUniqueOrThrow({ where: { id: patientPackageId }, select: { startsOn: true } });
+  return moveNextVisit(tx, patientPackageId, dateOnlyString(pkg.startsOn), 0);
 }
