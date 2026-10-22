@@ -41,10 +41,13 @@ export async function recordInvoicePayment(input: InvoicePaymentInput): Promise<
       if (!checked.ok) throw new UserFacingError(checked.message);
       const payment = checked.value;
       let destination: { clinicBankAccountId: string; destinationLabel: string } | null = null;
-      if (payment.transfer) {
-        const account = await tx.clinicBankAccount.findUnique({ where: { id: payment.transfer.clinicBankAccountId } });
-        if (!account) throw new UserFacingError("Rekening tujuan tidak ditemukan.");
-        if (!account.isActive) throw new UserFacingError("Rekening tujuan tidak aktif.");
+      // Transfer: rekening tujuan; EDC: rekening klinik penerima setoran mesin itu (spec invoice A4 IA12).
+      const accountId = payment.transfer?.clinicBankAccountId ?? payment.edc?.clinicBankAccountId;
+      if (accountId) {
+        const what = payment.edc ? "Mesin EDC" : "Rekening tujuan";
+        const account = await tx.clinicBankAccount.findUnique({ where: { id: accountId } });
+        if (!account) throw new UserFacingError(`${what} tidak ditemukan.`);
+        if (!account.isActive) throw new UserFacingError(`${what} tidak aktif.`);
         destination = {
           clinicBankAccountId: account.id,
           destinationLabel: formatBankAccount({ bankName: account.bankName, bankAccountNumber: account.accountNumber, bankAccountHolder: account.accountHolder })!,

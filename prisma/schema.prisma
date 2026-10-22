@@ -922,6 +922,8 @@ enum PaymentMethod {
   TUNAI
   TRANSFER
   QRIS
+  /// Mesin EDC; rekening klinik penerima setoran disimpan sebagai rekening tujuan (spec invoice A4 IA12). Hanya untuk customer.
+  EDC
 }
 
 /// Barang yang distok: obat dan produk jual. Terpisah dari Product (katalog situs publik).

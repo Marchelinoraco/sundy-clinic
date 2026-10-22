@@ -6,7 +6,7 @@ import { addDaysToDateString } from "./time";
 
 export type StockItemKindValue = "OBAT" | "PRODUK";
 export type AdjustReasonValue = "RUSAK" | "HILANG" | "KEDALUWARSA" | "SELISIH_HITUNG" | "LAINNYA";
-export type PaymentMethodValue = "TUNAI" | "TRANSFER" | "QRIS";
+export type PaymentMethodValue = "TUNAI" | "TRANSFER" | "QRIS" | "EDC";
 export type SupplierPaymentKindValue = "BAYAR" | "PENGEMBALIAN";
 export type StockMovementKindValue = "MASUK" | "RETUR" | "PENYESUAIAN" | "KELUAR" | "PINDAH";
 export type StockFlag = "MENIPIS" | "SEGERA_KEDALUWARSA" | "KEDALUWARSA" | "MEJA_MENIPIS" | "MEJA_HABIS";
@@ -33,6 +33,7 @@ export const PAYMENT_METHOD_LABEL: Record<PaymentMethodValue, string> = {
   TUNAI: "Tunai",
   TRANSFER: "Transfer bank",
   QRIS: "QRIS",
+  EDC: "EDC",
 };
 export const PAYMENT_KIND_LABEL: Record<SupplierPaymentKindValue, string> = {
   BAYAR: "Pembayaran",
@@ -63,7 +64,10 @@ export const PAYABLE_VIEW_LABEL: Record<PayableView, string> = {
 
 export const DECREASE_REASONS: readonly AdjustReasonValue[] = ["RUSAK", "HILANG", "KEDALUWARSA", "LAINNYA"];
 export const INCREASE_REASONS: readonly AdjustReasonValue[] = ["SELISIH_HITUNG"];
+/** Metode pembayaran dari customer. */
 export const PAYMENT_METHODS = Object.keys(PAYMENT_METHOD_LABEL) as PaymentMethodValue[];
+/** Pembayaran ke supplier: tanpa EDC (spec invoice A4 IA13). */
+export const SUPPLIER_PAYMENT_METHODS: readonly PaymentMethodValue[] = ["TUNAI", "TRANSFER", "QRIS"];
 export const PAYABLE_VIEWS = Object.keys(PAYABLE_VIEW_LABEL) as PayableView[];
 
 export const EXPIRY_WARNING_DAYS = 60;
@@ -510,7 +514,7 @@ export function validatePayment(raw: unknown, ctx: { today: string; invoiceDate:
         : `Nominal melebihi kredit dari supplier (${formatRupiah(ctx.limit)}).`,
     );
   }
-  if (!(PAYMENT_METHODS as unknown[]).includes(raw.method)) return fail("Pilih metode pembayaran.");
+  if (!(SUPPLIER_PAYMENT_METHODS as unknown[]).includes(raw.method)) return fail("Pilih metode pembayaran.");
   if (!isDateString(raw.paidAt)) return fail("Isi tanggal bayar.");
   if (raw.paidAt > ctx.today) return fail("Tanggal bayar tidak boleh di masa depan.");
   if (raw.paidAt < ctx.invoiceDate) return fail("Tanggal bayar tidak boleh sebelum tanggal faktur.");

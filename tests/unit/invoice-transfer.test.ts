@@ -20,12 +20,21 @@ describe("pembayaran transfer bank", () => {
         paidAt: "2026-10-13",
         reference: "2026101399",
         transfer: { clinicBankAccountId: "acc", senderBank: "BRI", senderAccountName: "Budi", senderAccountNumber: "****1234" },
+        edc: null,
       },
     });
   });
 
+  it("EDC: mesin EDC (rekening klinik) wajib; isian pengirim diabaikan (spec invoice A4 IA12)", () => {
+    expect(validateInvoicePayment({ ...base, method: "EDC" }, ctx)).toEqual({ ok: false, message: "Pilih mesin EDC." });
+    expect(validateInvoicePayment({ ...base, method: "EDC", reference: " APPR77 ", clinicBankAccountId: "acc", senderBank: "BRI" }, ctx)).toEqual({
+      ok: true,
+      value: { invoiceId: "inv", amount: 100_000, method: "EDC", paidAt: "2026-10-13", reference: "APPR77", transfer: null, edc: { clinicBankAccountId: "acc" } },
+    });
+  });
+
   it("tunai dan QRIS mengabaikan isian transfer", () => {
-    expect(validateInvoicePayment({ ...base, method: "TUNAI", clinicBankAccountId: "acc", senderBank: "BRI" }, ctx)).toMatchObject({ ok: true, value: { transfer: null } });
+    expect(validateInvoicePayment({ ...base, method: "TUNAI", clinicBankAccountId: "acc", senderBank: "BRI" }, ctx)).toMatchObject({ ok: true, value: { transfer: null, edc: null } });
   });
 
   it("isian pengirim terlalu panjang atau nomor rekening berisi huruf ditolak", () => {

@@ -62,6 +62,15 @@ describe("transfer bank", () => {
     await prisma.clinicBankAccount.update({ where: { id: accountId }, data: { isActive: true } });
   });
 
+  it("EDC: mesin EDC tersimpan sebagai rekening tujuan tanpa data pengirim; tanpa mesin ditolak (spec invoice A4 IA12)", async () => {
+    const base = { invoiceId, amount: 1000, method: "EDC" as const, paidAt: today, reference: "APPR-EDC" };
+    expect(await recordInvoicePayment(base)).toEqual({ ok: false, error: "Pilih mesin EDC." });
+    await unwrap(recordInvoicePayment({ ...base, clinicBankAccountId: accountId, senderBank: "BRI" }));
+    const payment = await prisma.invoicePayment.findFirstOrThrow({ where: { invoiceId, reference: "APPR-EDC" } });
+    expect(payment).toMatchObject({ method: "EDC", clinicBankAccountId: accountId, senderBank: null, senderAccountName: null, senderAccountNumber: null });
+    expect(payment.destinationLabel).toContain("BCA Transfer Uji 1234567890");
+  });
+
   it("data rekening pengirim tidak ada di struk publik maupun audit", async () => {
     const code = /\/struk#(\S+)/.exec((await unwrap(getReceiptMessage(invoiceId))).text)![1];
     const json = JSON.stringify(await unwrap(getPublicReceipt(code)));

@@ -22,7 +22,7 @@ import { DialogCloseButton } from "../mui/dialog-close-button";
 import { SelectField } from "../mui/select-field";
 import { RupiahInput } from "../rupiah-input";
 
-/** Catat pembayaran customer (spec tagihan 4.4): tunai, transfer, atau QRIS; bisa sebagian. */
+/** Catat pembayaran customer (spec tagihan 4.4): tunai, transfer, QRIS, atau EDC (spec invoice A4 IA12); bisa sebagian. */
 export function InvoicePaymentDialog({
   invoiceId,
   limit,
@@ -51,7 +51,8 @@ export function InvoicePaymentDialog({
   const [senderAccountName, setSenderAccountName] = useState("");
   const [senderAccountNumber, setSenderAccountNumber] = useState("");
   const transfer = method === "TRANSFER";
-  const noAccounts = transfer && bankAccounts.length === 0;
+  const edc = method === "EDC";
+  const noAccounts = (transfer || edc) && bankAccounts.length === 0;
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -63,6 +64,7 @@ export function InvoicePaymentDialog({
       paidAt,
       reference,
       ...(transfer ? { clinicBankAccountId: accountId, senderBank, senderAccountName, senderAccountNumber } : {}),
+      ...(edc ? { clinicBankAccountId: accountId } : {}),
     };
     const checked = validateInvoicePayment(input, { today, finalizedDate, limit });
     if (!checked.ok) {
@@ -118,6 +120,16 @@ export function InvoicePaymentDialog({
             </SelectField>
             <DateField id="inv-payment-date" label="Tanggal" min={finalizedDate} max={today} value={paidAt} onChange={setPaidAt} fullWidth />
             {noAccounts && <Alert severity="warning">Belum ada rekening klinik. Tambahkan di Pengaturan.</Alert>}
+            {edc && !noAccounts && (
+              <SelectField id="inv-payment-edc" label="Mesin EDC" value={accountId} onChange={setAccountId}>
+                <option value="">Pilih mesin EDC</option>
+                {bankAccounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    EDC {account.bankName} ({account.accountNumber})
+                  </option>
+                ))}
+              </SelectField>
+            )}
             {transfer && !noAccounts && (
               <>
                 <SelectField id="inv-payment-account" label="Rekening tujuan" value={accountId} onChange={setAccountId}>
