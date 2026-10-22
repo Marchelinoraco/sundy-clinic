@@ -1,4 +1,4 @@
-import { expect, test, type TestInfo } from "@playwright/test";
+import { expect, test, type Locator, type TestInfo } from "@playwright/test";
 import { E2E_ADMIN, E2E_APOTEKER, E2E_KEUANGAN, E2E_RESEPSIONIS } from "./credentials";
 import { aturHargaJual, isiHargaBeli } from "./helpers/harga";
 import { isiMeja } from "./helpers/stok-meja";
@@ -8,12 +8,35 @@ import { signIn } from "./helpers/quiz";
 // Satu cerita per proyek (spec resep dokter 8): Apoteker menyiapkan dua obat (satu stok 10, satu stok 2) → dokter menulis
 // resep keduanya (peringatan stok untuk yang kurang) dan memfinalkan → resepsionis membuat tagihan, mengurangi obat yang
 // kurang dengan alasan, membuka etiket, memfinalkan → stok berkurang; dokter melihat keterangan penagihan.
+// Dokter juga menyarankan paket katalog buatan Admin Keuangan; pasien tidak membelinya (spec vital perawat PR1–PR3).
 test.describe.configure({ mode: "serial" });
 test.setTimeout(240_000);
 
 const tag = (testInfo: TestInfo) => (testInfo.project.name === "mobile" ? "M" : "D");
 const dayFromToday = (days: number) => new Date(Date.now() + 8 * 3600_000 + days * 86_400_000).toISOString().slice(0, 10);
 let encounterPath: string | null = null;
+// Diawali "Paket E2E", jadi dibuang prepare-db.mts di awal putaran berikutnya.
+const packageName = (testInfo: TestInfo) => `Paket E2E Resep ${tag(testInfo)}`;
+
+async function pilihMemuat(select: Locator, text: string) {
+  await select.selectOption((await select.locator("option", { hasText: text }).first().getAttribute("value")) ?? "");
+}
+
+test("admin keuangan menyiapkan paket katalog", async ({ page }, testInfo) => {
+  await signIn(page, E2E_KEUANGAN);
+  await page.goto("/admin/paket?tab=katalog");
+  await tungguHidrasi(page);
+  await page.getByRole("button", { name: "+ Paket" }).click();
+  const create = page.getByRole("dialog", { name: "Tambah paket" });
+  await create.getByLabel("Nama paket").fill(packageName(testInfo));
+  await create.getByLabel("Harga paket").fill("1500000");
+  await create.getByLabel("Masa berlaku (hari)").fill("90");
+  await pilihMemuat(create.getByLabel("Treatment 1"), "Relaxing Facial");
+  await create.getByLabel("Jumlah sesi 1").fill("4");
+  await create.getByRole("button", { name: "Simpan" }).click();
+  await expect(create).toBeHidden({ timeout: 30_000 });
+  await expect(page.getByRole("table", { name: "Katalog paket" })).toContainText(packageName(testInfo));
+});
 
 test("apoteker menyiapkan dua obat", async ({ page, browser }, testInfo) => {
   const t = tag(testInfo);
@@ -63,6 +86,13 @@ test("dokter menulis resep dua obat dengan peringatan stok lalu memfinalkan", as
   await page.getByLabel("Penilaian / diagnosis").fill("Infeksi saluran napas");
   await expect(page.getByLabel("Catatan untuk Apoteker")).toHaveCount(0);
 
+  // Paket dari katalog: isinya terlihat, harganya tidak (spec vital perawat PR1).
+  await page.getByRole("button", { name: "Tambah paket" }).click();
+  const pkg = page.getByRole("group", { name: "Paket 1" });
+  await pkg.getByLabel("Paket", { exact: true }).selectOption({ label: packageName(testInfo) });
+  await expect(pkg).toContainText("4× Relaxing Facial");
+  await expect(pkg).not.toContainText("Rp");
+
   await page.getByRole("button", { name: "Tambah obat" }).click();
   const first = page.getByRole("group", { name: "Obat 1" });
   await first.getByLabel("Obat").selectOption({ label: `Kapsul Dokter ${t} (E2E-${t}-RDK)` });
@@ -94,6 +124,17 @@ test("resepsionis mengurangi obat yang kurang, mencetak etiket, dan memfinalkan;
   await expect(page).toHaveURL(/\/admin\/tagihan\/[^/?]+$/, { timeout: 30_000 });
   const vitamin = `Vitamin Dokter ${t}`;
   await expect(page.getByLabel(`Jumlah ${vitamin}`)).toHaveValue("5", { timeout: 30_000 });
+
+  // Paket dari dokter sudah menjadi baris tagihan; dihapus hanya dengan alasan (spec vital perawat PR2, PR3).
+  const pkg = packageName(testInfo);
+  await expect(page.getByText("Paket dari dokter", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: `Tidak dibeli ${pkg}` }).click();
+  const decline = page.getByRole("dialog", { name: `Paket tidak dibeli — ${pkg}` });
+  await decline.getByLabel("Alasan").fill("Pasien pikir dulu");
+  await decline.getByRole("button", { name: "Simpan" }).click();
+  await expect(decline).toBeHidden({ timeout: 30_000 });
+  await expect(page.getByRole("region", { name: "Paket dari dokter yang tidak dibeli" })).toContainText("Pasien pikir dulu", { timeout: 30_000 });
+  await expect(page.getByRole("button", { name: `Tidak dibeli ${pkg}` })).toHaveCount(0);
 
   await page.getByRole("button", { name: `Kurangi ${vitamin}` }).click();
   const reduce = page.getByRole("dialog", { name: `Kurangi ${vitamin}` });
@@ -148,6 +189,8 @@ test("dokter melihat keterangan penagihan; hak akses", async ({ page }, testInfo
   await page.goto(encounterPath!);
   await expect(page.getByRole("table", { name: "Resep" })).toContainText(`Ditagih 2 dari 5 — Stok kurang`, { timeout: 30_000 });
   await expect(page.getByRole("table", { name: "Resep" })).toContainText(`Kapsul Dokter ${t}`);
+  await expect(page.getByRole("list", { name: "Paket" })).toContainText(packageName(testInfo));
+  await expect(page.getByRole("list", { name: "Paket" })).toContainText("Tidak dibeli — Pasien pikir dulu");
 
   await page.context().clearCookies();
   await signIn(page, E2E_APOTEKER);

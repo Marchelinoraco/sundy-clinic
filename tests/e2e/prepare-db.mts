@@ -528,4 +528,19 @@ for (const [index, project] of ["desktop", "mobile"].entries()) {
   });
 }
 
+// Angka vital perawat (spec vital perawat VP4): dokter baru bisa menekan Periksa setelah perawat menekan Selesai ditangani.
+// Kunjungan hari ini yang dibuka dokter di uji lain sudah selesai ditangani; E2E-PERAWAT dibiarkan untuk perawat.spec.ts.
+// Pasien Kunjungan diukur 118/78 mmHg, 72,5 kg, 160 cm: kunjungan.spec.ts memeriksa salinannya di bagian O.
+const nurse = await prisma.staff.findUniqueOrThrow({ where: { slug: "perawat-e2e" } });
+const handledVisits = await prisma.appointment.findMany({
+  where: { OR: ["E2E-KUNJ-", "E2E-ISIAN-", "E2E-RESEP-", "E2E-NOTIF-", "E2E-CEKIN-"].map((prefix) => ({ code: { startsWith: prefix } })) },
+  select: { id: true, code: true },
+});
+for (const visit of handledVisits) {
+  const measured = visit.code.startsWith("E2E-KUNJ-") ? { systolic: 118, diastolic: 78, weightKg: 72.5, heightCm: 160 } : {};
+  await prisma.nurseVitals.create({
+    data: { appointmentId: visit.id, ...measured, updatedById: nurse.id, updatedByName: nurse.name, completedAt: new Date(), completedById: nurse.id, completedByName: nurse.name },
+  });
+}
+
 await prisma.$disconnect();

@@ -1,5 +1,5 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
-import { E2E_ADMIN, E2E_RESEPSIONIS } from "./credentials";
+import { E2E_ADMIN, E2E_PERAWAT, E2E_RESEPSIONIS } from "./credentials";
 import { tungguHidrasi } from "./helpers/mui";
 
 test.setTimeout(120_000);
@@ -23,12 +23,20 @@ test("dokter memeriksa pasien hadir, memfinalisasi, lalu menambah adendum", asyn
   await expect(page).toHaveURL(/\/admin\/kunjungan\/[^/]+$/, { timeout: 30_000 });
   await expect(page.getByRole("region", { name: "Peringatan" })).toContainText("Udang");
 
+  // Angka dari perawat sudah tersalin ke O, dengan nama perawatnya; dokter mengubah tensi (spec vital perawat VP5, VP6).
+  const measuredBy = new RegExp(`^Diukur perawat ${E2E_PERAWAT.name} · \\d{2}\\.\\d{2}$`);
+  await expect(page.getByLabel("Sistolik (mmHg)")).toHaveValue("118");
+  await expect(page.getByLabel("Berat badan (kg)")).toHaveValue("72,5");
+  await expect(page.getByText(measuredBy)).toBeVisible();
+
   await page.getByLabel("Keluhan dan anamnesis dokter").fill("Berat naik 3 kg sejak Juli.");
   await page.getByLabel("Sistolik (mmHg)").fill("120");
   await page.getByLabel("Diastolik (mmHg)").fill("80");
   await page.getByLabel("Berat badan (kg)").fill("72,5");
   await page.getByLabel("Tinggi badan (cm)").fill("160");
   await expect(page.getByText("IMT 28,3")).toBeVisible();
+  const changedByDoctor = new RegExp(`^Diukur perawat ${E2E_PERAWAT.name} · \\d{2}\\.\\d{2} · diubah dokter$`);
+  await expect(page.getByText(changedByDoctor)).toBeVisible();
   // Tanda simpan otomatis; bukan getByRole("status"), karena toast juga bisa berperan status.
   await expect(page.getByText(/^Tersimpan \d{2}\.\d{2}$/)).toBeVisible({ timeout: 15_000 });
 
@@ -50,6 +58,7 @@ test("dokter memeriksa pasien hadir, memfinalisasi, lalu menambah adendum", asyn
   await expect(page.getByText("Final", { exact: true })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByLabel("Keluhan dan anamnesis dokter")).toHaveCount(0);
   await expect(page.getByText("Tekanan darah: 120/80 mmHg")).toBeVisible();
+  await expect(page.getByText(changedByDoctor)).toBeVisible();
 
   await page.getByLabel("Isi adendum").fill("Tensi diukur ulang: 118/78.");
   await page.getByRole("button", { name: "Simpan adendum" }).click();
