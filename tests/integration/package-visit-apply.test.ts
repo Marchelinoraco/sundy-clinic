@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
-import { witaDateString } from "@/lib/time";
+import { addDaysToDateString, witaDateString } from "@/lib/time";
 import { addInvoiceItem, addPackageLine, applyPackageVisit, createDirectSale, createInvoiceFromVisit } from "@/server/invoice-drafts";
 import { finalizeInvoice } from "@/server/invoice-lifecycle";
 import { listPackageVisitPlans } from "@/server/patient-package-read";
@@ -66,7 +66,7 @@ describe("Pakai sesuai rencana (spec jadwal paket JP8)", () => {
         packageName: `${SLUG} Lux`,
         visit: {
           number: 1,
-          date: today(),
+          date: addDaysToDateString(today(), 7),
           contents: [
             { name: items[0].serviceName, unit: null, quantity: 1 },
             { name: `${SLUG} Amoxicillin`, unit: "kapsul", quantity: 7 },

@@ -236,7 +236,7 @@ function PackageDialog({
               type="number"
               value={draft.visitIntervalDays}
               onChange={(e) => setDraft((d) => ({ ...d, visitIntervalDays: e.target.value }))}
-              helperText={intervalValid ? `Kunjungan 1 hari pembelian, berikutnya tiap ${interval} hari.` : `1–${PACKAGE_VISIT_INTERVAL_MAX} hari.`}
+              helperText={intervalValid ? `Kunjungan 1 di hari beli bila langsung dipakai, bila tidak ${interval} hari kemudian. Berikutnya tiap ${interval} hari.` : `1–${PACKAGE_VISIT_INTERVAL_MAX} hari.`}
               error={!intervalValid}
               fullWidth
               slotProps={{ htmlInput: { min: 1, max: PACKAGE_VISIT_INTERVAL_MAX, inputMode: "numeric" } }}

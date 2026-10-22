@@ -87,12 +87,12 @@ afterAll(async () => {
 });
 
 describe("tanggal kunjungan berikutnya (spec jadwal paket JP4, JP10, JP11)", () => {
-  it("dibeli tanpa dipakai: kunjungan 1 hari pembelian; jarak dan jumlah per kunjungan disalin", async () => {
+  it("dibeli tanpa dipakai: kunjungan 1 = tanggal beli + jarak (keputusan pemilik 22 Okt); jarak dan jumlah per kunjungan disalin", async () => {
     const { purchaseLineId } = await buyOnly();
     const pkg = await packageOf(purchaseLineId);
     expect(pkg.visitIntervalDays).toBe(7);
     expect(pkg.items.map((item) => item.perVisit)).toEqual([null, 7]);
-    expect(await next(purchaseLineId)).toBe(today());
+    expect(await next(purchaseLineId)).toBe(addDaysToDateString(today(), 7));
   });
 
   it("dibeli dan langsung dipakai di tagihan yang sama: tanggal beli + jarak (Review Focus 1)", async () => {
@@ -110,9 +110,11 @@ describe("tanggal kunjungan berikutnya (spec jadwal paket JP4, JP10, JP11)", () 
     const { purchaseLineId } = await buyOnly();
     const first = await useVisit(purchaseLineId);
     expect(await next(purchaseLineId)).toBe(addDaysToDateString(today(), 7));
+    // Tanggal beli dimundurkan 3 hari agar dasar "tanggal beli + jarak" berbeda dari dasar tagihan yang dibatalkan.
+    await prisma.patientPackage.update({ where: { purchaseLineId }, data: { startsOn: new Date(`${addDaysToDateString(today(), -3)}T00:00:00Z`) } });
     actor.role = "ADMIN_KEUANGAN";
     await unwrap(cancelInvoice({ invoiceId: first, reason: "Salah input" }));
-    expect(await next(purchaseLineId)).toBe(today());
+    expect(await next(purchaseLineId)).toBe(addDaysToDateString(today(), 4));
     actor.role = "RESEPSIONIS";
     await useVisit(purchaseLineId);
     await useVisit(purchaseLineId);

@@ -99,7 +99,7 @@ describe("TreatmentPackageCatalog", () => {
     await user.click(screen.getByRole("button", { name: "+ Paket" }));
     const dialog = await screen.findByRole("dialog", { name: "Tambah paket" });
     expect(within(dialog).getByLabelText("Jarak antar kunjungan (hari)")).toHaveValue(7);
-    expect(dialog).toHaveTextContent("Kunjungan 1 hari pembelian, berikutnya tiap 7 hari.");
+    expect(dialog).toHaveTextContent("Kunjungan 1 di hari beli bila langsung dipakai, bila tidak 7 hari kemudian. Berikutnya tiap 7 hari.");
     await user.type(within(dialog).getByLabelText("Nama paket"), "Paket Lux");
     await user.type(within(dialog).getByLabelText("Harga paket"), "2000000");
     await user.selectOptions(within(dialog).getByLabelText("Treatment 1"), "s1");
