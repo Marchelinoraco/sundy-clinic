@@ -27,6 +27,7 @@ const options: EncounterOptions = {
   ],
   defaultServiceId: "svc-konsul",
   medicines: [],
+  packages: [],
 };
 
 // 02.42 UTC = 10.42 WITA.

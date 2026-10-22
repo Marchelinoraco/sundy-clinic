@@ -815,6 +815,7 @@ model Encounter {
   treatments    EncounterTreatment[]
   addenda       EncounterAddendum[]
   prescriptions EncounterPrescription[]
+  packages      EncounterPackage[]
 
   createdAt DateTime @default(now())
   /// Juga dipakai sebagai versi: simpan draf ditolak bila berbeda dari yang dibaca halaman.
@@ -1379,6 +1380,7 @@ model TreatmentPackage {
   items             TreatmentPackageItem[]
   invoiceLines      InvoiceLine[]
   patientPackages   PatientPackage[]
+  encounterPackages EncounterPackage[]
   createdAt         DateTime               @default(now())
   updatedAt         DateTime               @updatedAt
 
@@ -1804,4 +1806,21 @@ model NurseVitals {
   completedAt     DateTime?
   completedById   String?
   completedByName String?
+}
+
+/// Paket yang disarankan dokter di bagian Resep (spec vital perawat PR1, PR4). Nama dan isi disalin saat disimpan;
+/// terkunci bersama kunjungannya (trigger encounter_package_locked). Tanpa harga: harga diambil saat tagihan dibuat.
+model EncounterPackage {
+  id          String           @id @default(cuid())
+  encounterId String
+  encounter   Encounter        @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  packageId   String
+  package     TreatmentPackage @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  packageName String
+  /// Ringkasan isi, mis. "4× Facial, 28 kapsul Slimming".
+  contents    String
+  sortOrder   Int              @default(0)
+
+  @@unique([encounterId, packageId])
+  @@index([packageId])
 }

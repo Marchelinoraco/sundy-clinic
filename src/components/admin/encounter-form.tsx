@@ -41,6 +41,7 @@ import {
 } from "@/lib/encounter";
 import { discardEncounterDraft, finalizeEncounter, saveEncounterDraft } from "@/server/encounter";
 import { SelectField } from "./mui/select-field";
+import { PackageFields } from "./package-fields";
 import { PrescriptionFields } from "./prescription-fields";
 import { autosaveStatusText, useDraftAutosave } from "./use-draft-autosave";
 import { VitalField } from "./vital-field";
@@ -361,6 +362,7 @@ export function EncounterForm(props: EncounterFormProps) {
           medicines={options.medicines}
           onChange={(prescriptions) => update({ ...draft, prescriptions })}
         />
+        <PackageFields rows={draft.packages} options={options.packages} onChange={(packages) => update({ ...draft, packages })} />
       </Section>
 
       <Section id="bagian-treatment" title="Treatment yang dilakukan">

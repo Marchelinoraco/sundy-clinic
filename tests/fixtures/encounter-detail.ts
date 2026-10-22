@@ -59,11 +59,13 @@ export function encounterDetail(patch: Partial<EncounterDetail> = {}): Encounter
     treatments: [],
     pharmacyNote: null,
     prescriptions: [],
+    packages: [],
     addenda: [],
     options: {
       services: [{ id: "s1", name: "Konsultasi Dokter" }],
       defaultServiceId: "s1",
       medicines: [],
+      packages: [],
     },
     trail: null,
     history: [],

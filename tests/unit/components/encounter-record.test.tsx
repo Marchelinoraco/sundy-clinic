@@ -56,3 +56,21 @@ describe("EncounterRecord: angka vital perawat (spec vital perawat VP6)", () => 
     expect(screen.getByText("Diukur perawat Rina · 09.15 · diubah dokter")).toBeInTheDocument();
   });
 });
+
+describe("EncounterRecord: paket di resep (spec vital perawat PR1, PR3)", () => {
+  it("menampilkan paket dengan isinya, dan keterangan bila tidak dibeli", () => {
+    renderAdmin(
+      <EncounterRecord
+        encounter={encounterDetail({
+          packages: [
+            { id: "ep1", name: "Glowing 3 Bulan", contents: "4× Facial Brightening", declined: null },
+            { id: "ep2", name: "Slim Start", contents: "2× RF Perut", declined: "Tidak dibeli — Pasien pikir-pikir dulu" },
+          ],
+        })}
+      />,
+    );
+    const list = screen.getByRole("list", { name: "Paket" });
+    expect(list).toHaveTextContent("Glowing 3 Bulan · 4× Facial Brightening");
+    expect(list).toHaveTextContent("Slim Start · 2× RF Perut · Tidak dibeli — Pasien pikir-pikir dulu");
+  });
+});

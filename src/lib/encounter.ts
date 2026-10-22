@@ -12,6 +12,8 @@ import { USAGE_FREQUENCIES, USAGE_OTHER } from "./usage";
 export const ENCOUNTER_TEXT_MAX = 5000;
 export const TREATMENT_TEXT_MAX = { area: 100, dose: 100, notes: 1000 } as const;
 export const TREATMENTS_MAX = 20;
+/** Paket yang disarankan dokter per kunjungan (spec vital perawat PR4). */
+export const ENCOUNTER_PACKAGES_MAX = 10;
 export const IMPORTANT_NOTES_MAX = 2000;
 export const PAPER_RECORD_NUMBER_MAX = 50;
 export const ASSESSMENT_PREVIEW_MAX = 80;
@@ -52,6 +54,8 @@ export type EncounterDraftInput = Record<TextKey, string> & {
   vitals: Record<VitalKey, string>;
   treatments: TreatmentInput[];
   prescriptions: PrescriptionInput[];
+  /** Paket katalog yang disarankan dokter di bagian Resep (spec vital perawat PR1). */
+  packages: { packageId: string }[];
 };
 
 /** Isian yang sudah diperiksa, siap disimpan. */
@@ -59,6 +63,7 @@ export type EncounterDraft = Record<TextKey, string | null> & {
   vitals: Record<VitalKey, number | null>;
   treatments: { serviceId: string; area: string | null; dose: string | null; notes: string | null }[];
   prescriptions: PrescriptionDraft[];
+  packages: { packageId: string }[];
 };
 
 /** Pilihan treatment di formulir, dengan usulan baris baru. */
@@ -67,6 +72,8 @@ export type EncounterOptions = {
   defaultServiceId: string;
   /** Obat yang bisa diresepkan, dengan sisa stok cabang dan tanpa harga (spec resep dokter 3). */
   medicines: MedicineOption[];
+  /** Paket katalog yang masih dijual (ditambah yang sudah ada di draf), dengan isinya dan tanpa harga (spec vital perawat PR1). */
+  packages: { id: string; name: string; contents: string }[];
 };
 
 export type Parsed<T> = { ok: true; value: T } | { ok: false; message: string };
@@ -106,6 +113,9 @@ export const encounterDraftInputSchema = z
           .strict(),
       )
       .max(PRESCRIPTIONS_MAX * 2),
+    packages: z
+      .array(z.object({ packageId: z.string().max(100) }).strict())
+      .max(ENCOUNTER_PACKAGES_MAX * 2),
   })
   .strict();
 
@@ -190,12 +200,25 @@ export function parseEncounterDraft(input: EncounterDraftInput): Parsed<Encounte
   const prescriptions = parsePrescriptions(input.prescriptions);
   if (!prescriptions.ok) return prescriptions;
 
-  return { ok: true, value: { ...texts, vitals, treatments, prescriptions: prescriptions.value } };
+  if (input.packages.length > ENCOUNTER_PACKAGES_MAX) return { ok: false, message: `Paling banyak ${ENCOUNTER_PACKAGES_MAX} paket per kunjungan.` };
+  const packageIds = new Set<string>();
+  for (const row of input.packages) {
+    if (!row.packageId) return { ok: false, message: "Pilih paket dari daftar." };
+    if (packageIds.has(row.packageId)) return { ok: false, message: "Paket yang sama hanya sekali per kunjungan." };
+    packageIds.add(row.packageId);
+  }
+
+  return { ok: true, value: { ...texts, vitals, treatments, prescriptions: prescriptions.value, packages: input.packages.map((row) => ({ packageId: row.packageId })) } };
 }
 
 /** Isian yang dikirim simpan otomatis: baris resep yang belum lengkap belum ikut (spec resep dokter 3). */
 export function draftForAutosave(input: EncounterDraftInput): EncounterDraftInput {
-  return { ...input, prescriptions: input.prescriptions.filter((row) => !isIncompletePrescription(row)) };
+  return {
+    ...input,
+    prescriptions: input.prescriptions.filter((row) => !isIncompletePrescription(row)),
+    // Baris paket yang belum dipilih belum ikut disimpan; finalisasi tetap memeriksanya (spec vital perawat PR1).
+    packages: input.packages.filter((row) => row.packageId !== ""),
+  };
 }
 
 export function emptyDraftInput(): EncounterDraftInput {
@@ -207,6 +230,7 @@ export function emptyDraftInput(): EncounterDraftInput {
     vitals: { systolic: "", diastolic: "", pulse: "", temperatureC: "", weightKg: "", heightCm: "", waistCm: "" },
     treatments: [],
     prescriptions: [],
+    packages: [],
   };
 }
 

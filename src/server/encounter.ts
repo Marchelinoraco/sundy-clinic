@@ -16,7 +16,7 @@ import { safeRevalidatePath } from "@/lib/revalidate";
 import { witaDateString } from "@/lib/time";
 import { recordAudit, recordAuditThrottled } from "@/server/audit";
 import { isRecordLockedError, isUniqueViolation } from "@/server/db-errors";
-import { lastHeightCm } from "@/server/encounter-store";
+import { lastHeightCm, packageSummaries } from "@/server/encounter-store";
 import { requireCapability } from "@/server/session";
 
 const STALE = "Catatan ini baru diubah di tempat lain. Muat ulang halaman.";
@@ -106,6 +106,29 @@ async function resolvePrescriptions(draft: EncounterDraft): Promise<Prescription
   });
 }
 
+type PackageRow = { packageId: string; packageName: string; contents: string };
+
+/**
+ * Nama dan isi paket dibaca dari katalog dan disalin (spec vital perawat PR1). Paket yang sudah tidak dijual hanya boleh
+ * bila sudah ada di draf kunjungan ini, sama seperti layanan nonaktif.
+ */
+async function resolvePackages(encounterId: string, draft: EncounterDraft): Promise<PackageRow[]> {
+  if (draft.packages.length === 0) return [];
+  const ids = draft.packages.map((row) => row.packageId);
+  const [catalog, saved] = await Promise.all([
+    packageSummaries(prisma, { id: { in: ids } }),
+    prisma.encounterPackage.findMany({ where: { encounterId }, select: { packageId: true } }),
+  ]);
+  const byId = new Map(catalog.map((row) => [row.id, row]));
+  const kept = new Set(saved.map((row) => row.packageId));
+  return ids.map((id) => {
+    const found = byId.get(id);
+    if (!found) throw new UserFacingError("Paket tidak ditemukan. Muat ulang halaman.");
+    if (!found.isActive && !kept.has(id)) throw new UserFacingError(`Paket ${found.name} sudah tidak dijual. Hapus dari resep.`);
+    return { packageId: found.id, packageName: found.name, contents: found.contents };
+  });
+}
+
 /** Menulis draf hanya bila masih DRAF dan versinya sama. Mengembalikan versi baru, atau null. */
 async function writeDraft(
   tx: Prisma.TransactionClient,
@@ -114,6 +137,7 @@ async function writeDraft(
   draft: EncounterDraft,
   treatments: TreatmentRow[],
   prescriptions: PrescriptionRow[],
+  packages: PackageRow[],
 ): Promise<Date | null> {
   const { count } = await tx.encounter.updateMany({
     where: { id: encounterId, status: "DRAF", updatedAt: version },
@@ -139,6 +163,10 @@ async function writeDraft(
     await tx.encounterPrescription.createMany({
       data: prescriptions.map((row, index) => ({ ...row, encounterId, sortOrder: index })),
     });
+  }
+  await tx.encounterPackage.deleteMany({ where: { encounterId } });
+  if (packages.length > 0) {
+    await tx.encounterPackage.createMany({ data: packages.map((row, index) => ({ ...row, encounterId, sortOrder: index })) });
   }
   const saved = await tx.encounter.findUniqueOrThrow({ where: { id: encounterId }, select: { updatedAt: true } });
   return saved.updatedAt;
@@ -232,10 +260,11 @@ export async function saveEncounterDraft(input: {
     const encounterId = String(input?.encounterId ?? "");
     const treatments = await resolveTreatments(draft);
     const prescriptions = await resolvePrescriptions(draft);
+    const packages = await resolvePackages(encounterId, draft);
 
     const saved = await guardLocked(() =>
       prisma.$transaction(async (tx) => {
-        const updatedAt = await writeDraft(tx, encounterId, version, draft, treatments, prescriptions);
+        const updatedAt = await writeDraft(tx, encounterId, version, draft, treatments, prescriptions, packages);
         if (!updatedAt) throw new UserFacingError(await whyUnchanged(tx, encounterId));
         return updatedAt;
       }),
@@ -276,10 +305,11 @@ export async function finalizeEncounter(input: {
     if (!patientId) throw new UserFacingError(GONE);
     const treatments = await resolveTreatments(draft);
     const prescriptions = await resolvePrescriptions(draft);
+    const packages = await resolvePackages(encounterId, draft);
 
     const dispensingId = await guardLocked(() =>
       prisma.$transaction(async (tx) => {
-        const updatedAt = await writeDraft(tx, encounterId, version, draft, treatments, prescriptions);
+        const updatedAt = await writeDraft(tx, encounterId, version, draft, treatments, prescriptions, packages);
         if (!updatedAt) throw new UserFacingError(await whyUnchanged(tx, encounterId));
         await tx.encounter.update({
           where: { id: encounterId },
