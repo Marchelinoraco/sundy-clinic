@@ -2,8 +2,10 @@
 
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import MuiLink from "@mui/material/Link";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
+import NextLink from "next/link";
 import { useState, useTransition, type ReactNode } from "react";
 import { toast } from "sonner";
 import type { ActionResult } from "@/lib/action-result";
@@ -14,6 +16,7 @@ import { combineWitaDateAndMinutes, minutesToTimeLabel, witaDateString, witaMinu
 import { recordReminderReply, revokeAppointmentMessage } from "@/server/appointment-message";
 import type { ReminderRow, ReminderWorklist } from "@/server/reminder";
 import { MessageActions } from "./message-actions";
+import { PackageReminderSendButton } from "./package-reminder-send-button";
 import { RescheduleDialog } from "./reschedule-dialog";
 
 function time(date: Date): string {
@@ -223,6 +226,47 @@ export function ReminderWorklistView({ worklist }: { worklist: ReminderWorklist 
             </Box>
           );
         })}
+      </WorkBox>
+
+      <WorkBox id="pengingat-paket" title="4 · Sesi paket perlu dibooking" count={worklist.packageVisits.length}>
+        {worklist.packageVisits.map((row) => (
+          <Box component="li" key={row.patientPackageId} sx={ITEM}>
+            <Box sx={{ fontSize: "0.875rem" }}>
+              <Box component="span" sx={{ fontWeight: 500 }}>
+                {row.patientName}
+              </Box>{" "}
+              <Box component="span" sx={{ color: "text.secondary" }}>
+                ·{" "}
+                <MuiLink component={NextLink} href={`/admin/paket/${row.patientPackageId}`} color="inherit">
+                  {row.packageName}
+                </MuiLink>{" "}
+                · kunjungan ke-{row.visitNumber} · {formatIndonesianDate(combineWitaDateAndMinutes(row.visitOn, 12 * 60))}
+              </Box>
+              {row.overdue && (
+                <Box component="span" data-tone="error" sx={{ ml: 0.5, fontSize: "0.75rem", fontWeight: 600, color: "error.main" }}>
+                  terlewat
+                </Box>
+              )}
+              {!row.overdue && row.shifted && !row.sent && (
+                <Box component="span" sx={NOTE}>
+                  Hari sebelumnya tutup — diingatkan hari ini
+                </Box>
+              )}
+              <Box sx={{ fontSize: "0.75rem", color: "text.secondary" }}>{row.contents}</Box>
+            </Box>
+            {row.sent ? (
+              <Box component="span" sx={{ fontSize: "0.875rem", color: "success.main" }}>
+                Sudah diingatkan · {sentWhen(row.sent.sentAt)} oleh {row.sent.sentByName}
+              </Box>
+            ) : row.message.link ? (
+              <PackageReminderSendButton href={row.message.link} patientPackageId={row.patientPackageId} visitOn={row.visitOn} />
+            ) : (
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                Nomor WhatsApp pasien tidak dikenali.
+              </Typography>
+            )}
+          </Box>
+        ))}
       </WorkBox>
 
       {reschedule && (

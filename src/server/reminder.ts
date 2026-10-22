@@ -10,9 +10,13 @@ import {
 import { MAX_LOOKBACK_DAYS } from "@/lib/confirmation-window";
 import { prisma } from "@/lib/db";
 import { nextOpenWindow, ONLINE_BRANCH_LABEL, windowLabel } from "@/lib/online-consultation";
-import { groupReminderWork } from "@/lib/reminder-work";
-import { witaDateString } from "@/lib/time";
+import { packageVisitMessage, planVisits, visitContentsLabel } from "@/lib/package-visit";
+import { groupReminderWork, reminderDay } from "@/lib/reminder-work";
+import { dateOnlyString } from "@/lib/stock";
+import { addDaysToDateString, combineWitaDateAndMinutes, witaDateString } from "@/lib/time";
+import { buildWhatsAppLinkTo } from "@/lib/whatsapp";
 import { closedDatesBetween } from "@/server/booking-expiry";
+import { remainingByItem } from "@/server/package-store";
 import { quizLinkFor } from "@/server/quiz-link-code";
 import { requireCapability } from "@/server/session";
 import { publicSiteUrl } from "@/server/site-url";
@@ -39,7 +43,29 @@ export type ReminderRow = {
   reschedule: RescheduleTarget;
 };
 
-export type ReminderWorklist = { today: string; confirm: ReminderRow[]; remind: ReminderRow[]; reminded: ReminderRow[] };
+/** Kotak 4: kunjungan paket yang perlu dibooking pasien (spec jadwal paket JP5, JP12, JP13). */
+export type PackageReminderRow = {
+  patientPackageId: string;
+  patientName: string;
+  packageName: string;
+  visitOn: string;
+  visitNumber: number;
+  contents: string;
+  message: WhatsAppMessage;
+  /** Tanggal rencananya sudah lewat. */
+  overdue: boolean;
+  /** Hari sebelum rencana tutup, jadi diingatkan lebih awal. */
+  shifted: boolean;
+  sent: { sentAt: Date; sentByName: string } | null;
+};
+
+export type ReminderWorklist = {
+  today: string;
+  confirm: ReminderRow[];
+  remind: ReminderRow[];
+  reminded: ReminderRow[];
+  packageVisits: PackageReminderRow[];
+};
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -81,11 +107,85 @@ async function loadReminderGroups(now: Date) {
   return groupReminderWork(bookings, { now, closedDates });
 }
 
-/** Angka di menu Pengingat: pesan yang masih harus dikirim (kotak 1 + kotak 2). */
+/**
+ * Paket aktif yang hari pengingat kunjungan berikutnya sudah tiba (spec jadwal paket JP5, JP6, JP12). Paket yang habis atau
+ * kedaluwarsa, dan pasien yang sudah punya booking dari hari ini, tidak diingatkan.
+ */
+async function loadPackageVisitWork(now: Date): Promise<PackageReminderRow[]> {
+  const today = witaDateString(now);
+  const horizon = addDaysToDateString(today, MAX_LOOKBACK_DAYS + 1);
+  const packages = await prisma.patientPackage.findMany({
+    where: {
+      status: "AKTIF",
+      nextVisitOn: { not: null, lte: new Date(`${horizon}T00:00:00Z`) },
+      expiresOn: { gte: new Date(`${today}T00:00:00Z`) },
+      patient: {
+        appointments: {
+          none: { status: { in: ["MENUNGGU_KONFIRMASI", "TERKONFIRMASI", "HADIR"] }, startAt: { gte: combineWitaDateAndMinutes(today, 0) } },
+        },
+      },
+    },
+    orderBy: { nextVisitOn: "asc" },
+    select: {
+      id: true,
+      name: true,
+      visitIntervalDays: true,
+      nextVisitOn: true,
+      patient: { select: { name: true, whatsapp: true } },
+      items: { orderBy: { sortOrder: "asc" }, select: { id: true, serviceName: true, unit: true, perVisit: true } },
+      visitReminders: { select: { visitOn: true, sentAt: true, staffName: true } },
+    },
+  });
+  if (packages.length === 0) return [];
+  const ids = packages.map((pkg) => pkg.id);
+  const remaining = await remainingByItem(prisma, packages.flatMap((pkg) => pkg.items.map((item) => item.id)));
+  // Kunjungan yang sudah terjadi = tagihan final berbeda yang memakai paket ini (JP13).
+  const uses = await prisma.packageSessionEntry.findMany({
+    where: { kind: "PAKAI", item: { patientPackageId: { in: ids } }, invoiceLine: { invoice: { status: "FINAL" } } },
+    select: { item: { select: { patientPackageId: true } }, invoiceLine: { select: { invoiceId: true } } },
+  });
+  const visitsDone = new Map<string, Set<string>>();
+  for (const use of uses) {
+    const invoices = visitsDone.get(use.item.patientPackageId) ?? new Set<string>();
+    if (use.invoiceLine) invoices.add(use.invoiceLine.invoiceId);
+    visitsDone.set(use.item.patientPackageId, invoices);
+  }
+  const closedDates = await closedDatesBetween(new Date(now.getTime() - MAX_LOOKBACK_DAYS * DAY_MS), new Date(`${horizon}T00:00:00Z`));
+
+  const rows: PackageReminderRow[] = [];
+  for (const pkg of packages) {
+    const visitOn = dateOnlyString(pkg.nextVisitOn!);
+    const day = reminderDay(visitOn, closedDates);
+    if (day > today) continue;
+    const items = pkg.items.map((item) => ({ name: item.serviceName, unit: item.unit, remaining: remaining.get(item.id) ?? 0, perVisit: item.perVisit }));
+    const visitNumber = (visitsDone.get(pkg.id)?.size ?? 0) + 1;
+    const [visit] = planVisits({ nextVisitOn: visitOn, intervalDays: pkg.visitIntervalDays, visitsDone: visitNumber - 1, items });
+    if (!visit) continue;
+    const text = packageVisitMessage({ patientName: pkg.patient.name, packageName: pkg.name, visitNumber, visitOn, today, contents: visit.contents });
+    const sent = pkg.visitReminders.find((reminder) => dateOnlyString(reminder.visitOn) === visitOn);
+    rows.push({
+      patientPackageId: pkg.id,
+      patientName: pkg.patient.name,
+      packageName: pkg.name,
+      visitOn,
+      visitNumber,
+      contents: visitContentsLabel(visit.contents),
+      message: { text, link: buildWhatsAppLinkTo(pkg.patient.whatsapp, text) },
+      overdue: visitOn < today,
+      shifted: day !== addDaysToDateString(visitOn, -1),
+      sent: sent ? { sentAt: sent.sentAt, sentByName: sent.staffName } : null,
+    });
+  }
+  // Yang belum dikirim di atas, yang terlewat paling atas; urutan tanggal dari query.
+  return rows.sort((a, b) => Number(a.sent !== null) - Number(b.sent !== null) || Number(b.overdue) - Number(a.overdue));
+}
+
+/** Angka di menu Pengingat: pesan yang masih harus dikirim (kotak 1, kotak 2, dan kunjungan paket yang belum diingatkan). */
 export async function countReminderWork(): Promise<number> {
   await requireCapability("booking:manage");
-  const groups = await loadReminderGroups(new Date());
-  return groups.confirm.length + groups.remind.length;
+  const now = new Date();
+  const [groups, packageVisits] = await Promise.all([loadReminderGroups(now), loadPackageVisitWork(now)]);
+  return groups.confirm.length + groups.remind.length + packageVisits.filter((row) => !row.sent).length;
 }
 
 /** Kotak 1 dan 2 halaman Pengingat secara terpisah, untuk kotak dasbor (spec D 4.2). */
@@ -98,7 +198,7 @@ export async function getReminderCounts(): Promise<{ confirm: number; remind: nu
 export async function getReminderWorklist(): Promise<ReminderWorklist> {
   await requireCapability("booking:manage");
   const now = new Date();
-  const groups = await loadReminderGroups(now);
+  const [groups, packageVisits] = await Promise.all([loadReminderGroups(now), loadPackageVisitWork(now)]);
   const siteUrl = publicSiteUrl();
 
   type Loaded = (typeof groups.confirm)[number];
@@ -149,5 +249,6 @@ export async function getReminderWorklist(): Promise<ReminderWorklist> {
         },
       }),
     ),
+    packageVisits,
   };
 }

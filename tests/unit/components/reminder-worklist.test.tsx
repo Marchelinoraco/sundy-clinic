@@ -4,7 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ReminderWorklistView } from "@/components/admin/reminder-worklist";
 import { combineWitaDateAndMinutes } from "@/lib/time";
 import { recordAppointmentMessage, recordReminderReply, revokeAppointmentMessage } from "@/server/appointment-message";
-import type { ReminderRow, ReminderWorklist } from "@/server/reminder";
+import { recordPackageVisitReminder } from "@/server/package-reminder";
+import type { PackageReminderRow, ReminderRow, ReminderWorklist } from "@/server/reminder";
 import { getStaffAvailabilityRange } from "@/server/schedule";
 import { renderAdmin } from "../helpers/render-admin";
 
@@ -16,6 +17,7 @@ vi.mock("@/server/appointment-message", () => ({
   recordReminderReply: vi.fn(),
   revokeAppointmentMessage: vi.fn(),
 }));
+vi.mock("@/server/package-reminder", () => ({ recordPackageVisitReminder: vi.fn() }));
 vi.mock("@/server/schedule", () => ({
   getStaffAvailabilityRange: vi.fn(),
   getStaffAvailabilityForAdmin: vi.fn(),
@@ -57,6 +59,22 @@ function row(id: string, name: string, startAt: Date, patch: Partial<ReminderRow
 
 const sentAt = combineWitaDateAndMinutes(TODAY, 9 * 60 + 40);
 
+function visit(id: string, name: string, visitOn: string, patch: Partial<PackageReminderRow> = {}): PackageReminderRow {
+  return {
+    patientPackageId: id,
+    patientName: name,
+    packageName: "Glowing 3 Bulan",
+    visitOn,
+    visitNumber: 2,
+    contents: "Facial Brightening, 7 kapsul Slimming Capsule",
+    message: { text: `Pengingat paket ${name}`, link: `https://wa.me/62812000${id}?text=paket` },
+    overdue: false,
+    shifted: false,
+    sent: null,
+    ...patch,
+  };
+}
+
 const WORKLIST: ReminderWorklist = {
   today: TODAY,
   confirm: [row("001", "Grace Lumi", monday(11))],
@@ -75,6 +93,11 @@ const WORKLIST: ReminderWorklist = {
       reminderSent: { messageId: "m6", sentAt, sentByName: "Rina", reply: "MINTA_PINDAH" },
     }),
   ],
+  packageVisits: [
+    visit("p1", "Maria Sului", "2026-10-01", { overdue: true }),
+    visit("p2", "Dewi Lengkong", "2026-10-05", { shifted: true }),
+    visit("p3", "Sinta Wowor", "2026-10-05", { sent: { sentAt, sentByName: "Rina" } }),
+  ],
 };
 
 const region = (name: RegExp) => screen.getByRole("region", { name });
@@ -86,6 +109,7 @@ beforeEach(() => {
   vi.mocked(recordAppointmentMessage).mockResolvedValue({ ok: true, data: { id: "m9" } });
   vi.mocked(recordReminderReply).mockResolvedValue({ ok: true, data: undefined });
   vi.mocked(revokeAppointmentMessage).mockResolvedValue({ ok: true, data: undefined });
+  vi.mocked(recordPackageVisitReminder).mockResolvedValue({ ok: true, data: undefined });
   vi.mocked(getStaffAvailabilityRange).mockResolvedValue([]);
 });
 
@@ -98,8 +122,8 @@ describe("ReminderWorklistView", () => {
     expect(region(/Sudah diingatkan — catat balasannya \(3\)/)).toBeInTheDocument();
     unmount();
 
-    renderAdmin(<ReminderWorklistView worklist={{ today: TODAY, confirm: [], remind: [], reminded: [] }} />);
-    expect(screen.getAllByText("Tidak ada.")).toHaveLength(3);
+    renderAdmin(<ReminderWorklistView worklist={{ today: TODAY, confirm: [], remind: [], reminded: [], packageVisits: [] }} />);
+    expect(screen.getAllByText("Tidak ada.")).toHaveLength(4);
   });
 
   it("kotak 1: kirim konfirmasi mencatat jenis KONFIRMASI", async () => {
@@ -178,5 +202,27 @@ describe("ReminderWorklistView", () => {
     renderAdmin(<ReminderWorklistView worklist={{ ...WORKLIST, reminded: [online] }} />);
     expect(screen.getByText(/Online · Kamis, 8 April 2032, 19.00–21.00/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Pindah jadwal" })).not.toBeInTheDocument();
+  });
+
+  it("kotak 4: sesi paket perlu dibooking — terlewat, kirim WA mencatat per paket dan tanggal, yang terkirim diberi keterangan (spec jadwal paket JP5, JP12)", async () => {
+    renderAdmin(<ReminderWorklistView worklist={WORKLIST} />);
+    const box = region(/4 · Sesi paket perlu dibooking \(3\)/);
+    const maria = item(/Sesi paket perlu dibooking/, "Maria Sului");
+    expect(maria).toHaveTextContent("Glowing 3 Bulan · kunjungan ke-2 · Kamis, 1 Oktober 2026");
+    expect(maria).toHaveTextContent("Facial Brightening, 7 kapsul Slimming Capsule");
+    expect(within(maria).getByText("terlewat")).toHaveAttribute("data-tone", "error");
+    expect(within(maria).getByRole("link", { name: "Glowing 3 Bulan" })).toHaveAttribute("href", "/admin/paket/p1");
+    expect(item(/Sesi paket perlu dibooking/, "Dewi Lengkong")).toHaveTextContent("Hari sebelumnya tutup — diingatkan hari ini");
+
+    const sinta = item(/Sesi paket perlu dibooking/, "Sinta Wowor");
+    expect(sinta).toHaveTextContent("Sudah diingatkan · 09.40 oleh Rina");
+    expect(within(sinta).queryByRole("link", { name: "Ingatkan via WA" })).toBeNull();
+
+    const link = within(maria).getByRole("link", { name: "Ingatkan via WA" });
+    expect(link).toHaveAttribute("href", "https://wa.me/62812000p1?text=paket");
+    link.addEventListener("click", (event) => event.preventDefault());
+    fireEvent.click(link);
+    await waitFor(() => expect(recordPackageVisitReminder).toHaveBeenCalledWith({ patientPackageId: "p1", visitOn: "2026-10-01" }));
+    expect(within(box).getAllByRole("listitem")).toHaveLength(3);
   });
 });
