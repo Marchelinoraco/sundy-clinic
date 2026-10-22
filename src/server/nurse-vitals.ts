@@ -71,25 +71,45 @@ export async function saveNurseVitals(input: {
   });
 }
 
-/** Selesai ditangani (VP3, VP6): mencatat perawat dan jamnya, mengunci angka, dan membuka Periksa bagi dokter (VP4). */
-export async function completeNurseVisit(input: { appointmentId: string }): Promise<ActionResult<void>> {
+/**
+ * Selesai ditangani (VP3, VP6): menyimpan angka yang terlihat di halaman (ketikan terakhir yang belum sempat tersimpan
+ * otomatis, juga tinggi badan yang terisi dari kunjungan lalu), mencatat perawat dan jamnya, mengunci angka, dan
+ * membuka Periksa bagi dokter (VP4). Versinya sama dengan simpan otomatis.
+ */
+export async function completeNurseVisit(input: {
+  appointmentId: string;
+  version: string | null;
+  vitals: Record<string, string>;
+}): Promise<ActionResult<void>> {
   return runAction(async () => {
     const actor = await requireCapability("nurse:work");
     const appointmentId = String(input?.appointmentId ?? "");
-    const completion = { completedAt: new Date(), completedById: actor.staffId, completedByName: actor.name };
+    const parsed = parseNurseVitals(input?.vitals);
+    if (!parsed.ok) throw new UserFacingError(parsed.message);
+    const expected = input?.version || null;
+    const data = {
+      ...parsed.value,
+      updatedById: actor.staffId,
+      updatedByName: actor.name,
+      completedAt: new Date(),
+      completedById: actor.staffId,
+      completedByName: actor.name,
+    };
 
     const code = await prisma.$transaction(async (tx) => {
       const visit = await workableVisit(tx, appointmentId);
       if (visit.nurseVitals?.completedAt) throw new UserFacingError(COMPLETED);
       if (!visit.nurseVitals) {
-        await tx.nurseVitals.create({ data: { appointmentId, updatedById: actor.staffId, updatedByName: actor.name, ...completion } });
+        if (expected !== null) throw new UserFacingError(STALE);
+        await tx.nurseVitals.create({ data: { appointmentId, ...data } });
       } else {
-        const updated = await tx.nurseVitals.updateMany({ where: { appointmentId, completedAt: null }, data: completion });
-        if (updated.count === 0) throw new UserFacingError(COMPLETED);
+        if (expected === null) throw new UserFacingError(STALE);
+        const updated = await tx.nurseVitals.updateMany({ where: { appointmentId, updatedAt: new Date(expected), completedAt: null }, data });
+        if (updated.count === 0) throw new UserFacingError(STALE);
       }
       return visit.code;
     }).catch((error: unknown) => {
-      if (isUniqueViolation(error)) throw new UserFacingError(COMPLETED);
+      if (isUniqueViolation(error)) throw new UserFacingError(STALE);
       throw error;
     });
 

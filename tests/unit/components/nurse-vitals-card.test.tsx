@@ -40,8 +40,28 @@ describe("NurseVitalsCard (spec vital perawat VP1–VP3, VP6)", () => {
     const dialog = await screen.findByRole("dialog", { name: "Selesaikan penanganan?" });
     expect(dialog).toHaveTextContent("Angka vital tidak bisa diubah lagi di halaman ini.");
     await user.click(within(dialog).getByRole("button", { name: "Selesai ditangani" }));
-    await waitFor(() => expect(completeNurseVisit).toHaveBeenCalledWith({ appointmentId: "a1" }));
+    await waitFor(() => expect(completeNurseVisit).toHaveBeenCalledWith({ appointmentId: "a1", version: "v0", vitals: EMPTY }));
     await waitFor(() => expect(refresh).toHaveBeenCalled());
+  });
+
+  it("ketikan terakhir yang belum tersimpan otomatis ikut dikirim saat Selesai ditangani (temuan review)", async () => {
+    const user = userEvent.setup();
+    renderAdmin(<NurseVitalsCard appointmentId="a1" vitals={{ inputs: { ...EMPTY, heightCm: "160" }, version: "v0", completed: null }} autosaveDelayMs={60_000} />);
+    await user.type(screen.getByLabelText("Berat badan (kg)"), "72,5");
+    await user.click(screen.getByRole("button", { name: "Selesai ditangani" }));
+    await user.click(within(await screen.findByRole("dialog", { name: "Selesaikan penanganan?" })).getByRole("button", { name: "Selesai ditangani" }));
+    await waitFor(() =>
+      expect(completeNurseVisit).toHaveBeenCalledWith({ appointmentId: "a1", version: "v0", vitals: { ...EMPTY, heightCm: "160", weightKg: "72,5" } }),
+    );
+    expect(saveNurseVitals).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByText("Draf tersimpan otomatis saat Anda mengetik.")).toBeInTheDocument());
+  });
+
+  it("angka yang salah: Selesai ditangani tidak bisa ditekan (temuan review)", async () => {
+    const user = userEvent.setup();
+    renderAdmin(<NurseVitalsCard appointmentId="a1" vitals={{ inputs: EMPTY, version: "v0", completed: null }} autosaveDelayMs={60_000} />);
+    await user.type(screen.getByLabelText("Sistolik (mmHg)"), "400");
+    expect(screen.getByRole("button", { name: "Selesai ditangani" })).toBeDisabled();
   });
 
   it("sudah selesai: angka hanya dibaca, dengan nama perawat dan jamnya", () => {

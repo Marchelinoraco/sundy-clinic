@@ -222,7 +222,9 @@ export async function openEncounter(appointmentId: string): Promise<ActionResult
           waistCm: nurseVitals.waistCm,
         }
       : {};
-    const heightCm = nurseVitals?.heightCm ?? (await lastHeightCm(prisma, appointment.patientId));
+    // Angka perawat yang sudah selesai dipakai apa adanya: tinggi badan dari kunjungan lalu sudah terlihat (dan bisa
+    // dikosongkan) di halaman perawat, jadi tidak diisi ulang di sini (VP5, VP6).
+    const heightCm = nurseVitals?.completedAt ? nurseVitals.heightCm : (nurseVitals?.heightCm ?? (await lastHeightCm(prisma, appointment.patientId)));
 
     try {
       const created = await prisma.encounter.create({

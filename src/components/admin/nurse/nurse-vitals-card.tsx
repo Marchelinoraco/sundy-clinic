@@ -72,22 +72,26 @@ export function NurseVitalsCard({ appointmentId, vitals, autosaveDelayMs }: { ap
   })) as Record<VitalKey, string | null>;
   const values = parseVitalValues(inputs);
   const pressure = errors.systolic || errors.diastolic ? null : bloodPressureProblem(values.systolic, values.diastolic);
+  const invalid = pressure !== null || VITAL_KEYS.some((key) => errors[key] !== null);
 
   function complete() {
     startTransition(async () => {
+      // Angka yang terlihat dikirim bersama penyelesaian, agar yang terkunci sama dengan yang terlihat.
+      const version = await autosave.settle();
       try {
-        // Ketikan terakhir dikirim dulu, agar angka yang terkunci sama dengan yang terlihat.
-        await autosave.settle();
-        const result = await completeNurseVisit({ appointmentId });
+        const result = await completeNurseVisit({ appointmentId, version, vitals: inputs });
         if (!result.ok) {
           toast.error(result.error);
+          autosave.change(inputs);
           return;
         }
+        autosave.forget();
         setConfirm(false);
         toast.success("Selesai ditangani. Dokter bisa mulai memeriksa.");
         router.refresh();
       } catch {
         toast.error("Gagal menyimpan. Coba lagi.");
+        autosave.change(inputs);
       }
     });
   }
@@ -108,7 +112,7 @@ export function NurseVitalsCard({ appointmentId, vitals, autosaveDelayMs }: { ap
         <Typography variant="caption" sx={{ color: "text.secondary" }}>
           {autosaveStatusText(autosave.status)}
         </Typography>
-        <Button type="button" variant="contained" disabled={busy} onClick={() => setConfirm(true)}>
+        <Button type="button" variant="contained" disabled={busy || invalid} onClick={() => setConfirm(true)}>
           Selesai ditangani
         </Button>
       </Stack>
@@ -121,7 +125,7 @@ export function NurseVitalsCard({ appointmentId, vitals, autosaveDelayMs }: { ap
           <Button type="button" disabled={busy} onClick={() => setConfirm(false)}>
             Batal
           </Button>
-          <Button type="button" variant="contained" disabled={busy} onClick={complete}>
+          <Button type="button" variant="contained" disabled={busy || invalid} onClick={complete}>
             Selesai ditangani
           </Button>
         </DialogActions>
