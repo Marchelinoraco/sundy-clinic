@@ -61,9 +61,7 @@ export function encounterDetail(patch: Partial<EncounterDetail> = {}): Encounter
     addenda: [],
     options: {
       services: [{ id: "s1", name: "Konsultasi Dokter" }],
-      performers: [{ id: "d1", name: "dr. Diane" }],
       defaultServiceId: "s1",
-      defaultPerformerId: "d1",
       medicines: [],
     },
     trail: null,

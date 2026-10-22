@@ -28,8 +28,8 @@ type TreatmentRow = {
   serviceName: string;
   area: string | null;
   dose: string | null;
-  performerId: string;
-  performerName: string;
+  performerId: null;
+  performerName: null;
   notes: string | null;
 };
 
@@ -65,31 +65,21 @@ async function guardLocked<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 /**
- * Nama layanan dan pelaksana dibaca dari basis data, bukan dari browser, lalu
- * disalin (spec bagian 6). Layanan atau staf nonaktif tetap diterima: draf lama
- * boleh memuatnya, dan formulir hanya menawarkan yang aktif.
+ * Nama layanan dibaca dari basis data, bukan dari browser, lalu disalin (spec bagian 6). Layanan nonaktif tetap
+ * diterima: draf lama boleh memuatnya, dan formulir hanya menawarkan yang aktif. Pelaksana dikosongkan; resepsionis
+ * memilihnya di tagihan (spec aturan pakai PL1, PL2).
  */
 async function resolveTreatments(draft: EncounterDraft): Promise<TreatmentRow[]> {
   if (draft.treatments.length === 0) return [];
-  const [services, performers] = await Promise.all([
-    prisma.service.findMany({
-      where: { id: { in: draft.treatments.map((row) => row.serviceId) } },
-      select: { id: true, name: true },
-    }),
-    prisma.staff.findMany({
-      where: { id: { in: draft.treatments.map((row) => row.performerId) }, role: { in: ["DOKTER", "TERAPIS"] } },
-      select: { id: true, name: true },
-    }),
-  ]);
+  const services = await prisma.service.findMany({
+    where: { id: { in: draft.treatments.map((row) => row.serviceId) } },
+    select: { id: true, name: true },
+  });
   const serviceName = new Map(services.map((service) => [service.id, service.name]));
-  const performerName = new Map(performers.map((staff) => [staff.id, staff.name]));
   return draft.treatments.map((row) => {
     const service = serviceName.get(row.serviceId);
-    const performer = performerName.get(row.performerId);
-    if (!service || !performer) {
-      throw new UserFacingError("Treatment atau pelaksana tidak ditemukan. Muat ulang halaman.");
-    }
-    return { ...row, serviceName: service, performerName: performer };
+    if (!service) throw new UserFacingError("Treatment tidak ditemukan. Muat ulang halaman.");
+    return { ...row, serviceName: service, performerId: null, performerName: null };
   });
 }
 

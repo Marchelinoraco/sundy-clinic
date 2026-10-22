@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { formatShortIndonesianDate } from "./format";
 import { PRESCRIPTIONS_MAX, isIncompletePrescription, parsePrescriptions, type MedicineOption, type PrescriptionDraft, type PrescriptionInput } from "./prescription";
+import { USAGE_FREQUENCIES, USAGE_OTHER } from "./usage";
 
 /**
  * Aturan isian catatan kunjungan (spec catatan dokter, bagian 5). Formulir di
@@ -43,8 +44,8 @@ export const TEXT_FIELDS = {
 export type TextKey = keyof typeof TEXT_FIELDS;
 const TEXT_KEYS = Object.keys(TEXT_FIELDS) as TextKey[];
 
-/** Satu baris treatment apa adanya dari formulir. */
-export type TreatmentInput = { serviceId: string; area: string; dose: string; performerId: string; notes: string };
+/** Satu baris treatment apa adanya dari formulir; pelaksana dipilih resepsionis di tagihan (spec aturan pakai PL1). */
+export type TreatmentInput = { serviceId: string; area: string; dose: string; notes: string };
 
 /** Isian formulir apa adanya (teks), seperti yang diketik dokter. */
 export type EncounterDraftInput = Record<TextKey, string> & {
@@ -56,16 +57,14 @@ export type EncounterDraftInput = Record<TextKey, string> & {
 /** Isian yang sudah diperiksa, siap disimpan. */
 export type EncounterDraft = Record<TextKey, string | null> & {
   vitals: Record<VitalKey, number | null>;
-  treatments: { serviceId: string; area: string | null; dose: string | null; performerId: string; notes: string | null }[];
+  treatments: { serviceId: string; area: string | null; dose: string | null; notes: string | null }[];
   prescriptions: PrescriptionDraft[];
 };
 
-/** Pilihan treatment dan pelaksana di formulir, dengan usulan baris baru. */
+/** Pilihan treatment di formulir, dengan usulan baris baru. */
 export type EncounterOptions = {
   services: { id: string; name: string }[];
-  performers: { id: string; name: string }[];
   defaultServiceId: string;
-  defaultPerformerId: string;
   /** Obat yang bisa diresepkan, dengan sisa stok cabang dan tanpa harga (spec resep dokter 3). */
   medicines: MedicineOption[];
 };
@@ -96,12 +95,16 @@ export const encounterDraftInputSchema = z
     treatments: z
       .array(
         z
-          .object({ serviceId: z.string().max(100), area: text, dose: text, performerId: z.string().max(100), notes: text })
+          .object({ serviceId: z.string().max(100), area: text, dose: text, notes: text })
           .strict(),
       )
       .max(TREATMENTS_MAX * 2),
     prescriptions: z
-      .array(z.object({ itemId: z.string().max(100), quantity: z.string().max(20), usage: text }).strict())
+      .array(
+        z
+          .object({ itemId: z.string().max(100), quantity: z.string().max(20), usage: z.object({ frequency: z.enum(["", ...USAGE_FREQUENCIES, USAGE_OTHER]), custom: text, timing: text }).strict() })
+          .strict(),
+      )
       .max(PRESCRIPTIONS_MAX * 2),
   })
   .strict();
@@ -173,7 +176,6 @@ export function parseEncounterDraft(input: EncounterDraftInput): Parsed<Encounte
   const treatments: EncounterDraft["treatments"] = [];
   for (const row of input.treatments) {
     if (!row.serviceId) return { ok: false, message: "Pilih treatment dari daftar." };
-    if (!row.performerId) return { ok: false, message: "Pilih pelaksana treatment." };
     const area = clean(row.area);
     const dose = clean(row.dose);
     const notes = clean(row.notes);
@@ -182,7 +184,7 @@ export function parseEncounterDraft(input: EncounterDraftInput): Parsed<Encounte
     if (notes && notes.length > TREATMENT_TEXT_MAX.notes) {
       return { ok: false, message: tooLong("Catatan pasca-tindakan", TREATMENT_TEXT_MAX.notes) };
     }
-    treatments.push({ serviceId: row.serviceId, area, dose, performerId: row.performerId, notes });
+    treatments.push({ serviceId: row.serviceId, area, dose, notes });
   }
 
   const prescriptions = parsePrescriptions(input.prescriptions);

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { parseUsage } from "@/lib/usage";
 import {
   ageInYears,
   assessmentPreview,
@@ -54,11 +55,11 @@ describe("parseEncounterDraft", () => {
   });
 
   it("resep ikut diperiksa; draf kosong tidak punya resep dan tidak punya Catatan untuk Apoteker", () => {
-    expect(parseEncounterDraft(draft({ prescriptions: [{ itemId: "o1", quantity: "2", usage: "3 x 1" }] }))).toMatchObject({
+    expect(parseEncounterDraft(draft({ prescriptions: [{ itemId: "o1", quantity: "2", usage: parseUsage("3 x 1") }] }))).toMatchObject({
       ok: true,
       value: { prescriptions: [{ itemId: "o1", quantity: 2, usage: "3 x 1" }] },
     });
-    expect(parseEncounterDraft(draft({ prescriptions: [{ itemId: "o1", quantity: "0", usage: "3 x 1" }] }))).toEqual({
+    expect(parseEncounterDraft(draft({ prescriptions: [{ itemId: "o1", quantity: "0", usage: parseUsage("3 x 1") }] }))).toEqual({
       ok: false,
       message: "Jumlah obat harus bilangan bulat 1–9.999.",
     });
@@ -70,16 +71,16 @@ describe("parseEncounterDraft", () => {
     const value = draft({
       assessment: "Infeksi",
       prescriptions: [
-        { itemId: "o1", quantity: "2", usage: "3 x 1" },
-        { itemId: "", quantity: "1", usage: "" },
-        { itemId: "o2", quantity: "0", usage: "1 x 1" },
+        { itemId: "o1", quantity: "2", usage: parseUsage("3 x 1") },
+        { itemId: "", quantity: "1", usage: parseUsage("") },
+        { itemId: "o2", quantity: "0", usage: parseUsage("1 x 1") },
       ],
     });
     expect(draftForAutosave(value)).toEqual({
       ...value,
       prescriptions: [
-        { itemId: "o1", quantity: "2", usage: "3 x 1" },
-        { itemId: "o2", quantity: "0", usage: "1 x 1" },
+        { itemId: "o1", quantity: "2", usage: parseUsage("3 x 1") },
+        { itemId: "o2", quantity: "0", usage: parseUsage("1 x 1") },
       ],
     });
   });
@@ -106,15 +107,11 @@ describe("parseEncounterDraft", () => {
     });
   });
 
-  it("treatment wajib punya layanan dan pelaksana; area dibatasi 100 karakter", () => {
-    const row = { serviceId: "s1", area: "", dose: "", performerId: "p1", notes: "" };
+  it("treatment wajib punya layanan, tanpa pelaksana (dipilih resepsionis, spec aturan pakai PL1); area dibatasi 100 karakter", () => {
+    const row = { serviceId: "s1", area: "", dose: "", notes: "" };
     expect(parseEncounterDraft(draft({ treatments: [{ ...row, serviceId: "" }] }))).toEqual({
       ok: false,
       message: "Pilih treatment dari daftar.",
-    });
-    expect(parseEncounterDraft(draft({ treatments: [{ ...row, performerId: "" }] }))).toEqual({
-      ok: false,
-      message: "Pilih pelaksana treatment.",
     });
     expect(parseEncounterDraft(draft({ treatments: [{ ...row, area: "x".repeat(101) }] }))).toEqual({
       ok: false,
@@ -122,7 +119,7 @@ describe("parseEncounterDraft", () => {
     });
     expect(parseEncounterDraft(draft({ treatments: [{ ...row, dose: " 12 unit " }] }))).toMatchObject({
       ok: true,
-      value: { treatments: [{ serviceId: "s1", performerId: "p1", area: null, dose: "12 unit", notes: null }] },
+      value: { treatments: [{ serviceId: "s1", area: null, dose: "12 unit", notes: null }] },
     });
   });
 });

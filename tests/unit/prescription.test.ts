@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { billingLabel, isIncompletePrescription, parsePrescriptions, stockWarnings, validateReduction } from "@/lib/prescription";
+import { billingLabel, isIncompletePrescription, parsePrescriptions, stockWarnings, validateReduction, type PrescriptionInput } from "@/lib/prescription";
+import { parseUsage, type UsageParts } from "@/lib/usage";
 
-const row = { itemId: "o1", quantity: " 10 ", usage: "  3 x 1 sesudah makan " };
+const row = { itemId: "o1", quantity: " 10 ", usage: parseUsage("  3 x 1 sesudah makan ") };
 
 describe("resep dokter", () => {
   it("merapikan baris resep", () => {
@@ -9,13 +10,22 @@ describe("resep dokter", () => {
     expect(parsePrescriptions([])).toEqual({ ok: true, value: [] });
   });
 
-  it.each([
+  it("aturan pakai pilihan digabung jadi satu teks (spec aturan pakai AP4)", () => {
+    expect(parsePrescriptions([{ ...row, usage: { frequency: "2-3xSehari", custom: "", timing: "SEBELUM MAKAN" } }])).toEqual({
+      ok: true,
+      value: [{ itemId: "o1", quantity: 10, usage: "2-3xSehari SEBELUM MAKAN" }],
+    });
+  });
+
+  it.each<[Partial<PrescriptionInput>, string]>([
     [{ itemId: "" }, "Pilih obat dari daftar."],
     [{ quantity: "0" }, "Jumlah obat harus bilangan bulat 1–9.999."],
     [{ quantity: "1,5" }, "Jumlah obat harus bilangan bulat 1–9.999."],
     [{ quantity: "10000" }, "Jumlah obat harus bilangan bulat 1–9.999."],
-    [{ usage: " " }, "Isi aturan pakai obat."],
-    [{ usage: "x".repeat(201) }, "Aturan pakai terlalu panjang (maks. 200 karakter)."],
+    [{ usage: { frequency: "", custom: "", timing: "SEBELUM MAKAN" } }, "Pilih aturan pakai obat."],
+    [{ usage: { frequency: "4xSehari", custom: "", timing: "" } as unknown as UsageParts }, "Pilih aturan pakai obat."],
+    [{ usage: { frequency: "LAINNYA", custom: " ", timing: "" } }, "Isi aturan pakai obat."],
+    [{ usage: { frequency: "LAINNYA", custom: "x".repeat(201), timing: "" } }, "Aturan pakai terlalu panjang (maks. 200 karakter)."],
   ])("menolak %j", (patch, message) => {
     expect(parsePrescriptions([{ ...row, ...patch }])).toEqual({ ok: false, message });
   });
@@ -62,11 +72,14 @@ describe("resep dokter", () => {
   });
 
   it("baris belum lengkap: obat, jumlah, atau aturan pakai masih kosong", () => {
-    expect(isIncompletePrescription({ itemId: "", quantity: "1", usage: "3 x 1" })).toBe(true);
-    expect(isIncompletePrescription({ itemId: "o1", quantity: " ", usage: "3 x 1" })).toBe(true);
-    expect(isIncompletePrescription({ itemId: "o1", quantity: "1", usage: "  " })).toBe(true);
-    expect(isIncompletePrescription({ itemId: "o1", quantity: "1", usage: "3 x 1" })).toBe(false);
+    expect(isIncompletePrescription({ itemId: "", quantity: "1", usage: parseUsage("3 x 1") })).toBe(true);
+    expect(isIncompletePrescription({ itemId: "o1", quantity: " ", usage: parseUsage("3 x 1") })).toBe(true);
+    expect(isIncompletePrescription({ itemId: "o1", quantity: "1", usage: parseUsage("  ") })).toBe(true);
+    // Belum memilih frekuensi, atau Lainnya masih kosong (Review Focus 1).
+    expect(isIncompletePrescription({ itemId: "o1", quantity: "1", usage: { frequency: "", custom: "", timing: "SEBELUM MAKAN" } })).toBe(true);
+    expect(isIncompletePrescription({ itemId: "o1", quantity: "1", usage: { frequency: "LAINNYA", custom: " ", timing: "SEBELUM MAKAN" } })).toBe(true);
+    expect(isIncompletePrescription({ itemId: "o1", quantity: "1", usage: parseUsage("3 x 1") })).toBe(false);
     // Isian yang salah bukan "belum lengkap": tetap diperiksa dan pesannya tampil.
-    expect(isIncompletePrescription({ itemId: "o1", quantity: "0", usage: "3 x 1" })).toBe(false);
+    expect(isIncompletePrescription({ itemId: "o1", quantity: "0", usage: parseUsage("3 x 1") })).toBe(false);
   });
 });

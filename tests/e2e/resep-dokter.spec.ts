@@ -67,12 +67,16 @@ test("dokter menulis resep dua obat dengan peringatan stok lalu memfinalkan", as
   const first = page.getByRole("group", { name: "Obat 1" });
   await first.getByLabel("Obat").selectOption({ label: `Kapsul Dokter ${t} (E2E-${t}-RDK)` });
   await first.getByLabel("Jumlah").fill("6");
-  await first.getByLabel("Aturan pakai").fill("3 x 1 sesudah makan");
+  // Aturan pakai dipilih; Waktu sudah terisi SEBELUM MAKAN (spec aturan pakai AP1, AP2).
+  await first.getByLabel("Aturan pakai", { exact: true }).selectOption("3xSehari");
+  await expect(first.getByLabel("Waktu", { exact: true })).toHaveValue("SEBELUM MAKAN");
   await page.getByRole("button", { name: "Tambah obat" }).click();
   const second = page.getByRole("group", { name: "Obat 2" });
   await second.getByLabel("Obat").selectOption({ label: `Vitamin Dokter ${t} (E2E-${t}-RDV)` });
   await second.getByLabel("Jumlah").fill("5");
-  await second.getByLabel("Aturan pakai").fill("1 x 1 pagi");
+  await second.getByLabel("Aturan pakai", { exact: true }).selectOption("LAINNYA");
+  await second.getByLabel("Aturan pakai lain", { exact: true }).fill("1 x 1");
+  await second.getByLabel("Waktu", { exact: true }).fill("pagi");
   await expect(second.getByRole("alert")).toContainText("Sisa stok 2 tablet");
   await expect(page.getByText(/^Tersimpan \d{2}\.\d{2}$/)).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "Finalisasi" }).click();
@@ -118,7 +122,7 @@ test("resepsionis mengurangi obat yang kurang, mencetak etiket, dan memfinalkan;
   await page.getByRole("link", { name: "Cetak etiket" }).click();
   await expect(page).toHaveURL(/\/admin\/tagihan\/[^/?]+\/etiket$/, { timeout: 30_000 });
   const label = page.getByRole("article", { name: "Etiket obat" });
-  await expect(label).toContainText("3 x 1 sesudah makan");
+  await expect(label).toContainText("3xSehari SEBELUM MAKAN");
   await expect(label).toContainText("Jumlah: 2");
   await expect(label).not.toContainText("Rp");
   await page.goBack();

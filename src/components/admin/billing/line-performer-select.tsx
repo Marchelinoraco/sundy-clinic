@@ -9,7 +9,10 @@ import { SelectField } from "../mui/select-field";
 
 type LineView = Pick<InvoiceLineRow, "id" | "name" | "kind" | "performerId" | "performerName">;
 
-/** Pilihan "Pelaksana" untuk baris treatment draf (spec harga modal 6). Tidak menampilkan angka komisi (M8). */
+/**
+ * Pilihan "Pelaksana" untuk baris treatment draf (spec harga modal 6). Tidak menampilkan angka komisi (M8). Baris tanpa
+ * pelaksana ditandai belum lengkap: tagihan tidak bisa difinalkan sampai semuanya dipilih (spec aturan pakai PL3).
+ */
 export function LinePerformerSelect({
   invoiceId,
   version,
@@ -44,8 +47,16 @@ export function LinePerformerSelect({
   }
 
   return (
-    <SelectField aria-label={`Pelaksana ${line.name}`} value={line.performerId ?? ""} onChange={change} disabled={disabled || pending} fullWidth={false} sx={{ mt: 0.5, minWidth: 180 }}>
-      <option value="">Tanpa pelaksana</option>
+    <SelectField
+      aria-label={`Pelaksana ${line.name}`}
+      value={line.performerId ?? ""}
+      onChange={change}
+      disabled={disabled || pending}
+      error={!line.performerId}
+      fullWidth={false}
+      sx={{ mt: 0.5, minWidth: 180 }}
+    >
+      <option value="">Pilih pelaksana</option>
       {options.map((performer) => (
         <option key={performer.id} value={performer.id}>
           {performer.name}

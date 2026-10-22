@@ -30,3 +30,18 @@ describe("EncounterRecord: resep (spec resep dokter 3–4)", () => {
     expect(screen.queryByText("Catatan untuk Apoteker")).not.toBeInTheDocument();
   });
 });
+
+describe("EncounterRecord: treatment (spec aturan pakai PL4)", () => {
+  it("kolom Pelaksana hanya bila ada treatment yang punya pelaksana", () => {
+    const { unmount } = renderAdmin(
+      <EncounterRecord encounter={encounterDetail({ treatments: [{ serviceName: "Meso", area: "Perut", dose: null, performerName: "dr. Diane", notes: null }] })} />,
+    );
+    expect(screen.getByRole("columnheader", { name: "Pelaksana" })).toBeInTheDocument();
+    expect(screen.getByText("dr. Diane", { selector: "td" })).toBeInTheDocument();
+    unmount();
+
+    renderAdmin(<EncounterRecord encounter={encounterDetail({ treatments: [{ serviceName: "Meso", area: "Perut", dose: null, performerName: null, notes: null }] })} />);
+    expect(screen.getByText("Meso")).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Pelaksana" })).toBeNull();
+  });
+});

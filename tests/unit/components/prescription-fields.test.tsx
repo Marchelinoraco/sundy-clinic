@@ -4,6 +4,7 @@ import { useState } from "react";
 import { describe, expect, it } from "vitest";
 import { PrescriptionFields } from "@/components/admin/prescription-fields";
 import type { PrescriptionInput } from "@/lib/prescription";
+import { parseUsage } from "@/lib/usage";
 import { renderAdmin } from "../helpers/render-admin";
 
 const MEDICINES = [
@@ -31,7 +32,7 @@ describe("PrescriptionFields (spec resep dokter 3)", { timeout: 15_000 }, () => 
     await user.clear(within(first).getByLabelText("Jumlah"));
     await user.type(within(first).getByLabelText("Jumlah"), "10");
     expect(within(first).getByRole("alert")).toHaveTextContent("Sisa stok 4 kapsul — tagihan tertahan sampai stok cukup atau jumlah dikurangi.");
-    await user.type(within(first).getByLabelText("Aturan pakai"), "3 x 1");
+    await user.selectOptions(within(first).getByLabelText("Aturan pakai"), "3xSehari");
     await user.click(screen.getByRole("button", { name: "Hapus obat 1" }));
     expect(screen.getByText("Belum ada obat di resep ini.")).toBeInTheDocument();
   });
@@ -40,8 +41,8 @@ describe("PrescriptionFields (spec resep dokter 3)", { timeout: 15_000 }, () => 
     renderAdmin(
       <Harness
         initial={[
-          { itemId: "o2", quantity: "1", usage: "1 x 1" },
-          { itemId: "o2", quantity: "1", usage: "" },
+          { itemId: "o2", quantity: "1", usage: parseUsage("1 x 1") },
+          { itemId: "o2", quantity: "1", usage: { frequency: "", custom: "", timing: "SEBELUM MAKAN" } },
         ]}
       />,
     );
@@ -53,11 +54,44 @@ describe("PrescriptionFields (spec resep dokter 3)", { timeout: 15_000 }, () => 
     renderAdmin(
       <Harness
         initial={[
-          { itemId: "o1", quantity: "3", usage: "pagi" },
-          { itemId: "o1", quantity: "2", usage: "malam" },
+          { itemId: "o1", quantity: "3", usage: parseUsage("pagi") },
+          { itemId: "o1", quantity: "2", usage: parseUsage("malam") },
         ]}
       />,
     );
     expect(screen.getAllByRole("alert")).toHaveLength(2);
+  });
+
+  it("aturan pakai: lima pilihan + Lainnya, waktu SEBELUM MAKAN bisa diubah (spec aturan pakai AP1, AP2)", async () => {
+    const user = userEvent.setup();
+    renderAdmin(<Harness />);
+    await user.click(screen.getByRole("button", { name: "Tambah obat" }));
+    const first = screen.getByRole("group", { name: "Obat 1" });
+    const frequency = within(first).getByLabelText("Aturan pakai");
+    expect(frequency).toHaveValue("");
+    expect([...within(frequency).getAllByRole("option")].map((option) => option.textContent)).toEqual([
+      "Pilih aturan pakai",
+      "1xSehari",
+      "1xSeminggu",
+      "1-2xSehari",
+      "2-3xSehari",
+      "3xSehari",
+      "Lainnya (ketik sendiri)",
+    ]);
+    expect(within(first).getByLabelText("Waktu")).toHaveValue("SEBELUM MAKAN");
+    expect(within(first).queryByLabelText("Aturan pakai lain")).toBeNull();
+    expect(first).toHaveTextContent("Belum tersimpan");
+
+    await user.selectOptions(frequency, "2-3xSehari");
+    await user.selectOptions(within(first).getByLabelText("Obat"), "o2");
+    expect(first).not.toHaveTextContent("Belum tersimpan");
+
+    await user.selectOptions(frequency, "LAINNYA");
+    expect(first).toHaveTextContent("Belum tersimpan");
+    await user.type(within(first).getByLabelText("Aturan pakai lain"), "bila perlu");
+    await user.clear(within(first).getByLabelText("Waktu"));
+    await user.type(within(first).getByLabelText("Waktu"), "SESUDAH MAKAN");
+    expect(first).not.toHaveTextContent("Belum tersimpan");
+    expect(within(first).getByLabelText("Aturan pakai lain")).toHaveValue("bila perlu");
   });
 });

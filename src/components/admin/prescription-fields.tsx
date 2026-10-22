@@ -7,10 +7,12 @@ import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { PRESCRIPTION_USAGE_MAX, isIncompletePrescription, stockWarnings, type MedicineOption, type PrescriptionInput } from "@/lib/prescription";
+import { isIncompletePrescription, stockWarnings, type MedicineOption, type PrescriptionInput } from "@/lib/prescription";
+import { newUsageParts } from "@/lib/usage";
 import { SelectField } from "./mui/select-field";
+import { UsageField } from "./usage-field";
 
-/** Resep dokter (spec resep dokter 3): obat dari stok cabang, jumlah, aturan pakai. Sisa stok tampil tanpa harga. */
+/** Resep dokter (spec resep dokter 3; aturan pakai AP1–AP2): obat dari stok cabang, jumlah, aturan pakai. Sisa stok tampil tanpa harga. */
 export function PrescriptionFields({ rows, medicines, onChange }: { rows: PrescriptionInput[]; medicines: MedicineOption[]; onChange: (rows: PrescriptionInput[]) => void }) {
   const byId = new Map(medicines.map((m) => [m.id, m]));
   const warnings = stockWarnings(
@@ -54,14 +56,7 @@ export function PrescriptionFields({ rows, medicines, onChange }: { rows: Prescr
                   helperText={medicine ? `Sisa ${medicine.available} ${medicine.unit}` : " "}
                 />
               </Box>
-              <TextField
-                label="Aturan pakai"
-                placeholder="mis. 3 x 1 sesudah makan"
-                value={row.usage}
-                onChange={(e) => set(index, { usage: e.target.value })}
-                fullWidth
-                slotProps={{ htmlInput: { maxLength: PRESCRIPTION_USAGE_MAX } }}
-              />
+              <UsageField value={row.usage} onChange={(usage) => set(index, { usage })} />
               {isIncompletePrescription(row) && (
                 <Typography variant="caption" sx={{ color: "text.secondary" }}>
                   Belum tersimpan — lengkapi obat, jumlah, dan aturan pakai.
@@ -82,7 +77,7 @@ export function PrescriptionFields({ rows, medicines, onChange }: { rows: Prescr
         );
       })}
       <Box>
-        <Button type="button" variant="outlined" onClick={() => onChange([...rows, { itemId: "", quantity: "1", usage: "" }])}>
+        <Button type="button" variant="outlined" onClick={() => onChange([...rows, { itemId: "", quantity: "1", usage: newUsageParts() }])}>
           Tambah obat
         </Button>
       </Box>

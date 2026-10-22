@@ -5,7 +5,7 @@ import { addDaysToDateString, witaDateString } from "@/lib/time";
 import { addInvoiceItem, addPackageLine, applyPackageVisit, createDirectSale, createInvoiceFromVisit } from "@/server/invoice-drafts";
 import { finalizeInvoice } from "@/server/invoice-lifecycle";
 import { listPackageVisitPlans } from "@/server/patient-package-read";
-import { billingBatch, cleanupBillingWorld, createBillingWorld, finalVisit, type BillingWorld } from "./invoice-world";
+import { assignPerformers, billingBatch, cleanupBillingWorld, createBillingWorld, finalVisit, type BillingWorld } from "./invoice-world";
 import { unwrap } from "./unwrap";
 
 vi.mock("@/server/session", () => ({
@@ -98,6 +98,8 @@ describe("Pakai sesuai rencana (spec jadwal paket JP8)", () => {
       expect.objectContaining({ kind: "TREATMENT", name: items[0].serviceName, quantity: 1, unitPrice: 0, serviceId: world.treatmentId, patientPackageItemId: items[0].id }),
       expect.objectContaining({ kind: "BARANG", quantity: 3, unitPrice: 0, itemId: world.drugId, patientPackageItemId: items[1].id }),
     ]);
+    // Baris treatment Rp 0 dari paket menunggu pelaksana pilihan resepsionis (spec aturan pakai PL3).
+    await assignPerformers(world, id);
     await unwrap(finalizeInvoice({ invoiceId: id, version: await versionOf(id) }));
   });
 

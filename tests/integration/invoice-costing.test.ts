@@ -3,7 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { prisma } from "@/lib/db";
 import { addFreeLine, addPackageLine, applyPackageSession, createDirectSale, createInvoiceFromVisit, setLineDiscount, setLinePerformer, updateInvoiceLine } from "@/server/invoice-drafts";
 import { finalizeInvoice } from "@/server/invoice-lifecycle";
-import { cleanupBillingWorld, createBillingWorld, finalVisit, type BillingWorld } from "./invoice-world";
+import { assignPerformers, cleanupBillingWorld, createBillingWorld, finalVisit, type BillingWorld } from "./invoice-world";
 import { catalogPackage } from "./package-world";
 import { unwrap } from "./unwrap";
 
@@ -73,11 +73,10 @@ describe("salinan biaya dan komisi saat final", () => {
     }
   });
 
-  it("tanpa pelaksana tanpa komisi; komisi rupiah × jumlah; katalog berubah sesudahnya tidak mengubah salinan", async () => {
+  it("tanpa pelaksana tidak bisa difinalkan (spec aturan pakai PL3); komisi rupiah × jumlah; katalog berubah sesudahnya tidak mengubah salinan", async () => {
     const none = await visitDraft();
     await unwrap(setLinePerformer({ invoiceId: none.id, version: await versionOf(none.id), lineId: none.line.id, performerId: null }));
-    await finalize(none.id);
-    expect(await costsOf(none.line.id)).toEqual({ materialCost: 40_000, toolCost: 10_000, otherCost: 0, commissionAmount: 0 });
+    expect(await finalizeInvoice({ invoiceId: none.id, version: await versionOf(none.id) })).toEqual({ ok: false, error: `Pilih pelaksana untuk ${none.line.name}.` });
 
     await prisma.service.update({ where: { id: world.treatmentId }, data: { commissionKind: "NOMINAL", commissionValue: 15_000 } });
     const flat = await visitDraft();
@@ -96,6 +95,8 @@ describe("salinan biaya dan komisi saat final", () => {
     const draft = await visitDraft();
     await unwrap(applyPackageSession({ invoiceId: draft.id, version: await versionOf(draft.id), lineId: draft.line.id, patientPackageItemId: itemId }));
     await unwrap(addFreeLine({ invoiceId: draft.id, version: await versionOf(draft.id), kind: "TREATMENT", name: "Bebas", quantity: 1, unitPrice: 10_000 }));
+    // Baris treatment bebas juga butuh pelaksana (spec aturan pakai PL3); tanpa layanan, komisinya tetap 0.
+    await assignPerformers(world, draft.id);
     await finalize(draft.id);
     expect(await costsOf(draft.line.id)).toEqual({ materialCost: 40_000, toolCost: 10_000, otherCost: 0, commissionAmount: 25_000 });
     const free = await prisma.invoiceLine.findFirstOrThrow({ where: { invoiceId: draft.id, name: "Bebas" } });

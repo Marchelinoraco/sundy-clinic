@@ -1,12 +1,14 @@
 /** Aturan resep dokter (spec resep dokter 3–4). Murni: dipakai formulir dan server. */
+import { composeUsage, isIncompleteUsage, usageProblem, type UsageParts } from "./usage";
+
 export const PRESCRIPTIONS_MAX = 30;
 export const PRESCRIPTION_USAGE_MAX = 200;
 const QUANTITY_MAX = 9999;
 
 type Result<T> = { ok: true; value: T } | { ok: false; message: string };
 
-/** Satu baris resep apa adanya dari formulir (jumlah masih teks). */
-export type PrescriptionInput = { itemId: string; quantity: string; usage: string };
+/** Satu baris resep apa adanya dari formulir (jumlah masih teks; aturan pakai berupa isian, spec aturan pakai AP1–AP2). */
+export type PrescriptionInput = { itemId: string; quantity: string; usage: UsageParts };
 export type PrescriptionDraft = { itemId: string; quantity: number; usage: string };
 
 export function parsePrescriptions(rows: PrescriptionInput[]): Result<PrescriptionDraft[]> {
@@ -17,10 +19,9 @@ export function parsePrescriptions(rows: PrescriptionInput[]): Result<Prescripti
     const text = row.quantity.trim();
     const quantity = Number(text);
     if (!/^\d+$/.test(text) || quantity < 1 || quantity > QUANTITY_MAX) return { ok: false, message: "Jumlah obat harus bilangan bulat 1–9.999." };
-    const usage = row.usage.trim();
-    if (!usage) return { ok: false, message: "Isi aturan pakai obat." };
-    if (usage.length > PRESCRIPTION_USAGE_MAX) return { ok: false, message: `Aturan pakai terlalu panjang (maks. ${PRESCRIPTION_USAGE_MAX} karakter).` };
-    value.push({ itemId: row.itemId, quantity, usage });
+    const problem = usageProblem(row.usage, PRESCRIPTION_USAGE_MAX);
+    if (problem) return { ok: false, message: problem };
+    value.push({ itemId: row.itemId, quantity, usage: composeUsage(row.usage) });
   }
   return { ok: true, value };
 }
@@ -30,7 +31,7 @@ export function parsePrescriptions(rows: PrescriptionInput[]): Result<Prescripti
  * tetap tersimpan; finalisasi tetap menolaknya. Isian yang salah (mis. jumlah 0) bukan "belum lengkap".
  */
 export function isIncompletePrescription(row: PrescriptionInput): boolean {
-  return !row.itemId || !row.quantity.trim() || !row.usage.trim();
+  return !row.itemId || !row.quantity.trim() || isIncompleteUsage(row.usage);
 }
 
 /** Obat yang bisa diresepkan: tanpa harga apa pun (spec resep dokter 7). */

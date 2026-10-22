@@ -55,6 +55,8 @@ export async function finalVisit(
   world: BillingWorld,
   input: {
     treatments?: { serviceId: string; serviceName: string }[];
+    /** Pelaksana di catatan kunjungan; null = kunjungan sesudah spec aturan pakai PL1 (dokter tidak memilih). */
+    performer?: "therapist" | null;
     channel?: "KLINIK" | "ONLINE";
     serviceId?: string;
     finalizedAt?: Date;
@@ -91,8 +93,8 @@ export async function finalVisit(
         create: treatments.map((t, index) => ({
           serviceId: t.serviceId,
           serviceName: t.serviceName,
-          performerId: world.therapistId,
-          performerName: "Terapis Uji",
+          performerId: input.performer === null ? null : world.therapistId,
+          performerName: input.performer === null ? null : "Terapis Uji",
           sortOrder: index,
         })),
       },
@@ -172,3 +174,12 @@ export async function cleanupBillingWorld(slug: string, patientWhatsapps: string
 }
 
 export { day };
+
+/**
+ * Pelaksana terapis dunia ini untuk setiap baris treatment draf yang belum punya (spec aturan pakai PL3), langsung di
+ * basis data agar nomor versi tagihan tidak berubah. Dipakai uji yang memfinalkan tagihan berisi treatment tanpa pelaksana.
+ */
+export async function assignPerformers(world: BillingWorld, invoiceId: string): Promise<void> {
+  const therapist = await prisma.staff.findUniqueOrThrow({ where: { id: world.therapistId }, select: { name: true } });
+  await prisma.invoiceLine.updateMany({ where: { invoiceId, kind: "TREATMENT", performerId: null }, data: { performerId: world.therapistId, performerName: therapist.name } });
+}
