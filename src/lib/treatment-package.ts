@@ -1,4 +1,5 @@
 import { formatRupiah } from "./format";
+import { defaultPerVisit } from "./package-visit";
 import { dateLabel, isDateString, MAX_AMOUNT, type Validation } from "./stock";
 import { addDaysToDateString } from "./time";
 
@@ -11,6 +12,9 @@ export const PACKAGE_SESSIONS_MAX = 100;
 /** Jumlah satuan barang per isi paket (spec paket barang PB1). */
 export const PACKAGE_GOODS_MAX = 1000;
 export const PACKAGE_REASON_MAX = 200;
+/** Jarak antar kunjungan rencana, hari (spec jadwal paket JP2, JP16). */
+export const PACKAGE_VISIT_INTERVAL_MAX = 365;
+export const PACKAGE_VISIT_INTERVAL_DEFAULT = 7;
 const LAST_DATE = "2100-12-31";
 
 export type PackageEntryKindValue = "BELI" | "PAKAI" | "BATAL_PAKAI" | "PERPANJANG" | "BATAL_PAKET";
@@ -36,11 +40,15 @@ export type TreatmentPackageInput = {
   price: number;
   validDays: number;
   description: string;
-  items: { serviceId?: string; itemId?: string; sessions: number }[];
+  items: { serviceId?: string; itemId?: string; sessions: number; perVisit?: number }[];
+  /** Bawaan 7 hari (spec jadwal paket JP2). */
+  visitIntervalDays?: number;
 };
-export type ValidTreatmentPackage = Omit<TreatmentPackageInput, "description" | "items"> & {
+export type ValidTreatmentPackage = Omit<TreatmentPackageInput, "description" | "items" | "visitIntervalDays"> & {
   description: string | null;
-  items: { serviceId: string | null; itemId: string | null; sessions: number }[];
+  visitIntervalDays: number;
+  /** `perVisit` untuk barang (bawaan dibagi rata, JP15); kosong untuk treatment. */
+  items: { serviceId: string | null; itemId: string | null; sessions: number; perVisit: number | null }[];
 };
 
 const INVALID_FORM = "Data tidak sah. Muat ulang halaman lalu coba lagi.";
@@ -61,6 +69,8 @@ export function validateTreatmentPackage(raw: unknown): Validation<ValidTreatmen
   if (!isWhole(input.validDays, 1, PACKAGE_VALID_DAYS_MAX)) return fail(`Masa berlaku 1–${PACKAGE_VALID_DAYS_MAX} hari.`);
   if (description.length > PACKAGE_DESCRIPTION_MAX) return fail(`Keterangan paling banyak ${PACKAGE_DESCRIPTION_MAX} karakter.`);
   if (input.items.length === 0) return fail("Tambahkan minimal satu isi paket.");
+  const interval = input.visitIntervalDays === undefined ? PACKAGE_VISIT_INTERVAL_DEFAULT : input.visitIntervalDays;
+  if (!isWhole(interval, 1, PACKAGE_VISIT_INTERVAL_MAX)) return fail(`Jarak antar kunjungan 1–${PACKAGE_VISIT_INTERVAL_MAX} hari.`);
   const items: ValidTreatmentPackage["items"] = [];
   for (const raw of input.items as unknown[]) {
     if (typeof raw !== "object" || raw === null) return fail(INVALID_FORM);
@@ -71,15 +81,22 @@ export function validateTreatmentPackage(raw: unknown): Validation<ValidTreatmen
       if (typeof item.itemId !== "string" || !item.itemId) return fail("Pilih barang.");
       if (!isWhole(item.sessions, 1, PACKAGE_GOODS_MAX)) return fail(`Jumlah barang 1–${PACKAGE_GOODS_MAX}.`);
       if (items.some((other) => other.itemId === item.itemId)) return fail("Barang yang sama tidak boleh dua kali.");
-      items.push({ serviceId: null, itemId: item.itemId, sessions: item.sessions as number });
+      if (item.perVisit !== undefined && !isWhole(item.perVisit, 1, item.sessions as number)) return fail(`Jumlah per kunjungan 1–${item.sessions}.`);
+      items.push({ serviceId: null, itemId: item.itemId, sessions: item.sessions as number, perVisit: (item.perVisit as number | undefined) ?? null });
       continue;
     }
     if (typeof item.serviceId !== "string" || !item.serviceId) return fail("Pilih treatment.");
     if (!isWhole(item.sessions, 1, PACKAGE_SESSIONS_MAX)) return fail(`Jumlah sesi 1–${PACKAGE_SESSIONS_MAX}.`);
     if (items.some((other) => other.serviceId === item.serviceId)) return fail("Treatment yang sama tidak boleh dua kali.");
-    items.push({ serviceId: item.serviceId, itemId: null, sessions: item.sessions as number });
+    items.push({ serviceId: item.serviceId, itemId: null, sessions: item.sessions as number, perVisit: null });
   }
-  return { ok: true, value: { name, price: input.price as number, validDays: input.validDays as number, description: description || null, items } };
+  // Barang tanpa jumlah per kunjungan dibagi rata dengan sesi treatment terbanyak (JP15).
+  const maxSessions = Math.max(0, ...items.filter((item) => item.serviceId).map((item) => item.sessions));
+  const withVisits = items.map((item) => (item.itemId && item.perVisit === null ? { ...item, perVisit: defaultPerVisit(item.sessions, maxSessions) } : item));
+  return {
+    ok: true,
+    value: { name, price: input.price as number, validDays: input.validDays as number, description: description || null, visitIntervalDays: interval as number, items: withVisits },
+  };
 }
 
 /** Tanggal terakhir paket berlaku, inklusif: paket 1 hari berlaku di hari pembelian saja. */

@@ -18,7 +18,7 @@ const valid = { name: " Facial Glow 5x ", price: 1_500_000, validDays: 180, desc
 
 describe("validateTreatmentPackage", () => {
   it("merapikan isian yang sah", () => {
-    expect(validateTreatmentPackage(valid)).toEqual({ ok: true, value: { name: "Facial Glow 5x", price: 1_500_000, validDays: 180, description: null, items: [{ serviceId: "s1", itemId: null, sessions: 5 }] } });
+    expect(validateTreatmentPackage(valid)).toEqual({ ok: true, value: { name: "Facial Glow 5x", price: 1_500_000, validDays: 180, description: null, visitIntervalDays: 7, items: [{ serviceId: "s1", itemId: null, sessions: 5, perVisit: null }] } });
   });
 
   it("menolak isian yang tidak sah dengan pesan yang jelas", () => {
@@ -40,7 +40,17 @@ describe("validateTreatmentPackage", () => {
     const withItems = (items: unknown[]) => validateTreatmentPackage({ ...valid, items });
     expect(withItems([{ serviceId: "s1", sessions: 4 }, { itemId: "b1", sessions: 30 }])).toEqual({
       ok: true,
-      value: { name: "Facial Glow 5x", price: 1_500_000, validDays: 180, description: null, items: [{ serviceId: "s1", itemId: null, sessions: 4 }, { serviceId: null, itemId: "b1", sessions: 30 }] },
+      value: {
+        name: "Facial Glow 5x",
+        price: 1_500_000,
+        validDays: 180,
+        description: null,
+        visitIntervalDays: 7,
+        items: [
+          { serviceId: "s1", itemId: null, sessions: 4, perVisit: null },
+          { serviceId: null, itemId: "b1", sessions: 30, perVisit: 8 },
+        ],
+      },
     });
     expect(withItems([{ itemId: "b1", sessions: 1000 }]).ok).toBe(true);
     expect(withItems([{ itemId: "", sessions: 1 }])).toEqual({ ok: false, message: "Pilih barang." });
@@ -180,5 +190,27 @@ describe("biaya dan selisih paket (spec paket informatif PI1–PI4)", () => {
 
   it("barang tanpa harga jual dihitung Rp 0 pada nilai normal", () => {
     expect(packageCostSummary(10_000, [{ name: "Sampel", unitPrice: null, unitCost: 1000, quantity: 3 }])).toMatchObject({ normalValue: 0, saving: -10_000, cost: 3000 });
+  });
+});
+
+describe("jarak kunjungan dan jumlah per kunjungan di katalog (spec jadwal paket JP2, JP16)", () => {
+  const base = { name: "Lux", price: 1_000_000, validDays: 90, description: "", items: [{ serviceId: "s1", sessions: 4 }, { itemId: "i1", sessions: 28 }] };
+
+  it("bawaan: jarak 7 hari dan barang dibagi rata dengan sesi terbanyak", () => {
+    expect(validateTreatmentPackage(base)).toMatchObject({
+      ok: true,
+      value: { visitIntervalDays: 7, items: [{ serviceId: "s1", perVisit: null }, { itemId: "i1", perVisit: 7 }] },
+    });
+  });
+
+  it("isian sendiri disimpan; di luar batas ditolak", () => {
+    expect(validateTreatmentPackage({ ...base, visitIntervalDays: 14, items: [{ serviceId: "s1", sessions: 4 }, { itemId: "i1", sessions: 28, perVisit: 10 }] })).toMatchObject({
+      ok: true,
+      value: { visitIntervalDays: 14, items: [{ perVisit: null }, { perVisit: 10 }] },
+    });
+    expect(validateTreatmentPackage({ ...base, visitIntervalDays: 0 })).toEqual({ ok: false, message: "Jarak antar kunjungan 1–365 hari." });
+    expect(validateTreatmentPackage({ ...base, visitIntervalDays: 366 })).toEqual({ ok: false, message: "Jarak antar kunjungan 1–365 hari." });
+    expect(validateTreatmentPackage({ ...base, items: [{ itemId: "i1", sessions: 28, perVisit: 29 }] })).toEqual({ ok: false, message: "Jumlah per kunjungan 1–28." });
+    expect(validateTreatmentPackage({ ...base, items: [{ itemId: "i1", sessions: 28, perVisit: 0 }] })).toEqual({ ok: false, message: "Jumlah per kunjungan 1–28." });
   });
 });
