@@ -18,6 +18,8 @@ import { can } from "@/lib/permissions";
 import { dateOnlyString, type PaymentMethodValue } from "@/lib/stock";
 import { witaDateString } from "@/lib/time";
 import { TOTALS_SELECT } from "@/server/invoice-store";
+import type { InvoiceA4 } from "@/lib/invoice-a4";
+import { loadInvoiceA4 } from "@/server/invoice-a4-store";
 import { packageLineNotes } from "@/server/package-store";
 import { requireCapability } from "@/server/session";
 
@@ -521,4 +523,10 @@ export async function getInvoicePrescriptionLabel(invoiceId: string): Promise<Pr
     doctorName: invoice.appointment.encounter?.finalizedByName ?? invoice.appointment.staff.name,
     lines: invoice.lines.map((l) => ({ name: l.name, quantity: l.quantity, usage: l.dispensingLine?.usage ?? "" })),
   };
+}
+
+/** Invoice A4 untuk dicetak staf (spec invoice A4 IA8): final atau dibatalkan (cap DIBATALKAN, IA9); null untuk draf. */
+export async function getInvoiceA4(id: string): Promise<InvoiceA4 | null> {
+  await requireCapability("invoice:read");
+  return loadInvoiceA4(id);
 }

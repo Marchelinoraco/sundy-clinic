@@ -93,3 +93,6 @@ export function buildInvoiceA4(source: InvoiceA4Source, packages: InvoiceA4Packa
     packages,
   };
 }
+
+/** Isi halaman /invoice (IA8, IA9): tagihan dibatalkan hanya menampilkan pesan, seperti struk. */
+export type PublicInvoicePage = { state: "VALID"; invoice: InvoiceA4 } | { state: "CANCELLED" } | { state: "INVALID" };
