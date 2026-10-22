@@ -704,6 +704,11 @@ h3 {
 .invoice-a4-baris > span:last-child {
   text-align: right;
 }
+/* Nominal tidak pernah terpotong; teks pembayaran yang panjang (EDC/transfer + rekening) yang turun baris. */
+.invoice-a4-total .invoice-a4-baris > span:last-child {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
 .invoice-a4-baris-tebal {
   margin-top: 2pt;
   padding-top: 3pt;
