@@ -131,6 +131,7 @@ async function loadPackageVisitWork(now: Date): Promise<PackageReminderRow[]> {
       name: true,
       visitIntervalDays: true,
       nextVisitOn: true,
+      expiresOn: true,
       patient: { select: { name: true, whatsapp: true } },
       items: { orderBy: { sortOrder: "asc" }, select: { id: true, serviceName: true, unit: true, perVisit: true } },
       visitReminders: { select: { visitOn: true, sentAt: true, staffName: true } },
@@ -145,6 +146,8 @@ async function loadPackageVisitWork(now: Date): Promise<PackageReminderRow[]> {
   const rows: PackageReminderRow[] = [];
   for (const pkg of packages) {
     const visitOn = dateOnlyString(pkg.nextVisitOn!);
+    // Rencana sesudah masa berlaku tidak bisa dipakai lagi (JP6): tidak diingatkan sampai paket diperpanjang atau tanggalnya diubah.
+    if (visitOn > dateOnlyString(pkg.expiresOn)) continue;
     const day = reminderDay(visitOn, closedDates);
     if (day > today) continue;
     const items = pkg.items.map((item) => ({ name: item.serviceName, unit: item.unit, remaining: remaining.get(item.id) ?? 0, perVisit: item.perVisit }));

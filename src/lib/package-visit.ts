@@ -43,10 +43,19 @@ export function defaultPerVisit(goodsTotal: number, maxTreatmentSessions: number
   return Math.ceil(goodsTotal / Math.max(1, maxTreatmentSessions));
 }
 
-/** Pesan WhatsApp pengingat kunjungan paket (JP13). */
+/**
+ * Pesan WhatsApp pengingat kunjungan paket (JP13). Rencana yang sudah lewat tidak disebut sebagai jadwal: pasien diajak
+ * memilih hari dan jam baru.
+ */
 export function packageVisitMessage(input: { patientName: string; packageName: string; visitNumber: number; visitOn: string; today: string; contents: readonly VisitContent[] }): string {
-  const when = input.visitOn === addDaysToDateString(input.today, 1) ? "besok" : `pada ${formatIndonesianDate(new Date(`${input.visitOn}T00:00:00Z`))}`;
-  return `Halo ${firstName(input.patientName)}, ini SunDY Clinic. Sesuai program paket ${input.packageName}, jadwal kunjungan ke-${input.visitNumber} Anda ${when}: ${visitContentsLabel(input.contents)}. Balas pesan ini untuk memilih jam ya. Terima kasih.`;
+  const greeting = `Halo ${firstName(input.patientName)}, ini SunDY Clinic. Sesuai program paket ${input.packageName},`;
+  const date = formatIndonesianDate(new Date(`${input.visitOn}T00:00:00Z`));
+  const isi = visitContentsLabel(input.contents);
+  if (input.visitOn < input.today) {
+    return `${greeting} sudah waktunya kunjungan ke-${input.visitNumber} Anda (rencana ${date}): ${isi}. Balas pesan ini untuk memilih hari dan jam ya. Terima kasih.`;
+  }
+  const when = input.visitOn === input.today ? "hari ini" : input.visitOn === addDaysToDateString(input.today, 1) ? "besok" : `pada ${date}`;
+  return `${greeting} jadwal kunjungan ke-${input.visitNumber} Anda ${when}: ${isi}. Balas pesan ini untuk memilih jam ya. Terima kasih.`;
 }
 
 /** Tanggal kunjungan berikutnya yang diubah resepsionis (JP9, JP16). */

@@ -521,10 +521,30 @@ export async function applyPackageVisit(input: { invoiceId: string; version: num
             added.push({ name: item.serviceName, unit: null, quantity: 1 });
             continue;
           }
-          await packageLink(tx, invoice, { kind: "BARANG", serviceId: null, itemId: item.itemId, name: item.serviceName, quantity }, source, null);
-          await tx.invoiceLine.create({
-            data: { invoiceId, kind: "BARANG", name: item.serviceName, quantity, unitPrice: 0, itemId: item.itemId, patientPackageItemId: item.id, sortOrder: await nextSortOrder(tx, invoiceId) },
+          // Barang yang sama sudah ada di draf (mis. obat resep dari penyerahan): baris itu yang memakai jatah, bukan digandakan.
+          // Baris yang lebih banyak dari rencana tidak diubah diam-diam; resepsionis memutuskan lewat tombol di baris itu.
+          let left = quantity;
+          const existing = await tx.invoiceLine.findMany({
+            where: { invoiceId, kind: "BARANG", itemId: item.itemId, patientPackageItemId: null, packageSourceLineId: null },
+            orderBy: { sortOrder: "asc" },
+            select: { id: true, name: true, quantity: true },
           });
+          for (const line of existing) {
+            if (left === 0) break;
+            if (line.quantity > left) {
+              const planned = item.unit ? `${left} ${item.unit}` : String(left);
+              throw new UserFacingError(`${line.name} ×${line.quantity} sudah ada di tagihan, lebih dari rencana ${planned}. Klik Pakai jatah paket di baris itu, lalu tekan Pakai sesuai rencana lagi.`);
+            }
+            await packageLink(tx, invoice, { kind: "BARANG", serviceId: null, itemId: item.itemId, name: line.name, quantity: line.quantity }, source, line.id);
+            await tx.invoiceLine.update({ where: { id: line.id }, data: { unitPrice: 0, priceNote: null, ...NO_DISCOUNT, patientPackageItemId: item.id, packageSourceLineId: null } });
+            left -= line.quantity;
+          }
+          if (left > 0) {
+            await packageLink(tx, invoice, { kind: "BARANG", serviceId: null, itemId: item.itemId, name: item.serviceName, quantity: left }, source, null);
+            await tx.invoiceLine.create({
+              data: { invoiceId, kind: "BARANG", name: item.serviceName, quantity: left, unitPrice: 0, itemId: item.itemId, patientPackageItemId: item.id, sortOrder: await nextSortOrder(tx, invoiceId) },
+            });
+          }
           added.push({ name: item.serviceName, unit: item.unit, quantity });
         }
       });

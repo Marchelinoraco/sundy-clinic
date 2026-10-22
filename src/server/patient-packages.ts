@@ -9,7 +9,7 @@ import { witaDateString } from "@/lib/time";
 import { validateExtension } from "@/lib/treatment-package";
 import { recordAudit } from "@/server/audit";
 import { lockPatientPackages } from "@/server/package-store";
-import { requireCapability } from "@/server/session";
+import { requireAnyCapability, requireCapability } from "@/server/session";
 
 const day = (value: string) => new Date(`${value}T00:00:00Z`);
 
@@ -50,10 +50,13 @@ export async function extendPatientPackage(input: { packageId: string; expiresOn
   });
 }
 
-/** Resepsionis mengubah tanggal kunjungan berikutnya (spec jadwal paket JP9, JP16); kunjungan sesudahnya dihitung dari tanggal ini. */
+/**
+ * Resepsionis atau Admin Keuangan mengubah tanggal kunjungan berikutnya (spec jadwal paket JP9, JP16, 4.6); kunjungan
+ * sesudahnya dihitung dari tanggal ini.
+ */
 export async function changeNextVisit(input: { packageId: string; visitOn: string }): Promise<ActionResult<void>> {
   return runAction(async () => {
-    const actor = await requireCapability("invoice:manage");
+    const actor = await requireAnyCapability("invoice:manage", "invoice:correct");
     const packageId = String(input?.packageId ?? "");
     const summary = await prisma.$transaction(async (tx) => {
       await lockPatientPackages(tx, [packageId]);

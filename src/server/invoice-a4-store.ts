@@ -60,7 +60,8 @@ async function packageSnapshots(invoiceId: string, finalizedAt: Date): Promise<S
       expiresOn: dateOnlyString(before ?? after ?? pkg.expiresOn),
       purchaseLineId: pkg.purchaseLineId,
       itemIds: pkg.items.map((item) => item.id),
-      nextVisitOn: pkg.nextVisitOn && newest.get(pkg.id)?.id === invoiceId ? dateOnlyString(pkg.nextVisitOn) : null,
+      // Rencana yang melewati masa berlaku paket tidak dicetak: pasien tidak bisa memakai paketnya lagi pada tanggal itu.
+      nextVisitOn: pkg.nextVisitOn && newest.get(pkg.id)?.id === invoiceId && pkg.nextVisitOn <= pkg.expiresOn ? dateOnlyString(pkg.nextVisitOn) : null,
       items: pkg.items.map((item) => {
         const rows = known.filter((entry) => entry.patientPackageItemId === item.id);
         const used = -rows.filter((entry) => entry.kind === "PAKAI" || entry.kind === "BATAL_PAKAI").reduce((sum, entry) => sum + entry.delta, 0);

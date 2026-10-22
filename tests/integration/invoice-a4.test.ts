@@ -9,6 +9,7 @@ import { recordInvoicePayment } from "@/server/invoice-payments";
 import { getInvoiceA4 } from "@/server/invoice-read";
 import { extendPatientPackage } from "@/server/patient-packages";
 import { getReceiptMessage } from "@/server/receipt";
+import { dateOnlyString } from "@/lib/stock";
 import { addDaysToDateString, witaDateString } from "@/lib/time";
 import { billingBatch, cleanupBillingWorld, createBillingWorld, finalVisit, type BillingWorld } from "./invoice-world";
 import { unwrap } from "./unwrap";
@@ -31,6 +32,7 @@ const SLUG = "invoice-a4";
 const WA = "6281200009631";
 let world: BillingWorld;
 let lux: string;
+let purchaseInvoice: string;
 const versionOf = async (id: string) => (await prisma.invoice.findUniqueOrThrow({ where: { id } })).version;
 const finalize = async (id: string) => unwrap(finalizeInvoice({ invoiceId: id, version: await versionOf(id) }));
 const codeOf = async (id: string) => /\/struk#(\S+)/.exec((await unwrap(getReceiptMessage(id))).text)![1];
@@ -81,6 +83,7 @@ afterAll(async () => {
 describe("invoice A4: paket per tanggal invoice (spec invoice A4 IA5, IA6, IA10)", () => {
   it("invoice pembelian dan kunjungan berikutnya masing-masing menulis keadaan pada tanggalnya; invoice lama tidak berubah", async () => {
     const purchase = await visitInvoice(true);
+    purchaseInvoice = purchase;
     const firstExpiry = (await prisma.patientPackage.findFirstOrThrow({ where: { packageId: lux, patientId: world.patientId } })).expiresOn;
     const before = (await loadInvoiceA4(purchase))!.packages;
     expect(before).toEqual([
@@ -117,6 +120,16 @@ describe("invoice A4: paket per tanggal invoice (spec invoice A4 IA5, IA6, IA10)
     await unwrap(cancelInvoice({ invoiceId: second, reason: "Salah input" }));
     expect((await loadInvoiceA4(purchase))!.packages).toEqual(before);
     expect((await getInvoiceA4(second))!.status).toBe("DIBATALKAN");
+  });
+
+  it("kunjungan berikutnya yang melewati masa berlaku paket tidak dicetak (temuan review I2)", async () => {
+    const owned = await prisma.patientPackage.findFirstOrThrow({ where: { packageId: lux, patientId: world.patientId } });
+    const next = addDaysToDateString(witaDateString(new Date()), 7);
+    expect(dateOnlyString(owned.nextVisitOn!)).toBe(next);
+    await prisma.patientPackage.update({ where: { id: owned.id }, data: { expiresOn: new Date(`${addDaysToDateString(witaDateString(new Date()), 3)}T00:00:00Z`) } });
+    expect((await loadInvoiceA4(purchaseInvoice))!.packages[0].nextVisitOn).toBeNull();
+    await prisma.patientPackage.update({ where: { id: owned.id }, data: { expiresOn: new Date(`${next}T00:00:00Z`) } });
+    expect((await loadInvoiceA4(purchaseInvoice))!.packages[0].nextVisitOn).toBe(next);
   });
 
   it("invoice tanpa paket tidak punya kotak paket (Review Focus 3)", async () => {

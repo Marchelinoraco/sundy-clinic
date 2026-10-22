@@ -44,6 +44,17 @@ describe("rencana kunjungan paket (spec jadwal paket JP3, JP13)", () => {
     expect(packageVisitMessage({ ...base, visitOn: "2026-11-05", today: "2026-10-28" })).toContain("jadwal kunjungan ke-2 Anda pada Kamis, 5 November 2026:");
   });
 
+  it("rencana hari ini dan yang terlewat tidak menyebut tanggal lampau sebagai jadwal (temuan review I3)", () => {
+    const contents = planVisits({ nextVisitOn: "2026-10-22", intervalDays: 7, visitsDone: 1, items: [facial, capsule] })[0].contents;
+    const base = { patientName: "Maria Sului", packageName: "Glowing 3 Bulan", visitNumber: 2, contents };
+    expect(packageVisitMessage({ ...base, visitOn: "2026-10-28", today: "2026-10-28" })).toBe(
+      "Halo Maria, ini SunDY Clinic. Sesuai program paket Glowing 3 Bulan, jadwal kunjungan ke-2 Anda hari ini: Facial Brightening, 7 kapsul Slimming Capsule. Balas pesan ini untuk memilih jam ya. Terima kasih.",
+    );
+    expect(packageVisitMessage({ ...base, visitOn: "2026-10-22", today: "2026-10-28" })).toBe(
+      "Halo Maria, ini SunDY Clinic. Sesuai program paket Glowing 3 Bulan, sudah waktunya kunjungan ke-2 Anda (rencana Kamis, 22 Oktober 2026): Facial Brightening, 7 kapsul Slimming Capsule. Balas pesan ini untuk memilih hari dan jam ya. Terima kasih.",
+    );
+  });
+
   it("tanggal rencana baru: tidak sebelum hari ini, tidak melewati masa berlaku (JP16)", () => {
     const ctx = { today: "2026-10-28", expiresOn: "2027-01-19" };
     expect(validatePlanDate("2026-10-27", ctx)).toEqual({ ok: false, message: "Tanggal rencana tidak boleh sebelum hari ini." });

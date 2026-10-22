@@ -10,13 +10,17 @@ import { changeNextVisit } from "@/server/patient-packages";
 import { billingBatch, cleanupBillingWorld, createBillingWorld, finalVisit, type BillingWorld } from "./invoice-world";
 import { unwrap } from "./unwrap";
 
-type Role = "SUPER_ADMIN" | "RESEPSIONIS" | "ADMIN_KEUANGAN";
+type Role = "SUPER_ADMIN" | "RESEPSIONIS" | "ADMIN_KEUANGAN" | "APOTEKER";
 const { actor } = vi.hoisted(() => ({ actor: { userId: "u", staffId: "s", name: "Rina Jadwal", role: "RESEPSIONIS" as Role, email: "u@uji.test" } }));
 vi.mock("@/server/session", async () => {
   const { can } = await import("@/lib/permissions");
   return {
     requireCapability: vi.fn(async (capability: Parameters<typeof can>[1]) => {
       if (!can(actor.role, capability)) throw new Error(`forbidden: ${capability}`);
+      return actor;
+    }),
+    requireAnyCapability: vi.fn(async (...capabilities: Parameters<typeof can>[1][]) => {
+      if (!capabilities.some((capability) => can(actor.role, capability))) throw new Error(`forbidden: ${capabilities.join(" | ")}`);
       return actor;
     }),
   };
@@ -147,6 +151,17 @@ describe("ubah tanggal rencana (spec jadwal paket JP9, JP16)", () => {
     expect(await changeNextVisit({ packageId: pkg.id, visitOn: addDaysToDateString(expiry, 1) })).toMatchObject({ ok: false, error: expect.stringContaining("Tanggal rencana melewati masa berlaku paket") });
     const audit = await prisma.auditLog.findFirstOrThrow({ where: { action: "patient-package.next-visit", entityId: pkg.id }, orderBy: { createdAt: "desc" } });
     expect(audit.summary).toContain(`${SLUG} Lux`);
+  });
+
+  it("Admin Keuangan juga boleh mengubah tanggal; peran lain tidak (spec jadwal paket 4.6, temuan review I4)", async () => {
+    const { purchaseLineId } = await buyOnly();
+    const pkg = await packageOf(purchaseLineId);
+    actor.role = "ADMIN_KEUANGAN";
+    await unwrap(changeNextVisit({ packageId: pkg.id, visitOn: addDaysToDateString(today(), 4) }));
+    expect(await next(purchaseLineId)).toBe(addDaysToDateString(today(), 4));
+    actor.role = "APOTEKER";
+    await expect(changeNextVisit({ packageId: pkg.id, visitOn: addDaysToDateString(today(), 5) })).rejects.toThrow(/forbidden/);
+    expect(await next(purchaseLineId)).toBe(addDaysToDateString(today(), 4));
   });
 
   it("paket habis atau dibatalkan tidak bisa diubah", async () => {

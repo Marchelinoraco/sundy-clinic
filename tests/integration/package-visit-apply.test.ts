@@ -2,7 +2,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
 import { witaDateString } from "@/lib/time";
-import { addPackageLine, applyPackageVisit, createDirectSale, createInvoiceFromVisit } from "@/server/invoice-drafts";
+import { addInvoiceItem, addPackageLine, applyPackageVisit, createDirectSale, createInvoiceFromVisit } from "@/server/invoice-drafts";
 import { finalizeInvoice } from "@/server/invoice-lifecycle";
 import { listPackageVisitPlans } from "@/server/patient-package-read";
 import { billingBatch, cleanupBillingWorld, createBillingWorld, finalVisit, type BillingWorld } from "./invoice-world";
@@ -15,6 +15,7 @@ vi.mock("@/server/session", () => ({
 const SLUG = "pakai-rencana";
 const WA = "6281200009643";
 let world: BillingWorld;
+let luxId: string;
 let pkgId: string;
 let items: { id: string; serviceName: string }[];
 const today = () => witaDateString(new Date());
@@ -24,12 +25,21 @@ const linesOf = (invoiceId: string) =>
 const apply = async (invoiceId: string) => applyPackageVisit({ invoiceId, version: await versionOf(invoiceId), patientPackageId: pkgId });
 const directSale = async () => (await unwrap(createDirectSale({ patientId: world.patientId, branchId: world.branchId }))).id;
 
+/** Membeli paket Lux lewat penjualan langsung; hasilnya paket customer dengan isinya. */
+async function buyLux() {
+  const sale = await directSale();
+  await unwrap(addPackageLine({ invoiceId: sale, version: await versionOf(sale), packageId: luxId }));
+  const purchaseLineId = (await prisma.invoiceLine.findFirstOrThrow({ where: { invoiceId: sale, kind: "PAKET" } })).id;
+  await unwrap(finalizeInvoice({ invoiceId: sale, version: await versionOf(sale) }));
+  return prisma.patientPackage.findUniqueOrThrow({ where: { purchaseLineId }, include: { items: { orderBy: { sortOrder: "asc" } } } });
+}
+
 beforeAll(async () => {
   await cleanupBillingWorld(SLUG, [WA]);
   world = await createBillingWorld(SLUG, WA);
   await billingBatch(world, { invoiceNumber: `${SLUG}-F1`, itemId: world.drugId, quantity: 500 });
   // 2× Facial + 10 kapsul (7 per kunjungan): kunjungan 2 hanya tersisa 3 kapsul.
-  const lux = await prisma.treatmentPackage.create({
+  luxId = (await prisma.treatmentPackage.create({
     data: {
       name: `${SLUG} Lux`,
       price: 2_000_000,
@@ -38,11 +48,8 @@ beforeAll(async () => {
       items: { create: [{ serviceId: world.treatmentId, sessions: 2, sortOrder: 0 }, { itemId: world.drugId, sessions: 10, perVisit: 7, sortOrder: 1 }] },
     },
     select: { id: true },
-  });
-  const sale = await directSale();
-  await unwrap(addPackageLine({ invoiceId: sale, version: await versionOf(sale), packageId: lux.id }));
-  await unwrap(finalizeInvoice({ invoiceId: sale, version: await versionOf(sale) }));
-  const pkg = await prisma.patientPackage.findFirstOrThrow({ where: { packageId: lux.id }, include: { items: { orderBy: { sortOrder: "asc" } } } });
+  })).id;
+  const pkg = await buyLux();
   pkgId = pkg.id;
   items = pkg.items;
 });
@@ -98,5 +105,27 @@ describe("Pakai sesuai rencana (spec jadwal paket JP8)", () => {
     expect(await listPackageVisitPlans(world.patientId)).toEqual([]);
     const id = await directSale();
     expect(await apply(id)).toEqual({ ok: false, error: "Paket ini sudah habis." });
+  });
+
+  it("barang paket yang sudah ada di draf (mis. obat resep) dipakai, bukan digandakan; kekurangannya ditambahkan (temuan review I1)", async () => {
+    const pkg = await buyLux();
+    const id = await directSale();
+    await unwrap(addInvoiceItem({ invoiceId: id, version: await versionOf(id), itemId: world.drugId, quantity: 5 }));
+    await unwrap(applyPackageVisit({ invoiceId: id, version: await versionOf(id), patientPackageId: pkg.id }));
+    expect((await linesOf(id)).filter((line) => line.kind === "BARANG")).toEqual([
+      expect.objectContaining({ quantity: 5, unitPrice: 0, patientPackageItemId: pkg.items[1].id }),
+      expect.objectContaining({ quantity: 2, unitPrice: 0, patientPackageItemId: pkg.items[1].id }),
+    ]);
+  });
+
+  it("baris barang yang melebihi rencana tidak diubah; resepsionis diminta memutuskan sendiri (temuan review I1)", async () => {
+    const pkg = await buyLux();
+    const id = await directSale();
+    await unwrap(addInvoiceItem({ invoiceId: id, version: await versionOf(id), itemId: world.drugId, quantity: 9 }));
+    expect(await applyPackageVisit({ invoiceId: id, version: await versionOf(id), patientPackageId: pkg.id })).toEqual({
+      ok: false,
+      error: `${SLUG} Amoxicillin ×9 sudah ada di tagihan, lebih dari rencana 7 kapsul. Klik Pakai jatah paket di baris itu, lalu tekan Pakai sesuai rencana lagi.`,
+    });
+    expect(await linesOf(id)).toEqual([expect.objectContaining({ kind: "BARANG", quantity: 9, unitPrice: 2000, patientPackageItemId: null })]);
   });
 });

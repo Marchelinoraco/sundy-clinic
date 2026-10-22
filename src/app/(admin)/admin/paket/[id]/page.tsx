@@ -27,8 +27,8 @@ export default async function PatientPackagePage({ params }: { params: Promise<{
   const pkg = await getPatientPackage((await params).id);
   if (!pkg) notFound();
   const canExtend = can(staff.role, "invoice:correct") && pkg.state !== "DIBATALKAN";
-  // Resepsionis dan Admin Keuangan boleh menggeser kunjungan berikutnya (spec jadwal paket JP9).
-  const canChangeVisit = can(staff.role, "invoice:manage") && pkg.state === "AKTIF" && pkg.nextVisitOn !== null;
+  // Resepsionis dan Admin Keuangan boleh menggeser kunjungan berikutnya (spec jadwal paket JP9, 4.6).
+  const canChangeVisit = (can(staff.role, "invoice:manage") || can(staff.role, "invoice:correct")) && pkg.state === "AKTIF" && pkg.nextVisitOn !== null;
 
   return (
     <>

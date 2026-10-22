@@ -12,9 +12,10 @@ import { countReminderWork, getReminderWorklist } from "@/server/reminder";
 import { billingBatch, cleanupBillingWorld, createBillingWorld, finalVisit, type BillingWorld } from "./invoice-world";
 import { unwrap } from "./unwrap";
 
-vi.mock("@/server/session", () => ({
-  requireCapability: vi.fn().mockResolvedValue({ userId: "u", staffId: "s", name: "Rina Pengingat", role: "RESEPSIONIS", email: "u@uji.test" }),
-}));
+vi.mock("@/server/session", () => {
+  const actor = { userId: "u", staffId: "s", name: "Rina Pengingat", role: "RESEPSIONIS", email: "u@uji.test" };
+  return { requireCapability: vi.fn().mockResolvedValue(actor), requireAnyCapability: vi.fn().mockResolvedValue(actor) };
+});
 
 const SLUG = "ingat-paket";
 const WA = "6281200009642";
@@ -125,12 +126,21 @@ describe("Sesi paket perlu dibooking (spec jadwal paket JP5, JP6, JP12, JP13)", 
     expect(ids).not.toContain(empty.id);
   });
 
+  it("rencana sesudah masa berlaku paket tidak diingatkan; tepat di hari terakhir masih (temuan review I2)", async () => {
+    const tomorrow = addDaysToDateString(today(), 1);
+    const pkg = await bought(tomorrow);
+    await prisma.patientPackage.update({ where: { id: pkg.id }, data: { expiresOn: day(today()) } });
+    expect(await rowFor(pkg.id)).toBeUndefined();
+    await prisma.patientPackage.update({ where: { id: pkg.id }, data: { expiresOn: day(tomorrow) } });
+    expect(await rowFor(pkg.id)).toBeDefined();
+  });
+
   it("rencana yang sudah lewat tetap muncul dengan tanda terlewat", async () => {
     const yesterday = addDaysToDateString(today(), -1);
     const pkg = await bought(yesterday);
     const row = await rowFor(pkg.id);
     expect(row).toMatchObject({ visitOn: yesterday, overdue: true });
-    expect(row!.message.text).toContain(`jadwal kunjungan ke-1 Anda pada ${formatIndonesianDate(day(yesterday))}:`);
+    expect(row!.message.text).toContain(`sudah waktunya kunjungan ke-1 Anda (rencana ${formatIndonesianDate(day(yesterday))}):`);
   });
 
   it("kiriman dicatat per paket dan tanggal: baris pindah ke sudah diingatkan, angka menu turun, tanggal lain ditolak", async () => {
