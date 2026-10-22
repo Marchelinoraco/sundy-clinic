@@ -6,6 +6,7 @@ import { buatPasienBaru } from "./helpers/pasien-baru";
 import { signIn } from "./helpers/quiz";
 import { isiMeja } from "./helpers/stok-meja";
 import { E2E_BASE_URL } from "./test-env";
+import { dateLabel } from "../../src/lib/stock";
 import { addDaysToDateString, witaDateString } from "../../src/lib/time";
 
 test.setTimeout(240_000);
@@ -188,6 +189,29 @@ test("paket berisi barang: jatah kapsul diambil di tagihan pembelian, stok meja 
   await tungguHidrasi(rp);
   await rp.getByRole("link", { name: packageName }).click();
   await expect(rp.getByRole("table", { name: "Sisa paket" })).toContainText("20 dari 30 kapsul", { timeout: 30_000 });
+
+  // Rencana kunjungan (spec jadwal paket JP7, JP9): kunjungan 1 selesai, kunjungan 2 seminggu lagi; resepsionis memajukannya ke besok.
+  const today = witaDateString(new Date());
+  const tomorrow = addDaysToDateString(today, 1);
+  const plan = rp.getByRole("table", { name: "Rencana kunjungan" });
+  await expect(plan.getByRole("row").filter({ hasText: "Ke-1" })).toContainText(`10 kapsul ${itemName}`);
+  await expect(plan.getByRole("row").filter({ hasText: "Ke-1" })).toContainText("Selesai");
+  await expect(plan.getByRole("row").filter({ hasText: "Ke-2" })).toContainText(dateLabel(addDaysToDateString(today, 7)));
+  await expect(plan.getByRole("row").filter({ hasText: "Ke-2" })).toContainText(`Relaxing Facial, 20 kapsul ${itemName}`);
+  await rp.getByRole("button", { name: "Ubah tanggal rencana" }).click();
+  const change = rp.getByRole("dialog", { name: "Ubah tanggal rencana" });
+  await isiTanggal(change, "Tanggal kunjungan berikutnya", tomorrow);
+  await change.getByRole("button", { name: "Simpan" }).click();
+  await expect(change).toBeHidden({ timeout: 30_000 });
+  await expect(plan.getByRole("row").filter({ hasText: "Ke-2" })).toContainText(dateLabel(tomorrow), { timeout: 30_000 });
+
+  // Pengingat H-1: pasien yang belum membooking muncul di kotak 4 (spec jadwal paket JP5).
+  await rp.goto("/admin/pengingat");
+  await tungguHidrasi(rp);
+  const reminders = rp.getByRole("region", { name: /4 · Sesi paket perlu dibooking/ });
+  const row = reminders.getByRole("listitem").filter({ hasText: `Pasien Paket Barang ${t}` });
+  await expect(row).toContainText(`${packageName} · kunjungan ke-2`);
+  await expect(row.getByRole("link", { name: "Ingatkan via WA" })).toHaveAttribute("href", /wa\.me/);
   await desk.close();
   await page.goto(`/admin/stok-meja?tampil=semua`);
   await tungguHidrasi(page);

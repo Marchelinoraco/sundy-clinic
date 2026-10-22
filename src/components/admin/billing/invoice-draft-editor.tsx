@@ -24,13 +24,16 @@ import { toast } from "sonner";
 import { formatRupiah } from "@/lib/format";
 import { dispensingNotice } from "@/lib/dispensing";
 import { INVOICE_LINE_KIND_LABEL, validateLineEdit } from "@/lib/invoice";
+import { visitContentsLabel } from "@/lib/package-visit";
+import { dateLabel } from "@/lib/stock";
 import { packageOptionsSummary, type PackageOption } from "@/lib/treatment-package";
 import type { ActionResult } from "@/lib/action-result";
 import { counterShortages } from "@/lib/counter-stock";
 import type { CounterItemRow } from "@/server/counter-read";
-import { removeInvoiceLine, refreshCatalogPrices, restorePrescriptionLine, updateInvoiceLine } from "@/server/invoice-drafts";
+import { applyPackageVisit, removeInvoiceLine, refreshCatalogPrices, restorePrescriptionLine, updateInvoiceLine } from "@/server/invoice-drafts";
 import { finalizeInvoice } from "@/server/invoice-lifecycle";
 import type { BillingItem, InvoiceDetail, InvoiceLineRow } from "@/server/invoice-read";
+import type { PackageVisitPlan } from "@/server/patient-package-read";
 import type { SellablePackage } from "@/server/treatment-package-catalog";
 import { DialogCloseButton } from "../mui/dialog-close-button";
 import { LinkButton } from "../mui/links";
@@ -201,6 +204,7 @@ export function InvoiceDraftEditor({
   canEditNotes = true,
   packages = [],
   packageOptions = [],
+  visitPlans = [],
   performers = [],
   services = [],
   restock = null,
@@ -211,6 +215,8 @@ export function InvoiceDraftEditor({
   canEditNotes?: boolean;
   packages?: SellablePackage[];
   packageOptions?: PackageOption[];
+  /** Rencana kunjungan berikutnya tiap paket milik customer (spec jadwal paket JP8). */
+  visitPlans?: PackageVisitPlan[];
   performers?: { id: string; name: string }[];
   services?: InternalServiceOption[];
   /** Resepsionis yang boleh meminta restock meja (spec stok meja 4.1); null bila tidak. */
@@ -264,7 +270,7 @@ export function InvoiceDraftEditor({
         </Typography>
       )}
 
-      {packageOptions.length > 0 && (
+      {(packageOptions.length > 0 || visitPlans.length > 0) && (
         <Alert
           severity="info"
           aria-label="Paket customer"
@@ -274,7 +280,24 @@ export function InvoiceDraftEditor({
             ) : undefined
           }
         >
-          Customer punya paket aktif: {packageOptionsSummary(packageOptions).join("; ")}.
+          {packageOptions.length > 0 && <>Customer punya paket aktif: {packageOptionsSummary(packageOptions).join("; ")}.</>}
+          {visitPlans.map((plan) => (
+            <Stack key={plan.patientPackageId} direction="row" spacing={1} useFlexGap sx={{ mt: 1, flexWrap: "wrap", alignItems: "center" }}>
+              <span>
+                {plan.packageName} — Rencana kunjungan {plan.visit.number} ({dateLabel(plan.visit.date)}): {visitContentsLabel(plan.visit.contents)}
+              </span>
+              <Button
+                type="button"
+                size="small"
+                variant="outlined"
+                disabled={pending}
+                aria-label={`Pakai sesuai rencana ${plan.packageName}`}
+                onClick={() => run(() => applyPackageVisit({ invoiceId: detail.id, version: detail.version, patientPackageId: plan.patientPackageId }))}
+              >
+                Pakai sesuai rencana
+              </Button>
+            </Stack>
+          ))}
         </Alert>
       )}
 

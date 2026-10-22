@@ -93,8 +93,8 @@ describe("katalog paket treatment", () => {
     const created = (await listTreatmentPackages()).find((row) => row.id === id)!;
     expect(created.contents).toBe(`4× Facial Uji, 30 kapsul ${SLUG} Amoxicillin`);
     expect(created.items).toEqual([
-      { serviceId: world.treatmentId, itemId: null, serviceName: "Facial Uji", unit: null, sessions: 4 },
-      { serviceId: null, itemId: world.drugId, serviceName: `${SLUG} Amoxicillin`, unit: "kapsul", sessions: 30 },
+      { serviceId: world.treatmentId, itemId: null, serviceName: "Facial Uji", unit: null, sessions: 4, perVisit: null },
+      { serviceId: null, itemId: world.drugId, serviceName: `${SLUG} Amoxicillin`, unit: "kapsul", sessions: 30, perVisit: 8 },
     ]);
     expect((await listPackageStockItems()).find((item) => item.id === world.drugId)).toMatchObject({ name: `${SLUG} Amoxicillin`, unit: "kapsul" });
 
@@ -147,6 +147,22 @@ describe("katalog paket treatment", () => {
     } finally {
       await prisma.service.update({ where: { id: world.treatmentId }, data: { materialCost: 0 } });
     }
+  });
+
+  it("jarak antar kunjungan dan jumlah per kunjungan tersimpan; kosong = bawaan (spec jadwal paket JP2, JP15)", async () => {
+    await billingBatch(world, { invoiceNumber: `${SLUG}-AMX-J`, itemId: world.drugId, quantity: 10, unitCost: 100 });
+    const items = [
+      { serviceId: world.treatmentId, sessions: 4 },
+      { itemId: world.drugId, sessions: 28, perVisit: 10 },
+    ];
+    const { id } = await unwrap(createTreatmentPackage({ ...input(), name: `${SLUG} Jadwal`, visitIntervalDays: 14, items }));
+    const created = (await listTreatmentPackages()).find((row) => row.id === id)!;
+    expect(created.visitIntervalDays).toBe(14);
+    expect(created.items.map((item) => item.perVisit)).toEqual([null, 10]);
+    await unwrap(updateTreatmentPackage(id, { ...input(), name: `${SLUG} Jadwal`, items: [items[0], { itemId: world.drugId, sessions: 28 }] }));
+    const updated = (await listTreatmentPackages()).find((row) => row.id === id)!;
+    expect(updated.visitIntervalDays).toBe(7);
+    expect(updated.items.map((item) => item.perVisit)).toEqual([null, 7]);
   });
 
   it("resepsionis tidak bisa mengelola katalog", async () => {

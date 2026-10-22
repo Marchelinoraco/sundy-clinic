@@ -44,6 +44,9 @@ describe("InvoiceA4Paper (spec invoice A4)", () => {
     expect(box).toHaveTextContent("1 dari 4 sesi terpakai · sisa 3");
     expect(box).toHaveTextContent("7 dari 28 kapsul diterima · sisa 21");
     expect(within(box).getAllByRole("progressbar")).toHaveLength(2);
+    expect(box).toHaveTextContent("Kunjungan berikutnya: 29 Okt 2026");
+    rerender(<InvoiceA4Paper invoice={{ ...INVOICE_A4, packages: [{ ...INVOICE_A4.packages[0], nextVisitOn: null }] }} />);
+    expect(screen.queryByText(/Kunjungan berikutnya/)).not.toBeInTheDocument();
     rerender(<InvoiceA4Paper invoice={{ ...INVOICE_A4, packages: [] }} />);
     expect(screen.queryByRole("region", { name: "Paket Anda" })).not.toBeInTheDocument();
   });

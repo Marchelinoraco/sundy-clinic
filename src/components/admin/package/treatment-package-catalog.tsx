@@ -22,6 +22,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import type { ActionResult } from "@/lib/action-result";
 import { marginPercent } from "@/lib/costing";
+import { defaultPerVisit, planVisits } from "@/lib/package-visit";
 import { formatRupiah } from "@/lib/format";
 import { dateLabel } from "@/lib/stock";
 import { witaDateString } from "@/lib/time";
@@ -29,6 +30,8 @@ import {
   PACKAGE_GOODS_MAX,
   PACKAGE_SESSIONS_MAX,
   PACKAGE_VALID_DAYS_MAX,
+  PACKAGE_VISIT_INTERVAL_DEFAULT,
+  PACKAGE_VISIT_INTERVAL_MAX,
   packageCostSummary,
   packageExpiresOn,
   packagePriceError,
@@ -52,17 +55,31 @@ import { EmptyState, SectionCard } from "../page-layout";
 import { RupiahInput } from "../rupiah-input";
 
 /** Satu isi paket di form: treatment (id layanan, sesi) atau barang (id barang stok, jumlah) — spec paket barang PB1. */
-type DraftItem = { goods: boolean; id: string; sessions: string };
-type Draft = { name: string; price: number | null; validDays: string; description: string; items: DraftItem[] };
-const EMPTY: Draft = { name: "", price: null, validDays: "180", description: "", items: [{ goods: false, id: "", sessions: "1" }] };
+/** `perVisit` kosong = otomatis dibagi rata (spec jadwal paket JP15). */
+type DraftItem = { goods: boolean; id: string; sessions: string; perVisit: string };
+type Draft = { name: string; price: number | null; validDays: string; visitIntervalDays: string; description: string; items: DraftItem[] };
+const EMPTY: Draft = {
+  name: "",
+  price: null,
+  validDays: "180",
+  visitIntervalDays: String(PACKAGE_VISIT_INTERVAL_DEFAULT),
+  description: "",
+  items: [{ goods: false, id: "", sessions: "1", perVisit: "" }],
+};
 
 function draftOf(pkg: TreatmentPackageView): Draft {
   return {
     name: pkg.name,
     price: pkg.price,
     validDays: String(pkg.validDays),
+    visitIntervalDays: String(pkg.visitIntervalDays),
     description: pkg.description ?? "",
-    items: pkg.items.map((item) => ({ goods: item.itemId !== null, id: item.itemId ?? item.serviceId ?? "", sessions: String(item.sessions) })),
+    items: pkg.items.map((item) => ({
+      goods: item.itemId !== null,
+      id: item.itemId ?? item.serviceId ?? "",
+      sessions: String(item.sessions),
+      perVisit: item.perVisit === null ? "" : String(item.perVisit),
+    })),
   };
 }
 
@@ -71,8 +88,13 @@ function inputOf(draft: Draft): TreatmentPackageInput {
     name: draft.name,
     price: draft.price ?? Number.NaN,
     validDays: Number(draft.validDays),
+    visitIntervalDays: Number(draft.visitIntervalDays),
     description: draft.description,
-    items: draft.items.map((item) => (item.goods ? { itemId: item.id, sessions: Number(item.sessions) } : { serviceId: item.id, sessions: Number(item.sessions) })),
+    items: draft.items.map((item) =>
+      item.goods
+        ? { itemId: item.id, sessions: Number(item.sessions), ...(item.perVisit.trim() ? { perVisit: Number(item.perVisit) } : {}) }
+        : { serviceId: item.id, sessions: Number(item.sessions) },
+    ),
   };
 }
 
@@ -129,6 +151,27 @@ function PackageDialog({
   const today = witaDateString(new Date());
   const days = Number(draft.validDays);
   const daysValid = Number.isInteger(days) && days >= 1 && days <= PACKAGE_VALID_DAYS_MAX;
+  const interval = Number(draft.visitIntervalDays);
+  const intervalValid = Number.isInteger(interval) && interval >= 1 && interval <= PACKAGE_VISIT_INTERVAL_MAX;
+  // Rencana kunjungan contoh mulai hari ini (spec jadwal paket JP2–JP3): treatment 1 sesi, barang per kunjungan atau bawaan.
+  const maxSessions = Math.max(0, ...draft.items.filter((item) => !item.goods && item.id).map((item) => Number(item.sessions) || 0));
+  const autoPerVisit = (item: DraftItem) => defaultPerVisit(Number(item.sessions) || 0, maxSessions);
+  const visits = intervalValid
+    ? planVisits({
+        nextVisitOn: today,
+        intervalDays: interval,
+        visitsDone: 0,
+        items: draft.items
+          .filter((item) => item.id && Number(item.sessions) > 0)
+          .map((item) => ({
+            name: item.id,
+            unit: null,
+            remaining: Number(item.sessions),
+            perVisit: item.goods ? Number(item.perVisit) > 0 ? Number(item.perVisit) : autoPerVisit(item) : null,
+          })),
+      })
+    : [];
+  const planDays = visits.length > 0 ? (visits.length - 1) * interval : 0;
   // Isi yang sudah dipilih saja yang dihitung; harga jual dan biaya per satuan dari katalog (spec paket informatif PI1).
   const lines: PackageCostLine[] = draft.items.flatMap((item) => {
     const quantity = Number(item.sessions) > 0 ? Number(item.sessions) : 0;
@@ -187,6 +230,17 @@ function PackageDialog({
                 slotProps={{ htmlInput: { min: 1, max: PACKAGE_VALID_DAYS_MAX, inputMode: "numeric" } }}
               />
             </Box>
+            <TextField
+              id="package-interval"
+              label="Jarak antar kunjungan (hari)"
+              type="number"
+              value={draft.visitIntervalDays}
+              onChange={(e) => setDraft((d) => ({ ...d, visitIntervalDays: e.target.value }))}
+              helperText={intervalValid ? `Kunjungan 1 hari pembelian, berikutnya tiap ${interval} hari.` : `1–${PACKAGE_VISIT_INTERVAL_MAX} hari.`}
+              error={!intervalValid}
+              fullWidth
+              slotProps={{ htmlInput: { min: 1, max: PACKAGE_VISIT_INTERVAL_MAX, inputMode: "numeric" } }}
+            />
             <TextField
               id="package-description"
               label="Keterangan (opsional)"
@@ -289,6 +343,20 @@ function PackageDialog({
                       }}
                     />
                   </Stack>
+                  {item.goods && (
+                    <TextField
+                      label="Per kunjungan"
+                      type="number"
+                      value={item.perVisit}
+                      onChange={(e) => setItem(index, { perVisit: e.target.value })}
+                      helperText={item.perVisit.trim() ? `1–${quantity || 1}${unit ? ` ${unit}` : ""} diserahkan tiap kunjungan` : `Otomatis ${autoPerVisit(item)}${unit ? ` ${unit}` : ""} bila dikosongkan`}
+                      sx={{ mt: 1, width: { xs: "100%", sm: 240 } }}
+                      slotProps={{
+                        htmlInput: { "aria-label": `Per kunjungan ${n}`, min: 1, max: quantity || 1, inputMode: "numeric" },
+                        input: unit ? { endAdornment: <InputAdornment position="end">{unit}</InputAdornment> } : undefined,
+                      }}
+                    />
+                  )}
                   {(service || stock) && (
                     <Stack direction="row" sx={{ justifyContent: "space-between", mt: 1, pt: 1, borderTop: 1, borderColor: "divider", borderTopStyle: "dashed" }}>
                       <Typography variant="caption">Nilai normal {formatRupiah((unitPrice ?? 0) * quantity)}</Typography>
@@ -299,11 +367,11 @@ function PackageDialog({
               );
             })}
             <Stack direction="row" spacing={1}>
-              <Button type="button" size="small" variant="outlined" onClick={() => setDraft((d) => ({ ...d, items: [...d.items, { goods: false, id: "", sessions: "1" }] }))}>
+              <Button type="button" size="small" variant="outlined" onClick={() => setDraft((d) => ({ ...d, items: [...d.items, { goods: false, id: "", sessions: "1", perVisit: "" }] }))}>
                 + Treatment
               </Button>
               {stockItems.length > 0 && (
-                <Button type="button" size="small" variant="outlined" onClick={() => setDraft((d) => ({ ...d, items: [...d.items, { goods: true, id: "", sessions: "1" }] }))}>
+                <Button type="button" size="small" variant="outlined" onClick={() => setDraft((d) => ({ ...d, items: [...d.items, { goods: true, id: "", sessions: "1", perVisit: "" }] }))}>
                   + Obat / produk
                 </Button>
               )}
@@ -319,7 +387,13 @@ function PackageDialog({
                 tone={summary.complete && draft.price !== null ? (summary.margin < 0 ? "error.main" : "success.main") : "error.main"}
                 strong
               />
+              {visits.length > 0 && <SummaryRow label="Rencana kunjungan" value={`${visits.length} kunjungan, ±${planDays} hari`} />}
             </Box>
+            {daysValid && visits.length > 0 && planDays >= days && (
+              <Alert severity="warning" role="status">
+                Rencana kunjungan melewati masa berlaku paket.
+              </Alert>
+            )}
             {(costError ?? error) && <Alert severity="error">{costError ?? error}</Alert>}
           </Stack>
         </DialogContent>
