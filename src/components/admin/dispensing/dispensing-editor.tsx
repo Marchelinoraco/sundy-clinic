@@ -15,11 +15,13 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useState } from "react";
 import { toast } from "sonner";
-import { validateDispensingLine } from "@/lib/dispensing";
+import { USAGE_MAX, validateDispensingLine } from "@/lib/dispensing";
+import { composeUsage, newUsageParts, parseUsage, usageProblem, type UsageParts } from "@/lib/usage";
 import { addDispensingLine, removeDispensingLine, updateDispensingLine } from "@/server/dispensing-drafts";
 import { completeDispensing, markNoDispensing } from "@/server/dispensing-lifecycle";
 import type { DispenseItem, DispensingDetail } from "@/server/dispensing-read";
 import { ItemAutocomplete } from "../mui/item-autocomplete";
+import { UsageField } from "../usage-field";
 import { useDispensingAction } from "./use-dispensing-action";
 
 function LineRow({
@@ -36,10 +38,13 @@ function LineRow({
   fail: (message: string) => void;
 }) {
   const [quantity, setQuantity] = useState(String(line.quantity));
-  const [usage, setUsage] = useState(line.usage);
+  // Teks tersimpan dibuka sebagai isian; yang tidak disentuh tersimpan utuh (spec aturan pakai AP5).
+  const [usage, setUsage] = useState<UsageParts>(() => parseUsage(line.usage));
 
   function save() {
-    const checked = validateDispensingLine({ itemId: line.itemId, quantity: Number(quantity), usage });
+    const problem = usageProblem(usage, USAGE_MAX);
+    if (problem) return fail(problem);
+    const checked = validateDispensingLine({ itemId: line.itemId, quantity: Number(quantity), usage: composeUsage(usage) });
     if (!checked.ok) return fail(checked.message);
     run(() =>
       updateDispensingLine({ dispensingId: detail.id, version: detail.version, lineId: line.id, quantity: checked.value.quantity, usage: checked.value.usage }),
@@ -58,7 +63,7 @@ function LineRow({
         />
       </TableCell>
       <TableCell>
-        <TextField value={usage} onChange={(e) => setUsage(e.target.value)} fullWidth slotProps={{ htmlInput: { "aria-label": `Aturan pakai ${line.itemName}` } }} />
+        <UsageField value={usage} onChange={setUsage} name={line.itemName} />
       </TableCell>
       <TableCell align="right">
         <Stack direction="row" spacing={0.5} sx={{ justifyContent: "flex-end" }}>
@@ -86,18 +91,21 @@ export function DispensingEditor({ detail, items }: { detail: DispensingDetail; 
   const { run, error, setError, pending } = useDispensingAction();
   const [itemId, setItemId] = useState("");
   const [quantity, setQuantity] = useState("1");
-  const [usage, setUsage] = useState("");
+  const [usage, setUsage] = useState<UsageParts>(newUsageParts);
 
   function add() {
-    const input = { itemId, quantity: Number(quantity), usage };
-    const checked = validateDispensingLine(input);
+    // Urutan pesan: obat, aturan pakai (spec aturan pakai AP6), lalu jumlah dan panjang teks dari validasi server.
+    const checked = validateDispensingLine({ itemId, quantity: Number(quantity), usage: composeUsage(usage) });
+    if (!checked.ok && !itemId) return setError(checked.message);
+    const problem = usageProblem(usage, USAGE_MAX);
+    if (problem) return setError(problem);
     if (!checked.ok) return setError(checked.message);
     run(
       () => addDispensingLine({ dispensingId: detail.id, version: detail.version, ...checked.value }),
       () => {
         setItemId("");
         setQuantity("1");
-        setUsage("");
+        setUsage(newUsageParts());
       },
     );
   }
@@ -142,7 +150,7 @@ export function DispensingEditor({ detail, items }: { detail: DispensingDetail; 
           Tambah obat
         </Box>
         <Stack spacing={1.5}>
-          <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "1fr 7rem 1fr" } }}>
+          <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "1fr 7rem" } }}>
             <ItemAutocomplete id="dispense-item" label="Obat" items={items} value={itemId} onChange={setItemId} showStock />
             <TextField
               id="dispense-quantity"
@@ -153,15 +161,8 @@ export function DispensingEditor({ detail, items }: { detail: DispensingDetail; 
               fullWidth
               slotProps={{ htmlInput: { min: 1 } }}
             />
-            <TextField
-              id="dispense-usage"
-              label="Aturan pakai"
-              value={usage}
-              onChange={(e) => setUsage(e.target.value)}
-              placeholder="mis. 3 x 1 sesudah makan"
-              fullWidth
-            />
           </Box>
+          <UsageField value={usage} onChange={setUsage} />
           <Box>
             <Button type="button" size="small" variant="outlined" onClick={add} disabled={pending}>
               + Tambah obat

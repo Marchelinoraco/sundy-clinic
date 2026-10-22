@@ -105,25 +105,30 @@ describe("editor penyerahan", () => {
     renderAdmin(<DispensingEditor detail={detail()} items={items} />);
     expect(screen.getByText("Amoxicillin 3x1 selama 5 hari")).toBeInTheDocument();
     expect(screen.getByLabelText("Jumlah Amoxicillin")).toHaveValue(15);
-    expect(screen.getByLabelText("Aturan pakai Amoxicillin")).toHaveValue("3 x 1 sesudah makan");
+    // Teks lama di luar pilihan terbuka sebagai Lainnya, utuh (spec aturan pakai AP5).
+    expect(screen.getByLabelText("Aturan pakai Amoxicillin")).toHaveValue("LAINNYA");
+    expect(screen.getByLabelText("Aturan pakai lain Amoxicillin")).toHaveValue("3 x 1 sesudah makan");
+    expect(screen.getByLabelText("Waktu Amoxicillin")).toHaveValue("");
   });
 
-  it("menambah obat dengan nomor versi; aturan pakai kosong ditolak di layar", async () => {
+  it("menambah obat dengan nomor versi; aturan pakai belum dipilih ditolak di layar (spec aturan pakai AP3, AP6)", async () => {
     mocks.addDispensingLine.mockResolvedValue({ ok: true, data: { version: 4 } });
     renderAdmin(<DispensingEditor detail={detail({ lines: [] })} items={items} />);
     await pickOption(userEvent.setup(), "Obat", "Amoxicillin (AMX) — sisa 40 kapsul");
     await userEvent.clear(screen.getByLabelText("Jumlah"));
     await userEvent.type(screen.getByLabelText("Jumlah"), "10");
     await userEvent.click(screen.getByRole("button", { name: "+ Tambah obat" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("Isi aturan pakai.");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Pilih aturan pakai obat.");
     expect(mocks.addDispensingLine).not.toHaveBeenCalled();
 
-    await userEvent.type(screen.getByLabelText("Aturan pakai"), "2 x 1");
+    expect(screen.getByLabelText("Waktu")).toHaveValue("SEBELUM MAKAN");
+    await userEvent.selectOptions(screen.getByLabelText("Aturan pakai"), "2-3xSehari");
     await userEvent.click(screen.getByRole("button", { name: "+ Tambah obat" }));
     await waitFor(() =>
-      expect(mocks.addDispensingLine).toHaveBeenCalledWith({ dispensingId: "d1", version: 3, itemId: "it1", quantity: 10, usage: "2 x 1" }),
+      expect(mocks.addDispensingLine).toHaveBeenCalledWith({ dispensingId: "d1", version: 3, itemId: "it1", quantity: 10, usage: "2-3xSehari SEBELUM MAKAN" }),
     );
     expect(mocks.refresh).toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByLabelText("Aturan pakai")).toHaveValue(""));
   });
 
   it("obat yang stoknya habis tidak bisa dipilih", async () => {
@@ -132,7 +137,7 @@ describe("editor penyerahan", () => {
     expect(await screen.findByRole("option", { name: /Vitamin C/ })).toHaveAttribute("aria-disabled", "true");
   });
 
-  it("menyimpan dan menghapus baris dengan nomor versi", async () => {
+  it("menyimpan dan menghapus baris dengan nomor versi; aturan pakai yang tidak disentuh tersimpan utuh (Review Focus 3)", async () => {
     mocks.updateDispensingLine.mockResolvedValue({ ok: true, data: { version: 4 } });
     mocks.removeDispensingLine.mockResolvedValue({ ok: true, data: { version: 5 } });
     renderAdmin(<DispensingEditor detail={detail()} items={items} />);
