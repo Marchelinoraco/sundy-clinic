@@ -198,7 +198,7 @@ describe("validateInvoicePayment", () => {
   it("menerima pembayaran yang sah", () => {
     expect(validateInvoicePayment(pay, ctx)).toEqual({
       ok: true,
-      value: { invoiceId: "i1", amount: 50000, method: "QRIS", paidAt: "2026-10-07", reference: "QR-1", transfer: null },
+      value: { invoiceId: "i1", amount: 50000, method: "QRIS", paidAt: "2026-10-07", reference: "QR-1", transfer: null, edc: null },
     });
   });
 
