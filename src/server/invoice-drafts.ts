@@ -20,6 +20,7 @@ import {
   type DiscountKindValue,
 } from "@/lib/invoice";
 import { formatRupiah } from "@/lib/format";
+import { visitContentsLabel, type VisitContent } from "@/lib/package-visit";
 import { dateLabel, dateOnlyString } from "@/lib/stock";
 import { can } from "@/lib/permissions";
 import { validateReduction } from "@/lib/prescription";
@@ -454,6 +455,80 @@ export async function takePackageItem(input: { invoiceId: string; version: numbe
         });
       });
       return { version, summary: `Ambil ${stock.name} ×${quantity}: ${link.summary}` };
+    });
+
+    await recordAudit({ actor, action: "invoice.update", entity: "Invoice", entityId: invoiceId, summary: result.summary });
+    revalidateInvoices(invoiceId);
+    return { version: result.version };
+  });
+}
+
+/**
+ * "Pakai sesuai rencana" (spec jadwal paket JP3, JP8): isi kunjungan berikutnya dari satu paket customer sekaligus. Treatment
+ * yang sudah ada di draf ditandai memakai paket, yang belum ada ditambahkan sebagai baris Rp 0; barang diambil sebanyak
+ * jumlah per kunjungan, atau sisanya bila kurang. Isi yang sudah tertaut ke paket ini di draf tidak ditambahkan lagi.
+ */
+export async function applyPackageVisit(input: { invoiceId: string; version: number; patientPackageId: string }): Promise<EditResult> {
+  return runAction(async () => {
+    const actor = await requireCapability("invoice:manage");
+    const invoiceId = String(input?.invoiceId ?? "");
+
+    const result = await prisma.$transaction(async (tx) => {
+      const version = await touchDraft(tx, invoiceId, input.version);
+      const invoice = await tx.invoice.findUniqueOrThrow({ where: { id: invoiceId }, select: { id: true, patientId: true } });
+      const pkg = await tx.patientPackage.findUnique({
+        where: { id: String(input?.patientPackageId ?? "") },
+        select: {
+          name: true,
+          patientId: true,
+          status: true,
+          items: { orderBy: { sortOrder: "asc" }, select: { id: true, serviceId: true, itemId: true, serviceName: true, unit: true, perVisit: true } },
+        },
+      });
+      if (!pkg || pkg.patientId !== invoice.patientId) throw new UserFacingError("Paket tidak ditemukan.");
+      if (pkg.status !== "AKTIF") throw new UserFacingError(`Paket ${pkg.name} sudah dibatalkan.`);
+      const itemIds = pkg.items.map((item) => item.id);
+      const remaining = await remainingByItem(tx, itemIds);
+      const here = await tx.invoiceLine.groupBy({ by: ["patientPackageItemId"], where: { invoiceId, patientPackageItemId: { in: itemIds } }, _sum: { quantity: true } });
+      const planned = pkg.items.map((item) => {
+        const want = Math.min(item.perVisit ?? 1, Math.max(0, remaining.get(item.id) ?? 0));
+        const already = here.find((row) => row.patientPackageItemId === item.id)?._sum.quantity ?? 0;
+        return { item, want, quantity: Math.max(0, want - already) };
+      });
+      if (planned.every((row) => row.want === 0)) throw new UserFacingError("Paket ini sudah habis.");
+      const todo = planned.filter((row) => row.quantity > 0);
+      if (todo.length === 0) throw new UserFacingError(`Isi kunjungan paket ${pkg.name} sudah ada di tagihan ini.`);
+
+      const added: VisitContent[] = [];
+      await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
+        for (const { item, quantity } of todo) {
+          const source = { patientPackageItemId: item.id };
+          if (item.serviceId) {
+            const line = await tx.invoiceLine.findFirst({
+              where: { invoiceId, kind: "TREATMENT", serviceId: item.serviceId, patientPackageItemId: null, packageSourceLineId: null, dispensingLineId: null },
+              orderBy: { sortOrder: "asc" },
+              select: { id: true, name: true, quantity: true },
+            });
+            if (line) {
+              await packageLink(tx, invoice, { kind: "TREATMENT", serviceId: item.serviceId, itemId: null, name: line.name, quantity: line.quantity }, source, line.id);
+              await tx.invoiceLine.update({ where: { id: line.id }, data: { unitPrice: 0, priceNote: null, ...NO_DISCOUNT, patientPackageItemId: item.id, packageSourceLineId: null } });
+            } else {
+              await packageLink(tx, invoice, { kind: "TREATMENT", serviceId: item.serviceId, itemId: null, name: item.serviceName, quantity: 1 }, source, null);
+              await tx.invoiceLine.create({
+                data: { invoiceId, kind: "TREATMENT", name: item.serviceName, quantity: 1, unitPrice: 0, serviceId: item.serviceId, patientPackageItemId: item.id, sortOrder: await nextSortOrder(tx, invoiceId) },
+              });
+            }
+            added.push({ name: item.serviceName, unit: null, quantity: 1 });
+            continue;
+          }
+          await packageLink(tx, invoice, { kind: "BARANG", serviceId: null, itemId: item.itemId, name: item.serviceName, quantity }, source, null);
+          await tx.invoiceLine.create({
+            data: { invoiceId, kind: "BARANG", name: item.serviceName, quantity, unitPrice: 0, itemId: item.itemId, patientPackageItemId: item.id, sortOrder: await nextSortOrder(tx, invoiceId) },
+          });
+          added.push({ name: item.serviceName, unit: item.unit, quantity });
+        }
+      });
+      return { version, summary: `Pakai sesuai rencana paket ${pkg.name}: ${visitContentsLabel(added)}` };
     });
 
     await recordAudit({ actor, action: "invoice.update", entity: "Invoice", entityId: invoiceId, summary: result.summary });

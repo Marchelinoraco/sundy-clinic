@@ -101,6 +101,19 @@ export async function remainingByItem(tx: Db, itemIds: readonly string[]): Promi
   return new Map(ids.map((id) => [id, sums.find((row) => row.patientPackageItemId === id)?._sum.delta ?? 0]));
 }
 
+/** Kunjungan yang sudah terjadi per paket customer = tagihan final berbeda yang memakai paket itu (spec jadwal paket JP13). */
+export async function visitsDoneByPackage(db: Db, patientPackageIds: readonly string[]): Promise<Map<string, number>> {
+  const ids = [...new Set(patientPackageIds)];
+  if (ids.length === 0) return new Map();
+  const uses = await db.packageSessionEntry.findMany({
+    where: { kind: "PAKAI", item: { patientPackageId: { in: ids } }, invoiceLine: { invoice: { status: "FINAL" } } },
+    select: { item: { select: { patientPackageId: true } }, invoiceLine: { select: { invoiceId: true } } },
+  });
+  const invoices = new Map(ids.map((id) => [id, new Set<string>()]));
+  for (const use of uses) if (use.invoiceLine) invoices.get(use.item.patientPackageId)!.add(use.invoiceLine.invoiceId);
+  return new Map([...invoices].map(([id, set]) => [id, set.size]));
+}
+
 type PurchaseLine = {
   id: string;
   kind: string;

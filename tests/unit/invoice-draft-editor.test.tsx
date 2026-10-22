@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   restorePrescriptionLine: vi.fn(),
   cancelInvoice: vi.fn(),
   takePackageItem: vi.fn(),
+  applyPackageVisit: vi.fn(),
 }));
 vi.mock("@/server/invoice-notes", () => ({ updateInvoiceNotes: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mocks.refresh, push: mocks.push }) }));
@@ -39,6 +40,7 @@ vi.mock("@/server/invoice-drafts", () => ({
   reducePrescriptionLine: vi.fn(),
   restorePrescriptionLine: mocks.restorePrescriptionLine,
   takePackageItem: mocks.takePackageItem,
+  applyPackageVisit: mocks.applyPackageVisit,
 }));
 vi.mock("@/server/invoice-lifecycle", () => ({ finalizeInvoice: mocks.finalizeInvoice, cancelInvoice: mocks.cancelInvoice }));
 vi.mock("@/server/restock", () => ({ createRestockRequest: vi.fn() }));
@@ -315,6 +317,29 @@ describe("editor draf tagihan", () => {
     await waitFor(() =>
       expect(mocks.takePackageItem).toHaveBeenCalledWith({ invoiceId: detail().id, version: detail().version, quantity: 10, itemId: "it9", purchaseLineId: "pl1" }),
     );
+  });
+
+  it("rencana kunjungan paket: kotak info menyebut isinya dan tombol Pakai sesuai rencana mengisi draf (spec jadwal paket JP8)", async () => {
+    mocks.applyPackageVisit.mockResolvedValue({ ok: true, data: { version: 2 } });
+    const plan = {
+      patientPackageId: "pp1",
+      packageName: "Glowing 3 Bulan",
+      visit: {
+        number: 2,
+        date: "2026-10-29",
+        contents: [
+          { name: "Facial Brightening", unit: null, quantity: 1 },
+          { name: "Slimming Capsule", unit: "kapsul", quantity: 7 },
+        ],
+      },
+    };
+    const user = userEvent.setup();
+    renderAdmin(<InvoiceDraftEditor detail={detail()} items={items} canExceedDiscount={false} visitPlans={[plan]} />);
+    const box = screen.getByRole("alert", { name: "Paket customer" });
+    expect(box).toHaveTextContent("Glowing 3 Bulan — Rencana kunjungan 2 (29 Okt 2026): Facial Brightening, 7 kapsul Slimming Capsule");
+    await user.click(within(box).getByRole("button", { name: "Pakai sesuai rencana Glowing 3 Bulan" }));
+    await waitFor(() => expect(mocks.applyPackageVisit).toHaveBeenCalledWith({ invoiceId: detail().id, version: detail().version, patientPackageId: "pp1" }));
+    expect(mocks.refresh).toHaveBeenCalled();
   });
 
   it("stok meja kurang: baris ditandai dan tombol Minta restock tampil (spec stok meja 4.1)", async () => {

@@ -16,7 +16,7 @@ import { dateOnlyString } from "@/lib/stock";
 import { addDaysToDateString, combineWitaDateAndMinutes, witaDateString } from "@/lib/time";
 import { buildWhatsAppLinkTo } from "@/lib/whatsapp";
 import { closedDatesBetween } from "@/server/booking-expiry";
-import { remainingByItem } from "@/server/package-store";
+import { remainingByItem, visitsDoneByPackage } from "@/server/package-store";
 import { quizLinkFor } from "@/server/quiz-link-code";
 import { requireCapability } from "@/server/session";
 import { publicSiteUrl } from "@/server/site-url";
@@ -139,17 +139,7 @@ async function loadPackageVisitWork(now: Date): Promise<PackageReminderRow[]> {
   if (packages.length === 0) return [];
   const ids = packages.map((pkg) => pkg.id);
   const remaining = await remainingByItem(prisma, packages.flatMap((pkg) => pkg.items.map((item) => item.id)));
-  // Kunjungan yang sudah terjadi = tagihan final berbeda yang memakai paket ini (JP13).
-  const uses = await prisma.packageSessionEntry.findMany({
-    where: { kind: "PAKAI", item: { patientPackageId: { in: ids } }, invoiceLine: { invoice: { status: "FINAL" } } },
-    select: { item: { select: { patientPackageId: true } }, invoiceLine: { select: { invoiceId: true } } },
-  });
-  const visitsDone = new Map<string, Set<string>>();
-  for (const use of uses) {
-    const invoices = visitsDone.get(use.item.patientPackageId) ?? new Set<string>();
-    if (use.invoiceLine) invoices.add(use.invoiceLine.invoiceId);
-    visitsDone.set(use.item.patientPackageId, invoices);
-  }
+  const visitsDone = await visitsDoneByPackage(prisma, ids);
   const closedDates = await closedDatesBetween(new Date(now.getTime() - MAX_LOOKBACK_DAYS * DAY_MS), new Date(`${horizon}T00:00:00Z`));
 
   const rows: PackageReminderRow[] = [];
@@ -158,7 +148,7 @@ async function loadPackageVisitWork(now: Date): Promise<PackageReminderRow[]> {
     const day = reminderDay(visitOn, closedDates);
     if (day > today) continue;
     const items = pkg.items.map((item) => ({ name: item.serviceName, unit: item.unit, remaining: remaining.get(item.id) ?? 0, perVisit: item.perVisit }));
-    const visitNumber = (visitsDone.get(pkg.id)?.size ?? 0) + 1;
+    const visitNumber = (visitsDone.get(pkg.id) ?? 0) + 1;
     const [visit] = planVisits({ nextVisitOn: visitOn, intervalDays: pkg.visitIntervalDays, visitsDone: visitNumber - 1, items });
     if (!visit) continue;
     const text = packageVisitMessage({ patientName: pkg.patient.name, packageName: pkg.name, visitNumber, visitOn, today, contents: visit.contents });

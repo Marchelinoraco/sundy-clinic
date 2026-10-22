@@ -1,8 +1,10 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { planVisits, type PlannedVisit } from "@/lib/package-visit";
 import { dateOnlyString } from "@/lib/stock";
 import { witaDateString } from "@/lib/time";
 import { packageExpiresOn, packageState, type PackageEntryKindValue, type PackageOption, type PatientPackageState } from "@/lib/treatment-package";
+import { remainingByItem, visitsDoneByPackage } from "@/server/package-store";
 import { requireCapability } from "@/server/session";
 
 // Tanpa "use server": dibaca halaman server panel admin, tidak dipanggil browser.
@@ -94,6 +96,33 @@ async function purchasedHere(invoiceId: string, today: string): Promise<PackageO
       };
     }),
   );
+}
+
+export type PackageVisitPlan = { patientPackageId: string; packageName: string; visit: PlannedVisit };
+
+/** Rencana kunjungan berikutnya tiap paket aktif milik customer, untuk tombol "Pakai sesuai rencana" (spec jadwal paket JP8). */
+export async function listPackageVisitPlans(patientId: string): Promise<PackageVisitPlan[]> {
+  await requireCapability("invoice:read");
+  const today = witaDateString(new Date());
+  const packages = await prisma.patientPackage.findMany({
+    where: { patientId: String(patientId ?? ""), status: "AKTIF", expiresOn: { gte: day(today) }, nextVisitOn: { not: null } },
+    orderBy: { expiresOn: "asc" },
+    select: { id: true, name: true, nextVisitOn: true, visitIntervalDays: true, items: { orderBy: { sortOrder: "asc" }, select: { id: true, serviceName: true, unit: true, perVisit: true } } },
+  });
+  if (packages.length === 0) return [];
+  const [remaining, visitsDone] = await Promise.all([
+    remainingByItem(prisma, packages.flatMap((pkg) => pkg.items.map((item) => item.id))),
+    visitsDoneByPackage(prisma, packages.map((pkg) => pkg.id)),
+  ]);
+  return packages.flatMap((pkg) => {
+    const [visit] = planVisits({
+      nextVisitOn: dateOnlyString(pkg.nextVisitOn!),
+      intervalDays: pkg.visitIntervalDays,
+      visitsDone: visitsDone.get(pkg.id) ?? 0,
+      items: pkg.items.map((item) => ({ name: item.serviceName, unit: item.unit, remaining: remaining.get(item.id) ?? 0, perVisit: item.perVisit })),
+    });
+    return visit ? [{ patientPackageId: pkg.id, packageName: pkg.name, visit }] : [];
+  });
 }
 
 export type PatientPackageSummary = {

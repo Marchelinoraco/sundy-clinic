@@ -13,7 +13,7 @@ import { requireCapability } from "@/server/session";
 import { listCounterItems } from "@/server/counter-read";
 import { listInternalServiceOptions } from "@/server/internal-catalog";
 import { listSellablePackages } from "@/server/treatment-package-catalog";
-import { listPackageOptions } from "@/server/patient-package-read";
+import { listPackageOptions, listPackageVisitPlans } from "@/server/patient-package-read";
 import { witaDateString } from "@/lib/time";
 
 export const metadata = { title: "Tagihan" };
@@ -48,6 +48,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
               canEditNotes={canEditNotes}
               packages={await listSellablePackages()}
               packageOptions={await listPackageOptions(detail.patient.id, detail.id)}
+              visitPlans={await listPackageVisitPlans(detail.patient.id)}
               performers={await listPerformers()}
               services={await listInternalServiceOptions()}
               restock={can(staff.role, "restock:request") ? { branchId: detail.branchId, options: await listCounterItems(detail.branchId) } : null}
