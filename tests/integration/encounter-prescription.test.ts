@@ -2,6 +2,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
 import { emptyDraftInput, type EncounterDraftInput } from "@/lib/encounter";
+import { parseUsage } from "@/lib/usage";
 import { finalizeEncounter, openEncounter, saveEncounterDraft } from "@/server/encounter";
 import { getEncounterForStaff } from "@/server/encounter-read";
 import { listPrescribableItems } from "@/server/prescription-read";
@@ -62,16 +63,30 @@ afterAll(async () => {
 describe("resep di catatan kunjungan (spec resep dokter 3–4)", () => {
   it("simpan draf menulis ulang resep dengan nama obat yang disalin", async () => {
     const { encounterId, version } = await openVisit();
-    const saved = await unwrap(saveEncounterDraft({ encounterId, version, draft: draft([{ itemId: world.drugId, quantity: "10", usage: "3 x 1" }]) }));
-    await unwrap(saveEncounterDraft({ encounterId, version: saved.version, draft: draft([{ itemId: world.productId, quantity: "1", usage: "Oles malam" }]) }));
+    const saved = await unwrap(saveEncounterDraft({ encounterId, version, draft: draft([{ itemId: world.drugId, quantity: "10", usage: parseUsage("3 x 1") }]) }));
+    await unwrap(saveEncounterDraft({ encounterId, version: saved.version, draft: draft([{ itemId: world.productId, quantity: "1", usage: parseUsage("Oles malam") }]) }));
     const rows = await prisma.encounterPrescription.findMany({ where: { encounterId } });
     expect(rows).toEqual([expect.objectContaining({ itemId: world.productId, itemName: `${SLUG} Serum C`, quantity: 1, usage: "Oles malam", sortOrder: 0 })]);
+  });
+
+  it("aturan pakai pilihan disimpan sebagai satu teks; teks lama terbuka sebagai Lainnya dan tersimpan utuh (spec aturan pakai AP4, AP5)", async () => {
+    const { encounterId, version } = await openVisit();
+    const saved = await unwrap(
+      saveEncounterDraft({ encounterId, version, draft: draft([{ itemId: world.drugId, quantity: "2", usage: { frequency: "3xSehari", custom: "", timing: "SEBELUM MAKAN" } }]) }),
+    );
+    expect((await prisma.encounterPrescription.findFirstOrThrow({ where: { encounterId } })).usage).toBe("3xSehari SEBELUM MAKAN");
+    // Draf dari sebelum fitur ini: aturan pakai diketik bebas (Review Focus 2).
+    await prisma.encounterPrescription.updateMany({ where: { encounterId }, data: { usage: "3 x 1 sesudah makan" } });
+    const input = (await getEncounterForStaff(encounterId))!.draft.prescriptions[0];
+    expect(input.usage).toEqual({ frequency: "LAINNYA", custom: "3 x 1 sesudah makan", timing: "" });
+    await unwrap(saveEncounterDraft({ encounterId, version: saved.version, draft: draft([input]) }));
+    expect((await prisma.encounterPrescription.findFirstOrThrow({ where: { encounterId } })).usage).toBe("3 x 1 sesudah makan");
   });
 
   it("obat nonaktif atau tanpa harga jual ditolak dengan namanya (Review Focus 3)", async () => {
     const { encounterId, version } = await openVisit();
     const off = await prisma.stockItem.create({ data: { code: `${SLUG.toUpperCase()}-OFF`, name: `${SLUG} Obat Mati`, kind: "OBAT", unit: "tablet", sellPrice: null } });
-    expect(await saveEncounterDraft({ encounterId, version, draft: draft([{ itemId: off.id, quantity: "1", usage: "1 x 1" }]) })).toEqual({
+    expect(await saveEncounterDraft({ encounterId, version, draft: draft([{ itemId: off.id, quantity: "1", usage: parseUsage("1 x 1") }]) })).toEqual({
       ok: false,
       error: `Obat ${SLUG} Obat Mati sudah nonaktif atau belum punya harga jual. Hapus dari resep.`,
     });
@@ -85,8 +100,8 @@ describe("resep di catatan kunjungan (spec resep dokter 3–4)", () => {
         encounterId,
         version,
         draft: draft([
-          { itemId: world.drugId, quantity: "10", usage: "3 x 1 sesudah makan" },
-          { itemId: world.productId, quantity: "1", usage: "Oles malam" },
+          { itemId: world.drugId, quantity: "10", usage: parseUsage("3 x 1 sesudah makan") },
+          { itemId: world.productId, quantity: "1", usage: parseUsage("Oles malam") },
         ]),
       }),
     );

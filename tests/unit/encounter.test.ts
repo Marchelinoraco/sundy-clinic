@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { parseUsage } from "@/lib/usage";
 import {
   ageInYears,
   assessmentPreview,
@@ -54,11 +55,11 @@ describe("parseEncounterDraft", () => {
   });
 
   it("resep ikut diperiksa; draf kosong tidak punya resep dan tidak punya Catatan untuk Apoteker", () => {
-    expect(parseEncounterDraft(draft({ prescriptions: [{ itemId: "o1", quantity: "2", usage: "3 x 1" }] }))).toMatchObject({
+    expect(parseEncounterDraft(draft({ prescriptions: [{ itemId: "o1", quantity: "2", usage: parseUsage("3 x 1") }] }))).toMatchObject({
       ok: true,
       value: { prescriptions: [{ itemId: "o1", quantity: 2, usage: "3 x 1" }] },
     });
-    expect(parseEncounterDraft(draft({ prescriptions: [{ itemId: "o1", quantity: "0", usage: "3 x 1" }] }))).toEqual({
+    expect(parseEncounterDraft(draft({ prescriptions: [{ itemId: "o1", quantity: "0", usage: parseUsage("3 x 1") }] }))).toEqual({
       ok: false,
       message: "Jumlah obat harus bilangan bulat 1–9.999.",
     });
@@ -70,16 +71,16 @@ describe("parseEncounterDraft", () => {
     const value = draft({
       assessment: "Infeksi",
       prescriptions: [
-        { itemId: "o1", quantity: "2", usage: "3 x 1" },
-        { itemId: "", quantity: "1", usage: "" },
-        { itemId: "o2", quantity: "0", usage: "1 x 1" },
+        { itemId: "o1", quantity: "2", usage: parseUsage("3 x 1") },
+        { itemId: "", quantity: "1", usage: parseUsage("") },
+        { itemId: "o2", quantity: "0", usage: parseUsage("1 x 1") },
       ],
     });
     expect(draftForAutosave(value)).toEqual({
       ...value,
       prescriptions: [
-        { itemId: "o1", quantity: "2", usage: "3 x 1" },
-        { itemId: "o2", quantity: "0", usage: "1 x 1" },
+        { itemId: "o1", quantity: "2", usage: parseUsage("3 x 1") },
+        { itemId: "o2", quantity: "0", usage: parseUsage("1 x 1") },
       ],
     });
   });

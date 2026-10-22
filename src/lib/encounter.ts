@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { formatShortIndonesianDate } from "./format";
 import { PRESCRIPTIONS_MAX, isIncompletePrescription, parsePrescriptions, type MedicineOption, type PrescriptionDraft, type PrescriptionInput } from "./prescription";
+import { USAGE_FREQUENCIES, USAGE_OTHER } from "./usage";
 
 /**
  * Aturan isian catatan kunjungan (spec catatan dokter, bagian 5). Formulir di
@@ -101,7 +102,11 @@ export const encounterDraftInputSchema = z
       )
       .max(TREATMENTS_MAX * 2),
     prescriptions: z
-      .array(z.object({ itemId: z.string().max(100), quantity: z.string().max(20), usage: text }).strict())
+      .array(
+        z
+          .object({ itemId: z.string().max(100), quantity: z.string().max(20), usage: z.object({ frequency: z.enum(["", ...USAGE_FREQUENCIES, USAGE_OTHER]), custom: text, timing: text }).strict() })
+          .strict(),
+      )
       .max(PRESCRIPTIONS_MAX * 2),
   })
   .strict();

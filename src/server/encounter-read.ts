@@ -20,6 +20,7 @@ import type { RecordProposal } from "@/lib/kuis/v2/record-proposal";
 import { can } from "@/lib/permissions";
 import { billingLabel } from "@/lib/prescription";
 import { addDaysToDateString, combineWitaDateAndMinutes, witaDateString } from "@/lib/time";
+import { parseUsage } from "@/lib/usage";
 import { listAuditTrail, recordAuditThrottled, type AuditTrailRow } from "@/server/audit";
 import { loadApproval, loadIntakeClinical, type IntakeClinical, type ReadyIntakeApproval } from "@/server/intake-clinical";
 import { listPrescribableItems } from "@/server/prescription-read";
@@ -408,7 +409,7 @@ export async function getEncounterForStaff(encounterId: string): Promise<Encount
         performerId: t.performerId,
         notes: t.notes ?? "",
       })),
-      prescriptions: row.prescriptions.map((p) => ({ itemId: p.itemId, quantity: String(p.quantity), usage: p.usage })),
+      prescriptions: row.prescriptions.map((p) => ({ itemId: p.itemId, quantity: String(p.quantity), usage: parseUsage(p.usage) })),
     },
     vitalLines: describeVitals(vitals),
     vitals,
