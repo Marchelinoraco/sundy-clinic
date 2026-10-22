@@ -46,6 +46,8 @@ const TAKE_QUANTITY = "Jumlah barang 1–9999.";
 const DISPENSED_REMOVE = "Obat dari penyerahan tidak bisa dihapus. Minta Apoteker membuka kembali penyerahan.";
 const PRESCRIPTION_QUANTITY = "Jumlah obat dari resep dokter diubah lewat tombol Kurangi.";
 const PRESCRIPTION_REMOVE = "Obat dari resep dokter dihapus lewat tombol Kurangi (jumlah 0) dengan alasan.";
+const DOCTOR_PACKAGE_REMOVE = "Paket dari dokter dihapus lewat tombol Tidak dibeli dengan alasan.";
+const DECLINE_REASON = "Alasan 2–200 karakter.";
 
 function revalidateInvoices(invoiceId?: string) {
   safeRevalidatePath("/admin/tagihan");
@@ -70,7 +72,13 @@ export async function createInvoiceFromVisit(appointmentId: string): Promise<Act
         branchId: true,
         channel: true,
         service: { select: { id: true, name: true, promoPrice: true } },
-        encounter: { select: { status: true, treatments: { orderBy: { sortOrder: "asc" }, select: { id: true, serviceId: true, serviceName: true, performerId: true, performerName: true } } } },
+        encounter: {
+          select: {
+            status: true,
+            treatments: { orderBy: { sortOrder: "asc" }, select: { id: true, serviceId: true, serviceName: true, performerId: true, performerName: true } },
+            packages: { orderBy: { sortOrder: "asc" }, select: { id: true, packageId: true, decline: { select: { id: true } }, package: { select: { name: true, price: true } } } },
+          },
+        },
       },
     });
     if (!appointment) throw new UserFacingError("Kunjungan tidak ditemukan.");
@@ -106,6 +114,10 @@ export async function createInvoiceFromVisit(appointmentId: string): Promise<Act
     // memilihnya di draf (spec aturan pakai PL2).
     const performerOf = new Map(appointment.encounter.treatments.map((t) => [t.id, { performerId: t.performerId, performerName: t.performerName }]));
     const withPerformer = lines.map((line) => ({ ...line, ...(line.encounterTreatmentId ? (performerOf.get(line.encounterTreatmentId) ?? {}) : {}) }));
+    // Paket yang disarankan dokter dan belum ditolak pasien, berharga katalog saat ini (spec vital perawat PR2, PR3).
+    const doctorPackages = appointment.encounter.packages
+      .filter((row) => !row.decline)
+      .map((row) => doctorPackageLine(row.id, row.packageId, row.package));
 
     try {
       const created = await prisma.$transaction(async (tx) => {
@@ -117,7 +129,11 @@ export async function createInvoiceFromVisit(appointmentId: string): Promise<Act
           await lockDispensingRow(tx, dispensing.id);
           handed = await handedInvoiceLines(tx, dispensing.id);
         }
-        const all = [...withPerformer.map((line) => ({ ...line, dispensingLineId: null as string | null })), ...handed];
+        const all = [
+          ...withPerformer.map((line) => ({ ...line, dispensingLineId: null as string | null })),
+          ...doctorPackages.map((line) => ({ ...line, dispensingLineId: null as string | null })),
+          ...handed,
+        ];
         return tx.invoice.create({
           data: {
             patientId: appointment.patientId!,
@@ -147,6 +163,11 @@ export async function createInvoiceFromVisit(appointmentId: string): Promise<Act
       throw error;
     }
   });
+}
+
+/** Baris paket dari resep dokter (spec vital perawat PR2): jumlah 1, harga katalog, tertaut ke saran dokternya. */
+function doctorPackageLine(encounterPackageId: string, packageId: string, catalog: { name: string; price: number }) {
+  return { kind: "PAKET" as const, name: catalog.name, quantity: 1, unitPrice: catalog.price, treatmentPackageId: packageId, encounterPackageId };
 }
 
 /** Penjualan langsung (spec tagihan 4.1): draf tanpa kunjungan untuk pasien yang sudah ada. */
@@ -736,9 +757,11 @@ export async function removeInvoiceLine(input: { invoiceId: string; version: num
           dispensingLineId: true,
           dispensingLine: { select: { dispensing: { select: { source: true } } } },
           packageSourceUses: { select: { id: true } },
+          encounterPackageId: true,
         },
       });
       if (!line) throw new UserFacingError("Baris tidak ditemukan.");
+      if (line.encounterPackageId) throw new UserFacingError(DOCTOR_PACKAGE_REMOVE);
       if (line.dispensingLineId) {
         throw new UserFacingError(line.dispensingLine?.dispensing.source === "DOKTER" ? PRESCRIPTION_REMOVE : DISPENSED_REMOVE);
       }
@@ -860,6 +883,69 @@ export async function restorePrescriptionLine(input: { invoiceId: string; versio
       });
       await tx.dispensingLine.update({ where: { id: dispensingLine.id }, data: { billedQuantity: null, billingNote: null } });
       return { version, summary: `Kembalikan ${dispensingLine.itemName}: ×${dispensingLine.quantity}` };
+    });
+
+    await recordAudit({ actor, action: "invoice.update", entity: "Invoice", entityId: invoiceId, summary: result.summary });
+    revalidateInvoices(invoiceId);
+    return { version: result.version };
+  });
+}
+
+/**
+ * Paket dari dokter tidak dibeli pasien (spec vital perawat PR3): barisnya dihapus dengan alasan yang terlihat dokter di
+ * catatan kunjungan. Ditolak bila ada baris draf yang memakai sesi atau barang dari paket ini.
+ */
+export async function declineDoctorPackage(input: { invoiceId: string; version: number; lineId: string; reason: string }): Promise<EditResult> {
+  return runAction(async () => {
+    const actor = await requireCapability("invoice:manage");
+    const invoiceId = String(input?.invoiceId ?? "");
+    const reason = typeof input?.reason === "string" ? input.reason.trim() : "";
+    if (reason.length < 2 || reason.length > 200) throw new UserFacingError(DECLINE_REASON);
+
+    const result = await prisma.$transaction(async (tx) => {
+      const version = await touchDraft(tx, invoiceId, input.version);
+      const line = await tx.invoiceLine.findFirst({
+        where: { id: String(input?.lineId ?? ""), invoiceId, encounterPackageId: { not: null } },
+        select: { id: true, name: true, encounterPackageId: true, packageSourceUses: { select: { id: true } } },
+      });
+      if (!line?.encounterPackageId) throw new UserFacingError("Paket dari dokter tidak ditemukan. Muat ulang halaman.");
+      if (line.packageSourceUses.length > 0) throw new UserFacingError("Lepas dulu sesi atau barang yang memakai paket ini.");
+      await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
+        await tx.invoiceLine.delete({ where: { id: line.id } });
+      });
+      const decline = { reason, staffId: actor.staffId, staffName: actor.name };
+      await tx.encounterPackageDecline.upsert({ where: { encounterPackageId: line.encounterPackageId }, create: { encounterPackageId: line.encounterPackageId, ...decline }, update: decline });
+      return { version, summary: `Paket ${line.name} tidak dibeli: ${reason}` };
+    });
+
+    await recordAudit({ actor, action: "invoice.update", entity: "Invoice", entityId: invoiceId, summary: result.summary });
+    revalidateInvoices(invoiceId);
+    return { version: result.version };
+  });
+}
+
+/** Paket dari dokter yang tadinya tidak dibeli dimasukkan lagi ke draf (spec vital perawat PR3); alasannya dihapus. */
+export async function restoreDoctorPackage(input: { invoiceId: string; version: number; encounterPackageId: string }): Promise<EditResult> {
+  return runAction(async () => {
+    const actor = await requireCapability("invoice:manage");
+    const invoiceId = String(input?.invoiceId ?? "");
+
+    const result = await prisma.$transaction(async (tx) => {
+      const version = await touchDraft(tx, invoiceId, input.version);
+      const invoice = await tx.invoice.findUniqueOrThrow({ where: { id: invoiceId }, select: { appointmentId: true } });
+      const suggested = invoice.appointmentId
+        ? await tx.encounterPackage.findFirst({
+            where: { id: String(input?.encounterPackageId ?? ""), encounter: { appointmentId: invoice.appointmentId } },
+            select: { id: true, packageId: true, package: { select: { name: true, price: true } }, invoiceLines: { where: { invoiceId }, select: { id: true } } },
+          })
+        : null;
+      if (!suggested) throw new UserFacingError("Paket dari dokter tidak ditemukan. Muat ulang halaman.");
+      if (suggested.invoiceLines.length > 0) throw new UserFacingError("Paket ini sudah ada di tagihan.");
+      await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
+        await tx.invoiceLine.create({ data: { ...doctorPackageLine(suggested.id, suggested.packageId, suggested.package), invoiceId, sortOrder: await nextSortOrder(tx, invoiceId) } });
+      });
+      await tx.encounterPackageDecline.deleteMany({ where: { encounterPackageId: suggested.id } });
+      return { version, summary: `Kembalikan paket ${suggested.package.name}` };
     });
 
     await recordAudit({ actor, action: "invoice.update", entity: "Invoice", entityId: invoiceId, summary: result.summary });

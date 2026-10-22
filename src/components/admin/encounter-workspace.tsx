@@ -71,6 +71,7 @@ export function EncounterWorkspace({ encounter, bia, canWrite }: { encounter: En
             initialDraft={encounter.draft}
             options={encounter.options}
             legacyPharmacyNote={encounter.pharmacyNote}
+            nurseVitals={encounter.nurseVitals}
             weightHistory={weightHistory}
             onVitalsChange={setCurrentVitals}
             subjectiveRef={subjectiveRef}

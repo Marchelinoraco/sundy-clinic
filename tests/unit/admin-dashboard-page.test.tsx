@@ -210,7 +210,7 @@ describe("halaman Dasbor (spec D 4)", () => {
   it("Perawat: hanya kotak Pasien hari ini miliknya, tanpa pekerjaan booking, daftar dokter, atau angka (spec peran perawat 6)", async () => {
     vi.mocked(requireStaff).mockResolvedValue({ userId: "u5", staffId: "s5", name: "Sari Perawat", role: "TERAPIS", email: "p@sundy.test" } as never);
     vi.mocked(listNurseWorklist).mockResolvedValue([
-      { appointmentId: "a1", startAt: new Date("2031-02-12T03:00:00Z"), patientName: "Mario Sului", patientRecordNumber: "SDY-2026-0013", serviceName: "Konsultasi", staffName: "dr. Diane", branchName: "SunDY Mahakeret", foodRecall: "BELUM", bia: "BELUM" },
+      { appointmentId: "a1", startAt: new Date("2031-02-12T03:00:00Z"), patientName: "Mario Sului", patientRecordNumber: "SDY-2026-0013", serviceName: "Konsultasi", staffName: "dr. Diane", branchName: "SunDY Mahakeret", foodRecall: "BELUM", bia: "BELUM", handled: false },
     ]);
     await renderPage();
     const region = screen.getByRole("region", { name: "Pasien hari ini" });

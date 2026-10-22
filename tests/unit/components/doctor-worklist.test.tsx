@@ -24,6 +24,7 @@ const row = (patch: Partial<WorklistRow>): WorklistRow => ({
   state: "BELUM",
   foodRecallFilled: false,
   online: false,
+  waitingNurse: false,
   ...patch,
 });
 
@@ -51,6 +52,13 @@ describe("DoctorWorklistView", () => {
     expect(within(rows[2]).getByRole("link", { name: "Lanjutkan" })).toHaveAttribute("href", "/admin/kunjungan/e2");
     expect(within(rows[3]).getByRole("link", { name: "Lihat" })).toHaveAttribute("href", "/admin/kunjungan/e3");
     expect(screen.getByText("Tidak ada catatan yang tertinggal.")).toBeInTheDocument();
+  });
+
+  it("menunggu perawat: Periksa nonaktif dengan keterangan (spec vital perawat VP4)", () => {
+    renderAdmin(<DoctorWorklistView worklist={{ today: [row({ waitingNurse: true })], unfinished: [] }} />);
+    const rows = within(screen.getByRole("region", { name: "Pasien hari ini" })).getAllByRole("row");
+    expect(within(rows[1]).getByRole("button", { name: "Periksa" })).toBeDisabled();
+    expect(rows[1]).toHaveTextContent("Menunggu perawat");
   });
 
   it("catatan belum final menampilkan tanggalnya", () => {

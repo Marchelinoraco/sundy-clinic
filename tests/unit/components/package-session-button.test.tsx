@@ -10,7 +10,7 @@ vi.mock("@/server/invoice-drafts", () => ({ applyPackageSession: vi.fn(), releas
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
-const line = { id: "l1", name: "Relaxing Facial", kind: "TREATMENT" as const, serviceId: "s1", itemId: null, quantity: 1, fromDispensing: false, packageUse: null };
+const line = { id: "l1", name: "Relaxing Facial", kind: "TREATMENT" as const, serviceId: "s1", itemId: null, quantity: 1, fromDispensing: false, fromDoctorPackage: false, packageUse: null };
 const option = (patch: Partial<PackageOption>): PackageOption => ({
   patientPackageItemId: "i1",
   purchaseLineId: null,

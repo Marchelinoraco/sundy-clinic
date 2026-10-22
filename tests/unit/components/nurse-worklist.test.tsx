@@ -5,6 +5,7 @@ import type { NurseWorklistRow } from "@/server/nurse";
 import { renderAdmin } from "../helpers/render-admin";
 
 const row = (patch: Partial<NurseWorklistRow>): NurseWorklistRow => ({
+  handled: false,
   appointmentId: "a1",
   startAt: new Date("2026-10-20T03:00:00Z"), // 11.00 WITA
   patientName: "Mario Sului",
@@ -19,7 +20,7 @@ const row = (patch: Partial<NurseWorklistRow>): NurseWorklistRow => ({
 
 describe("NurseWorklistView (spec peran perawat 6)", () => {
   it("satu baris per pasien: jam, nama + No. RM, layanan, tenaga, status, dan Tangani", () => {
-    renderAdmin(<NurseWorklistView rows={[row({}), row({ appointmentId: "a2", patientName: "Pasien B", foodRecall: "TERISI", bia: "ANGKA" }), row({ appointmentId: "a3", patientName: "Pasien C", bia: "BERKAS" })]} />);
+    renderAdmin(<NurseWorklistView rows={[row({}), row({ appointmentId: "a2", patientName: "Pasien B", foodRecall: "TERISI", bia: "ANGKA", handled: true }), row({ appointmentId: "a3", patientName: "Pasien C", bia: "BERKAS" })]} />);
     const region = screen.getByRole("region", { name: "Pasien hari ini" });
     const rows = within(region).getAllByRole("row").slice(1);
     expect(rows).toHaveLength(3);
@@ -34,6 +35,9 @@ describe("NurseWorklistView (spec peran perawat 6)", () => {
     expect(within(rows[1]).getByText("terisi")).toBeInTheDocument();
     expect(within(rows[1]).getByText("angka")).toBeInTheDocument();
     expect(within(rows[2]).getByText("berkas")).toBeInTheDocument();
+    // Status penanganan perawat (spec vital perawat VP3).
+    expect(first.getByText("Belum ditangani")).toBeInTheDocument();
+    expect(within(rows[1]).getByText("Selesai ditangani")).toBeInTheDocument();
   });
 
   it("kosong", () => {

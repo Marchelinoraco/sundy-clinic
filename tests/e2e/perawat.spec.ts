@@ -8,7 +8,7 @@ test.setTimeout(240_000);
 
 const projectIndex = (testInfo: TestInfo) => (testInfo.project.name === "mobile" ? 2 : 1);
 
-test("resepsionis check-in → perawat diberi tahu, mengisi food recall dan BIA → dokter melihat lalu memfinalkan", async ({ page, browser }, testInfo) => {
+test("resepsionis check-in → perawat diberi tahu, mengisi angka vital, food recall, dan BIA → dokter menunggu perawat, lalu memeriksa dan memfinalkan", async ({ page, browser }, testInfo) => {
   const n = projectIndex(testInfo);
   const code = `E2E-PERAWAT-${n}`;
   const patientName = `Pasien Perawat ${testInfo.project.name}`;
@@ -53,6 +53,11 @@ test("resepsionis check-in → perawat diberi tahu, mengisi food recall dan BIA 
   await expect(nurse.getByRole("heading", { name: patientName })).toBeVisible();
   await expect(nurse.getByRole("region", { name: "Peringatan" })).toContainText("Udang");
 
+  // Angka vital oleh perawat, tersimpan otomatis (spec vital perawat VP1, VP2).
+  const vitals = nurse.getByRole("region", { name: "Angka vital" });
+  await vitals.getByLabel("Berat badan (kg)").fill("65,5");
+  await expect(vitals.getByText(/^Tersimpan \d{2}\.\d{2}$/)).toBeVisible({ timeout: 15_000 });
+
   // Food recall oleh perawat.
   const foodRecall = nurse.getByRole("region", { name: "Food recall" });
   await foodRecall.getByRole("button", { name: "Isi food recall" }).click();
@@ -69,13 +74,27 @@ test("resepsionis check-in → perawat diberi tahu, mengisi food recall dan BIA 
   await bia.getByRole("button", { name: "Simpan angka BIA" }).click();
   await expect(nurse.getByText("Angka BIA tersimpan.")).toBeVisible({ timeout: 30_000 });
 
-  // Dokter (Super Admin uji) melihat penulis food recall dan pengisi angka BIA, lalu memfinalkan.
+  // Dokter (Super Admin uji) belum bisa memeriksa selama perawat belum selesai menangani (spec vital perawat VP4).
   const doctorContext = await newContext();
   const doctor = await doctorContext.newPage();
   await signIn(doctor, E2E_ADMIN);
   const todayRow = doctor.getByRole("region", { name: "Pasien hari ini" }).getByRole("row").filter({ hasText: patientName });
+  await expect(todayRow).toContainText("Menunggu perawat", { timeout: 30_000 });
+  await expect(todayRow.getByRole("button", { name: "Periksa" })).toBeDisabled();
+
+  // Selesai ditangani mengunci angka vital dan mencatat nama perawat dari akunnya (VP3, VP6).
+  await vitals.getByRole("button", { name: "Selesai ditangani" }).click();
+  await nurse.getByRole("dialog", { name: "Selesaikan penanganan?" }).getByRole("button", { name: "Selesai ditangani" }).click();
+  await expect(vitals.getByText(new RegExp(`^Ditangani ${E2E_PERAWAT.name} · \\d{2}\\.\\d{2}$`))).toBeVisible({ timeout: 30_000 });
+  await expect(vitals.getByText("Berat badan: 65,5 kg")).toBeVisible();
+  await expect(vitals.getByLabel("Berat badan (kg)")).toHaveCount(0);
+
+  // Dokter melihat angka dari perawat di bagian O, penulis food recall, dan pengisi angka BIA, lalu memfinalkan.
+  await doctor.reload();
   await todayRow.getByRole("button", { name: "Periksa" }).click();
   await expect(doctor).toHaveURL(/\/admin\/kunjungan\/[^/]+$/, { timeout: 60_000 });
+  await expect(doctor.getByLabel("Berat badan (kg)")).toHaveValue("65,5");
+  await expect(doctor.getByText(new RegExp(`^Diukur perawat ${E2E_PERAWAT.name} · \\d{2}\\.\\d{2}$`))).toBeVisible();
   await doctor.getByRole("tab", { name: "Food recall" }).click();
   await expect(doctor.getByRole("tabpanel")).toContainText("Nasi uduk dan teh manis");
   await expect(doctor.getByRole("tabpanel").getByText("perawat", { exact: true })).toBeVisible();

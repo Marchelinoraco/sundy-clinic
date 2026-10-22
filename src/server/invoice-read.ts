@@ -174,6 +174,8 @@ export type InvoiceLineRow = {
   catalogLinked: boolean;
   /** Berasal dari penyerahan Apoteker: jumlah terkunci dan tidak bisa dihapus resepsionis. */
   fromDispensing: boolean;
+  /** Baris paket yang disarankan dokter; dihapus hanya lewat Tidak dibeli (spec vital perawat PR3). */
+  fromDoctorPackage: boolean;
   /** Baris dari resep dokter (spec resep dokter 4): bisa dikurangi resepsionis dengan alasan. */
   prescription: { prescribedQuantity: number; usage: string } | null;
   /** Pelaksana treatment; nama saja yang tampil bagi resepsionis (spec harga modal M8). */
@@ -228,6 +230,8 @@ export type InvoiceDetail = {
   dispensingSource: "APOTEKER" | "DOKTER" | null;
   /** Obat resep dokter yang dijadikan 0 oleh resepsionis; bisa dikembalikan selama tagihan draf. */
   droppedPrescriptions: { dispensingLineId: string; name: string; prescribedQuantity: number; reason: string }[];
+  /** Paket dari dokter yang tidak dibeli; bisa dikembalikan selama draf (spec vital perawat PR3). */
+  declinedPackages: { encounterPackageId: string; name: string; reason: string }[];
   visitDate: Date | null;
   discountKind: DiscountKindValue | null;
   discountValue: number;
@@ -292,6 +296,16 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
       appointment: {
         select: {
           startAt: true,
+          // Paket dari dokter yang tidak dibeli, dengan alasannya (spec vital perawat PR3).
+          encounter: {
+            select: {
+              packages: {
+                where: { decline: { isNot: null } },
+                orderBy: { sortOrder: "asc" },
+                select: { id: true, packageName: true, decline: { select: { reason: true } } },
+              },
+            },
+          },
           dispensing: {
             select: {
               status: true,
@@ -318,6 +332,7 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
           itemId: true,
           dispensingLineId: true,
           dispensingLine: { select: { quantity: true, usage: true, dispensing: { select: { source: true } } } },
+          encounterPackageId: true,
           discountAmount: true,
           discountReason: true,
           discountSource: true,
@@ -383,6 +398,7 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
         : null,
     packageNote: notes.get(line.id) ?? null,
     fromDispensing: line.dispensingLineId !== null,
+    fromDoctorPackage: line.encounterPackageId !== null,
     prescription:
       line.dispensingLine?.dispensing.source === "DOKTER" ? { prescribedQuantity: line.dispensingLine.quantity, usage: line.dispensingLine.usage } : null,
     performerId: line.performerId,
@@ -408,6 +424,10 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
             prescribedQuantity: line.quantity,
             reason: line.billingNote ?? "",
           }))
+        : [],
+    declinedPackages:
+      invoice.status === "DRAF"
+        ? (invoice.appointment?.encounter?.packages ?? []).map((row) => ({ encounterPackageId: row.id, name: row.packageName, reason: row.decline?.reason ?? "" }))
         : [],
     visitDate: invoice.appointment?.startAt ?? null,
     discountKind: invoice.discountKind,

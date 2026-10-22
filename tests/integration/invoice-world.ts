@@ -61,6 +61,8 @@ export async function finalVisit(
     serviceId?: string;
     finalizedAt?: Date;
     pharmacyNote?: string;
+    /** Paket yang disarankan dokter di resep (spec vital perawat PR1), ditulis sebelum kunjungan final. */
+    packages?: { packageId: string; packageName: string; contents: string }[];
   } = {},
 ): Promise<{ appointmentId: string; encounterId: string }> {
   visitCount += 1;
@@ -98,6 +100,7 @@ export async function finalVisit(
           sortOrder: index,
         })),
       },
+      packages: { create: (input.packages ?? []).map((p, index) => ({ ...p, sortOrder: index })) },
     },
   });
   await prisma.encounter.update({
@@ -152,6 +155,9 @@ export async function cleanupBillingWorld(slug: string, patientWhatsapps: string
   await prisma.invoicePayment.deleteMany({ where: { invoice: { branch } } });
   await prisma.invoiceLine.deleteMany({ where: { invoice: { branch } } });
   await prisma.invoice.deleteMany({ where: { branch } });
+  // Resep dokter merujuk barang dan paket katalog (Restrict) dan terkunci bersama kunjungan final: kunjungan uji
+  // dibersihkan sebelum katalog dan barang.
+  await purgeEncounters(prisma);
   await prisma.treatmentPackage.deleteMany({ where: { name: { startsWith: slug } } });
   await prisma.expense.deleteMany({ where: { branch } });
   await prisma.recurringExpense.deleteMany({ where: { branch } });
@@ -165,8 +171,6 @@ export async function cleanupBillingWorld(slug: string, patientWhatsapps: string
   await prisma.purchaseLine.deleteMany({ where: { invoice: { branch } } });
   await prisma.purchaseInvoice.deleteMany({ where: { branch } });
   await prisma.supplier.deleteMany({ where: { name: { startsWith: slug } } });
-  // Resep dokter merujuk barang (Restrict) dan terkunci bersama kunjungan final: kunjungan uji dibersihkan lebih dulu.
-  await purgeEncounters(prisma);
   await prisma.stockItem.deleteMany({ where: { code: { startsWith: slug.toUpperCase() } } });
   await prisma.biaFile.deleteMany({ where: { measurement: { appointment: { branch } } } });
   await prisma.biaMeasurement.deleteMany({ where: { appointment: { branch } } });

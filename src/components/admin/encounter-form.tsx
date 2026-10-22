@@ -16,13 +16,13 @@ import { useRouter } from "next/navigation";
 import { useImperativeHandle, useState, useTransition, type ReactNode, type Ref } from "react";
 import { toast } from "sonner";
 import { appendToSubjective } from "@/lib/food-recall";
+import { nurseVitalsLabel } from "@/lib/nurse-vitals";
 import {
   ENCOUNTER_TEXT_MAX,
   FINALIZE_NEEDS_ASSESSMENT,
   PHARMACY_NOTE_LABEL,
   TEXT_FIELDS,
   TREATMENT_TEXT_MAX,
-  VITALS,
   VITAL_KEYS,
   bloodPressureProblem,
   bmi,
@@ -39,26 +39,13 @@ import {
   type TrendSource,
   type VitalKey,
 } from "@/lib/encounter";
-import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
 import { discardEncounterDraft, finalizeEncounter, saveEncounterDraft } from "@/server/encounter";
 import { SelectField } from "./mui/select-field";
+import { PackageFields } from "./package-fields";
 import { PrescriptionFields } from "./prescription-fields";
-import { useDraftAutosave, type AutosaveStatus } from "./use-draft-autosave";
+import { autosaveStatusText, useDraftAutosave } from "./use-draft-autosave";
+import { VitalField } from "./vital-field";
 
-function statusText(status: AutosaveStatus): string {
-  switch (status.kind) {
-    case "idle":
-      return "Draf tersimpan otomatis saat Anda mengetik.";
-    case "pending":
-      return "Menyimpan…";
-    case "saved":
-      return `Tersimpan ${minutesToTimeLabel(witaMinutesOfDay(new Date(status.savedAt)))}`;
-    case "retrying":
-      return "Belum tersimpan, mencoba lagi…";
-    case "rejected":
-      return `Belum tersimpan: ${status.message}`;
-  }
-}
 
 function NoteField({
   label,
@@ -89,20 +76,6 @@ function NoteField({
   );
 }
 
-function VitalField(props: { vital: VitalKey; value: string; error: string | null; onChange: (value: string) => void }) {
-  const spec = VITALS[props.vital];
-  return (
-    <TextField
-      label={`${spec.label} (${spec.unit})`}
-      value={props.value}
-      error={props.error !== null}
-      helperText={props.error}
-      onChange={(e) => props.onChange(e.target.value)}
-      fullWidth
-      slotProps={{ htmlInput: { inputMode: spec.decimals === 0 ? "numeric" : "decimal" } }}
-    />
-  );
-}
 
 function TreatmentFields(props: {
   index: number;
@@ -192,6 +165,8 @@ export type EncounterFormProps = {
   biaUnsaved?: boolean;
   /** Catatan untuk Apoteker dari draf sebelum resep dokter; tampil baca-saja (spec resep dokter 3). */
   legacyPharmacyNote?: string | null;
+  /** Angka dari perawat yang menangani; keterangannya mengikuti angka yang sedang diketik dokter (spec vital perawat VP5, VP6). */
+  nurseVitals?: { byName: string; at: Date; values: Record<VitalKey, number | null> } | null;
 };
 
 /** Catatan draf S/O/A/P + treatment dengan simpan otomatis (spec 4–5, 7). */
@@ -260,6 +235,13 @@ export function EncounterForm(props: EncounterFormProps) {
     rejected && VITAL_KEYS.every((key) => vitalErrors[key] === null)
       ? bloodPressureProblem(vitalValues.systolic, vitalValues.diastolic)
       : null;
+  const nurseNote = props.nurseVitals
+    ? nurseVitalsLabel({
+        byName: props.nurseVitals.byName,
+        at: props.nurseVitals.at,
+        changedByDoctor: VITAL_KEYS.some((key) => vitalValues[key] !== props.nurseVitals!.values[key]),
+      })
+    : null;
   const index = bmi(vitalValues.weightKg, vitalValues.heightCm);
   const weightNote = weightChangeNote(vitalValues.weightKg, props.weightHistory ?? []);
 
@@ -323,6 +305,11 @@ export function EncounterForm(props: EncounterFormProps) {
       </Section>
 
       <Section id="bagian-o" title="O — Objective">
+        {nurseNote && (
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            {nurseNote}
+          </Typography>
+        )}
         {/* Dua kolom paling banyak: label MUI ada di dalam isian dan tidak bisa turun baris, jadi kolom sempit
             memotong satuannya ("Lingkar pinggang/perut (cm)"). */}
         <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" } }}>
@@ -375,6 +362,7 @@ export function EncounterForm(props: EncounterFormProps) {
           medicines={options.medicines}
           onChange={(prescriptions) => update({ ...draft, prescriptions })}
         />
+        <PackageFields rows={draft.packages} options={options.packages} onChange={(packages) => update({ ...draft, packages })} />
       </Section>
 
       <Section id="bagian-treatment" title="Treatment yang dilakukan">
@@ -427,7 +415,7 @@ export function EncounterForm(props: EncounterFormProps) {
           variant="body2"
           sx={{ mr: "auto", color: rejected ? "error.main" : "text.secondary", fontWeight: rejected ? 500 : undefined }}
         >
-          {statusText(autosave.status)}
+          {autosaveStatusText(autosave.status)}
         </Typography>
         {/* Kedua tombol turun baris bersama (rata kanan) bila pesan status panjang. */}
         <Stack direction="row" spacing={1.5} sx={{ ml: "auto" }}>

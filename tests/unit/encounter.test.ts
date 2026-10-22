@@ -171,4 +171,18 @@ describe("ageInYears", () => {
     expect(ageInYears(birth, "2026-05-16")).toBe(35);
     expect(ageInYears(birth, "2026-05-17")).toBe(36);
   });
+
+  it("simpan otomatis melewati baris paket yang belum dipilih (spec vital perawat PR1)", () => {
+    expect(draftForAutosave(draft({ packages: [{ packageId: "pk1" }, { packageId: "" }] })).packages).toEqual([{ packageId: "pk1" }]);
+  });
+
+  it("paket di resep: dipilih dari daftar, paling banyak 10, paket yang sama sekali saja (spec vital perawat PR1, PR4)", () => {
+    expect(parseEncounterDraft(draft({ packages: [{ packageId: "pk1" }, { packageId: "pk2" }] }))).toMatchObject({ ok: true, value: { packages: [{ packageId: "pk1" }, { packageId: "pk2" }] } });
+    expect(parseEncounterDraft(draft({ packages: [{ packageId: "" }] }))).toEqual({ ok: false, message: "Pilih paket dari daftar." });
+    expect(parseEncounterDraft(draft({ packages: [{ packageId: "pk1" }, { packageId: "pk1" }] }))).toEqual({ ok: false, message: "Paket yang sama hanya sekali per kunjungan." });
+    expect(parseEncounterDraft(draft({ packages: Array.from({ length: 11 }, (_, i) => ({ packageId: `pk${i}` })) }))).toEqual({
+      ok: false,
+      message: "Paling banyak 10 paket per kunjungan.",
+    });
+  });
 });

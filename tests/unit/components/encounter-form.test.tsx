@@ -27,6 +27,7 @@ const options: EncounterOptions = {
   ],
   defaultServiceId: "svc-konsul",
   medicines: [],
+  packages: [],
 };
 
 // 02.42 UTC = 10.42 WITA.
@@ -347,5 +348,17 @@ describe("EncounterForm: menambah ke S dari tab food recall", () => {
     });
     expect(accepted).toBe(false);
     expect(field).toHaveValue("BB naik\n\nFood recall H-1 (Rabu, 30 Sep):\n07.00 Makan/minum — Nasi");
+  });
+
+  it("angka dari perawat: nama dan jam di bagian O; berubah jadi 'diubah dokter' saat dokter mengganti angka (spec vital perawat VP5, VP6)", async () => {
+    const values = { systolic: 120, diastolic: 80, pulse: null, temperatureC: null, weightKg: 72.5, heightCm: 160, waistCm: null };
+    const initialDraft = { ...emptyDraftInput(), vitals: { ...emptyDraftInput().vitals, systolic: "120", diastolic: "80", weightKg: "72,5", heightCm: "160" } };
+    renderForm({ initialDraft, nurseVitals: { byName: "Rina", at: new Date("2026-10-23T01:15:00Z"), values } });
+    const section = screen.getByRole("region", { name: "O — Objective" });
+    expect(section).toHaveTextContent("Diukur perawat Rina · 09.15");
+    expect(section).not.toHaveTextContent("diubah dokter");
+    await userEvent.clear(screen.getByLabelText("Berat badan (kg)"));
+    await type(screen.getByLabelText("Berat badan (kg)"), "72");
+    expect(section).toHaveTextContent("Diukur perawat Rina · 09.15 · diubah dokter");
   });
 });

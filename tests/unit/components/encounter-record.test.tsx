@@ -45,3 +45,32 @@ describe("EncounterRecord: treatment (spec aturan pakai PL4)", () => {
     expect(screen.queryByRole("columnheader", { name: "Pelaksana" })).toBeNull();
   });
 });
+
+describe("EncounterRecord: angka vital perawat (spec vital perawat VP6)", () => {
+  it("menyebut perawat yang mengukur dan tanda diubah dokter", () => {
+    renderAdmin(
+      <EncounterRecord
+        encounter={encounterDetail({ nurseVitals: { byName: "Rina", at: new Date("2026-10-23T01:15:00Z"), changedByDoctor: true, values: { systolic: null, diastolic: null, pulse: null, temperatureC: null, weightKg: 72.5, heightCm: null, waistCm: null } } })}
+      />,
+    );
+    expect(screen.getByText("Diukur perawat Rina · 09.15 · diubah dokter")).toBeInTheDocument();
+  });
+});
+
+describe("EncounterRecord: paket di resep (spec vital perawat PR1, PR3)", () => {
+  it("menampilkan paket dengan isinya, dan keterangan bila tidak dibeli", () => {
+    renderAdmin(
+      <EncounterRecord
+        encounter={encounterDetail({
+          packages: [
+            { id: "ep1", name: "Glowing 3 Bulan", contents: "4× Facial Brightening", declined: null },
+            { id: "ep2", name: "Slim Start", contents: "2× RF Perut", declined: "Tidak dibeli — Pasien pikir-pikir dulu" },
+          ],
+        })}
+      />,
+    );
+    const list = screen.getByRole("list", { name: "Paket" });
+    expect(list).toHaveTextContent("Glowing 3 Bulan · 4× Facial Brightening");
+    expect(list).toHaveTextContent("Slim Start · 2× RF Perut · Tidak dibeli — Pasien pikir-pikir dulu");
+  });
+});

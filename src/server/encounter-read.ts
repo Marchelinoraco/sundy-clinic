@@ -21,10 +21,12 @@ import { can } from "@/lib/permissions";
 import { billingLabel } from "@/lib/prescription";
 import { addDaysToDateString, combineWitaDateAndMinutes, witaDateString } from "@/lib/time";
 import { parseUsage } from "@/lib/usage";
+import { nurseGateApplies } from "@/lib/nurse-vitals";
 import { listAuditTrail, recordAuditThrottled, type AuditTrailRow } from "@/server/audit";
 import { loadApproval, loadIntakeClinical, type IntakeClinical, type ReadyIntakeApproval } from "@/server/intake-clinical";
 import { listPrescribableItems } from "@/server/prescription-read";
 import { requireCapability } from "@/server/session";
+import { packageSummaries } from "@/server/encounter-store";
 
 export type EncounterWarnings = {
   allergies: string | null;
@@ -104,11 +106,15 @@ export type EncounterDetail = {
   vitalLines: string[];
   /** Angka vital tersimpan kunjungan ini (baris "Kunjungan ini" di Tren sebelum dokter mengetik). */
   vitals: Record<VitalKey, number | null>;
+  /** Angka vital dari perawat yang menekan Selesai ditangani, untuk keterangan di bagian O (spec vital perawat VP5, VP6). */
+  nurseVitals: { byName: string; at: Date; values: Record<VitalKey, number | null>; changedByDoctor: boolean } | null;
   treatments: EncounterTreatmentSummary[];
   /** Catatan untuk Apoteker dari alur lama; baca-saja (spec resep dokter 2.2). */
   pharmacyNote: string | null;
   /** Resep dokter beserta keterangan penagihan dari resepsionis (spec resep dokter 4). */
   prescriptions: { id: string; itemName: string; quantity: number; usage: string; billing: string | null }[];
+  /** Paket yang disarankan dokter; `declined` = "Tidak dibeli — {alasan}" dari resepsionis (spec vital perawat PR1, PR3). */
+  packages: { id: string; name: string; contents: string; declined: string | null }[];
   addenda: EncounterAddendumSummary[];
   options: EncounterOptions;
   /** Hanya untuk audit:read (Super Admin). */
@@ -150,6 +156,16 @@ function vitalsOf(row: Record<VitalKey, number | Prisma.Decimal | null>): Record
   const values = {} as Record<VitalKey, number | null>;
   for (const key of VITAL_KEYS) values[key] = row[key] === null ? null : Number(row[key]);
   return values;
+}
+
+/** Angka perawat yang sudah Selesai ditangani; "diubah dokter" bila angka mana pun di catatan berbeda (spec vital perawat VP6). */
+function nurseVitalsOf(
+  row: (Record<VitalKey, number | Prisma.Decimal | null> & { completedAt: Date | null; completedByName: string | null }) | null,
+  current: Record<VitalKey, number | null>,
+): EncounterDetail["nurseVitals"] {
+  if (!row?.completedAt) return null;
+  const values = vitalsOf(row);
+  return { byName: row.completedByName ?? "", at: row.completedAt, values, changedByDoctor: VITAL_KEYS.some((key) => values[key] !== current[key]) };
 }
 
 function findHistory(patientId: string, before: Date, excludeId: string) {
@@ -239,18 +255,22 @@ async function loadEncounterIntake(
  * Pilihan formulir: layanan aktif, ditambah yang sudah dipakai draf atau booking ini walau kini nonaktif, agar
  * pilihannya tidak hilang. Pelaksana tidak dipilih dokter (spec aturan pakai PL1).
  */
-async function loadOptions(used: { serviceIds: string[] }, booking: { serviceId: string | null }): Promise<Omit<EncounterOptions, "medicines">> {
+async function loadOptions(used: { serviceIds: string[]; packageIds: string[] }, booking: { serviceId: string | null }): Promise<Omit<EncounterOptions, "medicines">> {
   const serviceIds = [...used.serviceIds, ...(booking.serviceId ? [booking.serviceId] : [])];
-  const services = await prisma.service.findMany({
-    where: { OR: [{ isActive: true }, { id: { in: serviceIds } }] },
-    orderBy: [{ category: { sortOrder: "asc" } }, { sortOrder: "asc" }, { name: "asc" }],
-    select: { id: true, name: true },
-  });
+  const [services, packages] = await Promise.all([
+    prisma.service.findMany({
+      where: { OR: [{ isActive: true }, { id: { in: serviceIds } }] },
+      orderBy: [{ category: { sortOrder: "asc" } }, { sortOrder: "asc" }, { name: "asc" }],
+      select: { id: true, name: true },
+    }),
+    // Paket yang masih dijual, ditambah yang sudah ada di draf walau kini nonaktif (spec vital perawat PR1).
+    packageSummaries(prisma, { OR: [{ isActive: true }, { id: { in: used.packageIds } }] }),
+  ]);
   const defaultServiceId =
     booking.serviceId && services.some((service) => service.id === booking.serviceId)
       ? booking.serviceId
       : (services[0]?.id ?? "");
-  return { services, defaultServiceId };
+  return { services, defaultServiceId, packages: packages.map(({ id, name, contents }) => ({ id, name, contents })) };
 }
 
 /** Halaman kunjungan (spec 4–5). Membuka catatan tercatat di audit, maks. sekali per 30 menit. */
@@ -283,6 +303,7 @@ export async function getEncounterForStaff(encounterId: string): Promise<Encount
           dispensingLine: { select: { billedQuantity: true, billingNote: true } },
         },
       },
+      packages: { orderBy: { sortOrder: "asc" }, select: { id: true, packageId: true, packageName: true, contents: true, decline: { select: { reason: true } } } },
       addenda: ADDENDUM_SELECT,
       appointment: {
         select: {
@@ -298,6 +319,7 @@ export async function getEncounterForStaff(encounterId: string): Promise<Encount
           staff: { select: { name: true } },
           branch: { select: { name: true } },
           intake: { select: { id: true, status: true, kind: true, purpose: true, submittedAt: true } },
+          nurseVitals: { select: { ...VITAL_SELECT, completedAt: true, completedByName: true } },
           foodRecall: { select: FOOD_RECALL_SELECT },
           patient: {
             select: {
@@ -336,7 +358,7 @@ export async function getEncounterForStaff(encounterId: string): Promise<Encount
 
   const [{ intake, pregnancy, proposal }, options, trail, historyRows, medicines] = await Promise.all([
     loadEncounterIntake(appointment.intake),
-    loadOptions({ serviceIds: row.treatments.map((t) => t.serviceId) }, { serviceId: appointment.serviceId }),
+    loadOptions({ serviceIds: row.treatments.map((t) => t.serviceId), packageIds: row.packages.map((p) => p.packageId) }, { serviceId: appointment.serviceId }),
     can(staff.role, "audit:read") ? listAuditTrail("Encounter", row.id) : Promise.resolve(null),
     findHistory(patient.id, appointment.startAt, row.id),
     listPrescribableItems(
@@ -393,9 +415,11 @@ export async function getEncounterForStaff(encounterId: string): Promise<Encount
         notes: t.notes ?? "",
       })),
       prescriptions: row.prescriptions.map((p) => ({ itemId: p.itemId, quantity: String(p.quantity), usage: parseUsage(p.usage) })),
+      packages: row.packages.map((p) => ({ packageId: p.packageId })),
     },
     vitalLines: describeVitals(vitals),
     vitals,
+    nurseVitals: nurseVitalsOf(appointment.nurseVitals, vitals),
     treatments: row.treatments.map(toTreatmentSummary),
     pharmacyNote: row.pharmacyNote,
     prescriptions: row.prescriptions.map((p) => ({
@@ -405,6 +429,7 @@ export async function getEncounterForStaff(encounterId: string): Promise<Encount
       usage: p.usage,
       billing: p.dispensingLine ? billingLabel({ quantity: p.quantity, ...p.dispensingLine }) : null,
     })),
+    packages: row.packages.map((p) => ({ id: p.id, name: p.packageName, contents: p.contents, declined: p.decline ? `Tidak dibeli — ${p.decline.reason}` : null })),
     addenda: row.addenda,
     options: { ...options, medicines },
     trail,
@@ -431,6 +456,8 @@ export type WorklistRow = {
   foodRecallFilled: boolean;
   /** Konsultasi online (spec 6.4). */
   online: boolean;
+  /** Kunjungan klinik hari ini yang menunggu perawat menekan Selesai ditangani (spec vital perawat VP4). */
+  waitingNurse: boolean;
 };
 
 export type DoctorWorklist = { today: WorklistRow[]; unfinished: WorklistRow[] };
@@ -450,11 +477,12 @@ function findWorklist(where: Prisma.AppointmentWhereInput) {
       patient: { select: { name: true, medicalRecordNumber: true } },
       encounter: { select: { id: true, status: true } },
       foodRecall: { select: { status: true } },
+      nurseVitals: { select: { completedAt: true } },
     },
   });
 }
 
-function toWorklistRow(row: Awaited<ReturnType<typeof findWorklist>>[number]): WorklistRow {
+function toWorklistRow(row: Awaited<ReturnType<typeof findWorklist>>[number], today: string): WorklistRow {
   const encounter = row.encounter;
   return {
     appointmentId: row.id,
@@ -468,6 +496,7 @@ function toWorklistRow(row: Awaited<ReturnType<typeof findWorklist>>[number]): W
     state: !encounter ? "BELUM" : encounter.status === "FINAL" ? "FINAL" : "DRAF",
     foodRecallFilled: row.foodRecall?.status === "DIISI",
     online: row.channel === "ONLINE",
+    waitingNurse: nurseGateApplies({ channel: row.channel, startAt: row.startAt, hasEncounter: encounter !== null }, today) && !row.nurseVitals?.completedAt,
   };
 }
 
@@ -489,7 +518,7 @@ export async function listDoctorWorklist(): Promise<DoctorWorklist> {
       OR: [{ status: "HADIR", encounter: { is: null } }, { encounter: { is: { status: "DRAF" } } }],
     }),
   ]);
-  return { today: todayRows.map(toWorklistRow), unfinished: unfinishedRows.map(toWorklistRow) };
+  return { today: todayRows.map((row) => toWorklistRow(row, today)), unfinished: unfinishedRows.map((row) => toWorklistRow(row, today)) };
 }
 
 export type OnlineWorkRow = {

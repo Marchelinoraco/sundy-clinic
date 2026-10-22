@@ -9,6 +9,7 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import type { ReactNode } from "react";
 import { PHARMACY_NOTE_LABEL, TEXT_FIELDS } from "@/lib/encounter";
+import { nurseVitalsLabel } from "@/lib/nurse-vitals";
 import type { EncounterDetail } from "@/server/encounter-read";
 
 function Part({ id, title, children }: { id: string; title: string; children: ReactNode }) {
@@ -46,6 +47,11 @@ export function EncounterRecord({ encounter }: { encounter: EncounterDetail }) {
         <RecordText label={TEXT_FIELDS.subjective} value={draft.subjective} />
       </Part>
       <Part id="bagian-o" title="O — Objective">
+        {encounter.nurseVitals && (
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            {nurseVitalsLabel(encounter.nurseVitals)}
+          </Typography>
+        )}
         {encounter.vitalLines.length > 0 ? (
           <Box component="ul" sx={{ m: 0, pl: 2.5, listStyle: "disc", fontSize: "0.875rem", "& > li + li": { mt: 0.25 } }}>
             {encounter.vitalLines.map((line) => (
@@ -67,11 +73,12 @@ export function EncounterRecord({ encounter }: { encounter: EncounterDetail }) {
         {encounter.pharmacyNote && <RecordText label={PHARMACY_NOTE_LABEL} value={encounter.pharmacyNote} />}
       </Part>
       <Part id="bagian-resep" title="Resep">
-        {encounter.prescriptions.length === 0 ? (
+        {encounter.prescriptions.length === 0 && encounter.packages.length === 0 && (
           <Typography variant="body2" sx={{ color: "text.secondary" }}>
             Tidak ada resep di kunjungan ini.
           </Typography>
-        ) : (
+        )}
+        {encounter.prescriptions.length > 0 && (
           <TableContainer>
             <Table size="small" aria-label="Resep">
               <TableHead>
@@ -94,6 +101,17 @@ export function EncounterRecord({ encounter }: { encounter: EncounterDetail }) {
               </TableBody>
             </Table>
           </TableContainer>
+        )}
+        {encounter.packages.length > 0 && (
+          // Paket yang disarankan dokter, dengan keterangan bila tidak dibeli (spec vital perawat PR1, PR3).
+          <Box component="ul" aria-label="Paket" sx={{ m: 0, pl: 2.5, listStyle: "disc", fontSize: "0.875rem", "& > li + li": { mt: 0.25 } }}>
+            {encounter.packages.map((row) => (
+              <li key={row.id}>
+                {row.name} · {row.contents}
+                {row.declined && ` · ${row.declined}`}
+              </li>
+            ))}
+          </Box>
         )}
       </Part>
       <Part id="bagian-treatment" title="Treatment yang dilakukan">

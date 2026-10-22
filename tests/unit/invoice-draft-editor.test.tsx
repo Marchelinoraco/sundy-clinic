@@ -20,6 +20,8 @@ const mocks = vi.hoisted(() => ({
   cancelInvoice: vi.fn(),
   takePackageItem: vi.fn(),
   applyPackageVisit: vi.fn(),
+  declineDoctorPackage: vi.fn(),
+  restoreDoctorPackage: vi.fn(),
 }));
 vi.mock("@/server/invoice-notes", () => ({ updateInvoiceNotes: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mocks.refresh, push: mocks.push }) }));
@@ -41,14 +43,16 @@ vi.mock("@/server/invoice-drafts", () => ({
   restorePrescriptionLine: mocks.restorePrescriptionLine,
   takePackageItem: mocks.takePackageItem,
   applyPackageVisit: mocks.applyPackageVisit,
+  declineDoctorPackage: mocks.declineDoctorPackage,
+  restoreDoctorPackage: mocks.restoreDoctorPackage,
 }));
 vi.mock("@/server/invoice-lifecycle", () => ({ finalizeInvoice: mocks.finalizeInvoice, cancelInvoice: mocks.cancelInvoice }));
 vi.mock("@/server/restock", () => ({ createRestockRequest: vi.fn() }));
 
 function detail(patch: Partial<InvoiceDetail> = {}): InvoiceDetail {
   const lines: InvoiceDetail["lines"] = [
-    { id: "l1", kind: "LAYANAN", name: "Konsultasi Gizi", quantity: 1, unitPrice: 150000, gross: 150000, amount: 150000, discountAmount: 0, discountReason: null, discountSource: null, priceNote: null, serviceId: "s1", itemId: null, catalogLinked: true, fromDispensing: false, prescription: null, performerId: null, performerName: null, treatmentPackageId: null, packageUse: null, packageNote: null, costing: null },
-    { id: "l2", kind: "BARANG", name: "Vitamin C", quantity: 2, unitPrice: 25000, gross: 50000, amount: 50000, discountAmount: 0, discountReason: null, discountSource: null, priceNote: null, serviceId: null, itemId: "it1", catalogLinked: true, fromDispensing: false, prescription: null, performerId: null, performerName: null, treatmentPackageId: null, packageUse: null, packageNote: null, costing: null },
+    { id: "l1", kind: "LAYANAN", name: "Konsultasi Gizi", quantity: 1, unitPrice: 150000, gross: 150000, amount: 150000, discountAmount: 0, discountReason: null, discountSource: null, priceNote: null, serviceId: "s1", itemId: null, catalogLinked: true, fromDispensing: false, fromDoctorPackage: false, prescription: null, performerId: null, performerName: null, treatmentPackageId: null, packageUse: null, packageNote: null, costing: null },
+    { id: "l2", kind: "BARANG", name: "Vitamin C", quantity: 2, unitPrice: 25000, gross: 50000, amount: 50000, discountAmount: 0, discountReason: null, discountSource: null, priceNote: null, serviceId: null, itemId: "it1", catalogLinked: true, fromDispensing: false, fromDoctorPackage: false, prescription: null, performerId: null, performerName: null, treatmentPackageId: null, packageUse: null, packageNote: null, costing: null },
   ];
   const base = { status: "DRAF" as const, discountKind: null, discountValue: 0, lines, payments: [] };
   return {
@@ -81,6 +85,7 @@ function detail(patch: Partial<InvoiceDetail> = {}): InvoiceDetail {
     hasPrescription: false,
     dispensingSource: null,
     droppedPrescriptions: [],
+    declinedPackages: [],
     margin: null,
     ...patch,
   };
@@ -223,7 +228,7 @@ describe("editor draf tagihan", () => {
   it("baris dari resep dokter: label, aturan pakai, tombol Kurangi, dan tautan Cetak etiket (spec resep dokter 4–5)", () => {
     const base = detail();
     const lines = base.lines.map((line) =>
-      line.id === "l2" ? { ...line, fromDispensing: true, prescription: { prescribedQuantity: 2, usage: "3 x 1 sesudah makan" } } : line,
+      line.id === "l2" ? { ...line, fromDispensing: true, fromDoctorPackage: false, prescription: { prescribedQuantity: 2, usage: "3 x 1 sesudah makan" } } : line,
     );
     renderAdmin(<InvoiceDraftEditor detail={{ ...base, lines, hasPrescription: true }} items={items} canExceedDiscount={false} />);
     expect(screen.getByLabelText("Dari resep dokter")).toBeInTheDocument();
@@ -340,6 +345,27 @@ describe("editor draf tagihan", () => {
     await user.click(within(box).getByRole("button", { name: "Pakai sesuai rencana Glowing 3 Bulan" }));
     await waitFor(() => expect(mocks.applyPackageVisit).toHaveBeenCalledWith({ invoiceId: detail().id, version: detail().version, patientPackageId: "pp1" }));
     expect(mocks.refresh).toHaveBeenCalled();
+  });
+
+  it("paket dari dokter: Tidak dibeli menggantikan Hapus; yang tidak dibeli bisa dikembalikan (spec vital perawat PR2, PR3)", async () => {
+    mocks.restoreDoctorPackage.mockResolvedValue({ ok: true, data: { version: 4 } });
+    const withPackage = detail();
+    withPackage.lines[1] = { ...withPackage.lines[1], id: "l3", kind: "PAKET", name: "Glowing 3 Bulan", fromDoctorPackage: true };
+    const user = userEvent.setup();
+    renderAdmin(
+      <InvoiceDraftEditor
+        detail={{ ...withPackage, declinedPackages: [{ encounterPackageId: "ep2", name: "Slim Start", reason: "Mahal" }] }}
+        items={items}
+        canExceedDiscount={false}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Tidak dibeli Glowing 3 Bulan" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Hapus Glowing 3 Bulan" })).toBeNull();
+    expect(screen.getByText("Paket dari dokter")).toBeInTheDocument();
+    const section = screen.getByRole("region", { name: "Paket dari dokter yang tidak dibeli" });
+    expect(section).toHaveTextContent("Slim Start · Mahal");
+    await user.click(within(section).getByRole("button", { name: "Kembalikan Slim Start" }));
+    await waitFor(() => expect(mocks.restoreDoctorPackage).toHaveBeenCalledWith({ invoiceId: detail().id, version: detail().version, encounterPackageId: "ep2" }));
   });
 
   it("stok meja kurang: baris ditandai dan tombol Minta restock tampil (spec stok meja 4.1)", async () => {
