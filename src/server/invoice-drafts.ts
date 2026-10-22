@@ -102,7 +102,8 @@ export async function createInvoiceFromVisit(appointmentId: string): Promise<Act
       })),
     });
 
-    // Pelaksana disalin dari catatan kunjungan (spec harga modal 6) untuk komisi.
+    // Pelaksana disalin dari catatan kunjungan lama (spec harga modal 6); kunjungan baru tidak membawanya, resepsionis
+    // memilihnya di draf (spec aturan pakai PL2).
     const performerOf = new Map(appointment.encounter.treatments.map((t) => [t.id, { performerId: t.performerId, performerName: t.performerName }]));
     const withPerformer = lines.map((line) => ({ ...line, ...(line.encounterTreatmentId ? (performerOf.get(line.encounterTreatmentId) ?? {}) : {}) }));
 
@@ -604,7 +605,10 @@ export async function releasePackageSession(input: { invoiceId: string; version:
   });
 }
 
-/** Pelaksana baris treatment (spec harga modal 6, M7): boleh diganti atau dikosongkan; baris tanpa pelaksana tidak berkomisi. */
+/**
+ * Pelaksana baris treatment (spec harga modal 6, M7): boleh diganti atau dikosongkan di draf, tetapi tagihan baru bisa
+ * difinalkan bila setiap baris treatment punya pelaksana (spec aturan pakai PL3).
+ */
 export async function setLinePerformer(input: { invoiceId: string; version: number; lineId: string; performerId: string | null }): Promise<EditResult> {
   return runAction(async () => {
     const actor = await requireCapability("invoice:manage");

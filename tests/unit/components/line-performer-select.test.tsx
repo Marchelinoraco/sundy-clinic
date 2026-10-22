@@ -35,4 +35,17 @@ describe("LinePerformerSelect", () => {
     expect(screen.getByLabelText("Pelaksana Facial")).toHaveValue("x9");
     expect(screen.getByRole("option", { name: "Lama" })).toBeInTheDocument();
   });
+
+  it("treatment tanpa pelaksana: pilihan kosong bertuliskan 'Pilih pelaksana' dan ditandai belum lengkap (spec aturan pakai PL3)", () => {
+    const { unmount } = renderAdmin(
+      <LinePerformerSelect invoiceId="inv" version={2} line={{ id: "l1", name: "Facial", kind: "TREATMENT", performerId: null, performerName: null }} performers={performers} />,
+    );
+    expect(screen.getByRole("option", { name: "Pilih pelaksana" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "Tanpa pelaksana" })).toBeNull();
+    expect(screen.getByLabelText("Pelaksana Facial")).toHaveAttribute("aria-invalid", "true");
+    unmount();
+
+    renderAdmin(<LinePerformerSelect invoiceId="inv" version={2} line={{ id: "l1", name: "Facial", kind: "TREATMENT", performerId: "t1", performerName: "Rina" }} performers={performers} />);
+    expect(screen.getByLabelText("Pelaksana Facial")).not.toHaveAttribute("aria-invalid", "true");
+  });
 });
