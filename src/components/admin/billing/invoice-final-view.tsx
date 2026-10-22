@@ -76,9 +76,12 @@ export function InvoiceFinalView({
 
         <Stack direction="row" spacing={1} useFlexGap className="print:hidden" sx={{ flexWrap: "wrap", justifyContent: "flex-end" }}>
           <PrintButton />
-          <LinkButton href={`/admin/tagihan/${detail.id}/invoice`} variant="outlined">
-            Cetak invoice A4
-          </LinkButton>
+          {/* Draf yang dibatalkan belum pernah final, jadi tidak punya invoice A4. */}
+          {detail.finalizedAt && (
+            <LinkButton href={`/admin/tagihan/${detail.id}/invoice`} variant="outlined">
+              Cetak invoice A4
+            </LinkButton>
+          )}
           {detail.hasPrescription && (
             <LinkButton href={`/admin/tagihan/${detail.id}/etiket`} variant="outlined">
               Cetak etiket

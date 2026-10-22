@@ -758,13 +758,45 @@ h3 {
   font-size: 8.5pt;
   color: #8a7047;
 }
+/* Layar sempit (ponsel pasien): kertas dipadatkan supaya kolom Total tidak terpotong (review akhir invoice A4). */
+@media (max-width: 40rem) {
+  .invoice-a4-halaman {
+    padding: 1rem 0.5rem 2rem;
+  }
+  .invoice-a4 {
+    padding: 1rem 0.75rem 1.25rem;
+    font-size: 8.5pt;
+  }
+  .invoice-a4-cap {
+    font-size: 36pt;
+    border-width: 4px;
+  }
+  .invoice-a4-kop {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .invoice-a4-kontak {
+    text-align: left;
+  }
+  .invoice-a4-total {
+    width: 100%;
+  }
+  .invoice-a4-tabel th,
+  .invoice-a4-tabel td {
+    padding: 3pt 2pt;
+  }
+}
 @page invoice {
   size: A4;
   margin: 12mm;
 }
 @media print {
-  .invoice-a4 {
+  /* Nama halaman di akar dokumen: bila hanya di kertas, Chrome memutus halaman di setiap pergantian nama halaman
+     (elemen tata letak di sekitarnya) sehingga muncul halaman kosong berisi cap saja (review akhir invoice A4). */
+  html:has(.invoice-a4) {
     page: invoice;
+  }
+  .invoice-a4 {
     max-width: none;
     padding: 0;
     box-shadow: none;

@@ -175,6 +175,11 @@ describe("tampilan tagihan final", () => {
     expect(container.querySelector(".struk-tanpa-cetak")).not.toBeNull();
   });
 
+  it("draf yang dibatalkan tidak menawarkan Cetak invoice A4 (belum pernah final; review akhir invoice A4)", () => {
+    renderAdmin(<InvoiceFinalView detail={finalDetail({ status: "DIBATALKAN", number: null, finalizedAt: null })} today="2026-10-07" canManage canCorrect={false} canSeeCost={false} />);
+    expect(screen.queryByRole("link", { name: "Cetak invoice A4" })).not.toBeInTheDocument();
+  });
+
   it("tanpa invoice:manage tidak ada aksi struk", () => {
     renderAdmin(<InvoiceFinalView detail={finalDetail()} receipt={RECEIPT} today="2026-10-07" canManage={false} canCorrect canSeeCost={false} />);
     expect(screen.queryByRole("button", { name: "Kirim struk via WA" })).not.toBeInTheDocument();

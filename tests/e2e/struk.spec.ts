@@ -1,10 +1,24 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { E2E_RESEPSIONIS } from "./credentials";
 import { pilihOpsi, tungguHidrasi } from "./helpers/mui";
 import { buatPasienBaru } from "./helpers/pasien-baru";
 import { signIn } from "./helpers/quiz";
 
 test.setTimeout(180_000);
+
+/** Jumlah halaman PDF buatan Chromium: setiap halaman satu objek "/Type /Page". */
+function pdfPageCount(pdf: Buffer): number {
+  return (pdf.toString("latin1").match(/\/Type\s*\/Page(?!s)/g) ?? []).length;
+}
+
+/** Berapa piksel sel "Total" di kepala tabel melewati tepi kanan kertas invoice (0 atau kurang = tidak terpotong). */
+async function clippedRight(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const paper = document.querySelector(".invoice-a4")!.getBoundingClientRect();
+    const total = [...document.querySelectorAll(".invoice-a4 thead th")].at(-1)!.getBoundingClientRect();
+    return Math.ceil(Math.max(total.right - paper.right, total.right - document.documentElement.clientWidth));
+  });
+}
 
 test("resepsionis mengirim struk via WA; tautan terbuka tanpa login; Ganti tautan mematikannya; cetak tanpa QZ Tray memberi pesan jelas", async ({ page, browser }, testInfo) => {
   const suffix = `${testInfo.project.name === "mobile" ? "M" : "D"}${Date.now().toString().slice(-6)}`;
@@ -27,6 +41,14 @@ test("resepsionis mengirim struk via WA; tautan terbuka tanpa login; Ganti tauta
   await page.getByRole("button", { name: "Finalkan tagihan" }).click();
   await page.getByRole("dialog", { name: "Finalkan tagihan?" }).getByRole("button", { name: "Finalkan" }).click();
   await expect(page.getByRole("heading", { name: /Tagihan TG-\d{4}-\d{4}/ })).toBeVisible({ timeout: 30_000 });
+
+  // Panel: Cetak invoice A4 menghasilkan tepat satu halaman A4 (review akhir invoice A4).
+  const invoicePath = new URL(page.url()).pathname;
+  await page.goto(`${invoicePath}/invoice`);
+  await expect(page.getByRole("region", { name: /^Invoice TG-\d{4}-\d{4}$/ })).toBeVisible({ timeout: 30_000 });
+  expect(pdfPageCount(await page.pdf())).toBe(1);
+  await page.goto(invoicePath);
+  await tungguHidrasi(page);
 
   await page.getByRole("button", { name: "Kirim struk via WA" }).click();
   const sendDialog = page.getByRole("dialog", { name: "Kirim struk" });
@@ -57,6 +79,13 @@ test("resepsionis mengirim struk via WA; tautan terbuka tanpa login; Ganti tauta
   await guest.emulateMedia({ media: "print" });
   await expect(guest.getByRole("button", { name: "Cetak atau simpan PDF" })).toBeHidden();
   await guest.emulateMedia({ media: "screen" });
+  // Dicetak atau disimpan PDF: tepat satu halaman A4, tanpa halaman kosong berisi cap saja (review akhir invoice A4).
+  // pdf() memakai media yang sedang diemulasikan; null mengembalikan media cetak bawaannya.
+  await guest.emulateMedia({ media: null });
+  expect(pdfPageCount(await guest.pdf())).toBe(1);
+  // Layar ponsel 360 px: kolom Total tidak terpotong (review akhir invoice A4).
+  await guest.setViewportSize({ width: 360, height: 740 });
+  await expect.poll(() => clippedRight(guest)).toBeLessThanOrEqual(0);
   await guest.goto(receiptUrl);
 
   await page.getByRole("button", { name: "Ganti tautan" }).click();
