@@ -7,9 +7,11 @@ import type { NurseVisit } from "@/server/nurse";
 import { BiaTab } from "../bia/bia-tab";
 import { EncounterFoodRecallTab } from "../encounter-food-recall-tab";
 import { SectionCard } from "../page-layout";
+import { NurseVitalsCard } from "./nurse-vitals-card";
 
 /**
- * Halaman Tangani perawat (spec peran perawat 7): kepala seperlunya, alergi, food recall, dan BIA kunjungan ini.
+ * Halaman Tangani perawat (spec peran perawat 7): kepala seperlunya, alergi, angka vital (spec vital perawat VP1), food
+ * recall, dan BIA kunjungan ini.
  * Tidak ada catatan dokter, diagnosis, resep, riwayat, isian kuis, BIA lama, atau tagihan.
  */
 export function NurseVisitView({ visit }: { visit: NurseVisit }) {
@@ -43,6 +45,10 @@ export function NurseVisitView({ visit }: { visit: NurseVisit }) {
           </Typography>
         </Paper>
       )}
+
+      <SectionCard title="Angka vital">
+        <NurseVitalsCard appointmentId={visit.appointmentId} vitals={visit.vitals} />
+      </SectionCard>
 
       <SectionCard title="Food recall">
         <EncounterFoodRecallTab

@@ -6,6 +6,8 @@ import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("@/server/food-recall-admin", () => ({ saveFoodRecallByStaff: vi.fn(), saveFoodRecallByNurse: vi.fn(), getFoodRecallLink: vi.fn(), offerFoodRecall: vi.fn() }));
+vi.mock("@/server/nurse-vitals", () => ({ saveNurseVitals: vi.fn(), completeNurseVisit: vi.fn() }));
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/server/bia-actions", () => ({ saveBiaNumbers: vi.fn(), startBiaMeasurement: vi.fn(), voidBiaFile: vi.fn(), voidBiaMeasurement: vi.fn() }));
 
 const VISIT: NurseVisit = {
@@ -28,6 +30,10 @@ describe("NurseVisitView (spec peran perawat 7)", () => {
     expect(screen.getByText(/SDY-2026-0013/)).toBeInTheDocument();
     expect(screen.getByText(/11\.00 · Konsultasi gizi · dr\. Diane · SunDY Mahakeret/)).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Peringatan" })).toHaveTextContent("Udang");
+    // Angka vital di atas food recall (spec vital perawat VP1).
+    const regions = screen.getAllByRole("region").map((region) => region.getAttribute("aria-label") ?? region.getAttribute("aria-labelledby"));
+    expect(regions.indexOf("Angka vital")).toBeGreaterThanOrEqual(0);
+    expect(regions.indexOf("Angka vital")).toBeLessThan(regions.indexOf("Food recall"));
     expect(screen.getByRole("region", { name: "Food recall" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "BIA" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Isi food recall" })).toBeInTheDocument();

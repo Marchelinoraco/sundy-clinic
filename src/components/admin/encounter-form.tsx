@@ -22,7 +22,6 @@ import {
   PHARMACY_NOTE_LABEL,
   TEXT_FIELDS,
   TREATMENT_TEXT_MAX,
-  VITALS,
   VITAL_KEYS,
   bloodPressureProblem,
   bmi,
@@ -39,26 +38,12 @@ import {
   type TrendSource,
   type VitalKey,
 } from "@/lib/encounter";
-import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
 import { discardEncounterDraft, finalizeEncounter, saveEncounterDraft } from "@/server/encounter";
 import { SelectField } from "./mui/select-field";
 import { PrescriptionFields } from "./prescription-fields";
-import { useDraftAutosave, type AutosaveStatus } from "./use-draft-autosave";
+import { autosaveStatusText, useDraftAutosave } from "./use-draft-autosave";
+import { VitalField } from "./vital-field";
 
-function statusText(status: AutosaveStatus): string {
-  switch (status.kind) {
-    case "idle":
-      return "Draf tersimpan otomatis saat Anda mengetik.";
-    case "pending":
-      return "Menyimpan…";
-    case "saved":
-      return `Tersimpan ${minutesToTimeLabel(witaMinutesOfDay(new Date(status.savedAt)))}`;
-    case "retrying":
-      return "Belum tersimpan, mencoba lagi…";
-    case "rejected":
-      return `Belum tersimpan: ${status.message}`;
-  }
-}
 
 function NoteField({
   label,
@@ -89,20 +74,6 @@ function NoteField({
   );
 }
 
-function VitalField(props: { vital: VitalKey; value: string; error: string | null; onChange: (value: string) => void }) {
-  const spec = VITALS[props.vital];
-  return (
-    <TextField
-      label={`${spec.label} (${spec.unit})`}
-      value={props.value}
-      error={props.error !== null}
-      helperText={props.error}
-      onChange={(e) => props.onChange(e.target.value)}
-      fullWidth
-      slotProps={{ htmlInput: { inputMode: spec.decimals === 0 ? "numeric" : "decimal" } }}
-    />
-  );
-}
 
 function TreatmentFields(props: {
   index: number;
@@ -427,7 +398,7 @@ export function EncounterForm(props: EncounterFormProps) {
           variant="body2"
           sx={{ mr: "auto", color: rejected ? "error.main" : "text.secondary", fontWeight: rejected ? 500 : undefined }}
         >
-          {statusText(autosave.status)}
+          {autosaveStatusText(autosave.status)}
         </Typography>
         {/* Kedua tombol turun baris bersama (rata kanan) bila pesan status panjang. */}
         <Stack direction="row" spacing={1.5} sx={{ ml: "auto" }}>

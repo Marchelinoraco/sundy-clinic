@@ -2,11 +2,28 @@
 
 import { useEffect, useState } from "react";
 import type { ActionResult } from "@/lib/action-result";
+import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
 
 export const AUTOSAVE_DELAY_MS = 1500;
 export const AUTOSAVE_RETRY_DELAYS_MS: readonly number[] = [2000, 4000, 8000, 16000, 30000];
 
 export type SavedDraft = { version: string; savedAt: string };
+
+/** Keterangan status simpan otomatis di bawah formulir. */
+export function autosaveStatusText(status: AutosaveStatus): string {
+  switch (status.kind) {
+    case "idle":
+      return "Draf tersimpan otomatis saat Anda mengetik.";
+    case "pending":
+      return "Menyimpan…";
+    case "saved":
+      return `Tersimpan ${minutesToTimeLabel(witaMinutesOfDay(new Date(status.savedAt)))}`;
+    case "retrying":
+      return "Belum tersimpan, mencoba lagi…";
+    case "rejected":
+      return `Belum tersimpan: ${status.message}`;
+  }
+}
 
 export const LEAVE_WARNING = "Ada perubahan yang belum tersimpan. Tinggalkan halaman ini?";
 

@@ -31,6 +31,7 @@ export function NurseWorklistView({ rows, title = "Pasien hari ini" }: { rows: N
                 <TableCell>Tenaga</TableCell>
                 <TableCell>Food recall</TableCell>
                 <TableCell>BIA</TableCell>
+                <TableCell>Penanganan</TableCell>
                 <TableCell>Aksi</TableCell>
               </TableRow>
             </TableHead>
@@ -49,6 +50,9 @@ export function NurseWorklistView({ rows, title = "Pasien hari ini" }: { rows: N
                   </TableCell>
                   <TableCell>
                     <StatusChip label={BIA_LABEL[row.bia]} tone={row.bia === "ANGKA" ? "success" : "neutral"} />
+                  </TableCell>
+                  <TableCell>
+                    <StatusChip label={row.handled ? "Selesai ditangani" : "Belum ditangani"} tone={row.handled ? "success" : "neutral"} />
                   </TableCell>
                   <TableCell>
                     <LinkButton href={`/admin/perawat/${row.appointmentId}`} size="small" variant="contained" aria-label={`Tangani ${row.patientName}`}>
