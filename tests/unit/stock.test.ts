@@ -322,6 +322,8 @@ describe("validasi penyesuaian, retur, pembayaran, alasan, jatuh tempo", () => {
       value: { invoiceId: "i1", kind: "BAYAR", amount: 40000, method: "TRANSFER", paidAt: "2026-10-07", reference: "TRF-1" },
     });
     expect(validatePayment({ ...pay, amount: 60001 }, ctx)).toEqual({ ok: false, message: "Nominal melebihi sisa hutang (Rp 60.000)." });
+    // EDC hanya untuk pembayaran dari customer (spec invoice A4 IA13).
+    expect(validatePayment({ ...pay, method: "EDC" }, ctx)).toEqual({ ok: false, message: "Pilih metode pembayaran." });
     expect(validatePayment({ ...pay, kind: "PENGEMBALIAN", amount: 70000 }, ctx)).toEqual({
       ok: false,
       message: "Nominal melebihi kredit dari supplier (Rp 60.000).",

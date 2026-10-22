@@ -563,3 +563,301 @@ h3 {
     padding: 0;
   }
 }
+
+/* Invoice A4 (spec invoice A4): kertas putih ukuran A4 dengan kop surat, cap air status, dan progres paket. Warna tetap
+   (bukan token tema) karena meniru dokumen cetak dan dipakai halaman publik maupun panel. */
+.invoice-a4-halaman {
+  padding: 2rem 1rem 3rem;
+}
+.invoice-a4 {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 210mm;
+  margin-inline: auto;
+  padding: 14mm 15mm 16mm;
+  background: #fff;
+  color: #2b2218;
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.45;
+  box-shadow: 0 2px 14px rgb(0 0 0 / 0.12);
+  overflow: hidden;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.invoice-a4-cap {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-28deg);
+  border: 6px solid currentColor;
+  border-radius: 12px;
+  padding: 0 0.3em;
+  font-size: 58pt;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  opacity: 0.14;
+  pointer-events: none;
+}
+.invoice-a4-cap-lunas {
+  color: #2f7a3b;
+}
+.invoice-a4-cap-deposit {
+  color: #c07a00;
+}
+.invoice-a4-cap-belum_dibayar {
+  color: #6b6b6b;
+}
+.invoice-a4-cap-dibatalkan {
+  color: #b3261e;
+}
+.invoice-a4-kop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+  padding-bottom: 8pt;
+  border-bottom: 2px solid #b8860b;
+}
+.invoice-a4-wordmark {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 24pt;
+  font-weight: 600;
+  line-height: 1;
+}
+.invoice-a4-sun {
+  color: #d4a017;
+}
+.invoice-a4-dy {
+  color: #4a3c28;
+}
+.invoice-a4-sub {
+  margin-top: 2pt;
+  font-size: 8.5pt;
+  color: #4a3c28;
+}
+.invoice-a4-kontak {
+  text-align: right;
+  font-size: 8pt;
+  color: #5f5140;
+}
+.invoice-a4-judul {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin: 12pt 0 6pt;
+}
+.invoice-a4-judul h1 {
+  margin: 0;
+  font-size: 18pt;
+  letter-spacing: 0.15em;
+  color: #4a3c28;
+}
+.invoice-a4-meta {
+  margin: 0;
+  font-size: 9pt;
+  color: #5f5140;
+}
+.invoice-a4-kanan {
+  text-align: right;
+}
+.invoice-a4-tabel {
+  width: 100%;
+  margin-top: 8pt;
+  border-collapse: collapse;
+}
+.invoice-a4-tabel th {
+  padding: 4pt;
+  border-bottom: 1px solid #d9cfbf;
+  text-align: left;
+  font-size: 8.5pt;
+  font-weight: 600;
+  color: #8a7047;
+}
+.invoice-a4-tabel td {
+  padding: 4pt;
+  border-bottom: 1px solid #efe9df;
+  vertical-align: top;
+}
+.invoice-a4-tabel .invoice-a4-angka {
+  text-align: right;
+  white-space: nowrap;
+}
+.invoice-a4-catatan {
+  display: block;
+  font-size: 8pt;
+  color: #8a7047;
+}
+.invoice-a4-total {
+  width: 60%;
+  margin: 8pt 0 0 auto;
+}
+.invoice-a4-baris {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.5pt 0;
+}
+.invoice-a4-baris > span:last-child {
+  text-align: right;
+}
+/* Nominal tidak pernah terpotong; teks pembayaran yang panjang (EDC/transfer + rekening) yang turun baris. */
+.invoice-a4-total .invoice-a4-baris > span:last-child {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.invoice-a4-baris-tebal {
+  margin-top: 2pt;
+  padding-top: 3pt;
+  border-top: 1px solid #d9cfbf;
+  font-weight: 700;
+}
+.invoice-a4-paket {
+  margin-top: 12pt;
+  padding: 8pt 10pt;
+  border: 1px solid #e6dcc9;
+  border-radius: 6px;
+  background: #fbf8f2;
+  break-inside: avoid;
+}
+.invoice-a4-paket h2 {
+  margin: 0;
+  font-size: 10.5pt;
+  color: #4a3c28;
+}
+.invoice-a4-paket h3 {
+  margin: 6pt 0 2pt;
+  font-size: 9.5pt;
+  font-weight: 600;
+}
+.invoice-a4-isi {
+  margin-top: 3pt;
+  font-size: 9pt;
+}
+.invoice-a4-bar {
+  height: 5px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: #eadfca;
+}
+.invoice-a4-bar > span {
+  display: block;
+  height: 100%;
+  background: #d4a017;
+}
+.invoice-a4-penutup {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 14pt;
+  padding-top: 6pt;
+  border-top: 1px solid #e6dcc9;
+  font-size: 8.5pt;
+  color: #8a7047;
+}
+/* Layar sempit (ponsel pasien): kertas dipadatkan supaya kolom Total tidak terpotong (review akhir invoice A4). */
+@media (max-width: 40rem) {
+  .invoice-a4-halaman {
+    padding: 1rem 0.5rem 2rem;
+  }
+  .invoice-a4 {
+    padding: 1rem 0.75rem 1.25rem;
+    font-size: 8.5pt;
+  }
+  .invoice-a4-cap {
+    font-size: 36pt;
+    border-width: 4px;
+  }
+  .invoice-a4-kop {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .invoice-a4-kontak {
+    text-align: left;
+  }
+  .invoice-a4-total {
+    width: 100%;
+  }
+  .invoice-a4-tabel th,
+  .invoice-a4-tabel td {
+    padding: 3pt 2pt;
+  }
+}
+@page invoice {
+  size: A4;
+  margin: 12mm;
+}
+@media print {
+  /* Nama halaman di akar dokumen: bila hanya di kertas, Chrome memutus halaman di setiap pergantian nama halaman
+     (elemen tata letak di sekitarnya) sehingga muncul halaman kosong berisi cap saja (review akhir invoice A4). */
+  html:has(.invoice-a4) {
+    page: invoice;
+  }
+  .invoice-a4 {
+    max-width: none;
+    padding: 0;
+    box-shadow: none;
+    overflow: visible;
+  }
+  /* Posisi tetap: cap air terulang di setiap halaman cetak (spec invoice A4 IA11). */
+  .invoice-a4-cap {
+    position: fixed;
+    top: 50%;
+  }
+  .invoice-a4 thead {
+    display: table-header-group;
+  }
+  .invoice-a4 tr {
+    break-inside: avoid;
+  }
+  .invoice-a4-halaman {
+    padding: 0;
+  }
+  .invoice-a4-tanpa-cetak,
+  body:has(.invoice-a4) footer,
+  body:has(.invoice-a4) .whatsapp-fab {
+    display: none !important;
+  }
+  body:has(.invoice-a4) main {
+    padding-top: 0 !important;
+  }
+  /* Panel admin mencetak semua teks hitam (.cetak-terang); invoice A4 mempertahankan warna kop, cap, dan progresnya. */
+  .cetak-terang .invoice-a4 .invoice-a4-sun {
+    color: #d4a017 !important;
+  }
+  .cetak-terang .invoice-a4 .invoice-a4-dy,
+  .cetak-terang .invoice-a4 .invoice-a4-sub {
+    color: #4a3c28 !important;
+  }
+  .cetak-terang .invoice-a4 .invoice-a4-kop {
+    border-color: #b8860b !important;
+  }
+  .cetak-terang .invoice-a4 .invoice-a4-cap-lunas {
+    color: #2f7a3b !important;
+    border-color: #2f7a3b !important;
+  }
+  .cetak-terang .invoice-a4 .invoice-a4-cap-deposit {
+    color: #c07a00 !important;
+    border-color: #c07a00 !important;
+  }
+  .cetak-terang .invoice-a4 .invoice-a4-cap-belum_dibayar {
+    color: #6b6b6b !important;
+    border-color: #6b6b6b !important;
+  }
+  .cetak-terang .invoice-a4 .invoice-a4-cap-dibatalkan {
+    color: #b3261e !important;
+    border-color: #b3261e !important;
+  }
+  .cetak-terang .invoice-a4 .invoice-a4-paket {
+    background: #fbf8f2 !important;
+  }
+  .cetak-terang .invoice-a4 .invoice-a4-bar {
+    background: #eadfca !important;
+  }
+  .cetak-terang .invoice-a4 .invoice-a4-bar > span {
+    background: #d4a017 !important;
+  }
+}

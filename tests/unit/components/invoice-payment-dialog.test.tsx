@@ -20,6 +20,24 @@ function open(bankAccounts = ACCOUNTS) {
 
 beforeEach(() => vi.clearAllMocks());
 
+describe("InvoicePaymentDialog EDC (spec invoice A4 IA12)", () => {
+  it("EDC memilih mesin EDC dari rekening klinik, tanpa isian pengirim", async () => {
+    vi.mocked(recordInvoicePayment).mockResolvedValue({ ok: true, data: { id: "p1" } });
+    const user = userEvent.setup();
+    open();
+    await user.click(screen.getByRole("button", { name: "Catat pembayaran" }));
+    const dialog = await screen.findByRole("dialog", { name: "Catat pembayaran" });
+    await user.selectOptions(within(dialog).getByLabelText("Metode"), "EDC");
+    const machine = within(dialog).getByLabelText("Mesin EDC");
+    expect(within(machine).getByRole("option", { name: "EDC BCA (123)" })).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText("Bank pengirim (opsional)")).not.toBeInTheDocument();
+    await user.selectOptions(machine, "b");
+    await user.click(within(dialog).getByRole("button", { name: "Simpan" }));
+    await waitFor(() => expect(recordInvoicePayment).toHaveBeenCalledWith(expect.objectContaining({ method: "EDC", clinicBankAccountId: "b" })));
+    expect(vi.mocked(recordInvoicePayment).mock.calls[0][0]).not.toHaveProperty("senderBank");
+  });
+});
+
 describe("InvoicePaymentDialog transfer", () => {
   it("isian transfer hanya muncul untuk Transfer bank, dan terkirim lengkap", async () => {
     vi.mocked(recordInvoicePayment).mockResolvedValue({ ok: true, data: { id: "p1" } });

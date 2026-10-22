@@ -364,6 +364,8 @@ export type PaymentTransfer = { clinicBankAccountId: string; senderBank: string 
 export type ValidInvoicePayment = Omit<InvoicePaymentInput, "reference" | "clinicBankAccountId" | "senderBank" | "senderAccountName" | "senderAccountNumber"> & {
   reference: string | null;
   transfer: PaymentTransfer | null;
+  /** Mesin EDC = rekening klinik penerima setoran (spec invoice A4 IA12). */
+  edc: { clinicBankAccountId: string } | null;
 };
 
 /**
@@ -396,6 +398,11 @@ export function validateInvoicePayment(
     if (senderAccountNumber && !/^[\d*\s-]{3,30}$/.test(senderAccountNumber)) return fail("Nomor rekening pengirim hanya angka (boleh * untuk yang disamarkan).");
     transfer = { clinicBankAccountId: raw.clinicBankAccountId, senderBank: senderBank || null, senderAccountName: senderAccountName || null, senderAccountNumber: senderAccountNumber || null };
   }
+  let edc: ValidInvoicePayment["edc"] = null;
+  if (raw.method === "EDC") {
+    if (typeof raw.clinicBankAccountId !== "string" || !raw.clinicBankAccountId) return fail("Pilih mesin EDC.");
+    edc = { clinicBankAccountId: raw.clinicBankAccountId };
+  }
   return {
     ok: true,
     value: {
@@ -405,6 +412,7 @@ export function validateInvoicePayment(
       paidAt: raw.paidAt,
       reference: reference || null,
       transfer,
+      edc,
     },
   };
 }

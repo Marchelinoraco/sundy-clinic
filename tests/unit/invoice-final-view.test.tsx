@@ -170,8 +170,14 @@ describe("tampilan tagihan final", () => {
     expect(screen.getByRole("button", { name: "Kirim struk via WA" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ganti tautan" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cetak struk" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Cetak invoice A4" })).toHaveAttribute("href", `/admin/tagihan/${finalDetail().id}/invoice`);
     expect(container.querySelector(".struk-hanya-cetak")).not.toBeNull();
     expect(container.querySelector(".struk-tanpa-cetak")).not.toBeNull();
+  });
+
+  it("draf yang dibatalkan tidak menawarkan Cetak invoice A4 (belum pernah final; review akhir invoice A4)", () => {
+    renderAdmin(<InvoiceFinalView detail={finalDetail({ status: "DIBATALKAN", number: null, finalizedAt: null })} today="2026-10-07" canManage canCorrect={false} canSeeCost={false} />);
+    expect(screen.queryByRole("link", { name: "Cetak invoice A4" })).not.toBeInTheDocument();
   });
 
   it("tanpa invoice:manage tidak ada aksi struk", () => {

@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { formatRupiah } from "@/lib/format";
 import {
   PAYMENT_METHOD_LABEL,
-  PAYMENT_METHODS,
+  SUPPLIER_PAYMENT_METHODS,
   validatePayment,
   type PaymentMethodValue,
   type SupplierPaymentKindValue,
@@ -103,7 +103,7 @@ export function PaymentDialog({
           <Stack spacing={2} sx={{ pt: 2 }}>
             <RupiahInput id="payment-amount" label="Nominal" value={amount} onChange={setTyped} fullWidth />
             <SelectField id="payment-method" label="Metode" value={method} onChange={(value) => setMethod(value as PaymentMethodValue)}>
-              {PAYMENT_METHODS.map((value) => (
+              {SUPPLIER_PAYMENT_METHODS.map((value) => (
                 <option key={value} value={value}>
                   {PAYMENT_METHOD_LABEL[value]}
                 </option>
