@@ -93,8 +93,8 @@ describe("katalog paket treatment", () => {
     const created = (await listTreatmentPackages()).find((row) => row.id === id)!;
     expect(created.contents).toBe(`4× Facial Uji, 30 kapsul ${SLUG} Amoxicillin`);
     expect(created.items).toEqual([
-      { serviceId: world.treatmentId, itemId: null, serviceName: "Facial Uji", unit: null, sessions: 4 },
-      { serviceId: null, itemId: world.drugId, serviceName: `${SLUG} Amoxicillin`, unit: "kapsul", sessions: 30 },
+      { serviceId: world.treatmentId, itemId: null, serviceName: "Facial Uji", unit: null, sessions: 4, perVisit: null },
+      { serviceId: null, itemId: world.drugId, serviceName: `${SLUG} Amoxicillin`, unit: "kapsul", sessions: 30, perVisit: 8 },
     ]);
     expect((await listPackageStockItems()).find((item) => item.id === world.drugId)).toMatchObject({ name: `${SLUG} Amoxicillin`, unit: "kapsul" });
 
