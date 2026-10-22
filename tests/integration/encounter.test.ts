@@ -17,6 +17,7 @@ import { matchPatient } from "@/server/intake";
 import { requireCapability } from "@/server/session";
 import { unwrap } from "./unwrap";
 import { at, bookableDate, cleanupBookingWorld, createBookingWorld, type BookingWorld } from "./public-booking-world";
+import { nurseDone } from "./nurse-release";
 
 vi.mock("@/server/session", () => ({ requireCapability: vi.fn() }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -50,7 +51,7 @@ describe("aksi kunjungan", () => {
     slot += 1;
     const minutes = 6 * 60 + slot * 30;
     const startAt = at(day, `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`);
-    return prisma.appointment.create({
+    return nurseDone(prisma.appointment.create({
       data: {
         code: `AKJ-${slot}`,
         type: "KONSULTASI",
@@ -63,7 +64,7 @@ describe("aksi kunjungan", () => {
         serviceId: world.consultationId,
         patientId,
       },
-    });
+    }));
   }
 
   async function opened() {

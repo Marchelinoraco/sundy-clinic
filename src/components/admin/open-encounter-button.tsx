@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { openEncounter } from "@/server/encounter";
 
 /** Tombol Periksa (spec 4.3): membuat atau membuka kunjungan, lalu pindah ke halamannya. */
-export function OpenEncounterButton({ appointmentId }: { appointmentId: string }) {
+export function OpenEncounterButton({ appointmentId, disabled = false }: { appointmentId: string; disabled?: boolean }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
@@ -27,7 +27,7 @@ export function OpenEncounterButton({ appointmentId }: { appointmentId: string }
   }
 
   return (
-    <Button size="small" variant="contained" onClick={open} disabled={pending}>
+    <Button size="small" variant="contained" onClick={open} disabled={disabled || pending}>
       Periksa
     </Button>
   );

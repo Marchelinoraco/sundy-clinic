@@ -9,6 +9,7 @@ import { getPatientDetail, updatePaperRecordNumber, updatePatientImportantNotes 
 import { requireCapability } from "@/server/session";
 import { unwrap } from "./unwrap";
 import { at, bookableDate, cleanupBookingWorld, createBookingWorld, type BookingWorld } from "./public-booking-world";
+import { nurseDone } from "./nurse-release";
 
 vi.mock("@/server/session", () => ({ requireCapability: vi.fn() }));
 
@@ -46,7 +47,7 @@ describe("data pasien: catatan penting, no. RM kertas lama, riwayat kunjungan", 
     ).id;
     const booking = (code: string, time: string) => {
       const startAt = at(date, time);
-      return prisma.appointment.create({
+      return nurseDone(prisma.appointment.create({
         data: {
           code,
           type: "KONSULTASI",
@@ -59,7 +60,7 @@ describe("data pasien: catatan penting, no. RM kertas lama, riwayat kunjungan", 
           serviceId: world.consultationId,
           patientId,
         },
-      });
+      }));
     };
     actAs("DOKTER");
     const first = await booking("RKM-1", "11:00");

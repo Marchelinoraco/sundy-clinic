@@ -16,6 +16,7 @@ import { useRouter } from "next/navigation";
 import { useImperativeHandle, useState, useTransition, type ReactNode, type Ref } from "react";
 import { toast } from "sonner";
 import { appendToSubjective } from "@/lib/food-recall";
+import { nurseVitalsLabel } from "@/lib/nurse-vitals";
 import {
   ENCOUNTER_TEXT_MAX,
   FINALIZE_NEEDS_ASSESSMENT,
@@ -163,6 +164,8 @@ export type EncounterFormProps = {
   biaUnsaved?: boolean;
   /** Catatan untuk Apoteker dari draf sebelum resep dokter; tampil baca-saja (spec resep dokter 3). */
   legacyPharmacyNote?: string | null;
+  /** Angka dari perawat yang menangani; keterangannya mengikuti angka yang sedang diketik dokter (spec vital perawat VP5, VP6). */
+  nurseVitals?: { byName: string; at: Date; values: Record<VitalKey, number | null> } | null;
 };
 
 /** Catatan draf S/O/A/P + treatment dengan simpan otomatis (spec 4–5, 7). */
@@ -231,6 +234,13 @@ export function EncounterForm(props: EncounterFormProps) {
     rejected && VITAL_KEYS.every((key) => vitalErrors[key] === null)
       ? bloodPressureProblem(vitalValues.systolic, vitalValues.diastolic)
       : null;
+  const nurseNote = props.nurseVitals
+    ? nurseVitalsLabel({
+        byName: props.nurseVitals.byName,
+        at: props.nurseVitals.at,
+        changedByDoctor: VITAL_KEYS.some((key) => vitalValues[key] !== props.nurseVitals!.values[key]),
+      })
+    : null;
   const index = bmi(vitalValues.weightKg, vitalValues.heightCm);
   const weightNote = weightChangeNote(vitalValues.weightKg, props.weightHistory ?? []);
 
@@ -294,6 +304,11 @@ export function EncounterForm(props: EncounterFormProps) {
       </Section>
 
       <Section id="bagian-o" title="O — Objective">
+        {nurseNote && (
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            {nurseNote}
+          </Typography>
+        )}
         {/* Dua kolom paling banyak: label MUI ada di dalam isian dan tidak bisa turun baris, jadi kolom sempit
             memotong satuannya ("Lingkar pinggang/perut (cm)"). */}
         <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)" } }}>

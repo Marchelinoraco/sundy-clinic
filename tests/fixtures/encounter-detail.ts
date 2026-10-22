@@ -55,6 +55,7 @@ export function encounterDetail(patch: Partial<EncounterDetail> = {}): Encounter
     draft: emptyDraftInput(),
     vitalLines: [],
     vitals: { ...NO_VITALS },
+    nurseVitals: null,
     treatments: [],
     pharmacyNote: null,
     prescriptions: [],

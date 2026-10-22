@@ -11,6 +11,7 @@ import { requireCapability } from "@/server/session";
 import { slimmingNewPatient } from "../fixtures/quiz-answers-v2";
 import { unwrap } from "./unwrap";
 import { at, cleanupBookingWorld, createBookingWorld, type BookingWorld } from "./public-booking-world";
+import { nurseDone } from "./nurse-release";
 
 vi.mock("@/server/session", () => ({ requireCapability: vi.fn() }));
 
@@ -35,7 +36,7 @@ describe("membaca kunjungan dan daftar kerja dokter", () => {
   async function booking(day: string, time: string, status: "HADIR" | "TERKONFIRMASI" = "HADIR", patient = patientId) {
     serial += 1;
     const startAt = at(day, time);
-    return prisma.appointment.create({
+    return nurseDone(prisma.appointment.create({
       data: {
         code: `BKJ-${serial}`,
         type: "KONSULTASI",
@@ -48,7 +49,7 @@ describe("membaca kunjungan dan daftar kerja dokter", () => {
         serviceId: world.consultationId,
         patientId: patient,
       },
-    });
+    }));
   }
 
   async function finalized(appointmentId: string) {

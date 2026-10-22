@@ -9,6 +9,7 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import type { ReactNode } from "react";
 import { PHARMACY_NOTE_LABEL, TEXT_FIELDS } from "@/lib/encounter";
+import { nurseVitalsLabel } from "@/lib/nurse-vitals";
 import type { EncounterDetail } from "@/server/encounter-read";
 
 function Part({ id, title, children }: { id: string; title: string; children: ReactNode }) {
@@ -46,6 +47,11 @@ export function EncounterRecord({ encounter }: { encounter: EncounterDetail }) {
         <RecordText label={TEXT_FIELDS.subjective} value={draft.subjective} />
       </Part>
       <Part id="bagian-o" title="O — Objective">
+        {encounter.nurseVitals && (
+          <Typography variant="body2" sx={{ color: "text.secondary" }}>
+            {nurseVitalsLabel(encounter.nurseVitals)}
+          </Typography>
+        )}
         {encounter.vitalLines.length > 0 ? (
           <Box component="ul" sx={{ m: 0, pl: 2.5, listStyle: "disc", fontSize: "0.875rem", "& > li + li": { mt: 0.25 } }}>
             {encounter.vitalLines.map((line) => (

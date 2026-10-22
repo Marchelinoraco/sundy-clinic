@@ -11,7 +11,9 @@ import {
   type EncounterDraft,
   type EncounterDraftInput,
 } from "@/lib/encounter";
+import { nurseGateApplies } from "@/lib/nurse-vitals";
 import { safeRevalidatePath } from "@/lib/revalidate";
+import { witaDateString } from "@/lib/time";
 import { recordAudit, recordAuditThrottled } from "@/server/audit";
 import { isRecordLockedError, isUniqueViolation } from "@/server/db-errors";
 import { lastHeightCm } from "@/server/encounter-store";
@@ -20,6 +22,7 @@ import { requireCapability } from "@/server/session";
 const STALE = "Catatan ini baru diubah di tempat lain. Muat ulang halaman.";
 const LOCKED = "Catatan ini sudah difinalisasi. Muat ulang halaman.";
 const GONE = "Kunjungan ini sudah tidak ada (drafnya dibuang). Muat ulang halaman.";
+const NURSE_PENDING = "Perawat belum selesai menangani pasien ini.";
 
 type Db = Prisma.TransactionClient | typeof prisma;
 
@@ -149,7 +152,9 @@ function revalidateEncounter(encounterId: string, patientId: string | null) {
 
 /**
  * Tombol Periksa (spec 4.3). Membuat kunjungan untuk booking HADIR, atau
- * mengembalikan kunjungan yang sudah ada. Tinggi badan diisikan awal dari
+ * mengembalikan kunjungan yang sudah ada. Kunjungan klinik hari ini menunggu
+ * perawat menekan Selesai ditangani, lalu angka vital perawat disalin ke bagian O
+ * (spec vital perawat VP4, VP5). Tinggi badan tanpa ukuran perawat diisikan dari
  * kunjungan final terakhir pasien, karena tinggi orang dewasa jarang diukur ulang.
  */
 export async function openEncounter(appointmentId: string): Promise<ActionResult<{ encounterId: string }>> {
@@ -158,7 +163,16 @@ export async function openEncounter(appointmentId: string): Promise<ActionResult
     const id = String(appointmentId ?? "");
     const appointment = await prisma.appointment.findUnique({
       where: { id },
-      select: { id: true, code: true, status: true, patientId: true, encounter: { select: { id: true } } },
+      select: {
+        id: true,
+        code: true,
+        status: true,
+        channel: true,
+        startAt: true,
+        patientId: true,
+        encounter: { select: { id: true } },
+        nurseVitals: { select: { systolic: true, diastolic: true, pulse: true, temperatureC: true, weightKg: true, heightCm: true, waistCm: true, completedAt: true } },
+      },
     });
     if (!appointment) throw new UserFacingError("Booking tidak ditemukan.");
     if (appointment.encounter) return { encounterId: appointment.encounter.id };
@@ -166,7 +180,21 @@ export async function openEncounter(appointmentId: string): Promise<ActionResult
       throw new UserFacingError("Kunjungan hanya bisa dibuka untuk pasien yang sudah ditandai hadir.");
     }
 
-    const heightCm = await lastHeightCm(prisma, appointment.patientId);
+    const { nurseVitals } = appointment;
+    if (nurseGateApplies({ channel: appointment.channel, startAt: appointment.startAt, hasEncounter: false }, witaDateString(new Date())) && !nurseVitals?.completedAt) {
+      throw new UserFacingError(NURSE_PENDING);
+    }
+    const vitals = nurseVitals
+      ? {
+          systolic: nurseVitals.systolic,
+          diastolic: nurseVitals.diastolic,
+          pulse: nurseVitals.pulse,
+          temperatureC: nurseVitals.temperatureC,
+          weightKg: nurseVitals.weightKg,
+          waistCm: nurseVitals.waistCm,
+        }
+      : {};
+    const heightCm = nurseVitals?.heightCm ?? (await lastHeightCm(prisma, appointment.patientId));
 
     try {
       const created = await prisma.encounter.create({
@@ -174,6 +202,7 @@ export async function openEncounter(appointmentId: string): Promise<ActionResult
           appointmentId: appointment.id,
           createdById: actor.staffId,
           createdByName: actor.name,
+          ...vitals,
           heightCm,
         },
         select: { id: true },

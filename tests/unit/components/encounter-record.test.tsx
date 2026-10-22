@@ -45,3 +45,14 @@ describe("EncounterRecord: treatment (spec aturan pakai PL4)", () => {
     expect(screen.queryByRole("columnheader", { name: "Pelaksana" })).toBeNull();
   });
 });
+
+describe("EncounterRecord: angka vital perawat (spec vital perawat VP6)", () => {
+  it("menyebut perawat yang mengukur dan tanda diubah dokter", () => {
+    renderAdmin(
+      <EncounterRecord
+        encounter={encounterDetail({ nurseVitals: { byName: "Rina", at: new Date("2026-10-23T01:15:00Z"), changedByDoctor: true, values: { systolic: null, diastolic: null, pulse: null, temperatureC: null, weightKg: 72.5, heightCm: null, waistCm: null } } })}
+      />,
+    );
+    expect(screen.getByText("Diukur perawat Rina · 09.15 · diubah dokter")).toBeInTheDocument();
+  });
+});

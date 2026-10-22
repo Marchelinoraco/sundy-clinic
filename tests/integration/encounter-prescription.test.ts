@@ -8,6 +8,7 @@ import { getEncounterForStaff } from "@/server/encounter-read";
 import { listPrescribableItems } from "@/server/prescription-read";
 import { billingBatch, cleanupBillingWorld, createBillingWorld, type BillingWorld } from "./invoice-world";
 import { unwrap } from "./unwrap";
+import { nurseDone } from "./nurse-release";
 
 const { actor } = vi.hoisted(() => ({ actor: { userId: "u", staffId: "s", name: "dr. Resep", role: "DOKTER" as const, email: "u@uji.test" } }));
 vi.mock("@/server/session", async () => {
@@ -35,12 +36,12 @@ const draft = (prescriptions: EncounterDraftInput["prescriptions"], patch: Parti
 async function openVisit() {
   seq += 1;
   const startAt = new Date(Date.UTC(2032, 0, 1, 1, 0) + seq * 3_600_000);
-  const appointment = await prisma.appointment.create({
+  const appointment = await nurseDone(prisma.appointment.create({
     data: {
       code: `RSK-${seq}`, type: "KONSULTASI", channel: "KLINIK", startAt, endAt: new Date(startAt.getTime() + 1_800_000), status: "HADIR",
       source: "WALK_IN", branchId: world.branchId, staffId: world.doctorId, serviceId: world.consultationId, patientId: world.patientId,
     },
-  });
+  }));
   const { encounterId } = await unwrap(openEncounter(appointment.id));
   const version = (await prisma.encounter.findUniqueOrThrow({ where: { id: encounterId } })).updatedAt.toISOString();
   return { appointmentId: appointment.id, encounterId, version };

@@ -1,5 +1,6 @@
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
+import Typography from "@mui/material/Typography";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -17,6 +18,17 @@ import { EmptyState, SectionCard } from "./page-layout";
 const STATE_LABEL: Record<WorklistState, string> = { BELUM: "Belum diperiksa", DRAF: "Draf", FINAL: "Final" };
 
 function Action({ row }: { row: WorklistRow }) {
+  // Kunjungan klinik hari ini menunggu perawat menekan Selesai ditangani (spec vital perawat VP4).
+  if (row.waitingNurse) {
+    return (
+      <Stack spacing={0.25} sx={{ alignItems: "flex-start" }}>
+        <OpenEncounterButton appointmentId={row.appointmentId} disabled />
+        <Typography variant="caption" sx={{ color: "text.secondary" }}>
+          Menunggu perawat
+        </Typography>
+      </Stack>
+    );
+  }
   if (row.state === "BELUM" || !row.encounterId) return <OpenEncounterButton appointmentId={row.appointmentId} />;
   return (
     <TextLink href={`/admin/kunjungan/${row.encounterId}`} underline="always" sx={{ fontSize: "0.875rem" }}>
