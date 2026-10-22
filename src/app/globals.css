@@ -748,6 +748,12 @@ h3 {
   height: 100%;
   background: #d4a017;
 }
+.invoice-a4-kunjungan {
+  margin: 5pt 0 0;
+  font-size: 9pt;
+  font-weight: 600;
+  color: #4a3c28;
+}
 .invoice-a4-penutup {
   display: flex;
   justify-content: space-between;

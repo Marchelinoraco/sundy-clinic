@@ -9,7 +9,7 @@ import { recordInvoicePayment } from "@/server/invoice-payments";
 import { getInvoiceA4 } from "@/server/invoice-read";
 import { extendPatientPackage } from "@/server/patient-packages";
 import { getReceiptMessage } from "@/server/receipt";
-import { witaDateString } from "@/lib/time";
+import { addDaysToDateString, witaDateString } from "@/lib/time";
 import { billingBatch, cleanupBillingWorld, createBillingWorld, finalVisit, type BillingWorld } from "./invoice-world";
 import { unwrap } from "./unwrap";
 
@@ -91,6 +91,7 @@ describe("invoice A4: paket per tanggal invoice (spec invoice A4 IA5, IA6, IA10)
           { name: "Facial Uji", unit: null, total: 2, used: 1, remaining: 1 },
           { name: `${SLUG} Amoxicillin`, unit: "kapsul", total: 30, used: 10, remaining: 20 },
         ],
+        nextVisitOn: addDaysToDateString(witaDateString(new Date()), 7),
       },
     ]);
 
@@ -107,6 +108,9 @@ describe("invoice A4: paket per tanggal invoice (spec invoice A4 IA5, IA6, IA10)
         { total: 30, used: 20, remaining: 10 },
       ],
     });
+    // Kunjungan berikutnya hanya di invoice terbaru paket itu (spec jadwal paket JP14).
+    expect((await loadInvoiceA4(second))!.packages[0].nextVisitOn).toBe(addDaysToDateString(witaDateString(new Date()), 7));
+    expect((await loadInvoiceA4(purchase))!.packages[0].nextVisitOn).toBeNull();
 
     // Kunjungan kedua dibatalkan: invoice pembelian tetap seperti tanggalnya (Review Focus 1).
     actor.role = "ADMIN_KEUANGAN";

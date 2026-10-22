@@ -123,6 +123,7 @@ export function InvoiceA4Paper({ invoice }: { invoice: InvoiceA4 }) {
                   </div>
                 </div>
               ))}
+              {pkg.nextVisitOn && <p className="invoice-a4-kunjungan">Kunjungan berikutnya: {dateLabel(pkg.nextVisitOn)}</p>}
             </div>
           ))}
         </section>

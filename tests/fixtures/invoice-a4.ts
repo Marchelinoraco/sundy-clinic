@@ -29,6 +29,7 @@ export const INVOICE_A4: InvoiceA4 = {
         { name: "Facial Brightening", unit: null, total: 4, used: 1, remaining: 3 },
         { name: "Slimming Capsule", unit: "kapsul", total: 28, used: 7, remaining: 21 },
       ],
+      nextVisitOn: "2026-10-29",
     },
   ],
 };

@@ -8,11 +8,14 @@ import { notFound } from "next/navigation";
 import { AdminHeader } from "@/components/admin/admin-header";
 import { TextLink } from "@/components/admin/mui/links";
 import { StatusChip } from "@/components/admin/mui/status-chip";
+import { ChangeVisitDialog } from "@/components/admin/package/change-visit-dialog";
 import { ExtendPackageDialog } from "@/components/admin/package/extend-package-dialog";
 import { EmptyState, PageBody, PageHeader, SectionCard } from "@/components/admin/page-layout";
 import { formatDateWithYear, formatRupiah } from "@/lib/format";
+import { visitContentsLabel } from "@/lib/package-visit";
 import { can } from "@/lib/permissions";
 import { dateLabel } from "@/lib/stock";
+import { witaDateString } from "@/lib/time";
 import { PACKAGE_ENTRY_LABEL, PACKAGE_STATE_LABEL } from "@/lib/treatment-package";
 import { getPatientPackage } from "@/server/patient-package-read";
 import { requireCapability } from "@/server/session";
@@ -24,6 +27,8 @@ export default async function PatientPackagePage({ params }: { params: Promise<{
   const pkg = await getPatientPackage((await params).id);
   if (!pkg) notFound();
   const canExtend = can(staff.role, "invoice:correct") && pkg.state !== "DIBATALKAN";
+  // Resepsionis dan Admin Keuangan boleh menggeser kunjungan berikutnya (spec jadwal paket JP9).
+  const canChangeVisit = can(staff.role, "invoice:manage") && pkg.state === "AKTIF" && pkg.nextVisitOn !== null;
 
   return (
     <>
@@ -62,6 +67,52 @@ export default async function PatientPackagePage({ params }: { params: Promise<{
               </TableBody>
             </Table>
           </TableContainer>
+        </SectionCard>
+        <SectionCard
+          title="Rencana kunjungan"
+          description="Tiap kunjungan: 1 sesi tiap treatment yang bersisa dan jatah barang per kunjungan."
+          actions={canChangeVisit && <ChangeVisitDialog packageId={pkg.id} nextVisitOn={pkg.nextVisitOn!} today={witaDateString(new Date())} expiresOn={pkg.expiresOn} />}
+          flush
+        >
+          {pkg.doneVisits.length + pkg.plan.length === 0 ? (
+            <EmptyState>Tidak ada rencana kunjungan.</EmptyState>
+          ) : (
+            <TableContainer>
+              <Table size="small" aria-label="Rencana kunjungan">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Kunjungan</TableCell>
+                    <TableCell>Tanggal</TableCell>
+                    <TableCell>Isi</TableCell>
+                    <TableCell>Keterangan</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {pkg.doneVisits.map((visit) => (
+                    <TableRow key={`selesai-${visit.number}`}>
+                      <TableCell>Ke-{visit.number}</TableCell>
+                      <TableCell>{dateLabel(visit.date)}</TableCell>
+                      <TableCell>{visitContentsLabel(visit.contents)}</TableCell>
+                      <TableCell>
+                        Selesai · <TextLink href={`/admin/tagihan/${visit.invoice.id}`}>{visit.invoice.number ?? "Tagihan"}</TextLink>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {pkg.plan.map((visit, index) => (
+                    <TableRow key={`rencana-${visit.number}`}>
+                      <TableCell>Ke-{visit.number}</TableCell>
+                      <TableCell>{dateLabel(visit.date)}</TableCell>
+                      <TableCell>{visitContentsLabel(visit.contents)}</TableCell>
+                      <TableCell>
+                        {index === 0 ? "Berikutnya" : "Rencana"}
+                        {visit.date > pkg.expiresOn && " · melewati masa berlaku"}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
         </SectionCard>
         <SectionCard title="Riwayat" description="Terbaru di atas." flush>
           {pkg.entries.length === 0 ? (

@@ -19,9 +19,29 @@ async function packageSnapshots(invoiceId: string, finalizedAt: Date): Promise<S
   const packages = await prisma.patientPackage.findMany({
     where: { OR: [{ purchaseLine: { invoiceId } }, { items: { some: { entries: { some: { kind: "PAKAI", invoiceLine: { invoiceId } } } } } }] },
     orderBy: { createdAt: "asc" },
-    select: { id: true, name: true, expiresOn: true, purchaseLineId: true, items: { orderBy: { sortOrder: "asc" }, select: { id: true, serviceName: true, unit: true, sessions: true } } },
+    select: {
+      id: true,
+      name: true,
+      expiresOn: true,
+      nextVisitOn: true,
+      purchaseLineId: true,
+      purchaseLine: { select: { invoice: { select: { id: true, status: true, finalizedAt: true } } } },
+      items: { orderBy: { sortOrder: "asc" }, select: { id: true, serviceName: true, unit: true, sessions: true } },
+    },
   });
   if (packages.length === 0) return [];
+  // Invoice final terbaru yang membeli atau memakai tiap paket: hanya di sana "Kunjungan berikutnya" tampil (spec jadwal paket JP14).
+  const uses = await prisma.packageSessionEntry.findMany({
+    where: { kind: "PAKAI", item: { patientPackageId: { in: packages.map((pkg) => pkg.id) } }, invoiceLine: { invoice: { status: "FINAL" } } },
+    select: { item: { select: { patientPackageId: true } }, invoiceLine: { select: { invoice: { select: { id: true, finalizedAt: true } } } } },
+  });
+  const newest = new Map<string, { id: string; at: number }>();
+  const consider = (patientPackageId: string, invoice: { id: string; finalizedAt: Date | null }) => {
+    const at = invoice.finalizedAt?.getTime() ?? 0;
+    if (at > (newest.get(patientPackageId)?.at ?? -1)) newest.set(patientPackageId, { id: invoice.id, at });
+  };
+  for (const pkg of packages) if (pkg.purchaseLine.invoice.status === "FINAL") consider(pkg.id, pkg.purchaseLine.invoice);
+  for (const use of uses) if (use.invoiceLine) consider(use.item.patientPackageId, use.invoiceLine.invoice);
   const own = await prisma.packageSessionEntry.aggregate({ where: { kind: { in: ["BELI", "PAKAI"] }, invoiceLine: { invoiceId } }, _max: { createdAt: true } });
   const cutoff = own._max.createdAt ?? finalizedAt;
   const entries = await prisma.packageSessionEntry.findMany({
@@ -40,6 +60,7 @@ async function packageSnapshots(invoiceId: string, finalizedAt: Date): Promise<S
       expiresOn: dateOnlyString(before ?? after ?? pkg.expiresOn),
       purchaseLineId: pkg.purchaseLineId,
       itemIds: pkg.items.map((item) => item.id),
+      nextVisitOn: pkg.nextVisitOn && newest.get(pkg.id)?.id === invoiceId ? dateOnlyString(pkg.nextVisitOn) : null,
       items: pkg.items.map((item) => {
         const rows = known.filter((entry) => entry.patientPackageItemId === item.id);
         const used = -rows.filter((entry) => entry.kind === "PAKAI" || entry.kind === "BATAL_PAKAI").reduce((sum, entry) => sum + entry.delta, 0);
@@ -86,6 +107,6 @@ export async function loadInvoiceA4(invoiceId: string): Promise<InvoiceA4 | null
   };
   return buildInvoiceA4(
     { ...invoice, lines: invoice.lines.map((line) => ({ ...line, unit: line.itemId ? (units.get(line.itemId) ?? null) : null, note: noteOf(line) })) },
-    snapshots.map(({ name, expiresOn, items }) => ({ name, expiresOn, items })),
+    snapshots.map(({ name, expiresOn, items, nextVisitOn }) => ({ name, expiresOn, items, nextVisitOn })),
   );
 }

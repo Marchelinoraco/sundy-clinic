@@ -1,6 +1,6 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { planVisits, type PlannedVisit } from "@/lib/package-visit";
+import { planVisits, type PlannedVisit, type VisitContent } from "@/lib/package-visit";
 import { dateOnlyString } from "@/lib/stock";
 import { witaDateString } from "@/lib/time";
 import { packageExpiresOn, packageState, type PackageEntryKindValue, type PackageOption, type PatientPackageState } from "@/lib/treatment-package";
@@ -149,7 +149,15 @@ export type PackageEntryRow = {
   previousExpiresOn: string | null;
   newExpiresOn: string | null;
 };
-export type PatientPackageDetail = PatientPackageSummary & { price: number; entries: PackageEntryRow[] };
+/** Kunjungan yang sudah terjadi: satu tagihan final yang memakai paket (spec jadwal paket JP7). */
+export type PackageDoneVisit = { number: number; date: string; invoice: { id: string; number: string | null }; contents: VisitContent[] };
+export type PatientPackageDetail = PatientPackageSummary & {
+  price: number;
+  entries: PackageEntryRow[];
+  nextVisitOn: string | null;
+  doneVisits: PackageDoneVisit[];
+  plan: PlannedVisit[];
+};
 
 const SUMMARY_SELECT = {
   id: true,
@@ -158,9 +166,11 @@ const SUMMARY_SELECT = {
   startsOn: true,
   expiresOn: true,
   status: true,
+  nextVisitOn: true,
+  visitIntervalDays: true,
   patient: { select: { id: true, name: true, medicalRecordNumber: true } },
   purchaseLine: { select: { invoice: { select: { id: true, number: true } } } },
-  items: { orderBy: { sortOrder: "asc" }, select: { id: true, serviceName: true, unit: true, sessions: true } },
+  items: { orderBy: { sortOrder: "asc" }, select: { id: true, serviceName: true, unit: true, sessions: true, perVisit: true } },
 } as const;
 type SummaryRow = Prisma.PatientPackageGetPayload<{ select: typeof SUMMARY_SELECT }>;
 
@@ -243,8 +253,19 @@ export async function getPatientPackage(id: string): Promise<PatientPackageDetai
       invoiceLine: { select: { invoice: { select: { id: true, number: true } } } },
     },
   });
+  const nextVisitOn = row.nextVisitOn ? dateOnlyString(row.nextVisitOn) : null;
+  const doneVisits = await packageDoneVisits(row.id, row.items);
+  const plan = planVisits({
+    nextVisitOn,
+    intervalDays: row.visitIntervalDays,
+    visitsDone: doneVisits.length,
+    items: row.items.map((item, index) => ({ name: item.serviceName, unit: item.unit, remaining: summary.items[index].remaining, perVisit: item.perVisit })),
+  });
   return {
     ...summary,
+    nextVisitOn,
+    doneVisits,
+    plan,
     entries: entries.map((entry) => ({
       id: entry.id,
       createdAt: entry.createdAt,
@@ -258,4 +279,25 @@ export async function getPatientPackage(id: string): Promise<PatientPackageDetai
       newExpiresOn: entry.newExpiresOn ? dateOnlyString(entry.newExpiresOn) : null,
     })),
   };
+}
+
+/** Tagihan final yang memakai paket, urut waktu final; isinya = jumlah PAKAI per isi paket (spec jadwal paket JP7). */
+async function packageDoneVisits(patientPackageId: string, items: readonly { id: string; serviceName: string; unit: string | null }[]): Promise<PackageDoneVisit[]> {
+  const uses = await prisma.packageSessionEntry.findMany({
+    where: { kind: "PAKAI", item: { patientPackageId }, invoiceLine: { invoice: { status: "FINAL" } } },
+    select: { patientPackageItemId: true, delta: true, invoiceLine: { select: { invoice: { select: { id: true, number: true, finalizedAt: true } } } } },
+  });
+  const invoices = new Map<string, { id: string; number: string | null; finalizedAt: Date | null }>();
+  for (const use of uses) if (use.invoiceLine) invoices.set(use.invoiceLine.invoice.id, use.invoiceLine.invoice);
+  return [...invoices.values()]
+    .sort((a, b) => (a.finalizedAt?.getTime() ?? 0) - (b.finalizedAt?.getTime() ?? 0))
+    .map((invoice, index) => ({
+      number: index + 1,
+      date: invoice.finalizedAt ? witaDateString(invoice.finalizedAt) : "",
+      invoice: { id: invoice.id, number: invoice.number },
+      contents: items.flatMap((item) => {
+        const quantity = -uses.filter((use) => use.invoiceLine?.invoice.id === invoice.id && use.patientPackageItemId === item.id).reduce((sum, use) => sum + use.delta, 0);
+        return quantity > 0 ? [{ name: item.serviceName, unit: item.unit, quantity }] : [];
+      }),
+    }));
 }

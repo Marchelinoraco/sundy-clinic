@@ -5,6 +5,7 @@ import { dateOnlyString } from "@/lib/stock";
 import { addDaysToDateString, witaDateString } from "@/lib/time";
 import { addPackageLine, applyPackageSession, createDirectSale, createInvoiceFromVisit, takePackageItem } from "@/server/invoice-drafts";
 import { cancelInvoice, finalizeInvoice } from "@/server/invoice-lifecycle";
+import { getPatientPackage } from "@/server/patient-package-read";
 import { changeNextVisit } from "@/server/patient-packages";
 import { billingBatch, cleanupBillingWorld, createBillingWorld, finalVisit, type BillingWorld } from "./invoice-world";
 import { unwrap } from "./unwrap";
@@ -112,6 +113,18 @@ describe("tanggal kunjungan berikutnya (spec jadwal paket JP4, JP10, JP11)", () 
     await useVisit(purchaseLineId);
     await useVisit(purchaseLineId);
     expect(await next(purchaseLineId)).toBeNull();
+  });
+
+  it("halaman paket: kunjungan selesai dari buku sesi, lalu rencana sisanya (spec jadwal paket JP7)", async () => {
+    const { purchaseLineId } = await buyOnly();
+    const pkg = await packageOf(purchaseLineId);
+    const invoiceId = await useVisit(purchaseLineId);
+    const detail = (await getPatientPackage(pkg.id))!;
+    const facial = { name: pkg.items[0].serviceName, unit: null, quantity: 1 };
+    const kapsul = { name: `${SLUG} Amoxicillin`, unit: "kapsul", quantity: 7 };
+    expect(detail.nextVisitOn).toBe(addDaysToDateString(today(), 7));
+    expect(detail.doneVisits).toEqual([{ number: 1, date: today(), invoice: { id: invoiceId, number: expect.any(String) }, contents: [facial, kapsul] }]);
+    expect(detail.plan).toEqual([{ number: 2, date: addDaysToDateString(today(), 7), contents: [facial, kapsul] }]);
   });
 
   it("pembelian dibatalkan: paket tanpa rencana", async () => {

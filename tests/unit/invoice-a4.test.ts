@@ -27,7 +27,7 @@ const source = (patch: Partial<InvoiceA4Source> = {}): InvoiceA4Source => ({
   ...patch,
 });
 
-const glowing = { name: "Glowing 3 Bulan", expiresOn: "2027-01-19", items: [{ name: "Facial Brightening", unit: null, total: 4, used: 1, remaining: 3 }] };
+const glowing = { name: "Glowing 3 Bulan", expiresOn: "2027-01-19", items: [{ name: "Facial Brightening", unit: null, total: 4, used: 1, remaining: 3 }], nextVisitOn: "2026-10-29" };
 
 describe("invoice A4 (spec invoice A4)", () => {
   it("cap air mengikuti status bayar terkini; pembayaran dibatalkan tidak dihitung (IA3, IA6, Review Focus 2)", () => {

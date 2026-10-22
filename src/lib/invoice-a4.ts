@@ -16,7 +16,8 @@ export const INVOICE_A4_STAMP: Record<InvoiceA4Status, string> = {
 
 /** Satu isi paket per tanggal invoice (IA6): `used` sesi terpakai atau satuan diterima, `remaining` sisanya. */
 export type InvoiceA4PackageItem = { name: string; unit: string | null; total: number; used: number; remaining: number };
-export type InvoiceA4Package = { name: string; expiresOn: string; items: InvoiceA4PackageItem[] };
+/** `nextVisitOn` terisi hanya di invoice terbaru yang membeli atau memakai paket itu, dari rencana terkini (spec jadwal paket JP14). */
+export type InvoiceA4Package = { name: string; expiresOn: string; items: InvoiceA4PackageItem[]; nextVisitOn: string | null };
 
 export type InvoiceA4Source = Omit<ReceiptSource, "patient" | "payments" | "lines"> & {
   patient: { name: string; medicalRecordNumber: string };
