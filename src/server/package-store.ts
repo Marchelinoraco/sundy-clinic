@@ -132,7 +132,7 @@ export async function activatePurchasedPackages(
         isActive: true,
         items: {
           orderBy: { sortOrder: "asc" },
-          select: { serviceId: true, itemId: true, sessions: true, service: { select: { name: true } }, item: { select: { name: true, unit: true } } },
+          select: { serviceId: true, itemId: true, sessions: true, perVisit: true, service: { select: { name: true } }, item: { select: { name: true, unit: true } } },
         },
       },
     });
@@ -153,6 +153,7 @@ export async function activatePurchasedPackages(
             serviceName: item.service?.name ?? item.item?.name ?? "",
             unit: item.item?.unit ?? null,
             sessions: item.sessions,
+            perVisit: item.perVisit,
             sortOrder: index,
           })),
         },

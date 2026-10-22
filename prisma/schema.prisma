@@ -1365,18 +1365,20 @@ enum PackageEntryKind {
 
 /// Katalog paket treatment (spec paket 3–4). Tidak pernah dihapus; dinonaktifkan.
 model TreatmentPackage {
-  id              String                 @id @default(cuid())
-  name            String
-  price           Int
-  validDays       Int
-  description     String?
-  isActive        Boolean                @default(true)
-  sortOrder       Int                    @default(0)
-  items           TreatmentPackageItem[]
-  invoiceLines    InvoiceLine[]
-  patientPackages PatientPackage[]
-  createdAt       DateTime               @default(now())
-  updatedAt       DateTime               @updatedAt
+  id                String                 @id @default(cuid())
+  name              String
+  price             Int
+  validDays         Int
+  /// Jarak antar kunjungan rencana, hari (spec jadwal paket JP2). CHECK treatment_package_visit_interval.
+  visitIntervalDays Int                    @default(7)
+  description       String?
+  isActive          Boolean                @default(true)
+  sortOrder         Int                    @default(0)
+  items             TreatmentPackageItem[]
+  invoiceLines      InvoiceLine[]
+  patientPackages   PatientPackage[]
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
 
   @@index([isActive, sortOrder])
 }
@@ -1392,6 +1394,8 @@ model TreatmentPackageItem {
   item      StockItem?       @relation(fields: [itemId], references: [id], onDelete: Restrict)
   /// Jumlah sesi (treatment) atau jumlah satuan barang.
   sessions  Int
+  /// Barang: jumlah yang diserahkan per kunjungan (spec jadwal paket JP2); kosong untuk treatment.
+  perVisit  Int?
   sortOrder Int              @default(0)
 
   @@unique([packageId, serviceId])
@@ -1400,21 +1404,26 @@ model TreatmentPackageItem {
 
 /// Paket milik customer; nama, harga, dan isi disalin saat tagihan pembelian difinalkan.
 model PatientPackage {
-  id             String               @id @default(cuid())
-  patientId      String
-  patient        Patient              @relation(fields: [patientId], references: [id], onDelete: Restrict)
-  packageId      String
-  package        TreatmentPackage     @relation(fields: [packageId], references: [id], onDelete: Restrict)
-  name           String
-  price          Int
-  purchaseLineId String               @unique
-  purchaseLine   InvoiceLine          @relation("PackagePurchase", fields: [purchaseLineId], references: [id], onDelete: Restrict)
-  startsOn       DateTime             @db.Date
+  id                String                 @id @default(cuid())
+  patientId         String
+  patient           Patient                @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  packageId         String
+  package           TreatmentPackage       @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  name              String
+  price             Int
+  purchaseLineId    String                 @unique
+  purchaseLine      InvoiceLine            @relation("PackagePurchase", fields: [purchaseLineId], references: [id], onDelete: Restrict)
+  startsOn          DateTime               @db.Date
   /// Inklusif. Kedaluwarsa dihitung dari tanggal ini, bukan disimpan sebagai status.
-  expiresOn      DateTime             @db.Date
-  status         PatientPackageStatus @default(AKTIF)
-  items          PatientPackageItem[]
-  createdAt      DateTime             @default(now())
+  expiresOn         DateTime               @db.Date
+  /// Salinan jarak kunjungan dari katalog saat dibeli (spec jadwal paket JP10). CHECK patient_package_visit_interval.
+  visitIntervalDays Int                    @default(7)
+  /// Tanggal kunjungan berikutnya; kosong bila paket habis atau dibatalkan (JP4, JP11).
+  nextVisitOn       DateTime?              @db.Date
+  visitReminders    PackageVisitReminder[]
+  status            PatientPackageStatus   @default(AKTIF)
+  items             PatientPackageItem[]
+  createdAt         DateTime               @default(now())
 
   @@index([patientId])
 }
@@ -1432,6 +1441,8 @@ model PatientPackageItem {
   serviceName      String
   /// Jatah awal. Sisa = Σ delta buku sesi.
   sessions         Int
+  /// Salinan jumlah per kunjungan barang (spec jadwal paket JP10); kosong untuk treatment.
+  perVisit         Int?
   sortOrder        Int                   @default(0)
   entries          PackageSessionEntry[]
   invoiceLines     InvoiceLine[]         @relation("PackageSessionLine")
@@ -1756,4 +1767,17 @@ model PayrollAdjustment {
   invoiceLineId String?               @unique
   createdByName String
   createdAt     DateTime              @default(now())
+}
+
+/// Pengingat kunjungan paket yang sudah dikirim resepsionis, satu per paket dan tanggal rencana (spec jadwal paket JP12).
+model PackageVisitReminder {
+  id               String         @id @default(cuid())
+  patientPackageId String
+  patientPackage   PatientPackage @relation(fields: [patientPackageId], references: [id], onDelete: Cascade)
+  visitOn          DateTime       @db.Date
+  sentAt           DateTime       @default(now())
+  staffId          String
+  staffName        String
+
+  @@unique([patientPackageId, visitOn])
 }

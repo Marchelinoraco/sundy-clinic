@@ -80,8 +80,17 @@ function view(row: Row): TreatmentPackageView {
 }
 
 const summaryOf = (row: TreatmentPackageView) => `${row.name}: ${formatRupiah(row.price)} · ${row.contents} · ${row.validDays} hari`;
-const itemRows = (value: ValidTreatmentPackage) =>
-  value.items.map((item, index) => ({ serviceId: item.serviceId, itemId: item.itemId, sessions: item.sessions, sortOrder: index }));
+/** Barang tanpa jumlah per kunjungan dibagi rata dengan sesi treatment terbanyak (spec jadwal paket JP15). */
+function itemRows(value: ValidTreatmentPackage) {
+  const maxSessions = Math.max(0, ...value.items.filter((item) => item.serviceId).map((item) => item.sessions));
+  return value.items.map((item, index) => ({
+    serviceId: item.serviceId,
+    itemId: item.itemId,
+    sessions: item.sessions,
+    perVisit: item.itemId ? Math.ceil(item.sessions / Math.max(1, maxSessions)) : null,
+    sortOrder: index,
+  }));
+}
 
 function revalidate() {
   safeRevalidatePath("/admin/paket");

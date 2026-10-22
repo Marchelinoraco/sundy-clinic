@@ -64,7 +64,7 @@ beforeAll(async () => {
         name: `${SLUG} Lux`,
         price: 2_000_000,
         validDays: 180,
-        items: { create: [{ serviceId: world.treatmentId, sessions: 2, sortOrder: 0 }, { itemId: world.drugId, sessions: 30, sortOrder: 1 }] },
+        items: { create: [{ serviceId: world.treatmentId, sessions: 2, sortOrder: 0 }, { itemId: world.drugId, sessions: 30, perVisit: 7, sortOrder: 1 }] },
       },
       select: { id: true },
     })
