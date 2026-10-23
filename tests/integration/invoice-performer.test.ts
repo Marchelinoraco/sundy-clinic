@@ -6,6 +6,7 @@ import { finalizeInvoice } from "@/server/invoice-lifecycle";
 import { getInvoiceDetail, listPerformers } from "@/server/invoice-read";
 import { cleanupBillingWorld, createBillingWorld, finalVisit, type BillingWorld } from "./invoice-world";
 import { unwrap } from "./unwrap";
+import { testApproval } from "./approver";
 
 const { actor } = vi.hoisted(() => ({ actor: { userId: "u", staffId: "s", name: "Resepsionis Pelaksana", role: "RESEPSIONIS" as const, email: "u@uji.test" } }));
 vi.mock("@/server/session", async () => {
@@ -67,7 +68,7 @@ describe("pelaksana treatment", () => {
   it("baris treatment bebas boleh tanpa pelaksana; daftar pelaksana hanya dokter dan terapis aktif", async () => {
     const { appointmentId } = await finalVisit(world);
     const { id } = await unwrap(createInvoiceFromVisit(appointmentId));
-    await unwrap(addFreeLine({ invoiceId: id, version: await versionOf(id), kind: "TREATMENT", name: "Treatment bebas", quantity: 1, unitPrice: 100_000 }));
+    await unwrap(addFreeLine({ approval: await testApproval(), invoiceId: id, version: await versionOf(id), kind: "TREATMENT", name: "Treatment bebas", quantity: 1, unitPrice: 100_000 }));
     expect((await prisma.invoiceLine.findFirstOrThrow({ where: { invoiceId: id, name: "Treatment bebas" } })).performerId).toBeNull();
     const performers = await listPerformers();
     expect(performers.map((p) => p.id)).toEqual(expect.arrayContaining([world.doctorId, world.therapistId]));
@@ -82,7 +83,7 @@ describe("finalisasi butuh pelaksana di setiap treatment (spec aturan pakai PL3)
   it("treatment tanpa pelaksana menolak finalisasi; layanan tidak butuh pelaksana", async () => {
     const id = await directSale();
     await unwrap(addServiceLine({ invoiceId: id, version: await versionOf(id), serviceId: world.treatmentId, quantity: 1 }));
-    await unwrap(addFreeLine({ invoiceId: id, version: await versionOf(id), kind: "LAYANAN", name: "Konsultasi bebas", quantity: 1, unitPrice: 50_000 }));
+    await unwrap(addFreeLine({ approval: await testApproval(), invoiceId: id, version: await versionOf(id), kind: "LAYANAN", name: "Konsultasi bebas", quantity: 1, unitPrice: 50_000 }));
     expect(await finalize(id)).toEqual({ ok: false, error: "Pilih pelaksana untuk Facial Uji." });
     expect((await prisma.invoice.findUniqueOrThrow({ where: { id } })).status).toBe("DRAF");
 

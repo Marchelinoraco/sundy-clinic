@@ -38,7 +38,7 @@ let world: BillingWorld;
 async function finalInvoice(price = 300_000, paid = 0) {
   actor.role = "RESEPSIONIS";
   const { id } = await unwrap(createDirectSale({ patientId: world.patientId, branchId: world.branchId }));
-  const { version } = await unwrap(addFreeLine({ invoiceId: id, version: 1, kind: "LAYANAN", name: "Layanan Struk", quantity: 1, unitPrice: price }));
+  const { version } = await unwrap(addFreeLine({ approval: await testApproval(), invoiceId: id, version: 1, kind: "LAYANAN", name: "Layanan Struk", quantity: 1, unitPrice: price }));
   await unwrap(finalizeInvoice({ invoiceId: id, version }));
   if (paid > 0) await unwrap(recordInvoicePayment({ invoiceId: id, amount: paid, method: "QRIS", paidAt: today, reference: "" }));
   return id;

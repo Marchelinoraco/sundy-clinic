@@ -3,6 +3,7 @@ import { E2E_RESEPSIONIS } from "./credentials";
 import { pilihOpsi, tungguHidrasi } from "./helpers/mui";
 import { buatPasienBaru } from "./helpers/pasien-baru";
 import { signIn } from "./helpers/quiz";
+import { setujui } from "./helpers/approval";
 
 test.setTimeout(180_000);
 
@@ -37,6 +38,8 @@ test("resepsionis mengirim struk via WA; tautan terbuka tanpa login; Ganti tauta
   await lineDialog.getByLabel("Nama", { exact: true }).fill(`Layanan Struk ${suffix}`);
   await lineDialog.getByLabel("Harga").fill("250000");
   await lineDialog.getByRole("button", { name: "Tambah" }).click();
+  // Baris bebas di luar katalog meminta PIN persetujuan (spec PIN P13).
+  await setujui(page);
   await expect(lineDialog).toBeHidden({ timeout: 30_000 });
   await page.getByRole("button", { name: "Finalkan tagihan" }).click();
   await page.getByRole("dialog", { name: "Finalkan tagihan?" }).getByRole("button", { name: "Finalkan" }).click();

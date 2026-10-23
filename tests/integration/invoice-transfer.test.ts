@@ -10,6 +10,7 @@ import { getReceiptMessage } from "@/server/receipt";
 import { getPublicReceipt } from "@/server/receipt-public";
 import { cleanupBillingWorld, createBillingWorld, type BillingWorld } from "./invoice-world";
 import { unwrap } from "./unwrap";
+import { testApproval } from "./approver";
 
 vi.mock("@/server/session", () => ({
   requireCapability: vi.fn().mockResolvedValue({ userId: "u", staffId: "s", name: "Resepsionis Transfer", role: "SUPER_ADMIN", email: "u@uji.test" }),
@@ -28,7 +29,7 @@ beforeAll(async () => {
   world = await createBillingWorld(SLUG, WA);
   accountId = (await prisma.clinicBankAccount.create({ data: { bankName: "BCA Transfer Uji", accountNumber: "1234567890", accountHolder: "SunDY Clinic" } })).id;
   invoiceId = (await unwrap(createDirectSale({ patientId: world.patientId, branchId: world.branchId }))).id;
-  const { version } = await unwrap(addFreeLine({ invoiceId, version: 1, kind: "LAYANAN", name: "Layanan Transfer", quantity: 1, unitPrice: 300_000 }));
+  const { version } = await unwrap(addFreeLine({ approval: await testApproval(), invoiceId, version: 1, kind: "LAYANAN", name: "Layanan Transfer", quantity: 1, unitPrice: 300_000 }));
   await unwrap(finalizeInvoice({ invoiceId, version }));
 });
 afterAll(async () => {

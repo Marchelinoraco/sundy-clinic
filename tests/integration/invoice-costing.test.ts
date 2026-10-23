@@ -95,7 +95,7 @@ describe("salinan biaya dan komisi saat final", () => {
     const itemId = (await prisma.patientPackageItem.findFirstOrThrow({ where: { patientPackage: { purchaseLine: { invoiceId: sale.id } } } })).id;
     const draft = await visitDraft();
     await unwrap(applyPackageSession({ invoiceId: draft.id, version: await versionOf(draft.id), lineId: draft.line.id, patientPackageItemId: itemId }));
-    await unwrap(addFreeLine({ invoiceId: draft.id, version: await versionOf(draft.id), kind: "TREATMENT", name: "Bebas", quantity: 1, unitPrice: 10_000 }));
+    await unwrap(addFreeLine({ approval: await testApproval(), invoiceId: draft.id, version: await versionOf(draft.id), kind: "TREATMENT", name: "Bebas", quantity: 1, unitPrice: 10_000 }));
     // Baris treatment bebas juga butuh pelaksana (spec aturan pakai PL3); tanpa layanan, komisinya tetap 0.
     await assignPerformers(world, draft.id);
     await finalize(draft.id);

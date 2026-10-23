@@ -135,7 +135,7 @@ describe("invoice A4: paket per tanggal invoice (spec invoice A4 IA5, IA6, IA10)
 
   it("invoice tanpa paket tidak punya kotak paket (Review Focus 3)", async () => {
     const { id } = await unwrap(createDirectSale({ patientId: world.patientId, branchId: world.branchId }));
-    await unwrap(addFreeLine({ invoiceId: id, version: await versionOf(id), kind: "LAYANAN", name: "Konsultasi bebas", quantity: 1, unitPrice: 50_000 }));
+    await unwrap(addFreeLine({ approval: await testApproval(), invoiceId: id, version: await versionOf(id), kind: "LAYANAN", name: "Konsultasi bebas", quantity: 1, unitPrice: 50_000 }));
     expect(await getInvoiceA4(id)).toBeNull();
     await finalize(id);
     expect((await loadInvoiceA4(id))!.packages).toEqual([]);
@@ -145,7 +145,7 @@ describe("invoice A4: paket per tanggal invoice (spec invoice A4 IA5, IA6, IA10)
 describe("invoice A4: tautan pasien dan panel (IA8, IA9)", () => {
   it("kode struk yang sah membuka invoice A4 dengan nomor RM dan pembayaran; dibatalkan dan kode palsu tidak", async () => {
     const { id } = await unwrap(createDirectSale({ patientId: world.patientId, branchId: world.branchId }));
-    await unwrap(addFreeLine({ invoiceId: id, version: await versionOf(id), kind: "LAYANAN", name: "Konsultasi bebas", quantity: 1, unitPrice: 100_000 }));
+    await unwrap(addFreeLine({ approval: await testApproval(), invoiceId: id, version: await versionOf(id), kind: "LAYANAN", name: "Konsultasi bebas", quantity: 1, unitPrice: 100_000 }));
     await finalize(id);
     await unwrap(recordInvoicePayment({ invoiceId: id, amount: 40_000, method: "TUNAI", paidAt: witaDateString(new Date()), reference: "" }));
     const code = await codeOf(id);
@@ -167,7 +167,7 @@ describe("invoice A4: tautan pasien dan panel (IA8, IA9)", () => {
 
   it("panel: resepsionis boleh membaca invoice A4 (invoice:read)", async () => {
     const { id } = await unwrap(createDirectSale({ patientId: world.patientId, branchId: world.branchId }));
-    await unwrap(addFreeLine({ invoiceId: id, version: await versionOf(id), kind: "LAYANAN", name: "Konsultasi bebas", quantity: 1, unitPrice: 10_000 }));
+    await unwrap(addFreeLine({ approval: await testApproval(), invoiceId: id, version: await versionOf(id), kind: "LAYANAN", name: "Konsultasi bebas", quantity: 1, unitPrice: 10_000 }));
     await finalize(id);
     expect((await getInvoiceA4(id))!.status).toBe("BELUM_DIBAYAR");
   });

@@ -34,6 +34,7 @@ dengan PIN mereka. Nama penyetuju tercatat.
 | P9 | **Keamanan:** 5 kali PIN salah berturut-turut mengunci PIN orang itu selama **15 menit**. Pesannya menyebut sampai jam berapa. | Claude |
 | P10 | **Lupa PIN:** Super Admin menekan **Reset PIN** pada staf itu di menu Staf. PIN-nya terhapus, dan orang itu membuat PIN baru sendiri. | Claude |
 | P11 | **Jejak:** nama penyetuju dicatat di riwayat aktivitas setiap tindakan. Di tagihan tampil kecil, misalnya "Diskon 10% · disetujui Rina" dan "Harga diubah · disetujui Rina". Tagihan batal menampilkan "Dibatalkan … · disetujui Rina". | Claude |
+| P13 | **Baris bebas** (+ Baris layanan → Lainnya): menambahnya dan mengubah harganya wajib PIN, karena harganya di luar katalog. Mengubah jumlah saja tidak. Tagihan menulis "Baris bebas · disetujui {nama}". Menutup jalan pintas menghapus baris katalog lalu menambahkannya lagi lebih murah (temuan review). | pemilik (pilihan A, 24 Okt 2026) |
 | P12 | Bila belum ada satu pun penyetuju yang punya PIN, kotak Persetujuan memberi tahu: "Belum ada Admin Keuangan atau Super Admin yang membuat PIN." | Claude |
 
 ## 3. Data (migrasi hanya menambah)

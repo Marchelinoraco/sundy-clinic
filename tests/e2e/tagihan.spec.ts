@@ -85,6 +85,8 @@ test("resepsionis menagih penjualan langsung, memfinalkan, dan menerima pembayar
   await lineDialog.getByLabel("Nama", { exact: true }).fill("Layanan Tagihan");
   await lineDialog.getByLabel("Harga").fill("100000");
   await lineDialog.getByRole("button", { name: "Tambah" }).click();
+  // Baris bebas di luar katalog meminta PIN persetujuan (spec PIN P13).
+  await setujui(page);
   await expect(lineDialog).toBeHidden({ timeout: 30_000 });
   await expect(summary).toContainText("Rp 150.000", { timeout: 30_000 });
 

@@ -42,8 +42,8 @@ describe("mengubah draf tagihan", () => {
     const { id } = await unwrap(createDirectSale({ patientId: world.patientId }));
     return { id, version: 1 };
   }
-  const free = (id: string, version: number, patch: Record<string, unknown> = {}) =>
-    addFreeLine({ invoiceId: id, version, kind: "LAYANAN", name: "Biaya administrasi", quantity: 1, unitPrice: 100000, ...patch } as Parameters<typeof addFreeLine>[0]);
+  const free = async (id: string, version: number, patch: Record<string, unknown> = {}) =>
+    addFreeLine({ approval: await testApproval(), invoiceId: id, version, kind: "LAYANAN", name: "Biaya administrasi", quantity: 1, unitPrice: 100000, ...patch } as Parameters<typeof addFreeLine>[0]);
 
   beforeAll(async () => {
     await cleanupBillingWorld(SLUG, [WA]);

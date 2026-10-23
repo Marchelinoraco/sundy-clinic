@@ -163,7 +163,7 @@ describe("finalkan dan batalkan tagihan", () => {
       error: "Tagihan kosong tidak bisa difinalkan. Tambahkan baris dulu.",
     });
     const { id, version } = await draftWith([]);
-    await unwrap(addFreeLine({ invoiceId: id, version, kind: "LAYANAN", name: "Biaya", quantity: 1, unitPrice: 1000 }));
+    await unwrap(addFreeLine({ approval: await testApproval(), invoiceId: id, version, kind: "LAYANAN", name: "Biaya", quantity: 1, unitPrice: 1000 }));
     expect(await finalizeInvoice({ invoiceId: id, version })).toEqual({ ok: false, error: "Tagihan ini baru diubah orang lain. Muat ulang halaman." });
     await unwrap(finalizeInvoice({ invoiceId: id, version: version + 1 }));
     expect(await finalizeInvoice({ invoiceId: id, version: version + 1 })).toEqual({
@@ -174,7 +174,7 @@ describe("finalkan dan batalkan tagihan", () => {
 
   it("tagihan tanpa barang tidak menyentuh stok; total Rp 0 tetap bisa difinalkan", async () => {
     const { id, version } = await draftWith([]);
-    const next = await unwrap(addFreeLine({ invoiceId: id, version, kind: "LAYANAN", name: "Gratis", quantity: 1, unitPrice: 0 }));
+    const next = await unwrap(addFreeLine({ approval: await testApproval(), invoiceId: id, version, kind: "LAYANAN", name: "Gratis", quantity: 1, unitPrice: 0 }));
     await unwrap(finalizeInvoice({ invoiceId: id, version: next.version }));
     expect(await getInvoiceDetail(id)).toMatchObject({ status: "FINAL", totals: { total: 0, display: "LUNAS" } });
   });

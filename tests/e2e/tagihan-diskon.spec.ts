@@ -84,6 +84,8 @@ test("promo barang, diskon baris dalam batas 20%, catatan, dan transfer ke reken
   await lineDialog.getByLabel("Nama", { exact: true }).fill("Facial Diskon");
   await lineDialog.getByLabel("Harga").fill("100000");
   await lineDialog.getByRole("button", { name: "Tambah" }).click();
+  // Baris bebas di luar katalog meminta PIN persetujuan (spec PIN P13).
+  await setujui(rp);
   await expect(lineDialog).toBeHidden({ timeout: 30_000 });
 
   // Kotor 400.000 → batas 80.000. Manual 90.000 ditolak, 50.000 diterima.

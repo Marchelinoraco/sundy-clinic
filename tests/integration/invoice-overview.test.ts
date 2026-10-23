@@ -32,7 +32,7 @@ describe("ikhtisar tagihan belum lunas", () => {
 
   async function finalInvoice() {
     const { id } = await unwrap(createDirectSale({ patientId: world.patientId }));
-    const { version } = await unwrap(addFreeLine({ invoiceId: id, version: 1, kind: "LAYANAN", name: "Layanan Uji", quantity: 1, unitPrice: 100000 }));
+    const { version } = await unwrap(addFreeLine({ approval: await testApproval(), invoiceId: id, version: 1, kind: "LAYANAN", name: "Layanan Uji", quantity: 1, unitPrice: 100000 }));
     await unwrap(finalizeInvoice({ invoiceId: id, version }));
     return id;
   }

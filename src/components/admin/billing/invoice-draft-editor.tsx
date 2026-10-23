@@ -119,7 +119,8 @@ function LineRow({ detail, line, options, performers, disabled, run, fail, short
         </Typography>
         {line.priceApprovedByName && (
           <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>
-            Harga diubah{approvedSuffix(line.priceApprovedByName)}
+            {line.catalogLinked ? "Harga diubah" : "Baris bebas"}
+            {approvedSuffix(line.priceApprovedByName)}
           </Typography>
         )}
         {dialog}

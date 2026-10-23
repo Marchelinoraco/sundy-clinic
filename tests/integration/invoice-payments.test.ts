@@ -35,7 +35,7 @@ describe("pembayaran customer", () => {
   /** Tagihan final Rp 100.000 (satu baris bebas). */
   async function finalInvoice(price = 100000) {
     const { id } = await unwrap(createDirectSale({ patientId: world.patientId }));
-    const { version } = await unwrap(addFreeLine({ invoiceId: id, version: 1, kind: "LAYANAN", name: "Layanan Uji", quantity: 1, unitPrice: price }));
+    const { version } = await unwrap(addFreeLine({ approval: await testApproval(), invoiceId: id, version: 1, kind: "LAYANAN", name: "Layanan Uji", quantity: 1, unitPrice: price }));
     await unwrap(finalizeInvoice({ invoiceId: id, version }));
     return id;
   }

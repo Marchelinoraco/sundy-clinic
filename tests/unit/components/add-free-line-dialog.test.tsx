@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AddFreeLineDialog } from "@/components/admin/billing/add-free-line-dialog";
@@ -7,6 +7,7 @@ import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("@/server/invoice-drafts", () => ({ addFreeLine: vi.fn(), addServiceLine: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock("@/server/approval-pin", () => ({ listApprovers: vi.fn().mockResolvedValue({ ok: true, data: [{ id: "a1", name: "Rina" }] }) }));
 
 const SERVICES = [
   { id: "s1", slug: "relaxing-facial", name: "Relaxing Facial", categoryId: "c1", categoryName: "Facial Treatment", price: 149_000, durationMin: 60, requiresDoctor: false },
@@ -46,6 +47,28 @@ describe("AddFreeLineDialog (spec layanan situs 6)", () => {
     await user.type(screen.getByLabelText("Harga"), "100000");
     await user.click(screen.getByRole("button", { name: "Tambah" }));
     await waitFor(() => expect(addFreeLine).toHaveBeenCalledWith({ invoiceId: "inv", version: 1, kind: "LAYANAN", name: "Facial Khusus", quantity: 1, unitPrice: 100_000 }));
+  });
+
+  it("baris bebas meminta PIN persetujuan lalu tersimpan (spec PIN P13)", async () => {
+    vi.mocked(addFreeLine)
+      .mockResolvedValueOnce({ ok: false, error: "Perlu persetujuan Admin Keuangan atau Super Admin." })
+      .mockResolvedValueOnce({ ok: true, data: { version: 2 } });
+    const user = userEvent.setup();
+    renderAdmin(<AddFreeLineDialog invoiceId="inv" version={1} services={SERVICES} />);
+    await user.click(screen.getByRole("button", { name: "+ Baris layanan" }));
+    await user.click(screen.getByRole("combobox", { name: "Layanan" }));
+    await user.click(await screen.findByRole("option", { name: "Lainnya (ketik sendiri)" }));
+    await user.type(screen.getByLabelText("Nama"), "Facial Khusus");
+    await user.type(screen.getByLabelText("Harga"), "100000");
+    await user.click(screen.getByRole("button", { name: "Tambah" }));
+    const approval = await screen.findByRole("dialog", { name: "Persetujuan" });
+    await waitFor(() => expect(within(approval).getByRole("option", { name: "Rina" })).toBeInTheDocument());
+    await user.type(within(approval).getByLabelText("PIN"), "135790");
+    await user.click(within(approval).getByRole("button", { name: "Setujui" }));
+    await waitFor(() =>
+      expect(addFreeLine).toHaveBeenLastCalledWith({ invoiceId: "inv", version: 1, kind: "LAYANAN", name: "Facial Khusus", quantity: 1, unitPrice: 100_000, approval: { approverId: "a1", pin: "135790" } }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Tambah baris layanan" })).toBeNull());
   });
 
   it("tanpa pilihan: pesan \"Pilih layanan.\"", async () => {

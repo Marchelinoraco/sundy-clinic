@@ -33,14 +33,14 @@ const lineOf = (invoiceId: string, name: string) => prisma.invoiceLine.findFirst
 async function draft() {
   const { id } = await unwrap(createDirectSale({ patientId: world.patientId, branchId: world.branchId }));
   const { version } = await unwrap(addInvoiceItem({ invoiceId: id, version: 1, itemId: world.productId, quantity: 1 }));
-  await unwrap(addFreeLine({ invoiceId: id, version, kind: "LAYANAN", name: "Layanan PIN", quantity: 1, unitPrice: 100_000 }));
+  await unwrap(addFreeLine({ invoiceId: id, version, kind: "LAYANAN", name: "Layanan PIN", quantity: 1, unitPrice: 100_000, approval: await testApproval() }));
   return id;
 }
 
 /** Tagihan final berisi satu layanan bebas Rp100.000 (tanpa stok). */
 async function finalInvoice() {
   const { id } = await unwrap(createDirectSale({ patientId: world.patientId, branchId: world.branchId }));
-  const { version } = await unwrap(addFreeLine({ invoiceId: id, version: 1, kind: "LAYANAN", name: "Layanan Final", quantity: 1, unitPrice: 100_000 }));
+  const { version } = await unwrap(addFreeLine({ invoiceId: id, version: 1, kind: "LAYANAN", name: "Layanan Final", quantity: 1, unitPrice: 100_000, approval: await testApproval() }));
   await unwrap(finalizeInvoice({ invoiceId: id, version }));
   return id;
 }
@@ -87,7 +87,8 @@ describe("PIN persetujuan di tagihan", () => {
     expect(await lineOf(id, `${SLUG} Serum C`)).toMatchObject({ unitPrice: 140_000, priceNote: "Harga teman", priceApprovedById: approval.approverId, priceApprovedByName: TEST_APPROVER_NAME });
     expect(await lineOf(id, "Layanan PIN")).toMatchObject({ discountAmount: 10_000, discountApprovedByName: TEST_APPROVER_NAME });
     expect(await prisma.invoice.findUniqueOrThrow({ where: { id } })).toMatchObject({ discountKind: "PERSEN", discountApprovedByName: TEST_APPROVER_NAME });
-    expect(await prisma.auditLog.count({ where: { entityId: id, summary: { contains: `· disetujui ${TEST_APPROVER_NAME}` } } })).toBe(3);
+    // Empat: baris bebas di draf (P13), harga, diskon baris, dan diskon tagihan.
+    expect(await prisma.auditLog.count({ where: { entityId: id, summary: { contains: `· disetujui ${TEST_APPROVER_NAME}` } } })).toBe(4);
 
     actor.role = "ADMIN_KEUANGAN";
     await unwrap(applyFinalDiscount({ invoiceId: final, kind: "NOMINAL", value: 10_000, reason: "Kompensasi", approval }));
@@ -134,6 +135,23 @@ describe("PIN persetujuan di tagihan", () => {
     const id = await draft();
     await unwrap(cancelInvoice({ invoiceId: id, reason: "Tidak jadi" }));
     expect(await prisma.invoice.findUniqueOrThrow({ where: { id } })).toMatchObject({ status: "DIBATALKAN", cancelApprovedByName: null });
+  });
+
+  it("baris bebas: menambah dan mengubah harganya wajib PIN; ubah jumlah saja tanpa PIN (keputusan pemilik A, spec P13)", async () => {
+    const approval = await testApproval();
+    const { id } = await unwrap(createDirectSale({ patientId: world.patientId, branchId: world.branchId }));
+    const denied = { ok: false, error: APPROVAL_REQUIRED };
+    expect(await addFreeLine({ invoiceId: id, version: 1, kind: "TREATMENT", name: "Facial bebas", quantity: 1, unitPrice: 250_000 })).toEqual(denied);
+    expect(await prisma.invoiceLine.count({ where: { invoiceId: id } })).toBe(0);
+    await unwrap(addFreeLine({ invoiceId: id, version: 1, kind: "TREATMENT", name: "Facial bebas", quantity: 1, unitPrice: 250_000, approval }));
+    const line = await lineOf(id, "Facial bebas");
+    expect(line).toMatchObject({ unitPrice: 250_000, priceApprovedById: approval.approverId, priceApprovedByName: TEST_APPROVER_NAME });
+
+    expect(await updateInvoiceLine({ invoiceId: id, version: await versionOf(id), lineId: line.id, quantity: 1, unitPrice: 200_000, priceNote: "" })).toEqual(denied);
+    await unwrap(updateInvoiceLine({ invoiceId: id, version: await versionOf(id), lineId: line.id, quantity: 1, unitPrice: 200_000, priceNote: "", approval }));
+    await unwrap(updateInvoiceLine({ invoiceId: id, version: await versionOf(id), lineId: line.id, quantity: 2, unitPrice: 200_000, priceNote: "" }));
+    expect(await lineOf(id, "Facial bebas")).toMatchObject({ quantity: 2, unitPrice: 200_000, priceApprovedByName: TEST_APPROVER_NAME });
+    expect(await prisma.auditLog.count({ where: { entityId: id, summary: { contains: `· disetujui ${TEST_APPROVER_NAME}` } } })).toBe(2);
   });
 
   it("PIN salah tidak menyimpan tindakan dan menambah hitungan salah", async () => {

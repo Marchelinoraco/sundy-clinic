@@ -260,25 +260,43 @@ export async function addInvoiceItem(input: { invoiceId: string; version: number
 }
 
 /** Tambah baris bebas (layanan atau treatment yang tidak ada di katalog) dengan nama dan harga sendiri. */
-export async function addFreeLine(input: { invoiceId: string; version: number } & FreeLineInput): Promise<EditResult> {
+/** Baris bebas berharga di luar katalog: menambahnya wajib PIN persetujuan (spec PIN P13). */
+export async function addFreeLine(input: { invoiceId: string; version: number; approval?: ApprovalInput } & FreeLineInput): Promise<EditResult> {
   return runAction(async () => {
     const actor = await requireCapability("invoice:manage");
     const checked = validateFreeLine(input);
     if (!checked.ok) throw new UserFacingError(checked.message);
     const invoiceId = String(input.invoiceId ?? "");
     const line = checked.value;
+    const approver = await verifyApproval(input?.approval);
 
     const version = await prisma.$transaction(async (tx) => {
       const next = await touchDraft(tx, invoiceId, input.version);
       await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
         await tx.invoiceLine.create({
-          data: { invoiceId, kind: line.kind, name: line.name, quantity: line.quantity, unitPrice: line.unitPrice, sortOrder: await nextSortOrder(tx, invoiceId) },
+          data: {
+            invoiceId,
+            kind: line.kind,
+            name: line.name,
+            quantity: line.quantity,
+            unitPrice: line.unitPrice,
+            sortOrder: await nextSortOrder(tx, invoiceId),
+            priceApprovedById: approver?.id ?? null,
+            priceApprovedByName: approver?.name ?? null,
+          },
         });
       });
+      requireApprover(approver);
       return next;
     });
 
-    await recordAudit({ actor, action: "invoice.update", entity: "Invoice", entityId: invoiceId, summary: `Tambah baris ${line.name} ×${line.quantity}` });
+    await recordAudit({
+      actor,
+      action: "invoice.update",
+      entity: "Invoice",
+      entityId: invoiceId,
+      summary: `Tambah baris ${line.name} ×${line.quantity}${approvedSuffix(approver?.name)}`,
+    });
     revalidateInvoices(invoiceId);
     return { version };
   });
@@ -720,6 +738,8 @@ export async function updateInvoiceLine(input: {
       if (!checked.ok) throw new UserFacingError(checked.message);
 
       const atCatalogPrice = catalogLinked && checked.value.unitPrice === (catalogPrice ?? line.unitPrice);
+      // Harga baris bebas juga di luar katalog: mengubahnya wajib PIN, mengubah jumlah saja tidak (spec PIN P13).
+      const needsApproval = needsNote || (!catalogLinked && checked.value.unitPrice !== line.unitPrice);
       const priceNote = atCatalogPrice ? null : (checked.value.priceNote ?? (checked.value.unitPrice === line.unitPrice ? line.priceNote : null));
       // Diskon baris mengikuti harga baris baru: promo dihitung ulang, diskon manual dipotong ke harga baris (spec 5.1).
       const gross = checked.value.quantity * checked.value.unitPrice;
@@ -736,7 +756,7 @@ export async function updateInvoiceLine(input: {
       if (discount.discountAmount === 0) discount = { ...NO_DISCOUNT };
       // Harga baru di luar katalog dicatat bersama penyetujunya; kembali ke katalog mengosongkannya; ubah jumlah saja tidak
       // menyentuhnya (spec PIN P1a, P5). Diskon yang bukan lagi manual melepas penyetuju diskonnya.
-      const priceApproval = needsNote
+      const priceApproval = needsApproval
         ? { priceApprovedById: approver?.id ?? null, priceApprovedByName: approver?.name ?? null }
         : atCatalogPrice
           ? NO_PRICE_APPROVAL
@@ -748,8 +768,8 @@ export async function updateInvoiceLine(input: {
           data: { quantity: checked.value.quantity, unitPrice: checked.value.unitPrice, priceNote, ...discount, ...priceApproval, ...discountApproval },
         });
       });
-      if (needsNote) requireApprover(approver);
-      return { version, summary: `Ubah baris ${line.name}: ×${checked.value.quantity}, Rp ${checked.value.unitPrice}${needsNote ? approvedSuffix(approver?.name) : ""}` };
+      if (needsApproval) requireApprover(approver);
+      return { version, summary: `Ubah baris ${line.name}: ×${checked.value.quantity}, Rp ${checked.value.unitPrice}${needsApproval ? approvedSuffix(approver?.name) : ""}` };
     });
 
     await recordAudit({ actor, action: "invoice.update", entity: "Invoice", entityId: invoiceId, summary: result.summary });

@@ -39,7 +39,7 @@ async function setPromo(itemId: string, promo: { kind: "PERSEN" | "NOMINAL"; val
 async function draft() {
   const { id } = await unwrap(createDirectSale({ patientId: world.patientId, branchId: world.branchId }));
   const { version } = await unwrap(addInvoiceItem({ invoiceId: id, version: 1, itemId: world.productId, quantity: 2 }));
-  await unwrap(addFreeLine({ invoiceId: id, version, kind: "LAYANAN", name: "Layanan Diskon", quantity: 1, unitPrice: 100_000 }));
+  await unwrap(addFreeLine({ approval: await testApproval(), invoiceId: id, version, kind: "LAYANAN", name: "Layanan Diskon", quantity: 1, unitPrice: 100_000 }));
   return id;
 }
 

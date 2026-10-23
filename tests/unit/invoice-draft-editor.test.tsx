@@ -62,6 +62,18 @@ describe("penyetuju di draf (spec PIN P11)", () => {
     );
     expect(screen.getByText("Harga diubah · disetujui Rina")).toBeInTheDocument();
   });
+
+  it("baris bebas yang disetujui menulis 'Baris bebas · disetujui Rina' (spec PIN P13)", () => {
+    const base = detail();
+    renderAdmin(
+      <InvoiceDraftEditor
+        detail={{ ...base, lines: base.lines.map((line, index) => (index === 0 ? { ...line, catalogLinked: false, serviceId: null, priceApprovedByName: "Rina" } : line)) }}
+        items={[]}
+        canExceedDiscount={false}
+      />,
+    );
+    expect(screen.getByText("Baris bebas · disetujui Rina")).toBeInTheDocument();
+  });
 });
 
 function detail(patch: Partial<InvoiceDetail> = {}): InvoiceDetail {
