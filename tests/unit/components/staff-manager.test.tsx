@@ -2,6 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { StaffManager } from "@/components/admin/staff/staff-manager";
+import { resetApprovalPin } from "@/server/approval-pin";
 import { changeStaffEmail, createAccountForStaff, createStaffWithAccount, resetStaffPassword, setStaffActive, updateStaff, type StaffRow } from "@/server/staff";
 import { mockGridLayout } from "../helpers/mui";
 import { renderAdmin } from "../helpers/render-admin";
@@ -20,6 +21,7 @@ vi.mock("@/server/staff", () => ({
   removeStaffPhoto: vi.fn(),
 }));
 vi.mock("@/components/admin/staff/send-photo", () => ({ sendStaffPhoto: vi.fn() }));
+vi.mock("@/server/approval-pin", () => ({ resetApprovalPin: vi.fn() }));
 
 const row = (patch: Partial<StaffRow>): StaffRow => ({
   id: "x",
@@ -32,6 +34,7 @@ const row = (patch: Partial<StaffRow>): StaffRow => ({
   specialty: null,
   bio: null,
   photoUrl: null,
+  hasApprovalPin: false,
   ...patch,
 });
 const OWNER = row({ id: "s-owner", name: "Pemilik SunDY", role: "SUPER_ADMIN", email: "admin@sundyclinic.com" });
@@ -66,6 +69,18 @@ describe("daftar dan menu aksi", () => {
     expect(within(grid).getAllByText("Belum punya akun")).toHaveLength(2);
     expect(within(grid).getByText("Wajib ganti kata sandi")).toBeInTheDocument();
     expect(within(grid).getByText("Nonaktif")).toBeInTheDocument();
+  });
+
+  it("Reset PIN untuk penyetuju yang punya PIN, dengan konfirmasi (spec PIN P10)", async () => {
+    const user = userEvent.setup();
+    vi.mocked(resetApprovalPin).mockResolvedValue({ ok: true, data: undefined });
+    const keuangan = row({ id: "s-keu", name: "Rina Keuangan", role: "ADMIN_KEUANGAN", email: "rina.k@sundy.test", hasApprovalPin: true });
+    renderManager([OWNER, keuangan]);
+    expect(items(await openMenu(user, "Rina Keuangan"))).toEqual(["Ubah", "Reset kata sandi", "Reset PIN", "Ganti email", "Nonaktifkan"]);
+    await user.click(screen.getByRole("menuitem", { name: "Reset PIN" }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Reset PIN Rina Keuangan?" });
+    await user.click(within(dialog).getByRole("button", { name: "Reset PIN" }));
+    await waitFor(() => expect(resetApprovalPin).toHaveBeenCalledWith("s-keu"));
   });
 
   it("menu tiap baris hanya berisi aksi yang berlaku", async () => {

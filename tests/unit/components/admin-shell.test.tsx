@@ -49,6 +49,17 @@ describe("kerangka admin", () => {
     expect(within(menu).getByRole("menuitem", { name: "Keluar" })).toBeInTheDocument();
   });
 
+  it("PIN persetujuan hanya di menu Admin Keuangan dan Super Admin (spec PIN P8)", async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderAdmin(<NavUser staff={{ ...staff, name: "Rina Keuangan", role: "ADMIN_KEUANGAN" }} />);
+    await user.click(screen.getByRole("button", { name: "Menu pengguna Rina Keuangan" }));
+    expect(screen.getByRole("menuitem", { name: "PIN persetujuan" })).toHaveAttribute("href", "/admin/pin-persetujuan");
+    unmount();
+    renderAdmin(<NavUser staff={staff} />);
+    await user.click(screen.getByRole("button", { name: "Menu pengguna Rina Resepsionis" }));
+    expect(screen.queryByRole("menuitem", { name: "PIN persetujuan" })).toBeNull();
+  });
+
   it("tombol silang dialog bernama Close dan memanggil onClick", async () => {
     const onClick = vi.fn();
     renderAdmin(<DialogCloseButton onClick={onClick} />);
