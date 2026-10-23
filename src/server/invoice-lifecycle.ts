@@ -13,6 +13,7 @@ import { validateReason } from "@/lib/stock";
 import { witaDateString } from "@/lib/time";
 import { recordAudit } from "@/server/audit";
 import { lockInvoiceRow, nextInvoiceSequence, STALE_DRAFT, TOTALS_SELECT } from "@/server/invoice-store";
+import { applyDeposits, lockPatient, releaseDeposits } from "@/server/deposit-store";
 import { activatePurchasedPackages, cancelPurchasedPackages, consumePackageSessions, restoreUsedSessions } from "@/server/package-store";
 import { requireApprover, verifyApproval } from "@/server/approval";
 import { requireCapability } from "@/server/session";
@@ -142,6 +143,15 @@ export async function finalizeInvoice(input: { invoiceId: string; version: numbe
       const uses = invoice.lines.map((line) => ({ ...line, patientPackageItemId: resolved.get(line.id) ?? line.patientPackageItemId }));
       await consumePackageSessions(tx, { patientId: invoice.patientId, lines: uses }, actor, today);
 
+      // Deposit booking dan saldo pasien memotong tagihan saat difinalkan (spec deposit D1, D6, D8).
+      await lockPatient(tx, invoice.patientId);
+      await applyDeposits(
+        tx,
+        { id: invoiceId, patientId: invoice.patientId, appointmentId: invoice.appointmentId, total: invoiceTotals({ ...invoice, status: "FINAL" }).total },
+        actor,
+        today,
+      );
+
       const year = Number(today.slice(0, 4));
       const number = formatInvoiceNumber(year, await nextInvoiceSequence(tx, year));
       await tx.invoice.update({
@@ -187,6 +197,7 @@ export async function cancelInvoice(input: { invoiceId: string; reason: string; 
           status: true,
           number: true,
           appointmentId: true,
+          patientId: true,
           patient: { select: { name: true } },
           payments: { select: { revokedAt: true } },
           lines: { select: { stockUses: { select: { batchId: true, quantity: true } } } },
@@ -201,6 +212,11 @@ export async function cancelInvoice(input: { invoiceId: string; reason: string; 
         throw new UserFacingError("Tagihan ini pernah dibayar. Pembatalan dilakukan oleh Admin Keuangan.");
       }
       const approvedBy = invoice.status === "FINAL" ? requireApprover(approver) : null;
+      if (invoice.status === "FINAL") {
+        // Saldo yang dipakai kembali ke pasien; saldo yang lahir dari tagihan ini ikut dihapus (spec deposit D12).
+        await lockPatient(tx, invoice.patientId);
+        await releaseDeposits(tx, invoiceId);
+      }
       if (invoice.status === "FINAL") {
         // Pemakaian dikembalikan dulu, lalu paket yang dibeli di tagihan ini dibatalkan (spec paket 7).
         await restoreUsedSessions(tx, invoiceId, actor);
