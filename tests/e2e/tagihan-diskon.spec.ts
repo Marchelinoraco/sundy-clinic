@@ -5,6 +5,7 @@ import { isiMeja } from "./helpers/stok-meja";
 import { isiTanggal, pilihOpsi, tungguHidrasi } from "./helpers/mui";
 import { buatPasienBaru } from "./helpers/pasien-baru";
 import { signIn } from "./helpers/quiz";
+import { setujui } from "./helpers/approval";
 
 test.setTimeout(240_000);
 
@@ -92,9 +93,13 @@ test("promo barang, diskon baris dalam batas 20%, catatan, dan transfer ke reken
   await discount.getByLabel("Alasan").fill("Pelanggan lama");
   await discount.getByRole("button", { name: "Terapkan" }).click();
   await expect(discount.getByRole("alert")).toHaveText("Diskon di atas 20% diberikan oleh Admin Keuangan.");
+  // Batas 20% muncul sebelum PIN diminta (spec PIN P3); diskon yang sah meminta persetujuan Admin Keuangan.
+  await expect(rp.getByRole("dialog", { name: "Persetujuan" })).toHaveCount(0);
   await discount.getByLabel("Nominal").fill("50000");
   await discount.getByRole("button", { name: "Terapkan" }).click();
+  await setujui(rp);
   await expect(discount).toBeHidden({ timeout: 30_000 });
+  await expect(rp.getByText(/Diskon −Rp 50\.000 · Pelanggan lama · disetujui Keuangan E2E/)).toBeVisible({ timeout: 30_000 });
   const summary = rp.getByRole("region", { name: "Ringkasan tagihan" });
   await expect(summary).toContainText("Rp 320.000", { timeout: 30_000 });
 
