@@ -89,6 +89,22 @@ describe("kelebihan bayar", () => {
     expect((await prisma.invoicePayment.findUniqueOrThrow({ where: { id: used } })).revokedAt).toBeNull();
   });
 
+  it("membatalkan pembayaran lain di tagihan yang kelebihan bayar ditolak sampai pembayaran berlebihnya dibatalkan (temuan review)", async () => {
+    const { id } = await finalInvoice(450_000);
+    const { id: cash } = await unwrap(pay(id, 200_000, "TUNAI"));
+    const { id: over } = await unwrap(pay(id, 300_000));
+    actor.role = "ADMIN_KEUANGAN";
+    expect(await revokeInvoicePayment({ paymentId: cash, reason: "Salah catat" })).toEqual({
+      ok: false,
+      error: "Batalkan dulu pembayaran berlebih Rp 300.000 (QRIS); kelebihannya sudah menjadi saldo deposit.",
+    });
+    expect((await prisma.invoicePayment.findUniqueOrThrow({ where: { id: cash } })).revokedAt).toBeNull();
+    await unwrap(revokeInvoicePayment({ paymentId: over, reason: "Salah catat" }));
+    await unwrap(revokeInvoicePayment({ paymentId: cash, reason: "Salah catat" }));
+    expect(await prisma.depositCredit.count({ where: { sourceInvoiceId: id } })).toBe(0);
+    expect(await totalsOf(id)).toMatchObject({ paid: 0, balance: 450_000 });
+  });
+
   it("diskon sesudah final tidak boleh membuat total di bawah dibayar + deposit dipakai (D14)", async () => {
     await prisma.depositCredit.create({
       data: { patientId: world.patientId, amount: 100_000, source: "KELEBIHAN_BAYAR", recordedOn: new Date(`${today}T00:00:00Z`), validUntil: new Date(`${addDaysToDateString(today, 30)}T00:00:00Z`), staffId: "s", staffName: "Uji" },

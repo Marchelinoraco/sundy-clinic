@@ -112,6 +112,16 @@ export async function revokeInvoicePayment(input: { paymentId: string; reason: s
 
     await prisma.$transaction(async (tx) => {
       await lockInvoiceRow(tx, payment.invoiceId);
+      // Kelebihan pembayaran lain di tagihan ini sudah jadi saldo; membatalkan pembayaran ini membuka sisa lagi, jadi
+      // saldo itu tidak lagi nyata (temuan review). Pembayaran berlebihnya dibatalkan lebih dulu.
+      const overpaid = await tx.depositCredit.findFirst({
+        where: { sourceInvoiceId: payment.invoiceId, source: "KELEBIHAN_BAYAR", sourcePaymentId: { not: id } },
+        select: { sourcePayment: { select: { amount: true, method: true } } },
+      });
+      if (overpaid?.sourcePayment) {
+        const { amount, method } = overpaid.sourcePayment;
+        throw new UserFacingError(`Batalkan dulu pembayaran berlebih ${formatRupiah(amount)} (${PAYMENT_METHOD_LABEL[method]}); kelebihannya sudah menjadi saldo deposit.`);
+      }
       const { count } = await tx.invoicePayment.updateMany({
         where: { id, revokedAt: null },
         data: { revokedAt: new Date(), revokedByName: actor.name, revokeReason: reason.value },
