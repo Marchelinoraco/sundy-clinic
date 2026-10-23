@@ -3,6 +3,7 @@
 - **Tanggal:** 23 Oktober 2026
 - **Status:** menunggu persetujuan pemilik
 - **Melanjutkan:** biaya booking (verifikasi transfer), tagihan dan pembayaran, struk, invoice A4
+- **Proyek 2 dari 2.** Bergantung pada proyek 1, PIN persetujuan (`2026-10-23-pin-persetujuan-design.md`).
 
 ## 1. Tujuan
 
@@ -39,11 +40,16 @@ menjadi **saldo deposit pasien**. Saldo itu dipotong otomatis dari tagihan berik
 | D11 | **Laporan tetap berbasis uang masuk.** Biaya booking dihitung saat diverifikasi, seperti sekarang. Pembayaran di kasir dihitung saat diterima, termasuk kelebihannya. Pemakaian deposit dan deposit yang hangus tidak dihitung lagi. | Claude |
 | D12 | **Pembatalan:** membatalkan tagihan mengembalikan deposit yang dipakainya ke pasien dengan tanggal berlaku aslinya. Deposit yang lahir dari tagihan itu ikut dihapus bila belum dipakai. Bila sudah dipakai tagihan lain, pembatalan ditolak dan pesannya menyebut tagihan itu. Membatalkan pembayaran yang berlebih mengikuti aturan yang sama untuk deposit yang lahir darinya. | Claude |
 | D14 | **Diskon sesudah final** tetap tidak boleh membuat total di bawah yang sudah tertutup. Yang tertutup kini = pembayaran + deposit yang dipakai. | Claude |
+| D15 | **Pengembalian deposit dalam bentuk uang:** resepsionis menekan **Kembalikan uang** di halaman pasien atau di daftar deposit. Isiannya: jumlah, cara (tunai atau transfer), dan alasan. Tindakan ini wajib PIN persetujuan Admin Keuangan atau Super Admin (proyek 1, P1d), juga bila mereka sendiri yang mengembalikan. | pemilik |
+| D16 | Pengembalian hanya untuk **saldo yang masih berlaku Rp 200.000 ke atas**. Jumlah yang dikembalikan minimal Rp 200.000 dan paling banyak sebesar saldo itu. Saldo yang paling dulu kedaluwarsa dipotong lebih dulu. | pemilik; urutan: Claude |
+| D17 | Di laporan, pengembalian dihitung sebagai **uang keluar** pada tanggal pengembalian, sehingga pemasukan periode itu berkurang. | Claude |
+| D18 | **Daftar deposit semua pasien:** menu **Deposit** untuk Resepsionis, Admin Keuangan, dan Super Admin. Tab **Aktif** berisi pasien dengan saldo yang masih berlaku: total saldo, kedaluwarsa terdekat, dan tombol Kembalikan uang. Tab **Riwayat** berisi semua gerakan: masuk (deposit booking, kelebihan bayar, sisa deposit booking), dipakai, dikembalikan, dan hangus, dengan tanggal, tagihan, staf, dan penyetuju. | pemilik; isi: Claude |
 | D13 | Teks lama diganti: pesan WA konfirmasi ("biaya booking tetap berlaku…tidak dikembalikan") dan buku panduan ("terpisah dari biaya layanan") menjadi "biaya booking menjadi deposit yang dipotong dari tagihan; hangus bila batal atau tidak hadir". | Claude |
 
 ## 3. Data (migrasi hanya menambah)
 
 - **Catatan deposit pasien:** pasien, jumlah, asal (pembayaran berlebih atau sisa deposit booking, dengan tagihan dan pembayaran asalnya), tanggal dicatat, dan tanggal berlaku sampai.
+- **Pengembalian deposit:** pasien, jumlah, cara, alasan, staf, dan penyetuju; mengurangi saldo yang masih berlaku.
 - **Pemakaian deposit:** tagihan, deposit yang dipakai (booking atau saldo pasien), dan jumlahnya. Dicatat saat tagihan difinalkan, dihapus saat tagihan dibatalkan.
 - Sisa tagihan dan status bayar (Belum dibayar / Deposit / Lunas) memperhitungkan pemakaian deposit.
 
@@ -57,7 +63,6 @@ menjadi **saldo deposit pasien**. Saldo itu dipotong otomatis dari tagihan berik
 
 ## 5. Di luar cakupan
 
-- Pengembalian deposit dalam bentuk uang.
-- Menu atau laporan khusus daftar saldo deposit semua pasien.
 - Memindahkan deposit antar pasien.
+- Pengembalian deposit booking yang hangus (D2).
 - Rilis dan buku panduan: dikerjakan saat rilis.
