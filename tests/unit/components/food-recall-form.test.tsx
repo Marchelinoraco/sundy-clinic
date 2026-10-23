@@ -96,6 +96,8 @@ describe("halaman food recall customer", () => {
     await user.click(screen.getByRole("button", { name: "Selesai" }));
     expect(window.location.hash).toBe("");
     expect(screen.getByText("Buka link dari klinik untuk mengisi catatan ini.")).toBeInTheDocument();
+    // Layar tablet di antara pasien memakai nama baru (temuan review recall).
+    expect(screen.getByRole("heading", { name: "Recall kemarin" })).toBeInTheDocument();
     expect(document.body.textContent).not.toContain("Nasi kuning");
     expect(document.body.textContent).not.toContain("Siti");
     expect(setItem).not.toHaveBeenCalled();

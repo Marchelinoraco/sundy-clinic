@@ -146,6 +146,15 @@ describe("EncounterFoodRecallTab", () => {
     );
   });
 
+  it("tombol jam kosong menyebut rentang 00.00–23.00 (temuan review recall)", async () => {
+    const user = userEvent.setup();
+    renderTab({ foodRecall: { ...FILLED, entries: [{ hour: 5, kind: "BANGUN_TIDUR", text: "", by: "PERAWAT" }] } });
+    await user.click(screen.getByRole("button", { name: "Tampilkan 00.00–23.00" }));
+    const rows = within(screen.getByRole("table")).getAllByRole("row");
+    expect(rows[1]).toHaveTextContent("00.00");
+    expect(rows.at(-1)).toHaveTextContent("23.00");
+  });
+
   it("halaman perawat: tanpa link pasien, mengisi dari kosong, dan memakai aksi simpan perawat", async () => {
     const save = vi.fn().mockResolvedValue({ ok: true, data: undefined });
     const user = userEvent.setup();
