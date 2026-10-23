@@ -6,6 +6,7 @@ import { PATIENT_PROGRAM_LABEL, PatientDetailView } from "@/components/admin/pat
 import { formatDateWithYear } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { getBiaHistory } from "@/server/bia-read";
+import { getPatientDeposit } from "@/server/deposit-read";
 import { getPatientDetail } from "@/server/patient";
 import { listPatientPackages } from "@/server/patient-package-read";
 import { requireCapability } from "@/server/session";
@@ -55,6 +56,8 @@ export default async function PatientDetailPage({
           tab={typeof tab === "string" ? tab : undefined}
           bia={bia}
           packages={can(staff.role, "invoice:read") ? await listPatientPackages(patient.id) : null}
+          deposit={can(staff.role, "invoice:read") ? await getPatientDeposit(patient.id) : null}
+          canRefundDeposit={can(staff.role, "invoice:manage") || can(staff.role, "invoice:correct")}
         />
       </PageBody>
     </>

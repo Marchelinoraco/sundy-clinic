@@ -10,6 +10,17 @@ vi.mock("@/lib/auth-client", () => ({ signOut: vi.fn() }));
 const staff = { userId: "u1", staffId: "s1", name: "Rina Resepsionis", role: "RESEPSIONIS" as const, email: "rina@sundy.test" };
 
 describe("menu samping", () => {
+  it("Deposit untuk Resepsionis dan Admin Keuangan, tidak untuk Apoteker (spec deposit D18)", () => {
+    const first = renderAdmin(<AppSidebar staff={staff} />);
+    expect(screen.getByRole("link", { name: "Deposit" })).toHaveAttribute("href", "/admin/deposit");
+    first.unmount();
+    const second = renderAdmin(<AppSidebar staff={{ ...staff, role: "ADMIN_KEUANGAN" }} />);
+    expect(screen.getByRole("link", { name: "Deposit" })).toBeInTheDocument();
+    second.unmount();
+    renderAdmin(<AppSidebar staff={{ ...staff, role: "APOTEKER" }} />);
+    expect(screen.queryByRole("link", { name: "Deposit" })).toBeNull();
+  });
+
   it("menu sesuai peran, menu aktif bertanda, lencana di luar tautan dengan label lengkap", () => {
     renderAdmin(<AppSidebar staff={staff} pendingBookings={3} billable={2} />);
     expect(screen.getByRole("link", { name: "SunDY Clinic" })).toHaveAttribute("href", "/admin");

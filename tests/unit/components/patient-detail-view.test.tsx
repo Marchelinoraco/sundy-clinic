@@ -9,6 +9,8 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 // Formulir sunting memanggil server action dari modul ini.
 vi.mock("@/server/patient", () => ({ updatePatientImportantNotes: vi.fn(), updatePaperRecordNumber: vi.fn(), updatePatientNik: vi.fn() }));
+vi.mock("@/server/deposit-actions", () => ({ refundDeposit: vi.fn() }));
+vi.mock("@/server/approval-pin", () => ({ listApprovers: vi.fn().mockResolvedValue({ ok: true, data: [] }) }));
 
 const patient: PatientDetail = {
   id: "p1",
@@ -80,6 +82,37 @@ const patient: PatientDetail = {
 const receptionistView: PatientDetail = { ...patient, record: null, encounters: null };
 
 describe("PatientDetailView (spec D 5.3)", () => {
+  it("saldo deposit dengan kedaluwarsa terdekat; Kembalikan uang hanya bila saldo ≥ Rp 200.000 (spec deposit D10, D16)", () => {
+    const credits = [
+      { remaining: 100_000, validUntil: "2026-11-23" },
+      { remaining: 200_000, validUntil: "2026-11-30" },
+    ];
+    const { unmount } = renderAdmin(
+      <PatientDetailView patient={patient} canReadRecords canWriteRecords deposit={{ balance: 300_000, nearestValidUntil: "2026-11-23", credits }} canRefundDeposit />,
+    );
+    const card = screen.getByRole("region", { name: "Saldo deposit" });
+    expect(card).toHaveTextContent("Saldo deposit Rp 300.000 · berlaku s.d. 23 Nov 2026");
+    expect(card).toHaveTextContent("Rp 200.000 berlaku s.d. 30 Nov 2026");
+    expect(within(card).getByRole("button", { name: "Kembalikan uang" })).toBeInTheDocument();
+    unmount();
+    renderAdmin(
+      <PatientDetailView
+        patient={patient}
+        canReadRecords
+        canWriteRecords
+        deposit={{ balance: 150_000, nearestValidUntil: "2026-11-23", credits: [{ remaining: 150_000, validUntil: "2026-11-23" }] }}
+        canRefundDeposit
+      />,
+    );
+    expect(screen.getByRole("region", { name: "Saldo deposit" })).toHaveTextContent("Rp 150.000");
+    expect(screen.queryByRole("button", { name: "Kembalikan uang" })).toBeNull();
+  });
+
+  it("tanpa saldo deposit: tidak ada kartu saldo", () => {
+    renderAdmin(<PatientDetailView patient={patient} canReadRecords canWriteRecords />);
+    expect(screen.queryByRole("region", { name: "Saldo deposit" })).toBeNull();
+  });
+
   it("data diri dan catatan medis berdampingan; alergi bertanda", () => {
     renderAdmin(<PatientDetailView patient={patient} canReadRecords canWriteRecords />);
     const identity = screen.getByRole("region", { name: "Data diri" });

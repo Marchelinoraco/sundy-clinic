@@ -1,5 +1,7 @@
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
+import Card from "@mui/material/Card";
+import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -8,14 +10,18 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import { AppointmentStatusBadge } from "@/components/admin/appointment-status-badge";
-import { formatIndonesianDate } from "@/lib/format";
+import { DEPOSIT_REFUND_MIN } from "@/lib/deposit";
+import { formatIndonesianDate, formatRupiah } from "@/lib/format";
 import { resolveTab } from "@/lib/page-tabs";
+import { dateLabel } from "@/lib/stock";
 import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
 import type { BiaHistory } from "@/server/bia-read";
+import type { PatientDeposit } from "@/server/deposit-read";
 import type { PatientDetail } from "@/server/patient";
 import type { PatientPackageSummary } from "@/server/patient-package-read";
 import { BiaHistoryTable } from "./bia/bia-history-table";
 import { BiaTrendChart } from "./bia/bia-trend-chart";
+import { RefundDepositDialog } from "./deposit/refund-deposit-dialog";
 import { FoodRecallTable } from "./food-recall-table";
 import { TextLink } from "./mui/links";
 import { StatusChip } from "./mui/status-chip";
@@ -65,6 +71,8 @@ export function PatientDetailView({
   tab,
   bia = null,
   packages = null,
+  deposit = null,
+  canRefundDeposit = false,
 }: {
   patient: PatientDetail;
   canReadRecords: boolean;
@@ -74,6 +82,10 @@ export function PatientDetailView({
   bia?: BiaHistory | null;
   /** Paket treatment customer untuk staf yang bisa melihat tagihan (rencana paket keputusan 1). */
   packages?: PatientPackageSummary[] | null;
+  /** Saldo deposit yang masih berlaku (spec deposit D10); null bila tidak ada atau peran tanpa invoice:read. */
+  deposit?: PatientDeposit | null;
+  /** Boleh menekan Kembalikan uang (spec deposit D15). */
+  canRefundDeposit?: boolean;
 }) {
   const tabs: PatientTab[] = [...(patient.encounters ? ["kunjungan" as const] : []), ...(bia ? ["bia" as const] : []), ...(packages ? ["paket" as const] : []), "booking", "isian"];
   const active = resolveTab(tab, tabs, patient.encounters && patient.encounters.length > 0 ? "kunjungan" : "booking");
@@ -92,6 +104,25 @@ export function PatientDetailView({
           </TextLink>
           . Booking dan isiannya sudah dipindah ke sana.
         </Alert>
+      )}
+      {deposit && (
+        <Card component="section" aria-label="Saldo deposit" sx={{ px: 2, py: 1.5 }}>
+          <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
+            <Box>
+              <Typography variant="body2">
+                Saldo deposit <strong>{formatRupiah(deposit.balance)}</strong> · berlaku s.d. {dateLabel(deposit.nearestValidUntil)}
+              </Typography>
+              {deposit.credits.length > 1 && (
+                <Typography variant="caption" component="p" sx={{ color: "text.secondary" }}>
+                  {deposit.credits.map((credit) => `${formatRupiah(credit.remaining)} berlaku s.d. ${dateLabel(credit.validUntil)}`).join(" · ")}
+                </Typography>
+              )}
+            </Box>
+            {canRefundDeposit && deposit.balance >= DEPOSIT_REFUND_MIN && (
+              <RefundDepositDialog patientId={patient.id} patientName={patient.name} balance={deposit.balance} />
+            )}
+          </Stack>
+        </Card>
       )}
       <Box sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "repeat(2, minmax(0, 1fr))" } }}>
         <SectionCard title="Data diri">

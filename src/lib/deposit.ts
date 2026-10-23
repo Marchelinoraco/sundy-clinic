@@ -1,5 +1,5 @@
 import { formatRupiah } from "@/lib/format";
-import { dateLabel, dateOnlyString } from "@/lib/stock";
+import { dateLabel, dateOnlyString, validateReason, type Validation } from "@/lib/stock";
 import { addDaysToDateString } from "@/lib/time";
 
 // Deposit booking dan saldo deposit pasien (spec deposit D1–D18). Murni: dipakai halaman dan server.
@@ -69,4 +69,28 @@ export function depositSummary(
   credits: readonly { amount: number; source: DepositSourceValue; validUntil: Date }[],
 ): { booking: number; saldo: number; notes: string[] } {
   return { ...depositSplit(uses), notes: credits.map((credit) => depositCreditNote({ ...credit, validUntil: dateOnlyString(credit.validUntil) })) };
+}
+
+export const DEPOSIT_REFUND_METHODS = ["TUNAI", "TRANSFER"] as const;
+export type DepositRefundMethod = (typeof DEPOSIT_REFUND_METHODS)[number];
+export type ValidDepositRefund = { amount: number; method: DepositRefundMethod; reason: string };
+
+/**
+ * Isian pengembalian deposit (D15, D16), dipakai dialog dan server. `balance` = saldo yang masih berlaku; server
+ * memeriksanya lagi setelah pasien dikunci.
+ */
+export function validateDepositRefund(raw: unknown, balance?: number): Validation<ValidDepositRefund> {
+  const input = (typeof raw === "object" && raw !== null ? raw : {}) as Record<string, unknown>;
+  const amount = input.amount;
+  if (typeof amount !== "number" || !Number.isInteger(amount) || amount <= 0) return { ok: false, message: "Nominal harus bilangan bulat lebih dari 0." };
+  if (amount < DEPOSIT_REFUND_MIN) return { ok: false, message: `Pengembalian minimal ${formatRupiah(DEPOSIT_REFUND_MIN)}.` };
+  if (balance !== undefined && amount > balance) return { ok: false, message: depositRefundOverBalance(balance) };
+  if (!(DEPOSIT_REFUND_METHODS as readonly unknown[]).includes(input.method)) return { ok: false, message: "Pilih cara pengembalian." };
+  const reason = validateReason(input.reason);
+  if (!reason.ok) return reason;
+  return { ok: true, value: { amount, method: input.method as DepositRefundMethod, reason: reason.value } };
+}
+
+export function depositRefundOverBalance(balance: number): string {
+  return `Pengembalian melebihi saldo deposit (${formatRupiah(balance)}).`;
 }

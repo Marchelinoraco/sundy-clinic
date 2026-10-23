@@ -16,6 +16,7 @@ import MedicationOutlined from "@mui/icons-material/MedicationOutlined";
 import NotificationsActiveOutlined from "@mui/icons-material/NotificationsActiveOutlined";
 import PaymentsOutlined from "@mui/icons-material/PaymentsOutlined";
 import ReceiptLongOutlined from "@mui/icons-material/ReceiptLongOutlined";
+import SavingsOutlined from "@mui/icons-material/SavingsOutlined";
 import SettingsOutlined from "@mui/icons-material/SettingsOutlined";
 import SpaOutlined from "@mui/icons-material/SpaOutlined";
 import type { SvgIconComponent } from "@mui/icons-material";
@@ -62,6 +63,7 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
     items: [
       { title: "Tagihan", url: "/admin/tagihan", icon: ReceiptLongOutlined, needs: "invoice:read" },
       { title: "Paket", url: "/admin/paket", icon: CardGiftcardOutlined, needs: "invoice:read" },
+      { title: "Deposit", url: "/admin/deposit", icon: SavingsOutlined, needs: "invoice:read" },
       { title: "Resep", url: "/admin/resep", icon: MedicationOutlined, needs: "dispense:read" },
       { title: "Stok", url: "/admin/stok", icon: Inventory2Outlined, needs: "stock:read" },
       { title: "Stok meja", url: "/admin/stok-meja", icon: StorefrontOutlined, needs: "counter:read" },
