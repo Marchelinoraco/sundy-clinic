@@ -44,6 +44,8 @@ describe("useApproval (spec PIN P7, P12)", () => {
     const dialog = await screen.findByRole("dialog", { name: "Persetujuan" });
     await waitFor(() => expect(within(dialog).getByRole("option", { name: "Super Ana" })).toBeInTheDocument());
     await user.selectOptions(within(dialog).getByLabelText("Penyetuju"), "a1");
+    // PIN tidak boleh ditawarkan untuk disimpan pengelola kata sandi di komputer kasir (temuan review).
+    expect(within(dialog).getByLabelText("PIN")).toHaveAttribute("autocomplete", "one-time-code");
     await user.type(within(dialog).getByLabelText("PIN"), "135790");
     await user.click(within(dialog).getByRole("button", { name: "Setujui" }));
     await waitFor(() => expect(action).toHaveBeenLastCalledWith({ approverId: "a1", pin: "135790" }));

@@ -77,13 +77,14 @@ export function ApprovalDialog({ onApprove, onCancel }: { onApprove: (approval: 
                   </option>
                 ))}
               </SelectField>
+              {/* "one-time-code": PIN tidak ditawarkan untuk disimpan pengelola kata sandi di komputer kasir bersama. */}
               <TextField
                 id="approval-pin"
                 label="PIN"
                 type="password"
                 value={pin}
                 onChange={(e) => setPin(e.target.value)}
-                slotProps={{ htmlInput: { inputMode: "numeric", maxLength: 6, autoComplete: "off" } }}
+                slotProps={{ htmlInput: { inputMode: "numeric", maxLength: 6, autoComplete: "one-time-code" } }}
                 fullWidth
               />
             </>

@@ -31,6 +31,7 @@ describe("ApprovalPinForm (spec PIN P8)", () => {
     const user = userEvent.setup();
     vi.mocked(setOwnApprovalPin).mockResolvedValueOnce({ ok: false, error: "PIN lama salah." });
     renderAdmin(<ApprovalPinForm hasPin />);
+    for (const label of ["PIN lama", "PIN baru", "Ulangi PIN baru"]) expect(screen.getByLabelText(label)).toHaveAttribute("autocomplete", "one-time-code");
     await user.type(screen.getByLabelText("PIN lama"), "000000");
     await user.type(screen.getByLabelText("PIN baru"), "246802");
     await user.type(screen.getByLabelText("Ulangi PIN baru"), "246800");

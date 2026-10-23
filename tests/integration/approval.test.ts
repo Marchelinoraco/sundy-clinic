@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { APPROVAL_REQUIRED, APPROVER_INVALID, PIN_WRONG } from "@/lib/approval";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -62,6 +62,21 @@ describe("verifyApproval", () => {
     for (const approverId of [nonaktif, resepsionis, tanpaPin, "tidak-ada"]) {
       await expect(verifyApproval({ approverId, pin: "222222" })).rejects.toThrow(APPROVER_INVALID);
     }
+  });
+
+  it("permintaan serentak tidak melewati kunci: hanya satu PIN diperiksa, sisanya terkunci, PIN benar di tengah pun ditolak (temuan review)", async () => {
+    await prisma.approvalPin.update({ where: { staffId: superAdmin }, data: { failedCount: 4, lockedUntil: null } });
+    const ctx = await auth.$context;
+    const verify = vi.spyOn(ctx.password, "verify");
+    const pins = ["000001", "000002", "000003", "000004", "246802", "000005", "000006", "000007", "000008", "000009"];
+    const results = await Promise.allSettled(pins.map((pin) => verifyApproval({ approverId: superAdmin, pin })));
+    const hashChecks = verify.mock.calls.length;
+    verify.mockRestore();
+    expect(hashChecks).toBe(1);
+    expect(results.every((result) => result.status === "rejected")).toBe(true);
+    const row = await prisma.approvalPin.findUniqueOrThrow({ where: { staffId: superAdmin } });
+    expect(row.lockedUntil!.getTime()).toBeGreaterThan(Date.now());
+    await prisma.approvalPin.update({ where: { staffId: superAdmin }, data: { failedCount: 0, lockedUntil: null } });
   });
 
   it("isian rusak ditolak; tanpa approval: verifyApproval null, requireApprover melempar APPROVAL_REQUIRED", async () => {

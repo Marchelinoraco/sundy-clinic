@@ -10,7 +10,8 @@ import { toast } from "sonner";
 import { setOwnApprovalPin } from "@/server/approval-pin";
 
 const MISMATCH = "PIN baru dan ulangannya tidak sama.";
-const pinProps = { htmlInput: { inputMode: "numeric" as const, maxLength: 6, autoComplete: "off" } };
+// "one-time-code": Chrome dan Edge mengabaikan autocomplete="off" pada kolom kata sandi dan menawarkan menyimpan PIN.
+const pinProps = { htmlInput: { inputMode: "numeric" as const, maxLength: 6, autoComplete: "one-time-code" } };
 
 /** Membuat atau mengganti PIN persetujuan sendiri (spec PIN P8). */
 export function ApprovalPinForm({ hasPin }: { hasPin: boolean }) {
