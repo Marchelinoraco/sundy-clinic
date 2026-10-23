@@ -19,6 +19,11 @@ export function pinLockedMessage(name: string, until: Date): string {
   return `PIN ${name} terkunci sampai ${minutesToTimeLabel(witaMinutesOfDay(until))}.`;
 }
 
+/** " · disetujui Rina" untuk ringkasan audit dan keterangan di tagihan (spec PIN P11); kosong tanpa penyetuju. */
+export function approvedSuffix(name: string | null | undefined): string {
+  return name ? ` · disetujui ${name}` : "";
+}
+
 /** Pesan galat, atau null bila PIN tepat 6 angka (spec PIN P8). */
 export function validatePin(pin: unknown): string | null {
   return typeof pin === "string" && /^\d{6}$/.test(pin) ? null : PIN_FORMAT;

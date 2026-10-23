@@ -13,6 +13,7 @@ import { dateOnlyString } from "@/lib/stock";
 import { addDaysToDateString, witaDateString } from "@/lib/time";
 import { billingBatch, cleanupBillingWorld, createBillingWorld, finalVisit, type BillingWorld } from "./invoice-world";
 import { unwrap } from "./unwrap";
+import { testApproval } from "./approver";
 
 type Role = "SUPER_ADMIN" | "RESEPSIONIS" | "ADMIN_KEUANGAN";
 const { actor } = vi.hoisted(() => ({ actor: { userId: "u", staffId: "s", name: "Rina Kasir", role: "RESEPSIONIS" as Role, email: "u@uji.test" } }));
@@ -117,7 +118,7 @@ describe("invoice A4: paket per tanggal invoice (spec invoice A4 IA5, IA6, IA10)
 
     // Kunjungan kedua dibatalkan: invoice pembelian tetap seperti tanggalnya (Review Focus 1).
     actor.role = "ADMIN_KEUANGAN";
-    await unwrap(cancelInvoice({ invoiceId: second, reason: "Salah input" }));
+    await unwrap(cancelInvoice({ approval: await testApproval(), invoiceId: second, reason: "Salah input" }));
     expect((await loadInvoiceA4(purchase))!.packages).toEqual(before);
     expect((await getInvoiceA4(second))!.status).toBe("DIBATALKAN");
   });
@@ -160,7 +161,7 @@ describe("invoice A4: tautan pasien dan panel (IA8, IA9)", () => {
     actor.role = "ADMIN_KEUANGAN";
     const revoke = await prisma.invoicePayment.findFirstOrThrow({ where: { invoiceId: id } });
     await prisma.invoicePayment.update({ where: { id: revoke.id }, data: { revokedAt: new Date(), revokedByName: "Uji", revokeReason: "Uji" } });
-    await unwrap(cancelInvoice({ invoiceId: id, reason: "Salah input" }));
+    await unwrap(cancelInvoice({ approval: await testApproval(), invoiceId: id, reason: "Salah input" }));
     expect(await unwrap(getPublicInvoice(code))).toEqual({ state: "CANCELLED" });
   });
 

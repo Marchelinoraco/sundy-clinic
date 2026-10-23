@@ -2,6 +2,7 @@
 
 import type { Prisma } from "@prisma/client";
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
+import { approvedSuffix, type ApprovalInput } from "@/lib/approval";
 import { prisma } from "@/lib/db";
 import { CONSULTATION_SERVICE_SLUG } from "@/lib/booking-rules";
 import { ONLINE_SERVICE_SLUG } from "@/lib/online-consultation";
@@ -27,6 +28,7 @@ import { validateReduction } from "@/lib/prescription";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { promoDiscount } from "@/lib/stock-promo";
 import { witaDateString } from "@/lib/time";
+import { requireApprover, verifyApproval } from "@/server/approval";
 import { recordAudit } from "@/server/audit";
 import { isExclusionViolation } from "@/server/db-errors";
 import { handedInvoiceLines, lockDispensingRow } from "@/server/dispensing-store";
@@ -37,7 +39,9 @@ import { requireCapability } from "@/server/session";
 const DISPENSED_QUANTITY = "Jumlah obat dari penyerahan tidak bisa diubah. Minta Apoteker membuka kembali penyerahan.";
 const PROMO_SELECT = { promoName: true, promoKind: true, promoValue: true, promoStartsOn: true, promoEndsOn: true } as const;
 const OVER_LIMIT = "Diskon di atas 20% diberikan oleh Admin Keuangan.";
-const NO_DISCOUNT = { discountAmount: 0, discountReason: null, discountSource: null } as const;
+const NO_DISCOUNT = { discountAmount: 0, discountReason: null, discountSource: null, discountApprovedById: null, discountApprovedByName: null } as const;
+/** Harga kembali ke katalog atau ke paket: penyetuju harga ikut dikosongkan (spec PIN P5, P11). */
+const NO_PRICE_APPROVAL = { priceApprovedById: null, priceApprovedByName: null } as const;
 const PACKAGE_QUANTITY = "Jumlah paket selalu 1. Tambahkan baris paket lagi untuk paket berikutnya.";
 const NOT_PACKAGE_LINE = "Hanya baris treatment atau barang dari katalog yang bisa memakai paket.";
 const PACKAGE_PRICE = "Baris sesi paket selalu Rp 0. Klik Lepas paket untuk menagih harga biasa.";
@@ -428,7 +432,7 @@ export async function applyPackageSession(input: { invoiceId: string; version: n
       await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
         await tx.invoiceLine.update({
           where: { id: line.id },
-          data: { unitPrice: 0, priceNote: null, ...NO_DISCOUNT, patientPackageItemId: link.patientPackageItemId, packageSourceLineId: link.packageSourceLineId },
+          data: { unitPrice: 0, priceNote: null, ...NO_PRICE_APPROVAL, ...NO_DISCOUNT, patientPackageItemId: link.patientPackageItemId, packageSourceLineId: link.packageSourceLineId },
         });
       });
       return { version, summary: link.summary };
@@ -533,7 +537,7 @@ export async function applyPackageVisit(input: { invoiceId: string; version: num
             });
             if (line) {
               await packageLink(tx, invoice, { kind: "TREATMENT", serviceId: item.serviceId, itemId: null, name: line.name, quantity: line.quantity }, source, line.id);
-              await tx.invoiceLine.update({ where: { id: line.id }, data: { unitPrice: 0, priceNote: null, ...NO_DISCOUNT, patientPackageItemId: item.id, packageSourceLineId: null } });
+              await tx.invoiceLine.update({ where: { id: line.id }, data: { unitPrice: 0, priceNote: null, ...NO_PRICE_APPROVAL, ...NO_DISCOUNT, patientPackageItemId: item.id, packageSourceLineId: null } });
             } else {
               await packageLink(tx, invoice, { kind: "TREATMENT", serviceId: item.serviceId, itemId: null, name: item.serviceName, quantity: 1 }, source, null);
               await tx.invoiceLine.create({
@@ -558,7 +562,7 @@ export async function applyPackageVisit(input: { invoiceId: string; version: num
               throw new UserFacingError(`${line.name} ×${line.quantity} sudah ada di tagihan, lebih dari rencana ${planned}. Klik Pakai jatah paket di baris itu, lalu tekan Pakai sesuai rencana lagi.`);
             }
             await packageLink(tx, invoice, { kind: "BARANG", serviceId: null, itemId: item.itemId, name: line.name, quantity: line.quantity }, source, line.id);
-            await tx.invoiceLine.update({ where: { id: line.id }, data: { unitPrice: 0, priceNote: null, ...NO_DISCOUNT, patientPackageItemId: item.id, packageSourceLineId: null } });
+            await tx.invoiceLine.update({ where: { id: line.id }, data: { unitPrice: 0, priceNote: null, ...NO_PRICE_APPROVAL, ...NO_DISCOUNT, patientPackageItemId: item.id, packageSourceLineId: null } });
             left -= line.quantity;
           }
           if (left > 0) {
@@ -585,7 +589,7 @@ export async function applyPackageVisit(input: { invoiceId: string; version: num
  */
 async function releaseLines(tx: Prisma.TransactionClient, lineIds: readonly string[]): Promise<void> {
   const lines = await tx.invoiceLine.findMany({ where: { id: { in: [...lineIds] } }, select: { id: true, quantity: true, serviceId: true, itemId: true } });
-  const unlink = { priceNote: null, patientPackageItemId: null, packageSourceLineId: null };
+  const unlink = { priceNote: null, ...NO_PRICE_APPROVAL, patientPackageItemId: null, packageSourceLineId: null };
   for (const line of lines) {
     if (line.itemId) {
       const item = await tx.stockItem.findUnique({ where: { id: line.itemId }, select: { sellPrice: true, ...PROMO_SELECT } });
@@ -664,10 +668,13 @@ export async function updateInvoiceLine(input: {
   quantity: number;
   unitPrice: number;
   priceNote: string;
+  /** Wajib bila harga diubah dari katalog (spec PIN P1a). */
+  approval?: ApprovalInput;
 }): Promise<EditResult> {
   return runAction(async () => {
     const actor = await requireCapability("invoice:manage");
     const invoiceId = String(input.invoiceId ?? "");
+    const approver = await verifyApproval(input?.approval);
 
     const result = await prisma.$transaction(async (tx) => {
       const version = await touchDraft(tx, invoiceId, input.version);
@@ -727,13 +734,22 @@ export async function updateInvoiceLine(input: {
         discount = promo ? { discountAmount: promo.amount, discountReason: promo.reason, discountSource: "PROMO" } : { ...NO_DISCOUNT };
       }
       if (discount.discountAmount === 0) discount = { ...NO_DISCOUNT };
+      // Harga baru di luar katalog dicatat bersama penyetujunya; kembali ke katalog mengosongkannya; ubah jumlah saja tidak
+      // menyentuhnya (spec PIN P1a, P5). Diskon yang bukan lagi manual melepas penyetuju diskonnya.
+      const priceApproval = needsNote
+        ? { priceApprovedById: approver?.id ?? null, priceApprovedByName: approver?.name ?? null }
+        : atCatalogPrice
+          ? NO_PRICE_APPROVAL
+          : {};
+      const discountApproval = discount.discountSource === "MANUAL" ? {} : { discountApprovedById: null, discountApprovedByName: null };
       await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
         await tx.invoiceLine.update({
           where: { id: line.id },
-          data: { quantity: checked.value.quantity, unitPrice: checked.value.unitPrice, priceNote, ...discount },
+          data: { quantity: checked.value.quantity, unitPrice: checked.value.unitPrice, priceNote, ...discount, ...priceApproval, ...discountApproval },
         });
       });
-      return { version, summary: `Ubah baris ${line.name}: ×${checked.value.quantity}, Rp ${checked.value.unitPrice}` };
+      if (needsNote) requireApprover(approver);
+      return { version, summary: `Ubah baris ${line.name}: ×${checked.value.quantity}, Rp ${checked.value.unitPrice}${needsNote ? approvedSuffix(approver?.name) : ""}` };
     });
 
     await recordAudit({ actor, action: "invoice.update", entity: "Invoice", entityId: invoiceId, summary: result.summary });
@@ -989,7 +1005,7 @@ export async function refreshCatalogPrices(input: { invoiceId: string; version: 
             if (next.discountAmount !== line.discountAmount || (promo === null) !== (line.discountSource === null)) discount = next;
           }
           if (!priceChanged && Object.keys(discount).length === 0) continue;
-          await tx.invoiceLine.update({ where: { id: line.id }, data: { ...(priceChanged ? { unitPrice, priceNote: null } : {}), ...discount } });
+          await tx.invoiceLine.update({ where: { id: line.id }, data: { ...(priceChanged ? { unitPrice, priceNote: null, ...NO_PRICE_APPROVAL } : {}), ...discount } });
           updated += 1;
         }
       });
@@ -1012,12 +1028,15 @@ export async function setInvoiceDiscount(input: {
   kind: DiscountKindValue | null;
   value: number;
   reason: string;
+  /** Wajib bila memberi diskon; menghapus diskon tanpa PIN (spec PIN P1b, P5). */
+  approval?: ApprovalInput;
 }): Promise<EditResult> {
   return runAction(async () => {
     const actor = await requireCapability("invoice:read");
     const canExceed = can(actor.role, "invoice:correct");
     if (!can(actor.role, "invoice:manage") && !canExceed) throw new UserFacingError("Anda tidak berhak mengubah diskon.");
     const invoiceId = String(input.invoiceId ?? "");
+    const approver = await verifyApproval(input?.approval);
 
     const result = await prisma.$transaction(async (tx) => {
       const version = await touchDraft(tx, invoiceId, input.version);
@@ -1030,6 +1049,7 @@ export async function setInvoiceDiscount(input: {
       });
       if (!checked.ok) throw new UserFacingError(checked.message);
       const discount = checked.value;
+      const approvedBy = discount.kind ? requireApprover(approver) : null;
       await tx.invoice.update({
         where: { id: invoiceId },
         data: {
@@ -1037,9 +1057,14 @@ export async function setInvoiceDiscount(input: {
           discountValue: discount.value,
           discountReason: discount.reason,
           discountByName: discount.kind ? actor.name : null,
+          discountApprovedById: approvedBy?.id ?? null,
+          discountApprovedByName: approvedBy?.name ?? null,
         },
       });
-      return { version, summary: discount.kind ? `Diskon ${discount.value}${discount.kind === "PERSEN" ? "%" : ""}: ${discount.reason}` : "Diskon dihapus" };
+      return {
+        version,
+        summary: discount.kind ? `Diskon ${discount.value}${discount.kind === "PERSEN" ? "%" : ""}: ${discount.reason}${approvedSuffix(approvedBy?.name)}` : "Diskon dihapus",
+      };
     });
 
     await recordAudit({ actor, action: "invoice.discount", entity: "Invoice", entityId: invoiceId, summary: result.summary });
@@ -1063,10 +1088,13 @@ export async function setLineDiscount(input: {
   kind: DiscountKindValue;
   value: number;
   reason: string;
+  /** Wajib (spec PIN P1b). */
+  approval?: ApprovalInput;
 }): Promise<EditResult> {
   return runAction(async () => {
     const actor = await discountActor();
     const invoiceId = String(input?.invoiceId ?? "");
+    const approver = await verifyApproval(input?.approval);
     const result = await prisma.$transaction(async (tx) => {
       const version = await touchDraft(tx, invoiceId, input.version);
       const line = await tx.invoiceLine.findFirst({
@@ -1082,11 +1110,22 @@ export async function setLineDiscount(input: {
         invoiceId,
         can(actor.role, "invoice:correct"),
         async () => {
-          await tx.invoiceLine.update({ where: { id: line.id }, data: { discountAmount: checked.value.amount, discountReason: checked.value.reason, discountSource: "MANUAL" } });
+          await tx.invoiceLine.update({
+            where: { id: line.id },
+            data: {
+              discountAmount: checked.value.amount,
+              discountReason: checked.value.reason,
+              discountSource: "MANUAL",
+              discountApprovedById: approver?.id ?? null,
+              discountApprovedByName: approver?.name ?? null,
+            },
+          });
         },
         OVER_LIMIT,
       );
-      return { version, summary: `Diskon baris ${line.name}: ${formatRupiah(checked.value.amount)} (${checked.value.reason})` };
+      // Setelah batas 20%: resepsionis melihat batasnya lebih dulu, baru diminta PIN (spec PIN P3).
+      const approvedBy = requireApprover(approver);
+      return { version, summary: `Diskon baris ${line.name}: ${formatRupiah(checked.value.amount)} (${checked.value.reason})${approvedSuffix(approvedBy.name)}` };
     });
     await recordAudit({ actor, action: "invoice.update", entity: "Invoice", entityId: invoiceId, summary: result.summary });
     revalidateInvoices(invoiceId);
@@ -1103,7 +1142,7 @@ export async function clearLineDiscount(input: { invoiceId: string; version: num
       const line = await tx.invoiceLine.findFirst({ where: { id: String(input.lineId ?? ""), invoiceId }, select: { id: true, name: true } });
       if (!line) throw new UserFacingError("Baris tidak ditemukan.");
       await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
-        await tx.invoiceLine.update({ where: { id: line.id }, data: { discountAmount: 0, discountReason: null, discountSource: null } });
+        await tx.invoiceLine.update({ where: { id: line.id }, data: { ...NO_DISCOUNT } });
       });
       return { version, summary: `Hapus diskon baris ${line.name}` };
     });

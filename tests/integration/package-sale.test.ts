@@ -6,6 +6,7 @@ import { getInvoiceDetail } from "@/server/invoice-read";
 import { cleanupBillingWorld, createBillingWorld, type BillingWorld } from "./invoice-world";
 import { catalogPackage } from "./package-world";
 import { unwrap } from "./unwrap";
+import { testApproval } from "./approver";
 
 type Role = "SUPER_ADMIN" | "RESEPSIONIS" | "ADMIN_KEUANGAN";
 const { actor } = vi.hoisted(() => ({ actor: { userId: "u", staffId: "s", name: "Resepsionis Paket", role: "RESEPSIONIS" as Role, email: "u@uji.test" } }));
@@ -58,11 +59,11 @@ describe("menjual paket di draf", () => {
 
   it("jumlah paket tidak bisa diubah; diskon baris manual tetap bisa dalam batas", async () => {
     const { id, line } = await draftWithPackage();
-    expect(await updateInvoiceLine({ invoiceId: id, version: await versionOf(id), lineId: line.id, quantity: 2, unitPrice: 600_000, priceNote: "" })).toEqual({
+    expect(await updateInvoiceLine({ approval: await testApproval(), invoiceId: id, version: await versionOf(id), lineId: line.id, quantity: 2, unitPrice: 600_000, priceNote: "" })).toEqual({
       ok: false,
       error: "Jumlah paket selalu 1. Tambahkan baris paket lagi untuk paket berikutnya.",
     });
-    await unwrap(setLineDiscount({ invoiceId: id, version: await versionOf(id), lineId: line.id, kind: "NOMINAL", value: 60_000, reason: "Member lama" }));
+    await unwrap(setLineDiscount({ approval: await testApproval(), invoiceId: id, version: await versionOf(id), lineId: line.id, kind: "NOMINAL", value: 60_000, reason: "Member lama" }));
     expect((await getInvoiceDetail(id))!.totals.total).toBe(540_000);
   });
 

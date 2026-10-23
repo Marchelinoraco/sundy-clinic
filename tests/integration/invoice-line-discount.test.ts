@@ -5,6 +5,7 @@ import { addFreeLine, addInvoiceItem, clearLineDiscount, createDirectSale, creat
 import { billingBatch, cleanupBillingWorld, createBillingWorld, finalVisit, seedDispensing, type BillingWorld } from "./invoice-world";
 import { finalizeInvoice } from "@/server/invoice-lifecycle";
 import { unwrap } from "./unwrap";
+import { testApproval } from "./approver";
 
 type Role = "SUPER_ADMIN" | "RESEPSIONIS" | "ADMIN_KEUANGAN";
 const { actor } = vi.hoisted(() => ({ actor: { userId: "u", staffId: "s", name: "Resepsionis Diskon", role: "RESEPSIONIS" as Role, email: "u@uji.test" } }));
@@ -84,14 +85,14 @@ describe("promo barang di tagihan", () => {
     await setPromo(world.productId, { kind: "PERSEN", value: 10 });
     const id = await draft();
     const product = await lineOf(id, `${SLUG} Serum C`);
-    await unwrap(updateInvoiceLine({ invoiceId: id, version: await versionOf(id), lineId: product.id, quantity: 1, unitPrice: 150_000, priceNote: "" }));
+    await unwrap(updateInvoiceLine({ approval: await testApproval(), invoiceId: id, version: await versionOf(id), lineId: product.id, quantity: 1, unitPrice: 150_000, priceNote: "" }));
     expect((await lineOf(id, `${SLUG} Serum C`)).discountAmount).toBe(15_000);
 
     actor.role = "ADMIN_KEUANGAN";
     const service = await lineOf(id, "Layanan Diskon");
-    await unwrap(setLineDiscount({ invoiceId: id, version: await versionOf(id), lineId: service.id, kind: "NOMINAL", value: 90_000, reason: "Uji" }));
+    await unwrap(setLineDiscount({ approval: await testApproval(), invoiceId: id, version: await versionOf(id), lineId: service.id, kind: "NOMINAL", value: 90_000, reason: "Uji" }));
     actor.role = "RESEPSIONIS";
-    await unwrap(updateInvoiceLine({ invoiceId: id, version: await versionOf(id), lineId: service.id, quantity: 1, unitPrice: 50_000, priceNote: "" }));
+    await unwrap(updateInvoiceLine({ approval: await testApproval(), invoiceId: id, version: await versionOf(id), lineId: service.id, quantity: 1, unitPrice: 50_000, priceNote: "" }));
     expect(await lineOf(id, "Layanan Diskon")).toMatchObject({ discountAmount: 50_000, discountSource: "MANUAL" });
   });
 
@@ -99,7 +100,7 @@ describe("promo barang di tagihan", () => {
     const id = await draft();
     await setPromo(world.productId, { kind: "PERSEN", value: 20 });
     const service = await lineOf(id, "Layanan Diskon");
-    await unwrap(setLineDiscount({ invoiceId: id, version: await versionOf(id), lineId: service.id, kind: "NOMINAL", value: 5_000, reason: "Uji" }));
+    await unwrap(setLineDiscount({ approval: await testApproval(), invoiceId: id, version: await versionOf(id), lineId: service.id, kind: "NOMINAL", value: 5_000, reason: "Uji" }));
     await unwrap(refreshCatalogPrices({ invoiceId: id, version: await versionOf(id) }));
     expect((await lineOf(id, `${SLUG} Serum C`)).discountAmount).toBe(60_000);
     await setPromo(world.productId, null);
@@ -113,14 +114,14 @@ describe("diskon manual dan batas gabungan 20%", () => {
   it("resepsionis: manual + diskon tagihan sampai 20% dari kotor; lewat 20% ditolak", async () => {
     const id = await draft(); // kotor 400.000 → batas 80.000
     const service = await lineOf(id, "Layanan Diskon");
-    await unwrap(setLineDiscount({ invoiceId: id, version: await versionOf(id), lineId: service.id, kind: "NOMINAL", value: 50_000, reason: "Uji" }));
-    expect(await setInvoiceDiscount({ invoiceId: id, version: await versionOf(id), kind: "NOMINAL", value: 30_001, reason: "x" })).toEqual({
+    await unwrap(setLineDiscount({ approval: await testApproval(), invoiceId: id, version: await versionOf(id), lineId: service.id, kind: "NOMINAL", value: 50_000, reason: "Uji" }));
+    expect(await setInvoiceDiscount({ approval: await testApproval(), invoiceId: id, version: await versionOf(id), kind: "NOMINAL", value: 30_001, reason: "x" })).toEqual({
       ok: false,
       error: "Diskon di atas 20% diberikan oleh Admin Keuangan.",
     });
-    await unwrap(setInvoiceDiscount({ invoiceId: id, version: await versionOf(id), kind: "NOMINAL", value: 30_000, reason: "x" }));
+    await unwrap(setInvoiceDiscount({ approval: await testApproval(), invoiceId: id, version: await versionOf(id), kind: "NOMINAL", value: 30_000, reason: "x" }));
     const product = await lineOf(id, `${SLUG} Serum C`);
-    expect(await setLineDiscount({ invoiceId: id, version: await versionOf(id), lineId: product.id, kind: "NOMINAL", value: 1, reason: "x" })).toEqual({
+    expect(await setLineDiscount({ approval: await testApproval(), invoiceId: id, version: await versionOf(id), lineId: product.id, kind: "NOMINAL", value: 1, reason: "x" })).toEqual({
       ok: false,
       error: "Diskon di atas 20% diberikan oleh Admin Keuangan.",
     });
@@ -129,7 +130,7 @@ describe("diskon manual dan batas gabungan 20%", () => {
   it("promo tidak dihitung dalam batas (Review Focus 2)", async () => {
     await setPromo(world.productId, { kind: "PERSEN", value: 50 }); // promo 150.000
     const id = await draft();
-    await unwrap(setInvoiceDiscount({ invoiceId: id, version: await versionOf(id), kind: "PERSEN", value: 20, reason: "x" }));
+    await unwrap(setInvoiceDiscount({ approval: await testApproval(), invoiceId: id, version: await versionOf(id), kind: "PERSEN", value: 20, reason: "x" }));
     // subtotal bersih 250.000 → diskon tagihan 50.000 ≤ batas 80.000
     const invoice = await prisma.invoice.findUniqueOrThrow({ where: { id } });
     expect(invoice).toMatchObject({ discountKind: "PERSEN", discountValue: 20 });
@@ -139,26 +140,26 @@ describe("diskon manual dan batas gabungan 20%", () => {
     const id = await draft();
     actor.role = "ADMIN_KEUANGAN";
     const service = await lineOf(id, "Layanan Diskon");
-    await unwrap(setLineDiscount({ invoiceId: id, version: await versionOf(id), lineId: service.id, kind: "PERSEN", value: 100, reason: "Gratis" }));
+    await unwrap(setLineDiscount({ approval: await testApproval(), invoiceId: id, version: await versionOf(id), lineId: service.id, kind: "PERSEN", value: 100, reason: "Gratis" }));
     expect((await lineOf(id, "Layanan Diskon")).discountAmount).toBe(100_000);
   });
 
   it("menghapus diskon baris; galat bentuk; versi usang ditolak", async () => {
     const id = await draft();
     const service = await lineOf(id, "Layanan Diskon");
-    await unwrap(setLineDiscount({ invoiceId: id, version: await versionOf(id), lineId: service.id, kind: "NOMINAL", value: 10_000, reason: "Uji" }));
+    await unwrap(setLineDiscount({ approval: await testApproval(), invoiceId: id, version: await versionOf(id), lineId: service.id, kind: "NOMINAL", value: 10_000, reason: "Uji" }));
     await unwrap(clearLineDiscount({ invoiceId: id, version: await versionOf(id), lineId: service.id }));
     expect(await lineOf(id, "Layanan Diskon")).toMatchObject({ discountAmount: 0, discountSource: null, discountReason: null });
-    expect(await setLineDiscount({ invoiceId: id, version: await versionOf(id), lineId: service.id, kind: "NOMINAL", value: 100_001, reason: "x" })).toEqual({
+    expect(await setLineDiscount({ approval: await testApproval(), invoiceId: id, version: await versionOf(id), lineId: service.id, kind: "NOMINAL", value: 100_001, reason: "x" })).toEqual({
       ok: false,
       error: "Diskon tidak boleh melebihi harga baris.",
     });
-    expect(await setLineDiscount({ invoiceId: id, version: 1, lineId: service.id, kind: "NOMINAL", value: 1, reason: "x" })).toEqual({
+    expect(await setLineDiscount({ approval: await testApproval(), invoiceId: id, version: 1, lineId: service.id, kind: "NOMINAL", value: 1, reason: "x" })).toEqual({
       ok: false,
       error: "Tagihan ini baru diubah orang lain. Muat ulang halaman.",
     });
     const audit = await prisma.auditLog.findFirstOrThrow({ where: { action: "invoice.update", entityId: id, summary: { startsWith: "Diskon baris" } } });
-    expect(audit.summary).toBe("Diskon baris Layanan Diskon: Rp 10.000 (Uji)");
+    expect(audit.summary).toBe("Diskon baris Layanan Diskon: Rp 10.000 (Uji) · disetujui Penyetuju Uji");
   });
 
 describe("finalisasi tagihan berdiskon baris", () => {

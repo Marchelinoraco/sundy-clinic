@@ -11,6 +11,7 @@ import { receiptCode } from "@/server/receipt-link-code";
 import { getPublicReceipt } from "@/server/receipt-public";
 import { cleanupBillingWorld, createBillingWorld, type BillingWorld } from "./invoice-world";
 import { unwrap } from "./unwrap";
+import { testApproval } from "./approver";
 
 type Role = "SUPER_ADMIN" | "RESEPSIONIS" | "ADMIN_KEUANGAN" | "DOKTER";
 const { actor } = vi.hoisted(() => ({
@@ -135,7 +136,7 @@ describe("struk publik", () => {
     const id = await finalInvoice();
     const code = codeFrom((await unwrap(getReceiptMessage(id))).text);
     actor.role = "SUPER_ADMIN";
-    await unwrap(cancelInvoice({ invoiceId: id, reason: "Salah input" }));
+    await unwrap(cancelInvoice({ approval: await testApproval(), invoiceId: id, reason: "Salah input" }));
     expect(await unwrap(getPublicReceipt(code))).toEqual({ state: "CANCELLED" });
     expect(await unwrap(getPublicReceipt(receiptCode(id, 5)))).toEqual({ state: "INVALID" });
     expect(RECEIPT_CANCELLED_TEXT).toMatch(/dibatalkan/);

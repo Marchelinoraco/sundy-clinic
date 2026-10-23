@@ -9,6 +9,7 @@ import { cancelInvoice, finalizeInvoice } from "@/server/invoice-lifecycle";
 import { getInvoiceDetail, listBillableVisits } from "@/server/invoice-read";
 import { billingBatch, cleanupBillingWorld, createBillingWorld, finalVisit, seedDispensing, type BillingWorld } from "./invoice-world";
 import { unwrap } from "./unwrap";
+import { testApproval } from "./approver";
 
 type Role = "SUPER_ADMIN" | "RESEPSIONIS" | "ADMIN_KEUANGAN" | "APOTEKER" | "DOKTER";
 const { actor } = vi.hoisted(() => ({
@@ -100,13 +101,13 @@ describe("tagihan dan penyerahan obat", () => {
       ok: false,
       error: "Obat dari penyerahan tidak bisa dihapus. Minta Apoteker membuka kembali penyerahan.",
     });
-    expect(await updateInvoiceLine({ invoiceId, version, lineId: line.id, quantity: 5, unitPrice: 2000, priceNote: "" })).toEqual({
+    expect(await updateInvoiceLine({ approval: await testApproval(), invoiceId, version, lineId: line.id, quantity: 5, unitPrice: 2000, priceNote: "" })).toEqual({
       ok: false,
       error: "Jumlah obat dari penyerahan tidak bisa diubah. Minta Apoteker membuka kembali penyerahan.",
     });
     expect(await prisma.invoiceLine.findUniqueOrThrow({ where: { id: line.id } })).toMatchObject({ quantity: 2, unitPrice: 2000 });
     version = (await prisma.invoice.findUniqueOrThrow({ where: { id: invoiceId } })).version;
-    await unwrap(updateInvoiceLine({ invoiceId, version, lineId: line.id, quantity: 2, unitPrice: 1500, priceNote: "Promo apotek" }));
+    await unwrap(updateInvoiceLine({ approval: await testApproval(), invoiceId, version, lineId: line.id, quantity: 2, unitPrice: 1500, priceNote: "Promo apotek" }));
     expect(await prisma.invoiceLine.findUniqueOrThrow({ where: { id: line.id } })).toMatchObject({ unitPrice: 1500, priceNote: "Promo apotek" });
   });
 
@@ -114,7 +115,7 @@ describe("tagihan dan penyerahan obat", () => {
     const { appointmentId, dispensingId } = await visit();
     await handed(dispensingId);
     const first = await draftOf(appointmentId);
-    await unwrap(cancelInvoice({ invoiceId: first, reason: "Salah buat" }));
+    await unwrap(cancelInvoice({ approval: await testApproval(), invoiceId: first, reason: "Salah buat" }));
     expect(await prisma.invoiceLine.count({ where: { invoiceId: first, dispensingLineId: { not: null } } })).toBe(0);
     expect((await prisma.dispensing.findUniqueOrThrow({ where: { id: dispensingId } })).status).toBe("SELESAI");
     const second = await draftOf(appointmentId);
@@ -130,7 +131,7 @@ describe("tagihan dan penyerahan obat", () => {
     await unwrap(finalizeInvoice({ invoiceId: first, version: v1 }));
     expect(await stockLeft()).toBe((before ?? 0) - 2);
 
-    await unwrap(cancelInvoice({ invoiceId: first, reason: "Pelanggan batal" }));
+    await unwrap(cancelInvoice({ approval: await testApproval(), invoiceId: first, reason: "Pelanggan batal" }));
     expect(await stockLeft()).toBe(before);
     expect(await prisma.invoiceLine.count({ where: { invoiceId: first, dispensingLineId: { not: null } } })).toBe(0);
     expect(await prisma.dispensing.findUniqueOrThrow({ where: { id: dispensingId } })).toMatchObject({ status: "MENUNGGU", completedAt: null });

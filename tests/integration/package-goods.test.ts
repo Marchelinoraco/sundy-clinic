@@ -18,6 +18,7 @@ import { listPackageOptions } from "@/server/patient-package-read";
 import { billingBatch, cleanupBillingWorld, createBillingWorld, finalVisit, type BillingWorld } from "./invoice-world";
 import { catalogPackage } from "./package-world";
 import { unwrap } from "./unwrap";
+import { testApproval } from "./approver";
 
 type Role = "SUPER_ADMIN" | "RESEPSIONIS" | "ADMIN_KEUANGAN";
 const { actor } = vi.hoisted(() => ({ actor: { userId: "u", staffId: "s", name: "Resepsionis Barang", role: "RESEPSIONIS" as Role, email: "u@uji.test" } }));
@@ -189,7 +190,7 @@ describe("paket berisi barang (spec paket barang)", () => {
     await unwrap(finalize(draft.id));
     expect(await counter()).toBe(before - 4);
     actor.role = "ADMIN_KEUANGAN";
-    await unwrap(cancelInvoice({ invoiceId: draft.id, reason: "Salah input" }));
+    await unwrap(cancelInvoice({ approval: await testApproval(), invoiceId: draft.id, reason: "Salah input" }));
     const owned = await prisma.patientPackage.findFirstOrThrow({ where: { purchaseLineId: draft.purchaseLineId }, select: { status: true, items: { select: { id: true } } } });
     expect(owned.status).toBe("DIBATALKAN");
     for (const item of owned.items) expect(await remaining(item.id)).toBe(0);

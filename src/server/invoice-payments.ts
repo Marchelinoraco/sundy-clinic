@@ -1,6 +1,7 @@
 "use server";
 
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
+import { approvedSuffix, type ApprovalInput } from "@/lib/approval";
 import { prisma } from "@/lib/db";
 import { formatRupiah } from "@/lib/format";
 import { discountAmount, invoiceSubtotal, invoiceTotals, validateDiscount, validateInvoicePayment, type DiscountKindValue, type InvoicePaymentInput } from "@/lib/invoice";
@@ -10,6 +11,7 @@ import { dateOnly, PAYMENT_METHOD_LABEL, validateReason } from "@/lib/stock";
 import { witaDateString } from "@/lib/time";
 import { recordAudit } from "@/server/audit";
 import { lockInvoiceRow, TOTALS_SELECT } from "@/server/invoice-store";
+import { requireApprover, verifyApproval } from "@/server/approval";
 import { requireCapability } from "@/server/session";
 
 function revalidatePayments(invoiceId: string) {
@@ -120,10 +122,13 @@ export async function applyFinalDiscount(input: {
   kind: DiscountKindValue;
   value: number;
   reason: string;
+  /** Wajib (spec PIN P1b, P3). */
+  approval?: ApprovalInput;
 }): Promise<ActionResult<void>> {
   return runAction(async () => {
     const actor = await requireCapability("invoice:correct");
     const invoiceId = String(input?.invoiceId ?? "");
+    const approver = await verifyApproval(input?.approval);
 
     const summary = await prisma.$transaction(async (tx) => {
       await lockInvoiceRow(tx, invoiceId);
@@ -144,12 +149,20 @@ export async function applyFinalDiscount(input: {
       const amount = discountAmount(subtotal, discount.kind, discount.value);
       if (amount <= totals.discount) throw new UserFacingError("Diskon sesudah final hanya bisa ditambah.");
       if (subtotal - amount < totals.paid) throw new UserFacingError("Diskon membuat total di bawah yang sudah dibayar.");
+      const approvedBy = requireApprover(approver);
 
       await tx.invoice.update({
         where: { id: invoiceId },
-        data: { discountKind: discount.kind, discountValue: discount.value, discountReason: discount.reason, discountByName: actor.name },
+        data: {
+          discountKind: discount.kind,
+          discountValue: discount.value,
+          discountReason: discount.reason,
+          discountByName: actor.name,
+          discountApprovedById: approvedBy.id,
+          discountApprovedByName: approvedBy.name,
+        },
       });
-      return `${invoice.number}: diskon ${discount.value}${discount.kind === "PERSEN" ? "%" : ""} sesudah final (${discount.reason})`;
+      return `${invoice.number}: diskon ${discount.value}${discount.kind === "PERSEN" ? "%" : ""} sesudah final (${discount.reason})${approvedSuffix(approvedBy.name)}`;
     });
 
     await recordAudit({ actor, action: "invoice.discount", entity: "Invoice", entityId: invoiceId, summary });

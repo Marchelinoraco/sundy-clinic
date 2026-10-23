@@ -7,6 +7,7 @@ import { cancelInvoice, finalizeInvoice } from "@/server/invoice-lifecycle";
 import { getInvoiceDetail } from "@/server/invoice-read";
 import { billingBatch, cleanupBillingWorld, createBillingWorld, finalVisit, type BillingWorld } from "./invoice-world";
 import { unwrap } from "./unwrap";
+import { testApproval } from "./approver";
 
 type Role = "SUPER_ADMIN" | "RESEPSIONIS" | "ADMIN_KEUANGAN" | "APOTEKER" | "DOKTER";
 const { actor } = vi.hoisted(() => ({
@@ -181,10 +182,10 @@ describe("finalkan dan batalkan tagihan", () => {
   it("batalkan draf: tanpa efek ke stok; kunjungan boleh ditagih ulang", async () => {
     const { appointmentId } = await finalVisit(world);
     const { id } = await unwrap(createInvoiceFromVisit(appointmentId));
-    expect(await cancelInvoice({ invoiceId: id, reason: " " })).toEqual({ ok: false, error: "Isi alasan." });
-    await unwrap(cancelInvoice({ invoiceId: id, reason: "Salah kunjungan" }));
+    expect(await cancelInvoice({ approval: await testApproval(), invoiceId: id, reason: " " })).toEqual({ ok: false, error: "Isi alasan." });
+    await unwrap(cancelInvoice({ approval: await testApproval(), invoiceId: id, reason: "Salah kunjungan" }));
     expect(await getInvoiceDetail(id)).toMatchObject({ status: "DIBATALKAN", cancelReason: "Salah kunjungan", cancelledByName: "Resepsionis Uji", totals: { display: "DIBATALKAN" } });
-    expect(await cancelInvoice({ invoiceId: id, reason: "lagi" })).toEqual({ ok: false, error: "Tagihan ini sudah dibatalkan." });
+    expect(await cancelInvoice({ approval: await testApproval(), invoiceId: id, reason: "lagi" })).toEqual({ ok: false, error: "Tagihan ini sudah dibatalkan." });
     const again = await unwrap(createInvoiceFromVisit(appointmentId));
     expect(again.id).not.toBe(id);
     expect(await prisma.auditLog.count({ where: { action: "invoice.cancel", entityId: id } })).toBe(1);
@@ -197,7 +198,7 @@ describe("finalkan dan batalkan tagihan", () => {
     const { number } = await unwrap(finalizeInvoice({ invoiceId: id, version }));
     expect(await remaining(stock.batchId)).toBe(7);
 
-    await unwrap(cancelInvoice({ invoiceId: id, reason: "Pelanggan batal beli" }));
+    await unwrap(cancelInvoice({ approval: await testApproval(), invoiceId: id, reason: "Pelanggan batal beli" }));
     expect(await remaining(stock.batchId)).toBe(12);
     const back = await prisma.stockMovement.findFirstOrThrow({ where: { invoiceId: id, kind: "PENYESUAIAN" } });
     expect(back).toMatchObject({ quantity: 5, reason: "LAINNYA", note: `Tagihan ${number} dibatalkan`, batchId: stock.batchId });
@@ -211,18 +212,18 @@ describe("finalkan dan batalkan tagihan", () => {
     const payment = await prisma.invoicePayment.create({
       data: { invoiceId: id, amount: 1000, method: "TUNAI", paidAt: new Date(`${today}T00:00:00Z`), staffId: "s1", staffName: "Resepsionis Uji" },
     });
-    expect(await cancelInvoice({ invoiceId: id, reason: "salah" })).toEqual({
+    expect(await cancelInvoice({ approval: await testApproval(), invoiceId: id, reason: "salah" })).toEqual({
       ok: false,
       error: "Batalkan pembayarannya dulu (oleh Admin Keuangan), lalu batalkan tagihan.",
     });
 
     await prisma.invoicePayment.update({ where: { id: payment.id }, data: { revokedAt: new Date(), revokedByName: "Keuangan", revokeReason: "salah input" } });
-    expect(await cancelInvoice({ invoiceId: id, reason: "salah" })).toEqual({
+    expect(await cancelInvoice({ approval: await testApproval(), invoiceId: id, reason: "salah" })).toEqual({
       ok: false,
       error: "Tagihan ini pernah dibayar. Pembatalan dilakukan oleh Admin Keuangan.",
     });
     actor.role = "ADMIN_KEUANGAN";
-    await unwrap(cancelInvoice({ invoiceId: id, reason: "Pembayaran salah catat" }));
+    await unwrap(cancelInvoice({ approval: await testApproval(), invoiceId: id, reason: "Pembayaran salah catat" }));
     expect((await getInvoiceDetail(id))?.status).toBe("DIBATALKAN");
   });
 
@@ -232,7 +233,7 @@ describe("finalkan dan batalkan tagihan", () => {
     await expect(finalizeInvoice({ invoiceId: id, version })).rejects.toThrow(/forbidden: invoice:manage/);
     for (const role of ["DOKTER", "APOTEKER"] as const) {
       actor.role = role;
-      await expect(cancelInvoice({ invoiceId: id, reason: "x" })).rejects.toThrow(/forbidden: invoice:read/);
+      await expect(cancelInvoice({ approval: await testApproval(), invoiceId: id, reason: "x" })).rejects.toThrow(/forbidden: invoice:read/);
     }
   });
 });

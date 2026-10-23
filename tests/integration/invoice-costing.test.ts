@@ -6,6 +6,7 @@ import { finalizeInvoice } from "@/server/invoice-lifecycle";
 import { assignPerformers, cleanupBillingWorld, createBillingWorld, finalVisit, type BillingWorld } from "./invoice-world";
 import { catalogPackage } from "./package-world";
 import { unwrap } from "./unwrap";
+import { testApproval } from "./approver";
 
 const { actor } = vi.hoisted(() => ({ actor: { userId: "u", staffId: "s", name: "Resepsionis Biaya", role: "RESEPSIONIS" as const, email: "u@uji.test" } }));
 vi.mock("@/server/session", async () => {
@@ -48,8 +49,8 @@ afterAll(async () => {
 describe("salinan biaya dan komisi saat final", () => {
   it("komisi persen dari harga katalog × jumlah, bukan harga baris berdiskon (Review Focus 4)", async () => {
     const draft = await visitDraft();
-    await unwrap(updateInvoiceLine({ invoiceId: draft.id, version: await versionOf(draft.id), lineId: draft.line.id, quantity: 2, unitPrice: 250_000, priceNote: "" }));
-    await unwrap(setLineDiscount({ invoiceId: draft.id, version: await versionOf(draft.id), lineId: draft.line.id, kind: "NOMINAL", value: 50_000, reason: "Member" }));
+    await unwrap(updateInvoiceLine({ approval: await testApproval(), invoiceId: draft.id, version: await versionOf(draft.id), lineId: draft.line.id, quantity: 2, unitPrice: 250_000, priceNote: "" }));
+    await unwrap(setLineDiscount({ approval: await testApproval(), invoiceId: draft.id, version: await versionOf(draft.id), lineId: draft.line.id, kind: "NOMINAL", value: 50_000, reason: "Member" }));
     await finalize(draft.id);
     expect(await costsOf(draft.line.id)).toEqual({ materialCost: 80_000, toolCost: 20_000, otherCost: 0, commissionAmount: 50_000 });
   });
@@ -63,7 +64,7 @@ describe("salinan biaya dan komisi saat final", () => {
     });
     try {
       const draft = await visitDraft();
-      await unwrap(updateInvoiceLine({ invoiceId: draft.id, version: await versionOf(draft.id), lineId: draft.line.id, quantity: 2, unitPrice: 250_000, priceNote: "" }));
+      await unwrap(updateInvoiceLine({ approval: await testApproval(), invoiceId: draft.id, version: await versionOf(draft.id), lineId: draft.line.id, quantity: 2, unitPrice: 250_000, priceNote: "" }));
       await finalize(draft.id);
       expect((await costsOf(draft.line.id)).otherCost).toBe(16_000);
       await prisma.serviceCostLine.deleteMany({ where: { serviceId: world.treatmentId } });

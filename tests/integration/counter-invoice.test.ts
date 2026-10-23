@@ -8,6 +8,7 @@ import { listBillingItems } from "@/server/invoice-read";
 import { listPrescribableItems } from "@/server/prescription-read";
 import { billingBatch, cleanupBillingWorld, createBillingWorld, type BillingWorld } from "./invoice-world";
 import { unwrap } from "./unwrap";
+import { testApproval } from "./approver";
 
 type Role = "SUPER_ADMIN" | "RESEPSIONIS";
 const { actor } = vi.hoisted(() => ({ actor: { userId: "u1", staffId: "s1", name: "Rina", role: "RESEPSIONIS" as Role, email: "uji@sundy.test" } }));
@@ -94,7 +95,7 @@ describe("tagihan dan stok meja (spec stok meja SM1, 3)", () => {
     const { id, version } = await draftWith(item.id, 2);
     await unwrap(finalizeInvoice({ invoiceId: id, version }));
     actor.role = "SUPER_ADMIN";
-    await unwrap(cancelInvoice({ invoiceId: id, reason: "Salah input" }));
+    await unwrap(cancelInvoice({ approval: await testApproval(), invoiceId: id, reason: "Salah input" }));
     expect(await sisa(b.batchId)).toEqual({ gudang: 5, meja: 5 });
     const back = await prisma.stockMovement.findFirstOrThrow({ where: { invoiceId: id, kind: "PENYESUAIAN" } });
     expect(back.location).toBe("MEJA");
@@ -105,7 +106,7 @@ describe("tagihan dan stok meja (spec stok meja SM1, 3)", () => {
     await unwrap(finalizeInvoice({ invoiceId: old.id, version: old.version }));
     await prisma.stockMovement.updateMany({ where: { invoiceId: old.id, kind: "KELUAR" }, data: { location: "GUDANG" } });
     actor.role = "SUPER_ADMIN";
-    await unwrap(cancelInvoice({ invoiceId: old.id, reason: "Salah input" }));
+    await unwrap(cancelInvoice({ approval: await testApproval(), invoiceId: old.id, reason: "Salah input" }));
     expect(await sisa(b.batchId)).toEqual({ gudang: 6, meja: 4 });
   });
 

@@ -22,6 +22,8 @@ const LINE: InvoiceLineRow = {
   discountReason: null,
   discountSource: null,
   priceNote: null,
+  priceApprovedByName: null,
+  discountApprovedByName: null,
   serviceId: null,
   itemId: "i1",
   catalogLinked: true,

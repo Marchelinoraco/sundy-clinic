@@ -9,6 +9,7 @@ import { getPatientPackage } from "@/server/patient-package-read";
 import { changeNextVisit } from "@/server/patient-packages";
 import { billingBatch, cleanupBillingWorld, createBillingWorld, finalVisit, type BillingWorld } from "./invoice-world";
 import { unwrap } from "./unwrap";
+import { testApproval } from "./approver";
 
 type Role = "SUPER_ADMIN" | "RESEPSIONIS" | "ADMIN_KEUANGAN" | "APOTEKER";
 const { actor } = vi.hoisted(() => ({ actor: { userId: "u", staffId: "s", name: "Rina Jadwal", role: "RESEPSIONIS" as Role, email: "u@uji.test" } }));
@@ -113,7 +114,7 @@ describe("tanggal kunjungan berikutnya (spec jadwal paket JP4, JP10, JP11)", () 
     // Tanggal beli dimundurkan 3 hari agar dasar "tanggal beli + jarak" berbeda dari dasar tagihan yang dibatalkan.
     await prisma.patientPackage.update({ where: { purchaseLineId }, data: { startsOn: new Date(`${addDaysToDateString(today(), -3)}T00:00:00Z`) } });
     actor.role = "ADMIN_KEUANGAN";
-    await unwrap(cancelInvoice({ invoiceId: first, reason: "Salah input" }));
+    await unwrap(cancelInvoice({ approval: await testApproval(), invoiceId: first, reason: "Salah input" }));
     expect(await next(purchaseLineId)).toBe(addDaysToDateString(today(), 4));
     actor.role = "RESEPSIONIS";
     await useVisit(purchaseLineId);
@@ -136,7 +137,7 @@ describe("tanggal kunjungan berikutnya (spec jadwal paket JP4, JP10, JP11)", () 
   it("pembelian dibatalkan: paket tanpa rencana", async () => {
     const { invoiceId, purchaseLineId } = await buyOnly();
     actor.role = "ADMIN_KEUANGAN";
-    await unwrap(cancelInvoice({ invoiceId, reason: "Salah input" }));
+    await unwrap(cancelInvoice({ approval: await testApproval(), invoiceId, reason: "Salah input" }));
     expect(await next(purchaseLineId)).toBeNull();
   });
 });
@@ -169,7 +170,7 @@ describe("ubah tanggal rencana (spec jadwal paket JP9, JP16)", () => {
   it("paket habis atau dibatalkan tidak bisa diubah", async () => {
     const { invoiceId, purchaseLineId } = await buyOnly();
     actor.role = "ADMIN_KEUANGAN";
-    await unwrap(cancelInvoice({ invoiceId, reason: "Salah input" }));
+    await unwrap(cancelInvoice({ approval: await testApproval(), invoiceId, reason: "Salah input" }));
     actor.role = "RESEPSIONIS";
     const pkg = await packageOf(purchaseLineId);
     expect(await changeNextVisit({ packageId: pkg.id, visitOn: addDaysToDateString(today(), 3) })).toEqual({ ok: false, error: "Paket ini sudah tidak punya rencana kunjungan." });

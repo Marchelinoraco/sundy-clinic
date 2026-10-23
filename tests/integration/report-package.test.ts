@@ -9,6 +9,7 @@ import { getProfitReport } from "@/server/report-read";
 import { cleanupBillingWorld, createBillingWorld, finalVisit, type BillingWorld } from "./invoice-world";
 import { catalogPackage } from "./package-world";
 import { unwrap } from "./unwrap";
+import { testApproval } from "./approver";
 
 type Role = "SUPER_ADMIN" | "RESEPSIONIS" | "ADMIN_KEUANGAN";
 const { actor } = vi.hoisted(() => ({ actor: { userId: "u", staffId: "s", name: "Staf Laporan", role: "SUPER_ADMIN" as Role, email: "u@uji.test" } }));
@@ -53,7 +54,7 @@ describe("laporan paket", () => {
       await unwrap(finalizeInvoice({ invoiceId: visit.id, version: await versionOf(visit.id) }));
       used.push(visit.id);
     }
-    await unwrap(cancelInvoice({ invoiceId: used[1], reason: "Salah input" }));
+    await unwrap(cancelInvoice({ approval: await testApproval(), invoiceId: used[1], reason: "Salah input" }));
 
     const report = await getProfitReport({ period: monthPeriod(witaDateString(new Date()).slice(0, 7)), branchId: world.branchId });
     expect(report.current.totals.package).toBe(600_000);

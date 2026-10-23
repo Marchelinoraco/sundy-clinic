@@ -8,6 +8,7 @@ import { recordInvoicePayment } from "@/server/invoice-payments";
 import { unpaidOverview } from "@/server/invoice-read";
 import { cleanupBillingWorld, createBillingWorld, type BillingWorld } from "./invoice-world";
 import { unwrap } from "./unwrap";
+import { testApproval } from "./approver";
 
 type Role = "SUPER_ADMIN" | "RESEPSIONIS" | "ADMIN_KEUANGAN" | "APOTEKER" | "DOKTER";
 const { actor } = vi.hoisted(() => ({
@@ -56,7 +57,7 @@ describe("ikhtisar tagihan belum lunas", () => {
     const paid = await finalInvoice();
     await unwrap(recordInvoicePayment({ invoiceId: paid, amount: 100000, method: "QRIS", paidAt: witaDateString(new Date()), reference: "" }));
     const cancelled = await finalInvoice();
-    await unwrap(cancelInvoice({ invoiceId: cancelled, reason: "Salah" }));
+    await unwrap(cancelInvoice({ approval: await testApproval(), invoiceId: cancelled, reason: "Salah" }));
     await unwrap(createDirectSale({ patientId: world.patientId }));
 
     const after = await unpaidOverview();

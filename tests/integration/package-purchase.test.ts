@@ -10,6 +10,7 @@ import { getInvoiceDetail } from "@/server/invoice-read";
 import { cleanupBillingWorld, createBillingWorld, type BillingWorld } from "./invoice-world";
 import { catalogPackage } from "./package-world";
 import { unwrap } from "./unwrap";
+import { testApproval } from "./approver";
 
 type Role = "SUPER_ADMIN" | "RESEPSIONIS" | "ADMIN_KEUANGAN";
 const { actor } = vi.hoisted(() => ({ actor: { userId: "u", staffId: "s", name: "Resepsionis Paket", role: "RESEPSIONIS" as Role, email: "u@uji.test" } }));
@@ -105,7 +106,7 @@ describe("paket customer saat tagihan pembelian difinalkan", () => {
 describe("membatalkan tagihan pembelian paket", () => {
   it("belum terpakai: paket dibatalkan dan sisa sesi dikurangi lewat BATAL_PAKET", async () => {
     const { id, owned } = await bought();
-    await unwrap(cancelInvoice({ invoiceId: id, reason: "Salah input" }));
+    await unwrap(cancelInvoice({ approval: await testApproval(), invoiceId: id, reason: "Salah input" }));
     const after = await prisma.patientPackage.findUniqueOrThrow({ where: { id: owned.id }, include: { items: { include: { entries: { orderBy: { createdAt: "asc" } } } } } });
     expect(after.status).toBe("DIBATALKAN");
     expect(after.items.map((item) => item.entries.map((e) => [e.kind, e.delta]))).toEqual([
@@ -131,7 +132,7 @@ describe("membatalkan tagihan pembelian paket", () => {
       select: { number: true, lines: { select: { id: true } } },
     });
     await prisma.packageSessionEntry.create({ data: { patientPackageItemId: owned.items[0].id, kind: "PAKAI", delta: -1, invoiceLineId: usage.lines[0].id, staffId: "s", staffName: "Uji" } });
-    expect(await cancelInvoice({ invoiceId: id, reason: "Salah input" })).toEqual({
+    expect(await cancelInvoice({ approval: await testApproval(), invoiceId: id, reason: "Salah input" })).toEqual({
       ok: false,
       error: `Sesi paket ${SLUG} Glowing sudah dipakai di tagihan ${usage.number}. Batalkan tagihan itu dulu.`,
     });
