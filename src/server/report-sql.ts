@@ -17,6 +17,8 @@ export type InvoiceAggregate = {
   invoiceCount: number;
   /** Pemakaian stok tanpa harga beli di tagihan periode ini (spec harga modal 7). */
   missingCost: number;
+  /** Deposit booking dan saldo dari sisa deposit booking yang menutup tagihan periode ini (spec deposit D11). */
+  bookingDeposit: number;
 };
 
 type Row = Record<keyof Omit<InvoiceAggregate, "bucket">, bigint | number | null> & { bucket: string };
@@ -27,7 +29,7 @@ type Row = Record<keyof Omit<InvoiceAggregate, "bucket">, bigint | number | null
  * keputusan 1), sehingga pendapatan = layanan + treatment + barang + paket − diskon tidak memotong diskon baris dua kali.
  * Jumlah tagihan FINAL yang `finalizedAt`-nya di [start, end), per jenis baris, diskon, harga pokok, sisa
  * belum tertagih, dan jumlah tagihan. Diskon per tagihan: persen dibulatkan ke bawah (`subtotal × min(nilai, 100) / 100`,
- * pembagian bilangan bulat), nominal dibatasi subtotal. Sisa = max(0, total − pembayaran yang berlaku).
+ * pembagian bilangan bulat), nominal dibatasi subtotal. Sisa = max(0, total − pembayaran yang berlaku − deposit dipakai).
  */
 export async function invoiceAggregates(start: Date, end: Date, branchId: string | null, byMonth: boolean): Promise<InvoiceAggregate[]> {
   const branch = branchId ? Prisma.sql`AND i."branchId" = ${branchId}` : Prisma.empty;
@@ -65,6 +67,13 @@ export async function invoiceAggregates(start: Date, end: Date, branchId: string
       WHERE p."revokedAt" IS NULL
       GROUP BY p."invoiceId"
     ),
+    dep AS (
+      SELECT d."invoiceId", SUM(d."amount") AS deposit,
+             SUM(d."amount") FILTER (WHERE d."kind" = 'BOOKING' OR c."source" = 'SISA_DEPOSIT_BOOKING') AS booking
+      FROM "DepositUse" d JOIN inv ON inv."id" = d."invoiceId"
+      LEFT JOIN "DepositCredit" c ON c."id" = d."creditId"
+      GROUP BY d."invoiceId"
+    ),
     m AS (
       SELECT inv.month,
              COALESCE(lines.service, 0) AS service,
@@ -82,11 +91,14 @@ export async function invoiceAggregates(start: Date, end: Date, branchId: string
              END AS discount,
              COALESCE(cost.cogs, 0) + COALESCE(lines."treatmentCost", 0) AS cogs,
              COALESCE(cost.missing, 0) AS missing,
-             COALESCE(paid.paid, 0) AS paid
+             COALESCE(paid.paid, 0) AS paid,
+             COALESCE(dep.deposit, 0) AS deposit,
+             COALESCE(dep.booking, 0) AS booking
       FROM inv
       LEFT JOIN lines ON lines."invoiceId" = inv."id"
       LEFT JOIN cost ON cost."invoiceId" = inv."id"
       LEFT JOIN paid ON paid."invoiceId" = inv."id"
+      LEFT JOIN dep ON dep."invoiceId" = inv."id"
     )
     SELECT ${bucket} AS bucket,
            COALESCE(SUM(m.service), 0) AS service,
@@ -95,8 +107,9 @@ export async function invoiceAggregates(start: Date, end: Date, branchId: string
            COALESCE(SUM(m.package), 0) AS package,
            COALESCE(SUM(m.discount), 0) AS discount,
            COALESCE(SUM(m.cogs), 0) AS cogs,
-           COALESCE(SUM(GREATEST(0, m.subtotal - (m.discount - m.item) - m.paid)), 0) AS outstanding,
+           COALESCE(SUM(GREATEST(0, m.subtotal - (m.discount - m.item) - m.paid - m.deposit)), 0) AS outstanding,
            COALESCE(SUM(m.missing), 0) AS "missingCost",
+           COALESCE(SUM(m.booking), 0) AS "bookingDeposit",
            COUNT(*) AS "invoiceCount"
     FROM m
     ${group}
@@ -113,7 +126,34 @@ export async function invoiceAggregates(start: Date, end: Date, branchId: string
     outstanding: Number(row.outstanding ?? 0),
     invoiceCount: Number(row.invoiceCount ?? 0),
     missingCost: Number(row.missingCost ?? 0),
+    bookingDeposit: Number(row.bookingDeposit ?? 0),
   }));
+}
+
+/**
+ * Pengembalian deposit per tanggal pengembalian (spec deposit D17): semuanya uang keluar; bagian dari sisa deposit
+ * booking juga mengurangi pendapatan (D11). Cabang = cabang tagihan asal saldonya, karena pengembalian milik pasien.
+ */
+export async function depositRefundAggregates(
+  fromDate: string,
+  toDate: string,
+  branchId: string | null,
+  byMonth: boolean,
+): Promise<{ bucket: string; refunds: number; booking: number }[]> {
+  const branch = branchId ? Prisma.sql`AND i."branchId" = ${branchId}` : Prisma.empty;
+  const bucket = byMonth ? Prisma.sql`to_char(r."refundedOn", 'YYYY-MM')` : Prisma.sql`'semua'`;
+  const rows = await prisma.$queryRaw<{ bucket: string; refunds: bigint | null; booking: bigint | null }[]>`
+    SELECT ${bucket} AS bucket, SUM(p."amount") AS refunds,
+           COALESCE(SUM(p."amount") FILTER (WHERE c."source" = 'SISA_DEPOSIT_BOOKING'), 0) AS booking
+    FROM "DepositRefundPart" p
+    JOIN "DepositRefund" r ON r."id" = p."refundId"
+    JOIN "DepositCredit" c ON c."id" = p."creditId"
+    LEFT JOIN "Invoice" i ON i."id" = c."sourceInvoiceId"
+    WHERE r."refundedOn" >= ${new Date(`${fromDate}T00:00:00Z`)} AND r."refundedOn" <= ${new Date(`${toDate}T00:00:00Z`)} ${branch}
+    GROUP BY 1
+    ORDER BY 1
+  `;
+  return rows.map((row) => ({ bucket: row.bucket, refunds: Number(row.refunds ?? 0), booking: Number(row.booking ?? 0) }));
 }
 
 /**

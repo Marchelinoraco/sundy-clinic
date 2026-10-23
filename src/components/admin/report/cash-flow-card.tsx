@@ -16,6 +16,7 @@ export function CashFlowCard({ cash }: { cash: CashFlow }) {
     { label: "Total masuk", value: cash.inflow, strong: true },
     { label: "Pembayaran hutang supplier (neto)", value: cash.supplier },
     { label: "Pengeluaran", value: cash.expenses },
+    { label: "Pengembalian deposit", value: cash.depositRefunds },
     { label: "Total keluar", value: cash.outflow, strong: true },
     { label: "Kas bersih", value: cash.net, strong: true },
   ];

@@ -17,7 +17,16 @@ import {
 } from "@/lib/report";
 import { dateOnly } from "@/lib/stock";
 import { witaDateString } from "@/lib/time";
-import { commissionByPerformer, commissionDetails, expensesByMonth, invoiceAggregates, marginAggregates, packageSessionsUsed, type MarginReport } from "@/server/report-sql";
+import {
+  commissionByPerformer,
+  commissionDetails,
+  depositRefundAggregates,
+  expensesByMonth,
+  invoiceAggregates,
+  marginAggregates,
+  packageSessionsUsed,
+  type MarginReport,
+} from "@/server/report-sql";
 import { ensureRecurringExpenses } from "@/server/expense-store";
 import { requireCapability } from "@/server/session";
 
@@ -30,15 +39,17 @@ export async function collectReport(period: ReportPeriod, branchId: string | nul
   const dates = { gte: dateOnly(period.from), lte: dateOnly(period.to) };
   const branch = branchId ? { branchId } : {};
 
-  const [aggregates, expenseGroups, upfront, customerPaid, supplierGroups] = await Promise.all([
+  const [aggregates, expenseGroups, upfront, customerPaid, supplierGroups, refunds] = await Promise.all([
     invoiceAggregates(start, end, branchId, false),
     prisma.expense.groupBy({ by: ["categoryId"], where: { voidedAt: null, date: dates, ...branch }, _sum: { amount: true } }),
     upfrontEntries(start, end, branch),
     prisma.invoicePayment.aggregate({ where: { revokedAt: null, paidAt: dates, invoice: branch }, _sum: { amount: true } }),
     prisma.supplierPayment.groupBy({ by: ["kind"], where: { revokedAt: null, paidAt: dates, invoice: branch }, _sum: { amount: true } }),
+    depositRefundAggregates(period.from, period.to, branchId, false),
   ]);
 
   const total = aggregates[0];
+  const refund = refunds[0];
   const raw: RawReport = {
     service: total?.service ?? 0,
     treatment: total?.treatment ?? 0,
@@ -55,6 +66,8 @@ export async function collectReport(period: ReportPeriod, branchId: string | nul
     customerPaid: customerPaid._sum.amount ?? 0,
     supplierPaid: supplierGroups.find((g) => g.kind === "BAYAR")?._sum.amount ?? 0,
     supplierRefunded: supplierGroups.find((g) => g.kind === "PENGEMBALIAN")?._sum.amount ?? 0,
+    bookingDepositUsed: (total?.bookingDeposit ?? 0) + (refund?.booking ?? 0),
+    depositRefunds: refund?.refunds ?? 0,
   };
 
   if (expenseGroups.length > 0) {
@@ -165,10 +178,11 @@ async function collectTrend(months: string[], branchId: string | null): Promise<
   const last = monthPeriod(months[months.length - 1]);
   const { start } = periodInstants(first);
   const { end } = periodInstants(last);
-  const [aggregates, expenses, upfront] = await Promise.all([
+  const [aggregates, expenses, upfront, refunds] = await Promise.all([
     invoiceAggregates(start, end, branchId, true),
     expensesByMonth(first.from, last.to, branchId),
     upfrontEntries(start, end, branchId ? { branchId } : {}),
+    depositRefundAggregates(first.from, last.to, branchId, true),
   ]);
   const upfrontOf = new Map<string, { fee: number; online: number }>();
   for (const entry of upfront) {
@@ -178,6 +192,7 @@ async function collectTrend(months: string[], branchId: string | null): Promise<
   }
   return months.map((month) => {
     const row = aggregates.find((aggregate) => aggregate.bucket === month);
+    const refund = refunds.find((entry) => entry.bucket === month);
     const amount = expenses.get(month) ?? 0;
     const view = summarizeReport({
       service: row?.service ?? 0,
@@ -195,6 +210,8 @@ async function collectTrend(months: string[], branchId: string | null): Promise<
       customerPaid: 0,
       supplierPaid: 0,
       supplierRefunded: 0,
+      bookingDepositUsed: (row?.bookingDeposit ?? 0) + (refund?.booking ?? 0),
+      depositRefunds: 0,
     });
     return trendPoint(month, view);
   });
