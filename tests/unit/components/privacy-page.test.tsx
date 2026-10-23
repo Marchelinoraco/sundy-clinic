@@ -13,4 +13,11 @@ describe("halaman Kebijakan Privasi", () => {
     expect(screen.getByRole("heading", { name: "Kuis pendaftaran" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Biaya booking" })).toBeInTheDocument();
   });
+
+  it("biaya booking menjadi deposit yang dipotong dari tagihan dan hangus bila batal (spec deposit D13)", () => {
+    render(<PrivacyPolicyPage />);
+    const section = screen.getByRole("heading", { name: "Biaya booking" }).parentElement!;
+    expect(section).toHaveTextContent("Biaya ini menjadi deposit yang dipotong dari tagihan saat Anda berkunjung");
+    expect(section).not.toHaveTextContent("tidak dikembalikan");
+  });
 });
