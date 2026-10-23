@@ -139,6 +139,24 @@ describe("food recall: link, kiriman customer, suntingan dokter", () => {
     expect(await prisma.auditLog.count({ where: { action: "food-recall.submit", entityId: appointment.id } })).toBe(2);
   });
 
+  it("pasien mengirim Bangun tidur tanpa isi dan Istirahat jam 23 (spec recall, Review Focus 2)", async () => {
+    const { recall, code } = await offered();
+    await unwrap(
+      submitFoodRecall({
+        code,
+        entries: [
+          { hour: 5, kind: "BANGUN_TIDUR", text: "" },
+          { hour: 23, kind: "ISTIRAHAT", text: "tidur malam" },
+        ],
+        website: "",
+      }),
+    );
+    expect((await prisma.foodRecall.findUniqueOrThrow({ where: { id: recall.id } })).entries).toEqual([
+      { hour: 5, kind: "BANGUN_TIDUR", text: "", by: "CUSTOMER" },
+      { hour: 23, kind: "ISTIRAHAT", text: "tidur malam", by: "CUSTOMER" },
+    ]);
+  });
+
   it("link kemarin tidak berlaku: halaman tertutup dan kiriman ditolak tanpa menyimpan", async () => {
     const { recall, code } = await offered(-1);
     expect(await unwrap(getFoodRecallPage(code))).toEqual({ state: "CLOSED" });

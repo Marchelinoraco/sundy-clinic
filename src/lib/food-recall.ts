@@ -1,15 +1,45 @@
 import { z } from "zod";
 import { CLINIC_NAME } from "@/lib/clinic";
-import { activityEntrySchema, type ActivityEntry } from "@/lib/kuis/v1/answers";
-import { ACTIVITY_FIRST_HOUR, ACTIVITY_KINDS, ACTIVITY_LAST_HOUR } from "@/lib/kuis/v1/options";
+import { TEXT_LIMITS } from "@/lib/kuis/v1/options";
 import { firstName } from "@/lib/quiz-link";
 import { addDaysToDateString, minutesToTimeLabel, witaDateString } from "@/lib/time";
 
 /**
- * Food recall H-1 (spec rekam medis bagian 2): baris jam + jenis + isi seperti
- * "Aktivitas kemarin" kuis v1 (CI5), ditambah penanda siapa yang mengisi.
+ * Recall H-1 (spec rekam medis bagian 2, spec recall): baris jam + jenis + isi, berasal dari
+ * "Aktivitas kemarin" kuis v1 (CI5), ditambah penanda siapa yang mengisi. Jenis dan jamnya sendiri,
+ * terpisah dari kuis v1, sehingga jawaban kuis lama tidak berubah (spec recall R2, R4, R6).
  */
 export const FOOD_RECALL_MAX_ENTRIES = 40;
+
+export const RECALL_KINDS = {
+  MAKAN_MINUM: "Makan/minum",
+  KAPSUL_OBAT: "Kapsul/obat",
+  OLAHRAGA: "Olahraga",
+  BANGUN_TIDUR: "Bangun tidur",
+  ISTIRAHAT: "Istirahat",
+} as const;
+export type RecallKind = keyof typeof RECALL_KINDS;
+
+export const RECALL_FIRST_HOUR = 0;
+export const RECALL_LAST_HOUR = 23;
+
+/** Bangun tidur cukup jamnya; jenis lain wajib berisi (spec recall R3). */
+export function recallTextRequired(kind: RecallKind): boolean {
+  return kind !== "BANGUN_TIDUR";
+}
+
+export const recallEntrySchema = z.strictObject({
+  hour: z.number().int().min(RECALL_FIRST_HOUR).max(RECALL_LAST_HOUR),
+  kind: z.enum(Object.keys(RECALL_KINDS) as [RecallKind, ...RecallKind[]]),
+  text: z.string().trim().max(TEXT_LIMITS.activity),
+});
+export type RecallEntry = z.infer<typeof recallEntrySchema>;
+
+/** "05.00 Bangun tidur", atau "13.00 Istirahat — tidur siang 1 jam" bila ada isinya. */
+export function recallEntryLine(entry: Pick<RecallEntry, "hour" | "kind" | "text">): string {
+  const head = `${minutesToTimeLabel(entry.hour * 60)} ${RECALL_KINDS[entry.kind]}`;
+  return entry.text ? `${head} — ${entry.text}` : head;
+}
 
 export const FOOD_RECALL_AUTHORS = ["CUSTOMER", "DOKTER", "PERAWAT"] as const;
 export type FoodRecallAuthor = (typeof FOOD_RECALL_AUTHORS)[number];
@@ -17,8 +47,8 @@ export type FoodRecallAuthor = (typeof FOOD_RECALL_AUTHORS)[number];
 /** Lencana penulis tiap baris di tabel (spec peran perawat 8). */
 export const FOOD_RECALL_AUTHOR_LABEL: Record<FoodRecallAuthor, string> = { CUSTOMER: "pasien", DOKTER: "dokter", PERAWAT: "perawat" };
 
-export const foodRecallEntrySchema = activityEntrySchema.extend({ by: z.enum(FOOD_RECALL_AUTHORS) });
-export type FoodRecallEntry = ActivityEntry & { by: FoodRecallAuthor };
+export const foodRecallEntrySchema = recallEntrySchema.extend({ by: z.enum(FOOD_RECALL_AUTHORS) });
+export type FoodRecallEntry = RecallEntry & { by: FoodRecallAuthor };
 
 export type EntriesValidation = { ok: true; entries: FoodRecallEntry[] } | { ok: false; message: string };
 
@@ -26,7 +56,7 @@ const FOOD_RECALL_EMPTY = "Tambahkan minimal satu catatan.";
 const FOOD_RECALL_TOO_MANY = "Paling banyak 40 catatan.";
 const FOOD_RECALL_INVALID = "Catatan tidak sah. Muat ulang halaman lalu coba lagi.";
 
-const trimmedEntry = activityEntrySchema.transform((entry) => ({ ...entry, text: entry.text.trim() }));
+const missingText = (entry: RecallEntry) => !entry.text && recallTextRequired(entry.kind);
 
 function checkCount(raw: unknown): string | null {
   if (!Array.isArray(raw)) return FOOD_RECALL_INVALID;
@@ -39,8 +69,8 @@ function checkCount(raw: unknown): string | null {
 export function validateCustomerEntries(raw: unknown): EntriesValidation {
   const countProblem = checkCount(raw);
   if (countProblem) return { ok: false, message: countProblem };
-  const parsed = z.array(trimmedEntry).safeParse(raw);
-  if (!parsed.success || parsed.data.some((entry) => !entry.text)) return { ok: false, message: FOOD_RECALL_INVALID };
+  const parsed = z.array(recallEntrySchema).safeParse(raw);
+  if (!parsed.success || parsed.data.some(missingText)) return { ok: false, message: FOOD_RECALL_INVALID };
   return { ok: true, entries: parsed.data.map((entry) => ({ ...entry, by: "CUSTOMER" })) };
 }
 
@@ -52,11 +82,11 @@ export function validateStaffEntries(raw: unknown, author: "DOKTER" | "PERAWAT" 
   const countProblem = checkCount(raw);
   if (countProblem) return { ok: false, message: countProblem };
   const parsed = z
-    .array(activityEntrySchema.extend({ by: z.enum(FOOD_RECALL_AUTHORS).optional() }))
+    .array(recallEntrySchema.extend({ by: z.enum(FOOD_RECALL_AUTHORS).optional() }))
     .safeParse(raw);
   if (!parsed.success) return { ok: false, message: FOOD_RECALL_INVALID };
-  const entries = parsed.data.map((entry) => ({ ...entry, text: entry.text.trim(), by: entry.by ?? author }));
-  if (entries.some((entry) => !entry.text)) return { ok: false, message: FOOD_RECALL_INVALID };
+  const entries = parsed.data.map((entry) => ({ ...entry, by: entry.by ?? author }));
+  if (entries.some(missingText)) return { ok: false, message: FOOD_RECALL_INVALID };
   return { ok: true, entries };
 }
 
@@ -76,7 +106,7 @@ export function parseStoredEntries(raw: unknown): FoodRecallEntry[] {
     if (typeof item !== "object" || item === null) continue;
     const rest = { ...(item as Record<string, unknown>) };
     delete rest.by;
-    const base = activityEntrySchema.safeParse(rest);
+    const base = recallEntrySchema.safeParse(rest);
     if (base.success) entries.push({ ...base.data, by: "DOKTER" });
   }
   return entries;
@@ -107,23 +137,23 @@ export type FoodRecallRow = {
   entries: { kindLabel: string; text: string; by: FoodRecallAuthor }[];
 };
 
-/** Tabel 06.00–22.00 yang dilihat dokter; jam tanpa catatan tetap ada (komponen boleh menyembunyikannya). */
+/** Tabel 00.00–23.00 yang dilihat dokter; jam tanpa catatan tetap ada (komponen boleh menyembunyikannya). */
 export function foodRecallRows(entries: readonly FoodRecallEntry[]): FoodRecallRow[] {
   const rows: FoodRecallRow[] = [];
-  for (let hour = ACTIVITY_FIRST_HOUR; hour <= ACTIVITY_LAST_HOUR; hour++) {
+  for (let hour = RECALL_FIRST_HOUR; hour <= RECALL_LAST_HOUR; hour++) {
     rows.push({
       hour,
       label: minutesToTimeLabel(hour * 60),
       entries: entries
         .filter((entry) => entry.hour === hour)
-        .map((entry) => ({ kindLabel: ACTIVITY_KINDS[entry.kind], text: entry.text, by: entry.by })),
+        .map((entry) => ({ kindLabel: RECALL_KINDS[entry.kind], text: entry.text, by: entry.by })),
     });
   }
   return rows;
 }
 
 export function foodRecallHeader(recallDate: string): string {
-  return `Food recall H-1 (${recallDateShortLabel(recallDate)})`;
+  return `Recall H-1 (${recallDateShortLabel(recallDate)})`;
 }
 
 /** Teks Salin ke S (spec 5.2): judul, lalu satu catatan per baris, terurut per jam. */
@@ -131,7 +161,7 @@ export function foodRecallSubjectiveText(recallDate: string, entries: readonly F
   const lines = [...entries]
     .map((entry, index) => ({ entry, index }))
     .sort((a, b) => a.entry.hour - b.entry.hour || a.index - b.index)
-    .map(({ entry }) => `${minutesToTimeLabel(entry.hour * 60)} ${ACTIVITY_KINDS[entry.kind]} — ${entry.text}`);
+    .map(({ entry }) => recallEntryLine(entry));
   return [`${foodRecallHeader(recallDate)}:`, ...lines].join("\n");
 }
 
@@ -161,12 +191,12 @@ export function foodRecallLinkState(
 }
 
 export const FOOD_RECALL_CLOSED = "Link sudah tidak berlaku. Silakan tanyakan ke resepsionis.";
-export const FOOD_RECALL_RECEIVED = "Food recall Anda sudah diterima dokter.";
+export const FOOD_RECALL_RECEIVED = "Recall Anda sudah diterima dokter.";
 
 /** Pesan WA berisi link (spec 4.2). Hanya nama depan; tanpa NIK atau data lain. */
 export function foodRecallMessageText(input: { patientName: string; link: string }): string {
   return [
-    `Halo ${firstName(input.patientName)}, ini ${CLINIC_NAME}. Mohon catat apa saja yang Anda makan, minum, dan lakukan kemarin sebelum konsultasi (±3 menit): ${input.link}`,
+    `Halo ${firstName(input.patientName)}, ini ${CLINIC_NAME}. Mohon catat apa saja yang Anda makan, minum, dan lakukan kemarin, termasuk jam bangun dan istirahat, sebelum konsultasi (±3 menit): ${input.link}`,
     "Catatan ini hanya dibaca dokter kami.",
   ].join("\n");
 }
