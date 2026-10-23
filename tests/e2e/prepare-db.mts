@@ -30,6 +30,11 @@ await prisma.employee.deleteMany();
 await prisma.packageSessionEntry.deleteMany();
 await prisma.invoiceLine.updateMany({ where: { patientPackageItemId: { not: null } }, data: { patientPackageItemId: null } });
 await prisma.patientPackage.deleteMany();
+// Deposit (spec deposit) merujuk tagihan, pembayaran, booking, dan pasien: dibuang lebih dulu.
+await prisma.depositRefundPart.deleteMany();
+await prisma.depositRefund.deleteMany();
+await prisma.depositUse.deleteMany();
+await prisma.depositCredit.deleteMany();
 await prisma.invoicePayment.deleteMany();
 await prisma.invoiceStockUse.deleteMany();
 await prisma.invoiceLine.deleteMany();

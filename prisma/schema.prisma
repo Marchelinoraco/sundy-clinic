@@ -405,6 +405,8 @@ model PatientNumberCounter {
 /// Tidak terikat cabang — pasien yang pindah cabang tetap satu rekam medis.
 model Patient {
   invoices              Invoice[]
+  depositCredits        DepositCredit[]
+  depositRefunds        DepositRefund[]
   biaMeasurements       BiaMeasurement[]
   id                    String               @id @default(cuid())
   medicalRecordNumber   String               @unique
@@ -530,6 +532,8 @@ model Appointment {
   biaMeasurements BiaMeasurement[]
   foodRecall      FoodRecall?
   nurseVitals     NurseVitals?
+  /// Biaya booking yang dipakai sebagai deposit tagihan kunjungannya (spec deposit D1).
+  depositUses     DepositUse[]
   /// Jam check-in di meja depan (spec rekam medis bagian 2).
   checkedInAt     DateTime?
 
@@ -1252,8 +1256,12 @@ model Invoice {
   cancelApprovedById   String?
   cancelApprovedByName String?
 
-  lines    InvoiceLine[]
-  payments InvoicePayment[]
+  lines          InvoiceLine[]
+  payments       InvoicePayment[]
+  /// Potongan deposit booking dan saldo pasien, dicatat saat tagihan difinalkan (spec deposit D1, D6, D8).
+  depositUses    DepositUse[]
+  /// Saldo yang lahir dari tagihan ini: kelebihan bayar atau sisa deposit booking (spec deposit D4, D5).
+  depositCredits DepositCredit[]
 
   @@index([status, createdAt])
   @@index([patientId])
@@ -1345,6 +1353,8 @@ model InvoiceStockUse {
 /// Uang masuk dari customer. Salah input dibatalkan (revokedAt), tidak dihapus.
 model InvoicePayment {
   id                  String             @id @default(cuid())
+  /// Kelebihan bayar non-tunai yang menjadi saldo deposit pasien (spec deposit D5).
+  depositCredit       DepositCredit?
   invoiceId           String
   invoice             Invoice            @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
   /// Transfer bank (spec perbaikan tagihan 8): rekening tujuan klinik dan salinan labelnya saat dicatat.
@@ -1865,4 +1875,86 @@ model ApprovalPin {
   failedCount Int       @default(0)
   lockedUntil DateTime?
   updatedAt   DateTime  @updatedAt
+}
+
+enum DepositSource {
+  KELEBIHAN_BAYAR
+  SISA_DEPOSIT_BOOKING
+}
+
+enum DepositUseKind {
+  BOOKING
+  SALDO
+}
+
+/// Saldo deposit pasien (spec deposit D4–D7): kelebihan bayar non-tunai atau sisa deposit booking, berlaku 30 hari.
+/// Sisa = jumlah − pemakaian − bagian pengembalian; hangus bila validUntil < hari ini.
+model DepositCredit {
+  id              String              @id @default(cuid())
+  patientId       String
+  patient         Patient             @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  amount          Int
+  source          DepositSource
+  sourceInvoiceId String?
+  sourceInvoice   Invoice?            @relation(fields: [sourceInvoiceId], references: [id], onDelete: Restrict)
+  sourcePaymentId String?             @unique
+  sourcePayment   InvoicePayment?     @relation(fields: [sourcePaymentId], references: [id], onDelete: Restrict)
+  recordedOn      DateTime            @db.Date
+  validUntil      DateTime            @db.Date
+  staffId         String
+  staffName       String
+  createdAt       DateTime            @default(now())
+  uses            DepositUse[]
+  refundParts     DepositRefundPart[]
+
+  @@index([patientId, validUntil])
+}
+
+/// Potongan deposit di tagihan final (spec deposit D1, D6): BOOKING menyebut booking, SALDO menyebut kredit.
+/// CHECK deposit_use_target; satu booking hanya sekali menjadi deposit (indeks unik sebagian).
+model DepositUse {
+  id            String         @id @default(cuid())
+  invoiceId     String
+  invoice       Invoice        @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  kind          DepositUseKind
+  creditId      String?
+  credit        DepositCredit? @relation(fields: [creditId], references: [id], onDelete: Restrict)
+  appointmentId String?
+  appointment   Appointment?   @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
+  amount        Int
+  createdAt     DateTime       @default(now())
+
+  @@index([invoiceId])
+  @@index([creditId])
+}
+
+/// Pengembalian saldo deposit dalam bentuk uang (spec deposit D15–D17), dengan PIN persetujuan.
+model DepositRefund {
+  id             String              @id @default(cuid())
+  patientId      String
+  patient        Patient             @relation(fields: [patientId], references: [id], onDelete: Restrict)
+  amount         Int
+  method         PaymentMethod
+  reason         String
+  refundedOn     DateTime            @db.Date
+  staffId        String
+  staffName      String
+  approvedById   String
+  approvedByName String
+  createdAt      DateTime            @default(now())
+  parts          DepositRefundPart[]
+
+  @@index([refundedOn])
+}
+
+/// Bagian pengembalian per kredit (kedaluwarsa paling dulu lebih dulu, spec deposit D16).
+model DepositRefundPart {
+  id       String        @id @default(cuid())
+  refundId String
+  refund   DepositRefund @relation(fields: [refundId], references: [id], onDelete: Cascade)
+  creditId String
+  credit   DepositCredit @relation(fields: [creditId], references: [id], onDelete: Restrict)
+  amount   Int
+
+  @@index([creditId])
 }

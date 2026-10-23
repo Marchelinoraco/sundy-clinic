@@ -13,6 +13,7 @@ export const TOTALS_SELECT = {
   discountValue: true,
   lines: { select: { quantity: true, unitPrice: true, discountAmount: true, discountSource: true } },
   payments: { select: { amount: true, revokedAt: true } },
+  depositUses: { select: { amount: true } },
 } as const;
 
 /**

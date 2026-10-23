@@ -115,6 +115,8 @@ export type InvoiceInput = {
   discountValue: number;
   lines: readonly TotalsLine[];
   payments: readonly { amount: number; revokedAt: Date | null }[];
+  /** Potongan deposit booking dan saldo pasien yang tercatat di tagihan final (spec deposit D1, D6). */
+  depositUses?: readonly { amount: number }[];
 };
 
 export type InvoiceTotals = {
@@ -127,6 +129,8 @@ export type InvoiceTotals = {
   /** Diskon tagihan. */
   discount: number;
   total: number;
+  /** Σ potongan deposit (spec deposit D9). */
+  deposit: number;
   paid: number;
   /** Sisa yang harus dibayar; 0 untuk tagihan dibatalkan. */
   balance: number;
@@ -141,11 +145,13 @@ export function invoiceTotals(invoice: InvoiceInput): InvoiceTotals {
   const discount = discountAmount(subtotal, invoice.discountKind, invoice.discountValue);
   const total = subtotal - discount;
   const paid = invoice.payments.reduce((sum, payment) => (payment.revokedAt ? sum : sum + payment.amount), 0);
-  const base = { grossSubtotal, itemDiscount, subtotal, discount, total, paid };
+  const deposit = (invoice.depositUses ?? []).reduce((sum, use) => sum + use.amount, 0);
+  const base = { grossSubtotal, itemDiscount, subtotal, discount, total, deposit, paid };
   if (invoice.status === "DIBATALKAN") return { ...base, balance: 0, display: "DIBATALKAN" };
-  const balance = total - paid;
+  const balance = total - deposit - paid;
   if (invoice.status === "DRAF") return { ...base, balance, display: "DRAF" };
-  const display = balance <= 0 ? "LUNAS" : paid > 0 ? "SEBAGIAN" : "BELUM_DIBAYAR";
+  // Deposit yang memotong tagihan terhitung seperti pembayaran sebagian: status "Deposit" (spec deposit D3 alur 2).
+  const display = balance <= 0 ? "LUNAS" : paid > 0 || deposit > 0 ? "SEBAGIAN" : "BELUM_DIBAYAR";
   return { ...base, balance, display };
 }
 

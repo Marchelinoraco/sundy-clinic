@@ -12,6 +12,11 @@ export default async function setup() {
     adapter: new PrismaPg({ connectionString: process.env.TEST_DATABASE_URL! }),
   });
   try {
+    // Catatan deposit merujuk tagihan, pembayaran, booking, dan pasien (Restrict): dibuang lebih dulu.
+    await prisma.depositRefundPart.deleteMany();
+    await prisma.depositRefund.deleteMany();
+    await prisma.depositUse.deleteMany();
+    await prisma.depositCredit.deleteMany();
     await purgeEncounters(prisma);
     await prisma.slotHold.deleteMany();
     await prisma.intake.deleteMany();
