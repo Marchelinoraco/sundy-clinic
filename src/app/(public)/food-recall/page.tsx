@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { FoodRecallEntry } from "@/components/food-recall/food-recall-entry";
 
 export const metadata: Metadata = {
-  title: "Catatan Makan Kemarin",
+  title: "Recall Kemarin",
   robots: { index: false, follow: false },
 };
 

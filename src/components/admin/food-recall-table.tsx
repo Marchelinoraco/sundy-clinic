@@ -34,9 +34,9 @@ export function FoodRecallTable({ entries, label }: { entries: readonly FoodReca
                 {row.entries.map((entry, index) => (
                   <Box component="span" key={index} sx={{ mr: 1, display: "inline-block" }}>
                     <Box component="span" sx={{ color: "text.secondary" }}>
-                      {entry.kindLabel}:
-                    </Box>{" "}
-                    {entry.text}
+                      {entry.text ? `${entry.kindLabel}:` : entry.kindLabel}
+                    </Box>
+                    {entry.text && ` ${entry.text}`}
                     <Box
                       component="span"
                       sx={

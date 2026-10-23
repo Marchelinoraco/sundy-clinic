@@ -13,9 +13,8 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import type { ActionResult } from "@/lib/action-result";
-import { foodRecallHeader, foodRecallSubjectiveText, type FoodRecallAuthor, type FoodRecallView } from "@/lib/food-recall";
+import { foodRecallHeader, foodRecallSubjectiveText, type FoodRecallAuthor, type FoodRecallView, type RecallEntry } from "@/lib/food-recall";
 import { formatShortIndonesianDate } from "@/lib/format";
-import type { ActivityEntry } from "@/lib/kuis/v1/answers";
 import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
 import { saveFoodRecallByStaff } from "@/server/food-recall-admin";
 import { ActivityListFields } from "./activity-list-fields";
@@ -26,7 +25,7 @@ import { FoodRecallTable } from "./food-recall-table";
 export type SubjectiveCopy = { has: (text: string) => boolean; append: (block: string) => boolean };
 
 /** Baris di penyunting: baris lama membawa penandanya, tambahan baru belum (server menandai DOKTER atau PERAWAT). */
-type EditableEntry = ActivityEntry & { by?: FoodRecallAuthor };
+type EditableEntry = RecallEntry & { by?: FoodRecallAuthor };
 
 const at = (date: Date) => `${formatShortIndonesianDate(date)} ${minutesToTimeLabel(witaMinutesOfDay(date))}`;
 

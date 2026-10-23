@@ -3,11 +3,11 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ActivityListFields } from "@/components/admin/activity-list-fields";
-import type { ActivityEntry } from "@/lib/kuis/v1/answers";
+import type { RecallEntry } from "@/lib/food-recall";
 import { renderAdmin } from "../helpers/render-admin";
 
-function Harness({ onValue }: { onValue: (entries: ActivityEntry[]) => void }) {
-  const [entries, setEntries] = useState<ActivityEntry[]>([{ hour: 12, kind: "MAKAN_MINUM", text: "Nasi ikan" }]);
+function Harness({ onValue }: { onValue: (entries: RecallEntry[]) => void }) {
+  const [entries, setEntries] = useState<RecallEntry[]>([{ hour: 12, kind: "MAKAN_MINUM", text: "Nasi ikan" }]);
   return <ActivityListFields entries={entries} onChange={(next) => (setEntries(next), onValue(next))} />;
 }
 

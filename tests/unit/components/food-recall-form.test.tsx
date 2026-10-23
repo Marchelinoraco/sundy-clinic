@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FoodRecallEntry } from "@/components/food-recall/food-recall-entry";
@@ -52,6 +52,33 @@ describe("halaman food recall customer", () => {
         entries: [{ hour: 7, kind: "MAKAN_MINUM", text: "Nasi kuning" }],
         website: "",
       }),
+    );
+  });
+
+  it("Bangun tidur tanpa isi bisa ditambahkan; jam 00.00 dan 23.00 tersedia (spec recall)", async () => {
+    const user = userEvent.setup();
+    openWithCode("kode-uji");
+    const hour = await screen.findByLabelText("Jam");
+    expect(within(hour).getByRole("option", { name: "00.00" })).toBeInTheDocument();
+    expect(within(hour).getByRole("option", { name: "23.00" })).toBeInTheDocument();
+    expect(screen.getByText(/termasuk jam bangun tidur dan istirahat\./)).toBeInTheDocument();
+    const add = screen.getByRole("button", { name: "＋ Tambah catatan" });
+    expect(add).toBeDisabled();
+
+    await user.selectOptions(hour, "5");
+    await user.click(screen.getByRole("radio", { name: "Bangun tidur" }));
+    expect(add).toBeEnabled();
+    await user.click(add);
+    const list = screen.getByRole("list", { name: "Catatan aktivitas" });
+    expect(list).toHaveTextContent("05.00");
+    expect(list).toHaveTextContent("Bangun tidur");
+    expect(screen.getByRole("button", { name: "Hapus Bangun tidur" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("radio", { name: "Makan/minum" }));
+    expect(add).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Kirim" }));
+    await waitFor(() =>
+      expect(submitFoodRecall).toHaveBeenCalledWith({ code: "kode-uji", entries: [{ hour: 5, kind: "BANGUN_TIDUR", text: "" }], website: "" }),
     );
   });
 

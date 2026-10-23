@@ -4,8 +4,7 @@ import Link from "next/link";
 import { useState, useTransition, type FormEvent } from "react";
 import { ActivityList } from "@/components/kuis/activity-list";
 import { Button } from "@/components/ui/button";
-import type { FoodRecallPage } from "@/lib/food-recall";
-import type { ActivityEntry } from "@/lib/kuis/v1/answers";
+import type { FoodRecallPage, RecallEntry } from "@/lib/food-recall";
 import { submitFoodRecall } from "@/server/food-recall-public";
 
 /**
@@ -21,7 +20,7 @@ export function FoodRecallForm({
   page: Extract<FoodRecallPage, { state: "OPEN" }>;
   onSubmitted: () => void;
 }) {
-  const [entries, setEntries] = useState<ActivityEntry[]>([]);
+  const [entries, setEntries] = useState<RecallEntry[]>([]);
   const [website, setWebsite] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -51,7 +50,7 @@ export function FoodRecallForm({
           Apa saja yang Anda makan, minum, dan lakukan kemarin, {page.recallDateLabel}?
         </h1>
         <p className="text-sm text-brown-700">
-          Tambahkan satu per satu: jam, jenisnya, lalu isinya. Tulis yang benar-benar terjadi kemarin.
+          Tambahkan satu per satu: jam, jenisnya, lalu isinya, termasuk jam bangun tidur dan istirahat. Tulis yang benar-benar terjadi kemarin.
         </p>
       </div>
 

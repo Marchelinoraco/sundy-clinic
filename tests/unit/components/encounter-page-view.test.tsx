@@ -124,7 +124,7 @@ describe("EncounterPageView", () => {
     expect(screen.getByRole("tab", { name: "Food recall" })).toHaveAttribute("aria-selected", "true");
     await user.click(screen.getByRole("button", { name: "Salin ke S" }));
     expect(screen.getByLabelText("Keluhan dan anamnesis dokter")).toHaveValue(
-      "BB naik 1 kg\n\nFood recall H-1 (Rabu, 30 Sep):\n07.00 Makan/minum — Nasi kuning",
+      "BB naik 1 kg\n\nRecall H-1 (Rabu, 30 Sep):\n07.00 Makan/minum — Nasi kuning",
     );
   });
 

@@ -60,7 +60,7 @@ describe("EncounterFoodRecallTab", () => {
     const { unmount } = renderTab({ copy });
     await user.click(screen.getByRole("button", { name: "Salin ke S" }));
     expect(copy.append).toHaveBeenCalledWith(
-      "Food recall H-1 (Rabu, 30 Sep):\n07.00 Makan/minum — Nasi kuning\n09.00 Olahraga — Senam",
+      "Recall H-1 (Rabu, 30 Sep):\n07.00 Makan/minum — Nasi kuning\n09.00 Olahraga — Senam",
     );
     expect(toast.success).toHaveBeenCalledWith("Food recall disalin ke S.");
     unmount();
@@ -118,6 +118,32 @@ describe("EncounterFoodRecallTab", () => {
     renderTab({ foodRecall: { ...FILLED, state: "NOT_OFFERED", entries: [], submittedAt: null, completedAt: null } });
     expect(screen.getByText("Food recall tidak ditawarkan saat check-in.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Tawarkan sekarang" })).toBeInTheDocument();
+  });
+
+  it("lima jenis catatan, Bangun tidur tanpa isi, dan tabel tanpa titik dua untuk baris tanpa isi (spec recall)", async () => {
+    const user = userEvent.setup();
+    vi.mocked(saveFoodRecallByStaff).mockResolvedValue({ ok: true, data: undefined });
+    renderTab({ foodRecall: { ...FILLED, entries: [{ hour: 13, kind: "ISTIRAHAT", text: "Tidur siang", by: "CUSTOMER" }, { hour: 5, kind: "BANGUN_TIDUR", text: "", by: "PERAWAT" }] } });
+    const table = screen.getByRole("table");
+    expect(table).toHaveTextContent("Bangun tidur");
+    expect(table).not.toHaveTextContent("Bangun tidur:");
+    expect(table).toHaveTextContent("Istirahat: Tidur siang");
+
+    await user.click(screen.getByRole("button", { name: "Lengkapi" }));
+    const kinds = within(screen.getByRole("radiogroup", { name: "Jenis catatan" })).getAllByRole("radio");
+    expect(kinds.map((radio) => radio.closest("label")?.textContent)).toEqual(["Makan/minum", "Kapsul/obat", "Olahraga", "Bangun tidur", "Istirahat"]);
+    const hour = screen.getByLabelText("Jam");
+    expect(within(hour).getByRole("option", { name: "00.00" })).toBeInTheDocument();
+    expect(within(hour).getByRole("option", { name: "23.00" })).toBeInTheDocument();
+    await user.selectOptions(hour, "23");
+    await user.click(screen.getByRole("radio", { name: "Bangun tidur" }));
+    await user.click(screen.getByRole("button", { name: "＋ Tambah catatan" }));
+    await user.click(screen.getByRole("button", { name: /^Simpan (food )?recall$/i }));
+    await waitFor(() =>
+      expect(saveFoodRecallByStaff).toHaveBeenCalledWith(
+        expect.objectContaining({ entries: expect.arrayContaining([{ hour: 23, kind: "BANGUN_TIDUR", text: "" }]) }),
+      ),
+    );
   });
 
   it("halaman perawat: tanpa link pasien, mengisi dari kosong, dan memakai aksi simpan perawat", async () => {
