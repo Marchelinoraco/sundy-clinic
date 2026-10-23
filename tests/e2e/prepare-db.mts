@@ -543,6 +543,38 @@ for (const [index, project] of ["desktop", "mobile"].entries()) {
   });
 }
 
+// Deposit (deposit.spec.ts): per proyek satu pasien dengan booking Rp 100.000 yang sudah diverifikasi (ada audit
+// appointment.verify, spec deposit D3) dan kunjungan final hari ini pukul 20.00/20.30, di luar jam buka.
+for (const [index, project] of ["desktop", "mobile"].entries()) {
+  const patient = await prisma.patient.create({
+    data: { medicalRecordNumber: `SDY-E2E-DEPOSIT-${index + 1}`, name: `Pasien Deposit ${project}`, whatsapp: `6281200094${index}01`, birthDate: new Date("1993-03-17T00:00:00Z"), gender: "P" },
+  });
+  const startAt = combineWitaDateAndMinutes(today, 20 * 60 + index * 30);
+  const appointment = await prisma.appointment.create({
+    data: {
+      code: `E2E-DEPOSIT-${index + 1}`,
+      type: "KONSULTASI",
+      startAt,
+      endAt: new Date(startAt.getTime() + 30 * 60_000),
+      status: "HADIR",
+      source: "WHATSAPP",
+      bookingFee: 100000,
+      branchId: visitBranch.id,
+      staffId: visitDoctor.id,
+      serviceId: visitService.id,
+      patientId: patient.id,
+    },
+  });
+  await prisma.auditLog.create({
+    data: { actorStaffId: "e2e", actorName: "Admin E2E", actorRole: "SUPER_ADMIN", action: "appointment.verify", entity: "Appointment", entityId: appointment.id },
+  });
+  const encounter = await prisma.encounter.create({ data: { appointmentId: appointment.id, createdById: visitDoctor.id, createdByName: visitDoctor.name } });
+  await prisma.encounter.update({
+    where: { id: encounter.id },
+    data: { status: "FINAL", assessment: "E2E deposit", finalizedAt: new Date(), finalizedById: visitDoctor.id, finalizedByName: visitDoctor.name },
+  });
+}
+
 // Angka vital perawat (spec vital perawat VP4): dokter baru bisa menekan Periksa setelah perawat menekan Selesai ditangani.
 // Kunjungan hari ini yang dibuka dokter di uji lain sudah selesai ditangani; E2E-PERAWAT dibiarkan untuk perawat.spec.ts.
 // Pasien Kunjungan diukur 118/78 mmHg, 72,5 kg, 160 cm: kunjungan.spec.ts memeriksa salinannya di bagian O.

@@ -122,7 +122,7 @@ test("resepsionis menagih penjualan langsung, memfinalkan, dan menerima pembayar
   await dialog.getByLabel("Nominal").fill("50000");
   await dialog.getByRole("button", { name: "Simpan" }).click();
   await expect(dialog).toBeHidden({ timeout: 30_000 });
-  await expect(page.getByText("Deposit", { exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("main").getByText("Deposit", { exact: true })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole("region", { name: "Ringkasan tagihan" })).toContainText("Rp 85.000");
 
   await payments.getByRole("button", { name: "Catat pembayaran" }).click();
@@ -155,7 +155,7 @@ test("admin keuangan membatalkan pembayaran lalu tagihan; stok kembali", async (
   await revoke.getByLabel("Alasan").fill("Salah catat");
   await revoke.getByRole("button", { name: "Batalkan pembayaran" }).click();
   await expect(revoke).toBeHidden({ timeout: 30_000 });
-  await expect(page.getByText("Deposit", { exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("main").getByText("Deposit", { exact: true })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole("region", { name: "Ringkasan tagihan" })).toContainText("Rp 50.000");
 
   await page.goto("/admin");
