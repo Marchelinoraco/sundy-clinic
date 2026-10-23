@@ -37,7 +37,9 @@ import type { PackageVisitPlan } from "@/server/patient-package-read";
 import type { SellablePackage } from "@/server/treatment-package-catalog";
 import { DialogCloseButton } from "../mui/dialog-close-button";
 import { LinkButton } from "../mui/links";
+import { approvedSuffix } from "@/lib/approval";
 import { RupiahInput } from "../rupiah-input";
+import { useApproval } from "../approval/use-approval";
 import { AddFreeLineDialog } from "./add-free-line-dialog";
 import type { InternalServiceOption } from "@/server/internal-catalog";
 import { AddItemDialog } from "./add-item-dialog";
@@ -58,11 +60,13 @@ export function useInvoiceAction() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  function run<T>(action: () => Promise<ActionResult<T>>, onDone?: (data: T) => void) {
+  /** `action` boleh mengembalikan null: persetujuan PIN dibatalkan, tidak ada yang berubah. */
+  function run<T>(action: () => Promise<ActionResult<T> | null>, onDone?: (data: T) => void) {
     setError(null);
     startTransition(async () => {
       try {
         const result = await action();
+        if (result === null) return;
         if (!result.ok) {
           setError(result.error);
           return;
@@ -92,12 +96,16 @@ function LineRow({ detail, line, options, performers, disabled, run, fail, short
   const [unitPrice, setUnitPrice] = useState<number | null>(line.unitPrice);
   const [note, setNote] = useState(line.priceNote ?? "");
   const priceChanged = unitPrice !== line.unitPrice;
+  const { withApproval, dialog } = useApproval();
 
   function save() {
     const input = { quantity: quantity ?? Number.NaN, unitPrice: line.packageUse ? 0 : (unitPrice ?? Number.NaN), priceNote: note };
     const checked = validateLineEdit(input, { needsNote: line.catalogLinked && priceChanged });
     if (!checked.ok) return fail(checked.message);
-    run(() => updateInvoiceLine({ invoiceId: detail.id, version: detail.version, lineId: line.id, ...input }), () => toast.success("Baris disimpan."));
+    run(
+      () => withApproval((approval) => updateInvoiceLine({ invoiceId: detail.id, version: detail.version, lineId: line.id, ...input, approval })),
+      () => toast.success("Baris disimpan."),
+    );
   }
 
   return (
@@ -109,6 +117,12 @@ function LineRow({ detail, line, options, performers, disabled, run, fail, short
         <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>
           {INVOICE_LINE_KIND_LABEL[line.kind]}
         </Typography>
+        {line.priceApprovedByName && (
+          <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>
+            Harga diubah{approvedSuffix(line.priceApprovedByName)}
+          </Typography>
+        )}
+        {dialog}
         {shortage && (
           <Typography variant="caption" component="div" sx={{ color: "warning.main" }}>
             Stok meja kurang (tersedia {shortage.available})

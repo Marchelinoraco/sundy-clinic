@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/server/invoice-notes", () => ({ updateInvoiceNotes: vi.fn() }));
 vi.mock("@/server/invoice-drafts", () => ({ setLineDiscount: vi.fn(), clearLineDiscount: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mocks.refresh, push: vi.fn() }) }));
+vi.mock("@/server/approval-pin", () => ({ listApprovers: vi.fn().mockResolvedValue({ ok: true, data: [] }) }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/server/invoice-payments", () => ({
   recordInvoicePayment: mocks.recordInvoicePayment,
@@ -181,6 +182,21 @@ describe("tampilan tagihan final", () => {
   it("draf yang dibatalkan tidak menawarkan Cetak invoice A4 (belum pernah final; review akhir invoice A4)", () => {
     renderAdmin(<InvoiceFinalView detail={finalDetail({ status: "DIBATALKAN", number: null, finalizedAt: null })} today="2026-10-07" canManage canCorrect={false} canSeeCost={false} />);
     expect(screen.queryByRole("link", { name: "Cetak invoice A4" })).not.toBeInTheDocument();
+  });
+
+  it("penyetuju tampil pada harga, diskon, dan pembatalan (spec PIN P11)", () => {
+    const base = finalDetail();
+    const approved = finalDetail({
+      status: "DIBATALKAN",
+      cancelledAt: new Date("2026-10-08T03:00:00Z"),
+      cancelledByName: "Resepsionis",
+      cancelReason: "Salah input",
+      cancelApprovedByName: "Rina",
+      lines: base.lines.map((line, index) => (index === 0 ? { ...line, priceNote: "Harga teman", priceApprovedByName: "Rina" } : line)),
+    });
+    renderAdmin(<InvoiceFinalView detail={approved} receipt={null} today="2026-10-07" canManage canCorrect canSeeCost={false} />);
+    expect(screen.getByText(/Dibatalkan .* oleh Resepsionis: Salah input · disetujui Rina/)).toBeInTheDocument();
+    expect(screen.getByText(/Harga teman · disetujui Rina/)).toBeInTheDocument();
   });
 
   it("tanpa invoice:manage tidak ada aksi struk", () => {

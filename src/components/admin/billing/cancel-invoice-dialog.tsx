@@ -14,6 +14,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { validateReason } from "@/lib/stock";
 import { cancelInvoice } from "@/server/invoice-lifecycle";
+import { useApproval } from "../approval/use-approval";
 import { DialogCloseButton } from "../mui/dialog-close-button";
 
 /** Batalkan tagihan (spec tagihan 5): tidak dihapus; stok kembali dan alasan tercatat. Draf dibuang dengan cara yang sama. */
@@ -23,6 +24,7 @@ export function CancelInvoiceDialog({ invoiceId, label, draft = false }: { invoi
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const { withApproval, dialog } = useApproval();
   const trigger = draft ? "Buang draf" : "Batalkan tagihan";
 
   function confirm() {
@@ -34,7 +36,9 @@ export function CancelInvoiceDialog({ invoiceId, label, draft = false }: { invoi
     setError(null);
     startTransition(async () => {
       try {
-        const result = await cancelInvoice({ invoiceId, reason });
+        // Membuang draf tidak menuntut PIN; server hanya meminta persetujuan untuk tagihan final (spec PIN P1c, P4).
+        const result = await withApproval((approval) => cancelInvoice({ invoiceId, reason, approval }));
+        if (result === null) return;
         if (!result.ok) {
           setError(result.error);
           return;
@@ -76,6 +80,7 @@ export function CancelInvoiceDialog({ invoiceId, label, draft = false }: { invoi
           </Button>
         </DialogActions>
       </Dialog>
+      {dialog}
     </>
   );
 }

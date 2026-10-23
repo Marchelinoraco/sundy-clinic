@@ -24,6 +24,11 @@ export function approvedSuffix(name: string | null | undefined): string {
   return name ? ` · disetujui ${name}` : "";
 }
 
+/** Galat yang menyangkut penyetuju atau PIN-nya: kotak Persetujuan tetap terbuka supaya PIN bisa diketik ulang. */
+export function isApprovalError(message: string): boolean {
+  return message === PIN_WRONG || message === APPROVER_INVALID || message === PIN_FORMAT || / terkunci sampai \d{2}\.\d{2}\.$/.test(message);
+}
+
 /** Pesan galat, atau null bila PIN tepat 6 angka (spec PIN P8). */
 export function validatePin(pin: unknown): string | null {
   return typeof pin === "string" && /^\d{6}$/.test(pin) ? null : PIN_FORMAT;

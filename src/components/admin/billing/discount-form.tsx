@@ -7,10 +7,12 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { useState } from "react";
+import { approvedSuffix } from "@/lib/approval";
 import { DISCOUNT_KIND_LABEL, DISCOUNT_LIMIT_PERCENT, manualItemDiscount, validateDiscount, type DiscountKindValue } from "@/lib/invoice";
 import { setInvoiceDiscount } from "@/server/invoice-drafts";
 import type { InvoiceDetail } from "@/server/invoice-read";
 import { SelectField } from "../mui/select-field";
+import { useApproval } from "../approval/use-approval";
 import type { useInvoiceAction } from "./invoice-draft-editor";
 
 /** Diskon per tagihan (spec tagihan TG9): nominal atau persen, wajib alasan; resepsionis paling banyak 20%. */
@@ -30,6 +32,7 @@ export function DiscountForm({
   const [kind, setKind] = useState<DiscountKindValue | "">(detail.discountKind ?? "");
   const [value, setValue] = useState(detail.discountKind ? String(detail.discountValue) : "");
   const [reason, setReason] = useState(detail.discountReason ?? "");
+  const { withApproval, dialog } = useApproval();
 
   function apply() {
     const input = { kind: kind || null, value: value === "" ? 0 : Number(value), reason };
@@ -40,7 +43,7 @@ export function DiscountForm({
       canExceed,
     });
     if (!checked.ok) return fail(checked.message);
-    run(() => setInvoiceDiscount({ invoiceId: detail.id, version: detail.version, ...input }));
+    run(() => withApproval((approval) => setInvoiceDiscount({ invoiceId: detail.id, version: detail.version, ...input, approval })));
   }
 
   function clear() {
@@ -76,6 +79,11 @@ export function DiscountForm({
           />
           <TextField id="discount-reason" label="Alasan diskon" value={reason} onChange={(e) => setReason(e.target.value)} fullWidth />
         </Box>
+        {detail.discountKind && detail.discountApprovedByName && (
+          <Typography variant="caption" component="p" sx={{ color: "text.secondary" }}>
+            Diskon tagihan{approvedSuffix(detail.discountApprovedByName)}
+          </Typography>
+        )}
         {!canExceed && (
           <Typography variant="caption" component="p" sx={{ color: "text.secondary" }}>
             Diskon item manual ditambah diskon tagihan di atas {DISCOUNT_LIMIT_PERCENT}% dari subtotal hanya bisa diberikan Admin Keuangan.
@@ -92,6 +100,7 @@ export function DiscountForm({
           )}
         </Stack>
       </Stack>
+      {dialog}
     </Paper>
   );
 }

@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock("@/server/invoice-notes", () => ({ updateInvoiceNotes: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: mocks.refresh, push: mocks.push }) }));
+vi.mock("@/server/approval-pin", () => ({ listApprovers: vi.fn().mockResolvedValue({ ok: true, data: [] }) }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("@/server/invoice-drafts", () => ({
   updateInvoiceLine: mocks.updateInvoiceLine,
@@ -48,6 +49,20 @@ vi.mock("@/server/invoice-drafts", () => ({
 }));
 vi.mock("@/server/invoice-lifecycle", () => ({ finalizeInvoice: mocks.finalizeInvoice, cancelInvoice: mocks.cancelInvoice }));
 vi.mock("@/server/restock", () => ({ createRestockRequest: vi.fn() }));
+
+describe("penyetuju di draf (spec PIN P11)", () => {
+  it("baris yang harganya disetujui menulis 'Harga diubah · disetujui Rina'", () => {
+    const base = detail();
+    renderAdmin(
+      <InvoiceDraftEditor
+        detail={{ ...base, lines: base.lines.map((line, index) => (index === 0 ? { ...line, priceNote: "Harga teman", priceApprovedByName: "Rina" } : line)) }}
+        items={[]}
+        canExceedDiscount={false}
+      />,
+    );
+    expect(screen.getByText("Harga diubah · disetujui Rina")).toBeInTheDocument();
+  });
+});
 
 function detail(patch: Partial<InvoiceDetail> = {}): InvoiceDetail {
   const lines: InvoiceDetail["lines"] = [

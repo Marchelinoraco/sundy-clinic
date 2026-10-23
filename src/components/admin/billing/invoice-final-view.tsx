@@ -8,6 +8,7 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import { ReceiptPaper } from "@/components/receipt/receipt-paper";
+import { approvedSuffix } from "@/lib/approval";
 import { formatDateWithYear, formatRupiah } from "@/lib/format";
 import { INVOICE_LINE_KIND_LABEL } from "@/lib/invoice";
 import type { PublicReceipt } from "@/lib/receipt";
@@ -71,6 +72,7 @@ export function InvoiceFinalView({
             sx={{ p: 1.5, border: 1, borderColor: "error.main", borderRadius: 1, bgcolor: "rgba(var(--mui-palette-error-mainChannel) / 0.06)" }}
           >
             Dibatalkan {formatDateWithYear(detail.cancelledAt)} oleh {detail.cancelledByName}: {detail.cancelReason}
+            {approvedSuffix(detail.cancelApprovedByName)}
           </Typography>
         )}
 
@@ -116,6 +118,7 @@ export function InvoiceFinalView({
                     <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>
                       {INVOICE_LINE_KIND_LABEL[line.kind]}
                       {line.priceNote && ` · ${line.priceNote}`}
+                      {approvedSuffix(line.priceApprovedByName)}
                     </Typography>
                     {line.performerName && (
                       <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>
@@ -171,6 +174,7 @@ export function InvoiceFinalView({
                 <Typography variant="caption" component="p" sx={{ color: "text.secondary" }}>
                   {detail.discountReason}
                   {detail.discountByName && ` (${detail.discountByName})`}
+                  {approvedSuffix(detail.discountApprovedByName)}
                 </Typography>
               </Box>
             )}
