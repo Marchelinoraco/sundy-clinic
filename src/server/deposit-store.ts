@@ -99,3 +99,45 @@ export async function releaseDeposits(tx: Db, invoiceId: string): Promise<void> 
   await tx.depositUse.deleteMany({ where: { invoiceId } });
   if (credits.length > 0) await tx.depositCredit.deleteMany({ where: { id: { in: credits.map((credit) => credit.id) } } });
 }
+
+/** Kelebihan bayar non-tunai menjadi saldo pasien, berlaku 30 hari dari tanggal bayar (D5). Pemanggil sudah mengunci pasien. */
+export async function recordOverpayment(
+  tx: Db,
+  overpay: { patientId: string; invoiceId: string; paymentId: string; amount: number; paidAt: string },
+  actor: Actor,
+): Promise<{ id: string; validUntil: string }> {
+  const validUntil = depositValidUntil(overpay.paidAt);
+  const credit = await tx.depositCredit.create({
+    data: {
+      patientId: overpay.patientId,
+      amount: overpay.amount,
+      source: "KELEBIHAN_BAYAR",
+      sourceInvoiceId: overpay.invoiceId,
+      sourcePaymentId: overpay.paymentId,
+      recordedOn: day(overpay.paidAt),
+      validUntil: day(validUntil),
+      staffId: actor.staffId,
+      staffName: actor.name,
+    },
+    select: { id: true },
+  });
+  return { id: credit.id, validUntil };
+}
+
+/**
+ * Pembayaran berlebih dibatalkan: saldonya ikut hilang. Ditolak bila saldo itu sudah dipakai tagihan lain atau
+ * dikembalikan (Review Focus 4). Mengunci pasien sendiri; pemanggil sudah mengunci tagihan.
+ */
+export async function releaseOverpayment(tx: Db, paymentId: string): Promise<void> {
+  const found = await tx.depositCredit.findUnique({ where: { sourcePaymentId: paymentId }, select: { id: true, patientId: true } });
+  if (!found) return;
+  await lockPatient(tx, found.patientId);
+  const credit = await tx.depositCredit.findUniqueOrThrow({
+    where: { id: found.id },
+    select: { uses: { select: { invoice: { select: { number: true } } } }, refundParts: { select: { id: true } } },
+  });
+  const user = credit.uses[0];
+  if (user) throw new UserFacingError(`Kelebihan pembayaran ini sudah dipakai di ${user.invoice.number ?? "tagihan lain"}.`);
+  if (credit.refundParts.length > 0) throw new UserFacingError("Kelebihan pembayaran ini sudah dikembalikan ke pasien.");
+  await tx.depositCredit.delete({ where: { id: found.id } });
+}

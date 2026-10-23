@@ -376,7 +376,8 @@ export type ValidInvoicePayment = Omit<InvoicePaymentInput, "reference" | "clini
 
 /**
  * Pembayaran customer (spec tagihan 4.4). `limit` = sisa tagihan saat ini, dihitung server
- * setelah tagihan dikunci; `finalizedDate` = tanggal WITA tagihan difinalkan.
+ * setelah tagihan dikunci; `finalizedDate` = tanggal WITA tagihan difinalkan. Hanya tunai yang dibatasi
+ * sisa: kelebihan non-tunai menjadi saldo deposit pasien (spec deposit D5).
  */
 export function validateInvoicePayment(
   raw: unknown,
@@ -385,8 +386,8 @@ export function validateInvoicePayment(
   if (!isObject(raw) || typeof raw.invoiceId !== "string" || !raw.invoiceId) return fail(INVALID_FORM);
   if (ctx.limit <= 0) return fail("Tagihan ini tidak punya sisa.");
   if (!isWhole(raw.amount, 1, MAX_AMOUNT)) return fail("Nominal harus bilangan bulat lebih dari 0.");
-  if (raw.amount > ctx.limit) return fail(`Nominal melebihi sisa tagihan (${formatRupiah(ctx.limit)}).`);
   if (!(PAYMENT_METHODS as unknown[]).includes(raw.method)) return fail("Pilih metode pembayaran.");
+  if (raw.method === "TUNAI" && raw.amount > ctx.limit) return fail(`Nominal melebihi sisa tagihan (${formatRupiah(ctx.limit)}).`);
   if (!isDateString(raw.paidAt)) return fail("Isi tanggal bayar.");
   if (raw.paidAt > ctx.today) return fail("Tanggal bayar tidak boleh di masa depan.");
   if (raw.paidAt < ctx.finalizedDate) return fail("Tanggal bayar tidak boleh sebelum tagihan difinalkan.");

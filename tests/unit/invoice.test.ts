@@ -209,8 +209,14 @@ describe("validateInvoicePayment", () => {
     });
   });
 
+  it("non-tunai boleh melebihi sisa: kelebihannya menjadi saldo deposit (spec deposit D5)", () => {
+    expect(validateInvoicePayment({ ...pay, amount: 130000 }, ctx)).toMatchObject({ ok: true, value: { amount: 130000, method: "QRIS" } });
+    expect(validateInvoicePayment({ ...pay, method: "EDC", clinicBankAccountId: "acc", amount: 130000 }, ctx).ok).toBe(true);
+    expect(validateInvoicePayment({ ...pay, method: "TUNAI", amount: 130000 }, ctx)).toEqual({ ok: false, message: "Nominal melebihi sisa tagihan (Rp 80.000)." });
+  });
+
   it("menolak nominal di atas sisa, tanpa sisa, metode asing, dan tanggal yang tidak sah", () => {
-    expect(validateInvoicePayment({ ...pay, amount: 80001 }, ctx)).toEqual({ ok: false, message: "Nominal melebihi sisa tagihan (Rp 80.000)." });
+    expect(validateInvoicePayment({ ...pay, method: "TUNAI", amount: 80001 }, ctx)).toEqual({ ok: false, message: "Nominal melebihi sisa tagihan (Rp 80.000)." });
     expect(validateInvoicePayment(pay, { ...ctx, limit: 0 })).toEqual({ ok: false, message: "Tagihan ini tidak punya sisa." });
     expect(validateInvoicePayment({ ...pay, amount: 0 }, ctx)).toEqual({ ok: false, message: "Nominal harus bilangan bulat lebih dari 0." });
     expect(validateInvoicePayment({ ...pay, method: "CEK" }, ctx)).toEqual({ ok: false, message: "Pilih metode pembayaran." });
