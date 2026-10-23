@@ -95,10 +95,13 @@ export function buildEscPosReceipt(receipt: PublicReceipt, width: PaperWidth): s
   if (receipt.itemDiscount > 0) row("Diskon item", `-${formatRupiah(receipt.itemDiscount)}`);
   if (receipt.discount > 0) row("Diskon", `-${formatRupiah(receipt.discount)}`);
   row("Total", formatRupiah(receipt.total));
+  if (receipt.bookingDeposit > 0) row("Deposit booking", `-${formatRupiah(receipt.bookingDeposit)}`);
+  if (receipt.saldoDeposit > 0) row("Saldo deposit", `-${formatRupiah(receipt.saldoDeposit)}`);
   for (const payment of receipt.payments) {
     row(`${dateLabel(payment.paidAt)} ${PAYMENT_METHOD_LABEL[payment.method]}`, formatRupiah(payment.amount));
   }
   if (receipt.balance > 0) row("Sisa", formatRupiah(receipt.balance));
+  for (const note of receipt.depositNotes) lines.push(...wrapText(text(note), columns));
   lines.push(rule);
   out += `${lines.join("\n")}\n`;
 

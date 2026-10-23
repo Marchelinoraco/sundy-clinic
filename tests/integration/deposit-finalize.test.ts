@@ -2,8 +2,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
 import { invoiceTotals } from "@/lib/invoice";
+import { dateLabel } from "@/lib/stock";
 import { addDaysToDateString, witaDateString } from "@/lib/time";
 import { cancelInvoice, finalizeInvoice } from "@/server/invoice-lifecycle";
+import { getInvoiceDetail } from "@/server/invoice-read";
 import { TOTALS_SELECT } from "@/server/invoice-store";
 import { testApproval } from "./approver";
 import { cleanupBillingWorld, createBillingWorld, type BillingWorld } from "./invoice-world";
@@ -172,5 +174,23 @@ describe("deposit saat pembatalan", () => {
     await unwrap(cancelInvoice({ invoiceId: id, reason: "Salah input", approval: await testApproval() }));
     expect(await prisma.depositUse.count({ where: { creditId: saved.id } })).toBe(0);
     expect((await prisma.depositCredit.findUniqueOrThrow({ where: { id: saved.id } })).validUntil.toISOString().slice(0, 10)).toBe(addDaysToDateString(today, 5));
+  });
+
+  it("detail tagihan: draf memperkirakan deposit tanpa menulis; final memakai yang tercatat dan catatan sisa deposit booking (D9)", async () => {
+    await credit(80_000, addDaysToDateString(today, 3));
+    const id = await draft(150_000, await booking({ fee: 100_000, verified: true }));
+    expect((await getInvoiceDetail(id))!.deposit).toEqual({ booking: 100_000, saldo: 50_000, estimate: true });
+    expect(await prisma.depositUse.count({ where: { invoiceId: id } })).toBe(0);
+    await finalize(id);
+    const final = (await getInvoiceDetail(id))!;
+    expect(final.deposit).toEqual({ booking: 100_000, saldo: 50_000, estimate: false });
+    expect(final.totals).toMatchObject({ total: 150_000, deposit: 150_000, balance: 0, display: "LUNAS" });
+
+    const small = await draft(60_000, await booking({ fee: 100_000, verified: true }));
+    expect((await getInvoiceDetail(small))!.deposit).toEqual({ booking: 60_000, saldo: 0, estimate: true });
+    await finalize(small);
+    expect((await getInvoiceDetail(small))!.depositNotes).toEqual([
+      `Sisa deposit booking Rp 40.000 menjadi deposit, berlaku s.d. ${dateLabel(addDaysToDateString(today, 30))}`,
+    ]);
   });
 });

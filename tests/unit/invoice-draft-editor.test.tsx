@@ -116,6 +116,8 @@ function detail(patch: Partial<InvoiceDetail> = {}): InvoiceDetail {
     droppedPrescriptions: [],
     declinedPackages: [],
     margin: null,
+    deposit: { booking: 0, saldo: 0, estimate: true },
+    depositNotes: [],
     ...patch,
   };
 }
@@ -123,6 +125,23 @@ function detail(patch: Partial<InvoiceDetail> = {}): InvoiceDetail {
 const items = [{ id: "it1", code: "VIT-C", name: "Vitamin C", unit: "tablet", sellPrice: 25000, available: 40 }];
 
 beforeEach(() => vi.clearAllMocks());
+
+describe("perkiraan deposit di draf (spec deposit D9)", () => {
+  it("deposit booking dan saldo deposit bertanda perkiraan, lalu sisa tagihan", () => {
+    renderAdmin(<InvoiceDraftEditor detail={detail({ deposit: { booking: 100000, saldo: 30000, estimate: true } })} items={items} canExceedDiscount={false} />);
+    const summary = screen.getByRole("region", { name: "Ringkasan tagihan" });
+    expect(within(summary).getByText("Deposit booking (perkiraan)").parentElement).toHaveTextContent("-Rp 100.000");
+    expect(within(summary).getByText("Saldo deposit (perkiraan)").parentElement).toHaveTextContent("-Rp 30.000");
+    expect(within(summary).getByText("Sisa tagihan").parentElement).toHaveTextContent("Rp 70.000");
+  });
+
+  it("tanpa deposit tidak ada baris deposit dan sisa tagihan", () => {
+    renderAdmin(<InvoiceDraftEditor detail={detail()} items={items} canExceedDiscount={false} />);
+    const summary = screen.getByRole("region", { name: "Ringkasan tagihan" });
+    expect(within(summary).queryByText(/Deposit booking/)).toBeNull();
+    expect(within(summary).queryByText("Sisa tagihan")).toBeNull();
+  });
+});
 
 describe("editor draf tagihan", () => {
   it("menampilkan baris, subtotal, dan total", () => {

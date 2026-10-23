@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { buildInvoiceA4, type InvoiceA4, type InvoiceA4Package } from "@/lib/invoice-a4";
 import { dateLabel, dateOnlyString } from "@/lib/stock";
 import { packageContentsLabel } from "@/lib/treatment-package";
+import { DEPOSIT_SUMMARY_SELECT } from "@/server/invoice-store";
 
 /**
  * Data invoice A4 (spec invoice A4). Modul biasa: pemanggil memeriksa hak atau kode tautan. Kolom dipilih satu per satu:
@@ -91,6 +92,7 @@ export async function loadInvoiceA4(invoiceId: string): Promise<InvoiceA4 | null
         select: { id: true, kind: true, name: true, quantity: true, unitPrice: true, discountAmount: true, discountSource: true, patientPackageItemId: true, itemId: true },
       },
       payments: { orderBy: { createdAt: "asc" }, select: { amount: true, method: true, paidAt: true, revokedAt: true, destinationLabel: true } },
+      ...DEPOSIT_SUMMARY_SELECT,
     },
   });
   if (!invoice || invoice.status === "DRAF" || !invoice.finalizedAt) return null;

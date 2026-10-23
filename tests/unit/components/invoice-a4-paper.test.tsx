@@ -28,6 +28,13 @@ describe("InvoiceA4Paper (spec invoice A4)", () => {
     expect(container.querySelector(".invoice-a4 thead")).not.toBeNull();
   });
 
+  it("baris deposit booking, saldo deposit, dan catatan kelebihan (spec deposit D9)", () => {
+    render(<InvoiceA4Paper invoice={{ ...INVOICE_A4, bookingDeposit: 100_000, saldoDeposit: 50_000, depositNotes: ["Kelebihan Rp 50.000 menjadi deposit, berlaku s.d. 23 Nov 2026"] }} />);
+    expect(screen.getByText("Deposit booking").parentElement).toHaveTextContent("-Rp 100.000");
+    expect(screen.getByText("Saldo deposit").parentElement).toHaveTextContent("-Rp 50.000");
+    expect(screen.getByText("Kelebihan Rp 50.000 menjadi deposit, berlaku s.d. 23 Nov 2026")).toBeInTheDocument();
+  });
+
   it("cap air sesuai status (IA3)", () => {
     const { rerender } = render(<InvoiceA4Paper invoice={INVOICE_A4} />);
     expect(screen.getByRole("img", { name: "Status DEPOSIT" })).toHaveTextContent("DEPOSIT");

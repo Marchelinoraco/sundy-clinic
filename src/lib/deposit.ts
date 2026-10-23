@@ -1,3 +1,5 @@
+import { formatRupiah } from "@/lib/format";
+import { dateLabel, dateOnlyString } from "@/lib/stock";
 import { addDaysToDateString } from "@/lib/time";
 
 // Deposit booking dan saldo deposit pasien (spec deposit D1–D18). Murni: dipakai halaman dan server.
@@ -39,4 +41,32 @@ export function allocateCredits(
     left -= take;
   }
   return parts;
+}
+
+export type DepositUseKindValue = "BOOKING" | "SALDO";
+export type DepositSourceValue = "KELEBIHAN_BAYAR" | "SISA_DEPOSIT_BOOKING";
+
+/** Baris ringkasan tagihan: "Deposit booking" dan "Saldo deposit" (D9). */
+export function depositSplit(uses: readonly { kind: DepositUseKindValue; amount: number }[]): { booking: number; saldo: number } {
+  let booking = 0;
+  let saldo = 0;
+  for (const use of uses) {
+    if (use.kind === "BOOKING") booking += use.amount;
+    else saldo += use.amount;
+  }
+  return { booking, saldo };
+}
+
+/** Catatan saldo yang lahir dari tagihan ini (D9): kelebihan bayar atau sisa deposit booking. */
+export function depositCreditNote(credit: { amount: number; source: DepositSourceValue; validUntil: string }): string {
+  const what = credit.source === "KELEBIHAN_BAYAR" ? "Kelebihan" : "Sisa deposit booking";
+  return `${what} ${formatRupiah(credit.amount)} menjadi deposit, berlaku s.d. ${dateLabel(credit.validUntil)}`;
+}
+
+/** Ringkasan deposit satu tagihan untuk layar, struk, dan invoice A4. */
+export function depositSummary(
+  uses: readonly { kind: DepositUseKindValue; amount: number }[],
+  credits: readonly { amount: number; source: DepositSourceValue; validUntil: Date }[],
+): { booking: number; saldo: number; notes: string[] } {
+  return { ...depositSplit(uses), notes: credits.map((credit) => depositCreditNote({ ...credit, validUntil: dateOnlyString(credit.validUntil) })) };
 }

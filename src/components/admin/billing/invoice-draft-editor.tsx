@@ -438,6 +438,25 @@ export function InvoiceDraftEditor({
             <span>Total</span>
             <span>{formatRupiah(totals.total)}</span>
           </Stack>
+          {/* Perkiraan potongan deposit (spec deposit D9); angka pastinya dihitung saat final. */}
+          {detail.deposit.booking > 0 && (
+            <Stack direction="row" sx={{ justifyContent: "space-between" }}>
+              <span>Deposit booking (perkiraan)</span>
+              <span>-{formatRupiah(detail.deposit.booking)}</span>
+            </Stack>
+          )}
+          {detail.deposit.saldo > 0 && (
+            <Stack direction="row" sx={{ justifyContent: "space-between" }}>
+              <span>Saldo deposit (perkiraan)</span>
+              <span>-{formatRupiah(detail.deposit.saldo)}</span>
+            </Stack>
+          )}
+          {detail.deposit.booking + detail.deposit.saldo > 0 && (
+            <Stack direction="row" sx={{ justifyContent: "space-between", fontWeight: 500 }}>
+              <span>Sisa tagihan</span>
+              <span>{formatRupiah(Math.max(0, totals.total - detail.deposit.booking - detail.deposit.saldo))}</span>
+            </Stack>
+          )}
         </Stack>
       </Box>
 

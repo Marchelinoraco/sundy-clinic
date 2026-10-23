@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { allocateCredits, DEPOSIT_REFUND_MIN, DEPOSIT_VALID_DAYS, depositValidUntil, isCreditActive } from "@/lib/deposit";
+import { allocateCredits, DEPOSIT_REFUND_MIN, DEPOSIT_VALID_DAYS, depositCreditNote, depositSplit, depositValidUntil, isCreditActive } from "@/lib/deposit";
+
+describe("tulisan deposit di tagihan (spec deposit D9)", () => {
+  it("memisahkan deposit booking dan saldo; catatan kelebihan bayar dan sisa deposit booking", () => {
+    expect(depositSplit([{ kind: "BOOKING", amount: 100_000 }, { kind: "SALDO", amount: 30_000 }, { kind: "SALDO", amount: 20_000 }])).toEqual({ booking: 100_000, saldo: 50_000 });
+    expect(depositSplit([])).toEqual({ booking: 0, saldo: 0 });
+    expect(depositCreditNote({ amount: 50_000, source: "KELEBIHAN_BAYAR", validUntil: "2026-11-23" })).toBe("Kelebihan Rp 50.000 menjadi deposit, berlaku s.d. 23 Nov 2026");
+    expect(depositCreditNote({ amount: 40_000, source: "SISA_DEPOSIT_BOOKING", validUntil: "2026-11-23" })).toBe("Sisa deposit booking Rp 40.000 menjadi deposit, berlaku s.d. 23 Nov 2026");
+  });
+});
 
 describe("masa berlaku deposit (spec deposit D7)", () => {
   it("berlaku 30 hari sejak dicatat; masih bisa dipakai pada tanggal itu, hangus sehari sesudahnya", () => {

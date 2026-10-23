@@ -23,6 +23,9 @@ const RECEIPT: PublicReceipt = {
   balance: 700_000,
   payments: [{ paidAt: "2026-10-12", method: "QRIS", amount: 1_000_000 }],
   status: "SEBAGIAN",
+  bookingDeposit: 0,
+  saldoDeposit: 0,
+  depositNotes: [],
 };
 
 /** Baris yang tercetak: perintah ESC/POS dibuang. */
@@ -58,6 +61,15 @@ describe("buildEscPosReceipt", () => {
       }
     });
   }
+
+  it("baris deposit dan catatan kelebihan, tetap di dalam lebar kertas (spec deposit D9)", () => {
+    const withDeposit = { ...RECEIPT, bookingDeposit: 100_000, saldoDeposit: 50_000, depositNotes: ["Kelebihan Rp 50.000 menjadi deposit, berlaku s.d. 23 Nov 2026"] };
+    const printed = printedLines(buildEscPosReceipt(withDeposit, 58));
+    expect(printed.find((line) => line.startsWith("Deposit booking"))).toMatch(/-Rp 100\.000$/);
+    expect(printed.find((line) => line.startsWith("Saldo deposit"))).toMatch(/-Rp 50\.000$/);
+    expect(printed.join(" ")).toContain("Kelebihan Rp 50.000 menjadi deposit,");
+    for (const line of printed) expect(line.length).toBeLessThanOrEqual(receiptColumns(58));
+  });
 
   it("diawali inisialisasi dan diakhiri potong kertas", () => {
     const data = buildEscPosReceipt(RECEIPT, 80);

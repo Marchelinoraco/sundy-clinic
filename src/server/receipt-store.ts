@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { DEPOSIT_SUMMARY_SELECT } from "@/server/invoice-store";
 import { packageLineNotes } from "@/server/package-store";
 
 /**
@@ -24,6 +25,7 @@ export async function loadReceiptSource(invoiceId: string) {
         select: { id: true, kind: true, name: true, quantity: true, unitPrice: true, discountAmount: true, discountSource: true, treatmentPackageId: true, patientPackageItemId: true, packageSourceLineId: true },
       },
       payments: { orderBy: { createdAt: "asc" }, select: { amount: true, method: true, paidAt: true, revokedAt: true } },
+      ...DEPOSIT_SUMMARY_SELECT,
     },
   });
   if (!invoice) return null;

@@ -21,6 +21,9 @@ export const INVOICE_A4: InvoiceA4 = {
   balance: 700_000,
   payments: [{ paidAt: "2026-10-22", text: "22 Okt 2026 · Transfer bank ke BCA 1234567890 a.n. SunDY Clinic", amount: 500_000 }],
   status: "DEPOSIT",
+  bookingDeposit: 0,
+  saldoDeposit: 0,
+  depositNotes: [],
   packages: [
     {
       name: "Glowing 3 Bulan",

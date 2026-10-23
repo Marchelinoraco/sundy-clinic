@@ -1,5 +1,6 @@
 import { CLINIC_NAME } from "./clinic";
 import { formatDateWithYear, formatRupiah } from "./format";
+import { depositSummary, type DepositSourceValue, type DepositUseKindValue } from "./deposit";
 import { invoiceTotals, type DiscountKindValue, type InvoiceStatusValue, type LineDiscountSourceValue } from "./invoice";
 import { firstName } from "./quiz-link";
 import { dateOnlyString, type PaymentMethodValue } from "./stock";
@@ -42,6 +43,11 @@ export type PublicReceipt = {
   balance: number;
   payments: ReceiptPayment[];
   status: ReceiptStatus;
+  /** Potongan deposit booking dan saldo deposit pasien (spec deposit D9). */
+  bookingDeposit: number;
+  saldoDeposit: number;
+  /** "Kelebihan Rp … menjadi deposit, berlaku s.d. …" */
+  depositNotes: string[];
 };
 
 export type PublicReceiptPage = { state: "VALID"; receipt: PublicReceipt } | { state: "CANCELLED" } | { state: "INVALID" };
@@ -65,12 +71,16 @@ export type ReceiptSource = {
   branch: { name: string; address: string };
   lines: readonly { name: string; quantity: number; unitPrice: number; discountAmount: number; discountSource: LineDiscountSourceValue | null; note?: string | null }[];
   payments: readonly { amount: number; method: PaymentMethodValue; paidAt: Date; revokedAt: Date | null }[];
+  depositUses: readonly { kind: DepositUseKindValue; amount: number }[];
+  /** Saldo yang lahir dari tagihan ini. */
+  depositCredits: readonly { amount: number; source: DepositSourceValue; validUntil: Date }[];
 };
 
 /** Struk tagihan final; null untuk draf dan dibatalkan. Kolom dipilih satu per satu, bukan disalin. */
 export function buildPublicReceipt(source: ReceiptSource): PublicReceipt | null {
   if (source.status !== "FINAL" || !source.number || !source.finalizedAt) return null;
   const totals = invoiceTotals(source);
+  const deposit = depositSummary(source.depositUses, source.depositCredits);
   return {
     clinicName: CLINIC_NAME,
     branchName: source.branch.name,
@@ -94,6 +104,9 @@ export function buildPublicReceipt(source: ReceiptSource): PublicReceipt | null 
       .filter((payment) => !payment.revokedAt)
       .map((payment) => ({ paidAt: dateOnlyString(payment.paidAt), method: payment.method, amount: payment.amount })),
     status: totals.display === "LUNAS" ? "LUNAS" : totals.display === "SEBAGIAN" ? "SEBAGIAN" : "BELUM_DIBAYAR",
+    bookingDeposit: deposit.booking,
+    saldoDeposit: deposit.saldo,
+    depositNotes: deposit.notes,
   };
 }
 

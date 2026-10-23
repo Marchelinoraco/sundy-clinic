@@ -18,4 +18,7 @@ export const RECEIPT: PublicReceipt = {
   balance: 400_000,
   payments: [{ paidAt: "2026-10-12", method: "QRIS", amount: 1_000_000 }],
   status: "SEBAGIAN",
+  bookingDeposit: 0,
+  saldoDeposit: 0,
+  depositNotes: [],
 };

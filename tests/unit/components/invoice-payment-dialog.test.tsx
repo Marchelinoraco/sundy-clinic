@@ -38,6 +38,28 @@ describe("InvoicePaymentDialog EDC (spec invoice A4 IA12)", () => {
   });
 });
 
+describe("InvoicePaymentDialog kelebihan bayar (spec deposit D5)", () => {
+  it("tunai melebihi sisa ditolak di layar; QRIS boleh, dengan keterangan saldo deposit", async () => {
+    vi.mocked(recordInvoicePayment).mockResolvedValue({ ok: true, data: { id: "p1" } });
+    const user = userEvent.setup();
+    open();
+    await user.click(screen.getByRole("button", { name: "Catat pembayaran" }));
+    const dialog = await screen.findByRole("dialog", { name: "Catat pembayaran" });
+    const amount = within(dialog).getByLabelText("Nominal");
+    await user.clear(amount);
+    await user.type(amount, "350000");
+    expect(within(dialog).queryByText(/menjadi saldo deposit/)).toBeNull();
+    await user.click(within(dialog).getByRole("button", { name: "Simpan" }));
+    expect(within(dialog).getByText("Nominal melebihi sisa tagihan (Rp 300.000).")).toBeInTheDocument();
+    expect(recordInvoicePayment).not.toHaveBeenCalled();
+
+    await user.selectOptions(within(dialog).getByLabelText("Metode"), "QRIS");
+    expect(within(dialog).getByText("Kelebihan Rp 50.000 menjadi saldo deposit pasien, berlaku 30 hari.")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Simpan" }));
+    await waitFor(() => expect(recordInvoicePayment).toHaveBeenCalledWith(expect.objectContaining({ amount: 350_000, method: "QRIS" })));
+  });
+});
+
 describe("InvoicePaymentDialog transfer", () => {
   it("isian transfer hanya muncul untuk Transfer bank, dan terkirim lengkap", async () => {
     vi.mocked(recordInvoicePayment).mockResolvedValue({ ok: true, data: { id: "p1" } });
