@@ -99,6 +99,7 @@ model Staff {
   slotHolds          SlotHold[]
   reviewedIntakes    Intake[]
   employee           Employee?
+  approvalPin        ApprovalPin?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1229,21 +1230,27 @@ model Invoice {
   branchId      String
   branch        Branch       @relation(fields: [branchId], references: [id], onDelete: Restrict)
 
-  discountKind   DiscountKind?
-  discountValue  Int           @default(0)
-  discountReason String?
-  discountByName String?
+  discountKind           DiscountKind?
+  discountValue          Int           @default(0)
+  discountReason         String?
+  discountByName         String?
+  /// Penyetuju diskon tagihan (spec PIN P1b, P11); kosong bila tanpa diskon.
+  discountApprovedById   String?
+  discountApprovedByName String?
 
-  notes           String?
-  createdById     String
-  createdByName   String
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  finalizedAt     DateTime?
-  finalizedByName String?
-  cancelledAt     DateTime?
-  cancelledByName String?
-  cancelReason    String?
+  notes                String?
+  createdById          String
+  createdByName        String
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+  finalizedAt          DateTime?
+  finalizedByName      String?
+  cancelledAt          DateTime?
+  cancelledByName      String?
+  cancelReason         String?
+  /// Penyetuju pembatalan tagihan final (spec PIN P1c, P11); kosong untuk draf yang dibuang.
+  cancelApprovedById   String?
+  cancelApprovedByName String?
 
   lines    InvoiceLine[]
   payments InvoicePayment[]
@@ -1255,56 +1262,62 @@ model Invoice {
 }
 
 model InvoiceLine {
-  id                   String                @id @default(cuid())
-  invoiceId            String
-  invoice              Invoice               @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
-  kind                 InvoiceLineKind
+  id                     String                @id @default(cuid())
+  invoiceId              String
+  invoice                Invoice               @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  kind                   InvoiceLineKind
   /// Disalin saat baris dibuat, bukan dirujuk: perubahan katalog tidak mengubah tagihan.
-  name                 String
-  quantity             Int
-  unitPrice            Int
-  sortOrder            Int                   @default(0)
-  serviceId            String?
+  name                   String
+  quantity               Int
+  unitPrice              Int
+  sortOrder              Int                   @default(0)
+  serviceId              String?
   /// Penggajian yang membayar komisi baris ini (spec karyawan 2.5).
-  payrollItemId        String?
-  payrollItem          PayrollItem?          @relation(fields: [payrollItemId], references: [id], onDelete: SetNull)
+  payrollItemId          String?
+  payrollItem            PayrollItem?          @relation(fields: [payrollItemId], references: [id], onDelete: SetNull)
   /// Treatment di catatan dokter asal baris ini; mencegah treatment yang sama masuk dua kali.
-  encounterTreatmentId String?
+  encounterTreatmentId   String?
   /// Paket yang disarankan dokter asal baris ini (spec vital perawat PR2); dihapus hanya lewat Tidak dibeli (PR3).
-  encounterPackageId   String?
-  encounterPackage     EncounterPackage?     @relation(fields: [encounterPackageId], references: [id], onDelete: SetNull)
-  itemId               String?
+  encounterPackageId     String?
+  encounterPackage       EncounterPackage?     @relation(fields: [encounterPackageId], references: [id], onDelete: SetNull)
+  itemId                 String?
   /// Catatan bila harga diubah dari harga katalog.
-  priceNote            String?
+  priceNote              String?
+  /// Penyetuju harga di luar katalog (spec PIN P1a, P11).
+  priceApprovedById      String?
+  priceApprovedByName    String?
   /// Potongan rupiah untuk seluruh baris (spec perbaikan tagihan 3–4). CHECK: 0..quantity×unitPrice.
-  discountAmount       Int                   @default(0)
-  discountReason       String?
-  discountSource       LineDiscountSource?
+  discountAmount         Int                   @default(0)
+  discountReason         String?
+  discountSource         LineDiscountSource?
+  /// Penyetuju diskon manual baris (spec PIN P1b, P11); kosong untuk promo.
+  discountApprovedById   String?
+  discountApprovedByName String?
   /// Baris penyerahan asal baris ini (spec penyerahan 4.3); kosong untuk baris biasa. Dilepas bila tagihan dibatalkan.
-  dispensingLineId     String?               @unique
-  dispensingLine       DispensingLine?       @relation(fields: [dispensingLineId], references: [id], onDelete: Restrict)
+  dispensingLineId       String?               @unique
+  dispensingLine         DispensingLine?       @relation(fields: [dispensingLineId], references: [id], onDelete: Restrict)
   /// Paket katalog yang dijual baris PAKET (spec paket 5). CHECK invoice_line_package_shape.
-  treatmentPackageId   String?
-  treatmentPackage     TreatmentPackage?     @relation(fields: [treatmentPackageId], references: [id], onDelete: Restrict)
+  treatmentPackageId     String?
+  treatmentPackage       TreatmentPackage?     @relation(fields: [treatmentPackageId], references: [id], onDelete: Restrict)
   /// Item paket customer yang dipakai baris TREATMENT ini (spec paket 6); baris itu selalu Rp 0 tanpa diskon.
-  patientPackageItemId String?
-  patientPackageItem   PatientPackageItem?   @relation("PackageSessionLine", fields: [patientPackageItemId], references: [id], onDelete: Restrict)
+  patientPackageItemId   String?
+  patientPackageItem     PatientPackageItem?   @relation("PackageSessionLine", fields: [patientPackageItemId], references: [id], onDelete: Restrict)
   /// Paket customer yang lahir dari baris PAKET ini saat tagihan difinalkan.
-  purchasedPackage     PatientPackage?       @relation("PackagePurchase")
+  purchasedPackage       PatientPackage?       @relation("PackagePurchase")
   /// Baris PAKET di tagihan yang sama yang jatahnya dipakai baris ini (spec paket barang PB3); diterjemahkan ke patientPackageItemId saat final.
-  packageSourceLineId  String?
-  packageSourceLine    InvoiceLine?          @relation("PackageSource", fields: [packageSourceLineId], references: [id], onDelete: SetNull)
-  packageSourceUses    InvoiceLine[]         @relation("PackageSource")
-  packageEntries       PackageSessionEntry[] @relation("PackageEntryLine")
+  packageSourceLineId    String?
+  packageSourceLine      InvoiceLine?          @relation("PackageSource", fields: [packageSourceLineId], references: [id], onDelete: SetNull)
+  packageSourceUses      InvoiceLine[]         @relation("PackageSource")
+  packageEntries         PackageSessionEntry[] @relation("PackageEntryLine")
   /// Pelaksana treatment (spec harga modal 6); disalin dari catatan kunjungan atau dipilih resepsionis.
-  performerId          String?
-  performerName        String?
+  performerId            String?
+  performerName          String?
   /// Salinan biaya saat final (total baris = biaya per sesi × jumlah) dan komisi pelaksana. CHECK invoice_line_cost_values.
-  materialCost         Int                   @default(0)
-  toolCost             Int                   @default(0)
+  materialCost           Int                   @default(0)
+  toolCost               Int                   @default(0)
   /// Total biaya lainnya baris saat final, tanpa rincian nama (spec biaya lainnya BL2, BL9).
-  otherCost            Int                   @default(0)
-  commissionAmount     Int                   @default(0)
+  otherCost              Int                   @default(0)
+  commissionAmount       Int                   @default(0)
 
   stockUses InvoiceStockUse[]
 
@@ -1815,15 +1828,15 @@ model NurseVitals {
 /// Paket yang disarankan dokter di bagian Resep (spec vital perawat PR1, PR4). Nama dan isi disalin saat disimpan;
 /// terkunci bersama kunjungannya (trigger encounter_package_locked). Tanpa harga: harga diambil saat tagihan dibuat.
 model EncounterPackage {
-  id          String           @id @default(cuid())
-  encounterId String
-  encounter   Encounter        @relation(fields: [encounterId], references: [id], onDelete: Cascade)
-  packageId   String
-  package     TreatmentPackage @relation(fields: [packageId], references: [id], onDelete: Restrict)
-  packageName String
+  id           String                   @id @default(cuid())
+  encounterId  String
+  encounter    Encounter                @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  packageId    String
+  package      TreatmentPackage         @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  packageName  String
   /// Ringkasan isi, mis. "4× Facial, 28 kapsul Slimming".
-  contents    String
-  sortOrder   Int              @default(0)
+  contents     String
+  sortOrder    Int                      @default(0)
   decline      EncounterPackageDecline?
   invoiceLines InvoiceLine[]
 
@@ -1841,4 +1854,15 @@ model EncounterPackageDecline {
   staffId            String
   staffName          String
   createdAt          DateTime         @default(now())
+}
+
+/// PIN persetujuan Admin Keuangan dan Super Admin (spec PIN P7–P10): hash 6 angka, hitungan salah berturut-turut,
+/// dan kunci 15 menit setelah 5 kali salah.
+model ApprovalPin {
+  staffId     String    @unique
+  staff       Staff     @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  pinHash     String
+  failedCount Int       @default(0)
+  lockedUntil DateTime?
+  updatedAt   DateTime  @updatedAt
 }
