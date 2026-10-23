@@ -60,7 +60,7 @@ describe("BookingStatusLookup", () => {
     expect(await screen.findByText(/Booking tidak ditemukan/)).toBeInTheDocument();
   });
 
-  it("memperingatkan bahwa biaya booking tidak dikembalikan sebelum membatalkan", async () => {
+  it("memperingatkan bahwa deposit booking hangus sebelum membatalkan (spec deposit D13)", async () => {
     actions.findBookingStatus.mockResolvedValue({ ok: true, data: confirmed });
     actions.cancelSiteBooking.mockResolvedValue({
       ok: true,
@@ -70,7 +70,9 @@ describe("BookingStatusLookup", () => {
     await lookUp();
 
     await userEvent.click(await screen.findByRole("button", { name: "Batalkan booking" }));
-    expect(screen.getByText(/Biaya booking Rp 100.000 tidak dikembalikan/)).toBeInTheDocument();
+    expect(
+      screen.getByText("Deposit booking Rp 100.000 hangus. Ingin pindah jadwal saja? Deposit tetap berlaku bila jadwal dipindah paling lambat 2 jam sebelumnya."),
+    ).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Ya, batalkan" }));
 
     expect(await screen.findByText("Dibatalkan")).toBeInTheDocument();

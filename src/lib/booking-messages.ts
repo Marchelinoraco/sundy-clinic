@@ -70,7 +70,7 @@ export function confirmationText(input: {
     ARRIVE_EARLY,
     input.bookingFee === null
       ? "Ingin pindah jadwal? Kabari kami di chat ini paling lambat 2 jam sebelumnya."
-      : "Ingin pindah jadwal? Kabari kami di chat ini paling lambat 2 jam sebelumnya; biaya booking tetap berlaku. Bila dibatalkan, biaya booking tidak dikembalikan.",
+      : "Ingin pindah jadwal? Kabari kami di chat ini paling lambat 2 jam sebelumnya; deposit booking tetap berlaku. Bila dibatalkan, deposit booking hangus.",
     `Cek status booking: ${input.siteUrl}/cek-booking?kode=${encodeURIComponent(input.code)}`,
   );
   if (input.quizLink) lines.push("", ...quizLinkLines(input.quizLink));

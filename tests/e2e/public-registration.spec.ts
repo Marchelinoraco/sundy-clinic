@@ -186,7 +186,7 @@ test("pasien membatalkan booking lewat cek booking", async ({ page }, testInfo) 
   await expect(page.getByRole("link", { name: "Pindah jadwal via WhatsApp" })).toBeVisible();
 
   await page.getByRole("button", { name: "Batalkan booking" }).click();
-  await expect(page.getByText(/tidak dikembalikan/)).toBeVisible();
+  await expect(page.getByText(/Deposit booking .* hangus/)).toBeVisible();
   await page.getByRole("button", { name: "Ya, batalkan" }).click();
   await expect(page.getByText("Dibatalkan", { exact: true })).toBeVisible();
 });

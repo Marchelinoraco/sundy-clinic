@@ -19,4 +19,4 @@ export function bookingFeeFor(source: BookingSourceValue, fee: number): number |
 
 /** Aturan biaya booking yang ditampilkan ke pasien (spec K15, K16). */
 export const BOOKING_FEE_TERMS =
-  "Biaya booking mengunci jadwal Anda. Biaya ini terpisah dari biaya layanan dan tidak dikembalikan, tetapi tetap berlaku bila Anda pindah jadwal paling lambat 2 jam sebelum jadwal.";
+  "Biaya booking mengunci jadwal Anda dan menjadi deposit yang dipotong dari tagihan saat Anda berkunjung. Deposit hangus bila booking dibatalkan atau Anda tidak hadir, tetapi tetap berlaku bila Anda pindah jadwal paling lambat 2 jam sebelum jadwal.";

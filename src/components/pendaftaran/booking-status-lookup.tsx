@@ -186,7 +186,7 @@ export function BookingStatusLookup({ initialCode = "" }: { initialCode?: string
             <AlertDialogTitle>Batalkan booking {status?.code}?</AlertDialogTitle>
             <AlertDialogDescription>
               {paidFee
-                ? `Biaya booking ${formatRupiah(paidFee)} tidak dikembalikan. Ingin pindah jadwal saja? Biaya tetap berlaku bila jadwal dipindah paling lambat 2 jam sebelumnya.`
+                ? `Deposit booking ${formatRupiah(paidFee)} hangus. Ingin pindah jadwal saja? Deposit tetap berlaku bila jadwal dipindah paling lambat 2 jam sebelumnya.`
                 : "Jam Anda akan dilepas agar bisa dipesan orang lain."}
             </AlertDialogDescription>
           </AlertDialogHeader>

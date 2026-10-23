@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { bookingFeeFor, formatBankAccount } from "@/lib/payment";
+import { BOOKING_FEE_TERMS, bookingFeeFor, formatBankAccount } from "@/lib/payment";
+
+describe("aturan biaya booking (spec deposit D13)", () => {
+  it("biaya booking menjadi deposit yang dipotong dari tagihan", () => {
+    expect(BOOKING_FEE_TERMS).toBe(
+      "Biaya booking mengunci jadwal Anda dan menjadi deposit yang dipotong dari tagihan saat Anda berkunjung. Deposit hangus bila booking dibatalkan atau Anda tidak hadir, tetapi tetap berlaku bila Anda pindah jadwal paling lambat 2 jam sebelum jadwal.",
+    );
+  });
+});
 
 describe("formatBankAccount", () => {
   it("menulis bank, nomor, dan pemilik rekening", () => {
