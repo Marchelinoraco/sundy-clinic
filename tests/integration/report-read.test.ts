@@ -230,7 +230,6 @@ describe("laporan untung-rugi", () => {
       discount: 100_000,
       upfront: 450_000, // biaya booking 200.000 + Konsultasi Online 250.000
       bookingDeposit: 0,
-      bookingDeposit: 0,
       revenue: 2_350_000,
       cogs: 120_000,
       grossProfit: 2_230_000,
@@ -252,7 +251,6 @@ describe("laporan untung-rugi", () => {
       inflow: 1_650_000,
       supplier: 250_000, // 300.000 bayar − 50.000 pengembalian; yang dibatalkan dan April tidak ikut
       expenses: 1_000_000,
-      depositRefunds: 0,
       depositRefunds: 0,
       outflow: 1_250_000,
       net: 400_000,
