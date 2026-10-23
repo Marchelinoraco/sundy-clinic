@@ -11,7 +11,7 @@ const ACTION_LABEL: Record<string, string> = {
   "bia.void": "membatalkan pengukuran BIA",
   "bia.file.void": "membatalkan berkas BIA",
   "bia.view": "membuka berkas BIA",
-  "food-recall.nurse": "mengisi food recall (perawat)",
+  "food-recall.nurse": "mengisi recall (perawat)",
   "staff.create": "menambah staf",
   "staff.update": "mengubah data staf",
   "staff.activate": "mengaktifkan staf",

@@ -60,7 +60,7 @@ function WorklistTable({ rows, withDate }: { rows: WorklistRow[]; withDate: bool
                 <TableCell>
                   <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap", alignItems: "center", fontWeight: 500 }}>
                     <span>{row.patientName}</span>
-                    {row.foodRecallFilled && <StatusChip label="food recall ✓" />}
+                    {row.foodRecallFilled && <StatusChip label="recall ✓" />}
                     {row.online && <StatusChip label="Online" />}
                   </Stack>
                   <Box sx={{ fontFamily: "ui-monospace, monospace", fontSize: "0.75rem", color: "text.secondary" }}>{row.patientRecordNumber}</Box>

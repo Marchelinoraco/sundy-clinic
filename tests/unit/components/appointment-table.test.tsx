@@ -488,15 +488,15 @@ describe("AppointmentTable check-in dan food recall", () => {
   it("menampilkan status food recall tanpa isinya, dan aksi Food recall di menu", async () => {
     const user = userEvent.setup();
     renderTable([{ ...base, status: "HADIR", foodRecall: "DITAWARKAN", foodRecallAvailable: true }]);
-    expect(screen.getByText("Food recall: belum diisi")).toBeInTheDocument();
+    expect(screen.getByText("Recall: belum diisi")).toBeInTheDocument();
     await openMenu(user, "SDY-8F3K");
-    await user.click(screen.getByRole("menuitem", { name: "Food recall" }));
-    expect(await screen.findByRole("dialog", { name: "Food recall — SDY-8F3K" })).toBeInTheDocument();
+    await user.click(screen.getByRole("menuitem", { name: "Recall" }));
+    expect(await screen.findByRole("dialog", { name: "Recall — SDY-8F3K" })).toBeInTheDocument();
   });
 
   it("food recall yang sudah diisi ditandai sudah diisi", () => {
     renderTable([{ ...base, status: "HADIR", foodRecall: "DIISI", foodRecallAvailable: true }]);
-    expect(screen.getByText("Food recall: sudah diisi")).toBeInTheDocument();
+    expect(screen.getByText("Recall: sudah diisi")).toBeInTheDocument();
   });
 
   it("booking hadir: penanda BIA terunggah dan menu Unggah hasil BIA membuka dialognya", async () => {

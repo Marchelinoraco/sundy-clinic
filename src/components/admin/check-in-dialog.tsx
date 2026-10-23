@@ -285,7 +285,7 @@ export function CheckInDialog({
           <Box component="section" aria-labelledby={`${id}-done`} sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
             <Typography variant="body2">✓ {form.patient.name} sudah check-in.</Typography>
             <Typography component="h3" id={`${id}-done`} sx={{ fontSize: "0.875rem", fontWeight: 500 }}>
-              Food recall
+              Recall
             </Typography>
             <FoodRecallLinkPanel info={step.foodRecall} />
             <Button type="button" variant="outlined" fullWidth onClick={() => onOpenChange(false)}>
@@ -378,7 +378,7 @@ export function CheckInDialog({
               fullWidth
             />
 
-            <FormControlLabel control={<Checkbox checked={draft.offer} onChange={(e) => update({ offer: e.target.checked })} />} label="Tawarkan food recall" />
+            <FormControlLabel control={<Checkbox checked={draft.offer} onChange={(e) => update({ offer: e.target.checked })} />} label="Tawarkan recall" />
 
             {error && <Alert severity="error">{error}</Alert>}
 

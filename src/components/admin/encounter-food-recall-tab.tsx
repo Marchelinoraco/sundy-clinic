@@ -13,9 +13,8 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import type { ActionResult } from "@/lib/action-result";
-import { foodRecallHeader, foodRecallSubjectiveText, type FoodRecallAuthor, type FoodRecallView } from "@/lib/food-recall";
+import { foodRecallHeader, foodRecallSubjectiveText, type FoodRecallAuthor, type FoodRecallView, type RecallEntry } from "@/lib/food-recall";
 import { formatShortIndonesianDate } from "@/lib/format";
-import type { ActivityEntry } from "@/lib/kuis/v1/answers";
 import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
 import { saveFoodRecallByStaff } from "@/server/food-recall-admin";
 import { ActivityListFields } from "./activity-list-fields";
@@ -26,7 +25,7 @@ import { FoodRecallTable } from "./food-recall-table";
 export type SubjectiveCopy = { has: (text: string) => boolean; append: (block: string) => boolean };
 
 /** Baris di penyunting: baris lama membawa penandanya, tambahan baru belum (server menandai DOKTER atau PERAWAT). */
-type EditableEntry = ActivityEntry & { by?: FoodRecallAuthor };
+type EditableEntry = RecallEntry & { by?: FoodRecallAuthor };
 
 const at = (date: Date) => `${formatShortIndonesianDate(date)} ${minutesToTimeLabel(witaMinutesOfDay(date))}`;
 
@@ -65,7 +64,7 @@ export function EncounterFoodRecallTab({
     setConfirmCopy(false);
     if (!copy) return;
     if (copy.append(foodRecallSubjectiveText(foodRecall.recallDate, foodRecall.entries))) {
-      toast.success("Food recall disalin ke S.");
+      toast.success("Recall disalin ke S.");
     } else {
       toast.error("Kolom S akan melebihi 5.000 karakter. Ringkas S dulu, lalu salin lagi.");
     }
@@ -90,11 +89,11 @@ export function EncounterFoodRecallTab({
           toast.error(result.error);
           return;
         }
-        toast.success("Food recall disimpan.");
+        toast.success("Recall disimpan.");
         setEditing(false);
         router.refresh();
       } catch {
-        toast.error("Gagal menyimpan food recall. Coba lagi.");
+        toast.error("Gagal menyimpan recall. Coba lagi.");
       }
     });
   }
@@ -117,7 +116,7 @@ export function EncounterFoodRecallTab({
           <ActivityListFields entries={entries} onChange={setEntries} />
           <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
             <Button size="small" variant="contained" onClick={save} disabled={pending || entries.length === 0}>
-              Simpan food recall
+              Simpan recall
             </Button>
             <Button size="small" variant="outlined" onClick={() => setEditing(false)} disabled={pending}>
               Batal
@@ -134,7 +133,7 @@ export function EncounterFoodRecallTab({
               {meta}
             </Typography>
           )}
-          <FoodRecallTable entries={foodRecall.entries} label={`Food recall ${foodRecall.recallDateLabel}`} />
+          <FoodRecallTable entries={foodRecall.entries} label={`Recall ${foodRecall.recallDateLabel}`} />
           <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: "wrap" }}>
             {copy && (
               <Button size="small" variant="contained" onClick={requestCopy}>
@@ -153,16 +152,16 @@ export function EncounterFoodRecallTab({
           <Typography variant="body2" sx={{ color: "text.secondary" }}>
             {!customerLink
               ? foodRecall.state === "WAITING"
-                ? "Pasien belum mengisi food recall di tablet."
-                : "Belum ada food recall."
+                ? "Pasien belum mengisi recall di tablet."
+                : "Belum ada recall."
               : foodRecall.state === "WAITING"
-                ? "Customer belum mengisi food recall."
-                : "Food recall tidak ditawarkan saat check-in."}
+                ? "Customer belum mengisi recall."
+                : "Recall tidak ditawarkan saat check-in."}
           </Typography>
           {editable && !customerLink && (
             <Box>
               <Button size="small" variant="outlined" onClick={startEditing}>
-                Isi food recall
+                Isi recall
               </Button>
             </Box>
           )}
@@ -180,9 +179,9 @@ export function EncounterFoodRecallTab({
       )}
 
       <Dialog open={confirmCopy} onClose={() => setConfirmCopy(false)} maxWidth="xs" slotProps={{ paper: { role: "alertdialog" } }}>
-        <DialogTitle>Salin food recall lagi?</DialogTitle>
+        <DialogTitle>Salin recall lagi?</DialogTitle>
         <DialogContent>
-          <DialogContentText>Kolom S sudah memuat food recall ini.</DialogContentText>
+          <DialogContentText>Kolom S sudah memuat recall ini.</DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirmCopy(false)}>Batal</Button>

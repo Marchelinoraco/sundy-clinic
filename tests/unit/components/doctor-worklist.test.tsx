@@ -89,7 +89,7 @@ describe("DoctorWorklistView", () => {
 
   it("menandai customer yang sudah mengisi food recall", () => {
     renderAdmin(<DoctorWorklistView worklist={{ today: [row({ foodRecallFilled: true })], unfinished: [] }} />);
-    expect(screen.getByText("food recall ✓")).toBeInTheDocument();
+    expect(screen.getByText("recall ✓")).toBeInTheDocument();
   });
 
   it("booking online yang sudah dimulai diberi label Online", () => {

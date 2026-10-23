@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   appendToSubjective,
   FOOD_RECALL_AUTHOR_LABEL,
+  FOOD_RECALL_RECEIVED,
   foodRecallHeader,
   foodRecallView,
   foodRecallLinkState,
@@ -50,10 +51,41 @@ describe("validasi baris", () => {
     });
   });
 
-  it("menolak jam di luar 06–22, jenis asing, dan isi kosong", () => {
-    expect(validateCustomerEntries([{ hour: 5, kind: "MAKAN_MINUM", text: "Roti" }]).ok).toBe(false);
-    expect(validateCustomerEntries([{ hour: 8, kind: "TIDUR", text: "Tidur" }]).ok).toBe(false);
-    expect(validateCustomerEntries([{ hour: 8, kind: "MAKAN_MINUM", text: "   " }]).ok).toBe(false);
+  it("jam 00–23, lima jenis; Bangun tidur boleh tanpa isi, jenis lain tidak (spec recall R2–R4)", () => {
+    expect(
+      validateCustomerEntries([
+        { hour: 0, kind: "BANGUN_TIDUR", text: "" },
+        { hour: 23, kind: "ISTIRAHAT", text: "tidur malam" },
+      ]),
+    ).toEqual({
+      ok: true,
+      entries: [
+        { hour: 0, kind: "BANGUN_TIDUR", text: "", by: "CUSTOMER" },
+        { hour: 23, kind: "ISTIRAHAT", text: "tidur malam", by: "CUSTOMER" },
+      ],
+    });
+    // Review Focus 3: spasi saja tersimpan kosong untuk Bangun tidur.
+    expect(validateCustomerEntries([{ hour: 5, kind: "BANGUN_TIDUR", text: "   " }])).toEqual({
+      ok: true,
+      entries: [{ hour: 5, kind: "BANGUN_TIDUR", text: "", by: "CUSTOMER" }],
+    });
+    for (const validate of [validateCustomerEntries, (raw: unknown) => validateStaffEntries(raw, "PERAWAT")]) {
+      expect(validate([{ hour: 24, kind: "MAKAN_MINUM", text: "Roti" }]).ok).toBe(false);
+      expect(validate([{ hour: -1, kind: "MAKAN_MINUM", text: "Roti" }]).ok).toBe(false);
+      expect(validate([{ hour: 8, kind: "TIDUR", text: "Tidur" }]).ok).toBe(false);
+      expect(validate([{ hour: 8, kind: "MAKAN_MINUM", text: "   " }]).ok).toBe(false);
+      expect(validate([{ hour: 13, kind: "ISTIRAHAT", text: "" }]).ok).toBe(false);
+    }
+    expect(validateStaffEntries([{ hour: 5, kind: "BANGUN_TIDUR", text: "" }], "PERAWAT")).toEqual({
+      ok: true,
+      entries: [{ hour: 5, kind: "BANGUN_TIDUR", text: "", by: "PERAWAT" }],
+    });
+  });
+
+  it("baris lama (jenis kuis v1, jam 06–22) tetap terbaca dan lolos simpanan staf (Review Focus 1)", () => {
+    const stored = parseStoredEntries([{ hour: 7, kind: "MAKAN_MINUM", text: "Nasi", by: "CUSTOMER" }]);
+    expect(stored).toEqual([{ hour: 7, kind: "MAKAN_MINUM", text: "Nasi", by: "CUSTOMER" }]);
+    expect(validateStaffEntries(stored).ok).toBe(true);
   });
 
   it("simpanan dokter: baris customer tetap CUSTOMER, baris baru menjadi DOKTER", () => {
@@ -78,11 +110,12 @@ describe("validasi baris", () => {
 });
 
 describe("tabel dan teks untuk dokter", () => {
-  it("tabel 06.00–22.00 dengan penulis tiap baris", () => {
-    const rows = foodRecallRows(ENTRIES);
-    expect(rows).toHaveLength(17);
-    expect(rows[0].label).toBe("06.00");
-    expect(rows[1]).toEqual({
+  it("tabel 00.00–23.00 dengan penulis tiap baris (spec recall R4)", () => {
+    const rows = foodRecallRows([...ENTRIES, { hour: 0, kind: "BANGUN_TIDUR", text: "", by: "PERAWAT" }]);
+    expect(rows).toHaveLength(24);
+    expect(rows[0]).toEqual({ hour: 0, label: "00.00", entries: [{ kindLabel: "Bangun tidur", text: "", by: "PERAWAT" }] });
+    expect(rows[23].label).toBe("23.00");
+    expect(rows[7]).toEqual({
       hour: 7,
       label: "07.00",
       entries: [
@@ -93,14 +126,25 @@ describe("tabel dan teks untuk dokter", () => {
   });
 
   it("teks Salin ke S: judul, lalu satu catatan per baris terurut per jam", () => {
-    expect(foodRecallHeader("2026-10-02")).toBe("Food recall H-1 (Jumat, 2 Okt)");
+    expect(foodRecallHeader("2026-10-02")).toBe("Recall H-1 (Jumat, 2 Okt)");
     expect(foodRecallSubjectiveText("2026-10-02", ENTRIES)).toBe(
       [
-        "Food recall H-1 (Jumat, 2 Okt):",
+        "Recall H-1 (Jumat, 2 Okt):",
         "07.00 Makan/minum — Nasi kuning 1 piring, teh manis",
         "07.00 Olahraga — Jalan pagi 20 menit",
         "12.00 Kapsul/obat — Kapsul M",
       ].join("\n"),
+    );
+  });
+
+  it("Bangun tidur tanpa isi tanpa tanda pisah, jam 00.00 paling atas (Review Focus 4, 5)", () => {
+    const entries: FoodRecallEntry[] = [
+      { hour: 13, kind: "ISTIRAHAT", text: "tidur siang 1 jam", by: "CUSTOMER" },
+      { hour: 0, kind: "BANGUN_TIDUR", text: "", by: "CUSTOMER" },
+      { hour: 7, kind: "MAKAN_MINUM", text: "Nasi", by: "CUSTOMER" },
+    ];
+    expect(foodRecallSubjectiveText("2026-10-02", entries)).toBe(
+      ["Recall H-1 (Jumat, 2 Okt):", "00.00 Bangun tidur", "07.00 Makan/minum — Nasi", "13.00 Istirahat — tidur siang 1 jam"].join("\n"),
     );
   });
 
@@ -146,6 +190,11 @@ describe("penawaran dan status link", () => {
     expect(text).toContain("Halo Siti, ini SunDY Clinic.");
     expect(text).toContain("https://sundyclinic.com/food-recall#x");
     expect(text).not.toMatch(/pasien|berobat/i);
+    expect(text).toContain("termasuk jam bangun dan istirahat, sebelum konsultasi (±3 menit): ");
+  });
+
+  it("pesan halaman tablet setelah diterima dokter (spec recall R1)", () => {
+    expect(FOOD_RECALL_RECEIVED).toBe("Recall Anda sudah diterima dokter.");
   });
 });
 
@@ -200,7 +249,7 @@ describe("food recall oleh perawat (spec peran perawat 7)", () => {
   });
 
   it("baris tabel membawa penulis, dan label penulis untuk lencana", () => {
-    expect(foodRecallRows([{ hour: 7, kind: "MAKAN_MINUM", text: "Nasi", by: "PERAWAT" }])[1].entries[0].by).toBe("PERAWAT");
+    expect(foodRecallRows([{ hour: 7, kind: "MAKAN_MINUM", text: "Nasi", by: "PERAWAT" }])[7].entries[0].by).toBe("PERAWAT");
     expect(FOOD_RECALL_AUTHOR_LABEL).toEqual({ CUSTOMER: "pasien", DOKTER: "dokter", PERAWAT: "perawat" });
   });
 

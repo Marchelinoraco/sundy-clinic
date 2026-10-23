@@ -13,17 +13,17 @@ import RadioGroup from "@mui/material/RadioGroup";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import { useState } from "react";
-import type { ActivityEntry } from "@/lib/kuis/v1/answers";
-import { ACTIVITY_FIRST_HOUR, ACTIVITY_KINDS, ACTIVITY_LAST_HOUR, TEXT_LIMITS } from "@/lib/kuis/v1/options";
+import { RECALL_FIRST_HOUR, RECALL_KINDS, RECALL_LAST_HOUR, recallTextRequired, type RecallEntry, type RecallKind } from "@/lib/food-recall";
+import { TEXT_LIMITS } from "@/lib/kuis/v1/options";
 import { minutesToTimeLabel } from "@/lib/time";
 import { SelectField } from "./mui/select-field";
 
 const HOURS = Array.from(
-  { length: ACTIVITY_LAST_HOUR - ACTIVITY_FIRST_HOUR + 1 },
-  (_, index) => ACTIVITY_FIRST_HOUR + index,
+  { length: RECALL_LAST_HOUR - RECALL_FIRST_HOUR + 1 },
+  (_, index) => RECALL_FIRST_HOUR + index,
 );
 
-const KINDS = Object.entries(ACTIVITY_KINDS) as [ActivityEntry["kind"], string][];
+const KINDS = Object.entries(RECALL_KINDS) as [RecallKind, string][];
 
 /**
  * Versi panel admin dari ActivityList kuis (situs publik): label, urutan menurut jam, dan batas teks
@@ -33,11 +33,11 @@ export function ActivityListFields({
   entries,
   onChange,
 }: {
-  entries: ActivityEntry[];
-  onChange: (entries: ActivityEntry[]) => void;
+  entries: RecallEntry[];
+  onChange: (entries: RecallEntry[]) => void;
 }) {
   const [hour, setHour] = useState(7);
-  const [kind, setKind] = useState<ActivityEntry["kind"]>("MAKAN_MINUM");
+  const [kind, setKind] = useState<RecallKind>("MAKAN_MINUM");
   const [text, setText] = useState("");
 
   const sorted = entries
@@ -46,7 +46,7 @@ export function ActivityListFields({
 
   function add() {
     const trimmed = text.trim();
-    if (!trimmed) return;
+    if (!trimmed && recallTextRequired(kind)) return;
     onChange([...entries, { hour, kind, text: trimmed.slice(0, TEXT_LIMITS.activity) }]);
     setText("");
   }
@@ -64,14 +64,14 @@ export function ActivityListFields({
                 {minutesToTimeLabel(entry.hour * 60)}
               </Box>
               <Box component="span" sx={{ color: "text.secondary" }}>
-                {ACTIVITY_KINDS[entry.kind]}
+                {RECALL_KINDS[entry.kind]}
               </Box>
               <Box component="span" sx={{ flex: 1, minWidth: 0 }}>
                 {entry.text}
               </Box>
               <IconButton
                 size="small"
-                aria-label={`Hapus ${entry.text}`}
+                aria-label={`Hapus ${entry.text || RECALL_KINDS[entry.kind]}`}
                 onClick={() => onChange(entries.filter((_, i) => i !== index))}
               >
                 <CloseIcon fontSize="small" />
@@ -90,7 +90,7 @@ export function ActivityListFields({
               </option>
             ))}
           </SelectField>
-          <RadioGroup row aria-label="Jenis catatan" value={kind} onChange={(_, value) => setKind(value as ActivityEntry["kind"])}>
+          <RadioGroup row aria-label="Jenis catatan" value={kind} onChange={(_, value) => setKind(value as RecallKind)}>
             {KINDS.map(([value, label]) => (
               <FormControlLabel key={value} value={value} control={<Radio size="small" />} label={label} />
             ))}
@@ -110,7 +110,7 @@ export function ActivityListFields({
             slotProps={{ htmlInput: { maxLength: TEXT_LIMITS.activity } }}
           />
           <Box>
-            <Button type="button" variant="outlined" onClick={add} disabled={!text.trim()}>
+            <Button type="button" variant="outlined" onClick={add} disabled={recallTextRequired(kind) && !text.trim()}>
               ＋ Tambah catatan
             </Button>
           </Box>

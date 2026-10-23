@@ -111,7 +111,7 @@ export function Segmented<T extends string>({
   onChange: (value: T) => void;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className="flex gap-1.5">
+    <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-1.5">
       {options.map((option) => (
         <button
           key={option.value}

@@ -115,7 +115,7 @@ describe("food recall: link, kiriman customer, suntingan dokter", () => {
     const appointment = await booking("TERKONFIRMASI");
     expect(await offerFoodRecall(appointment.id)).toEqual({
       ok: false,
-      error: "Food recall hanya untuk customer yang sudah check-in.",
+      error: "Recall hanya untuk customer yang sudah check-in.",
     });
   });
 
@@ -137,6 +137,24 @@ describe("food recall: link, kiriman customer, suntingan dokter", () => {
     expect(row.entries).toEqual([{ hour: 12, kind: "KAPSUL_OBAT", text: "Kapsul M", by: "CUSTOMER" }]);
     expect(row.submittedAt).not.toBeNull();
     expect(await prisma.auditLog.count({ where: { action: "food-recall.submit", entityId: appointment.id } })).toBe(2);
+  });
+
+  it("pasien mengirim Bangun tidur tanpa isi dan Istirahat jam 23 (spec recall, Review Focus 2)", async () => {
+    const { recall, code } = await offered();
+    await unwrap(
+      submitFoodRecall({
+        code,
+        entries: [
+          { hour: 5, kind: "BANGUN_TIDUR", text: "" },
+          { hour: 23, kind: "ISTIRAHAT", text: "tidur malam" },
+        ],
+        website: "",
+      }),
+    );
+    expect((await prisma.foodRecall.findUniqueOrThrow({ where: { id: recall.id } })).entries).toEqual([
+      { hour: 5, kind: "BANGUN_TIDUR", text: "", by: "CUSTOMER" },
+      { hour: 23, kind: "ISTIRAHAT", text: "tidur malam", by: "CUSTOMER" },
+    ]);
   });
 
   it("link kemarin tidak berlaku: halaman tertutup dan kiriman ditolak tanpa menyimpan", async () => {
@@ -210,7 +228,7 @@ describe("food recall: link, kiriman customer, suntingan dokter", () => {
     });
     expect(await saveFoodRecallByStaff({ appointmentId: appointment.id, entries: [CUSTOMER_ROW] })).toEqual({
       ok: false,
-      error: "Catatan dokter sudah final; food recall tidak bisa diubah.",
+      error: "Catatan dokter sudah final; recall tidak bisa diubah.",
     });
   });
 
@@ -253,7 +271,7 @@ describe("food recall: link, kiriman customer, suntingan dokter", () => {
       });
       expect(await saveFoodRecallByNurse({ appointmentId: appointment.id, entries: [CUSTOMER_ROW] })).toEqual({
         ok: false,
-        error: "Catatan dokter sudah final; food recall tidak bisa diubah.",
+        error: "Catatan dokter sudah final; recall tidak bisa diubah.",
       });
     });
 
@@ -264,7 +282,7 @@ describe("food recall: link, kiriman customer, suntingan dokter", () => {
       await unwrap(submitFoodRecall({ code, entries: [CUSTOMER_ROW], website: "" }));
       expect(await saveFoodRecallByNurse({ appointmentId: appointment.id, entries: [{ hour: 9, kind: "OLAHRAGA", text: "Jalan" }], baseVersion })).toEqual({
         ok: false,
-        error: "Food recall baru saja diubah, mungkin pasien mengirim dari tablet. Muat ulang halaman, lalu lengkapi lagi.",
+        error: "Recall baru saja diubah, mungkin pasien mengirim dari tablet. Muat ulang halaman, lalu lengkapi lagi.",
       });
       const row = await prisma.foodRecall.findUniqueOrThrow({ where: { appointmentId: appointment.id } });
       expect(row.entries).toEqual([{ ...CUSTOMER_ROW, by: "CUSTOMER" }]);

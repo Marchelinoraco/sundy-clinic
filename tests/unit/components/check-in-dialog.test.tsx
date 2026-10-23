@@ -62,7 +62,7 @@ describe("CheckInDialog", () => {
     expect(within(dialog).queryByRole("group", { name: "Tanggal lahir" })).not.toBeInTheDocument();
     expect(within(dialog).queryByLabelText("Alamat")).not.toBeInTheDocument();
     expect(within(dialog).getByLabelText("Nomor WhatsApp")).toHaveValue("6281234567890");
-    expect(within(dialog).getByLabelText("Tawarkan food recall")).toBeChecked();
+    expect(within(dialog).getByLabelText("Tawarkan recall")).toBeChecked();
 
     await user.click(within(dialog).getByRole("button", { name: "Check-in" }));
     expect(within(dialog).getByRole("alert")).toHaveTextContent("NIK harus 16 angka.");
@@ -106,7 +106,7 @@ describe("CheckInDialog", () => {
     await user.selectOptions(within(dialog).getByLabelText("Alasan"), "LUPA_KTP");
     await user.selectOptions(within(dialog).getByLabelText("Jenis kelamin"), "P");
     await user.type(within(dialog).getByLabelText("Pekerjaan"), "Guru");
-    await user.click(within(dialog).getByLabelText("Tawarkan food recall"));
+    await user.click(within(dialog).getByLabelText("Tawarkan recall"));
     await user.click(within(dialog).getByRole("button", { name: "Check-in" }));
     await waitFor(() =>
       expect(checkInAppointment).toHaveBeenCalledWith(

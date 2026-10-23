@@ -50,7 +50,7 @@ export function NurseVisitView({ visit }: { visit: NurseVisit }) {
         <NurseVitalsCard appointmentId={visit.appointmentId} vitals={visit.vitals} />
       </SectionCard>
 
-      <SectionCard title="Food recall">
+      <SectionCard title="Recall">
         <EncounterFoodRecallTab
           foodRecall={visit.foodRecall}
           appointmentCode={visit.code}

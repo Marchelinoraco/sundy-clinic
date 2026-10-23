@@ -19,7 +19,7 @@ const OPEN_LINK = {
 
 function renderDialog() {
   renderAdmin(<FoodRecallDialog target={TARGET} open onOpenChange={vi.fn()} />);
-  return screen.findByRole("dialog", { name: "Food recall — SDY-CI01" });
+  return screen.findByRole("dialog", { name: "Recall — SDY-CI01" });
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -30,7 +30,7 @@ describe("FoodRecallDialog", () => {
     vi.mocked(getFoodRecallLink).mockResolvedValue({ ok: true, data: { state: "NOT_OFFERED" } });
     vi.mocked(offerFoodRecall).mockResolvedValue({ ok: true, data: { ...OPEN_LINK, filled: false } });
     const dialog = await renderDialog();
-    await user.click(await within(dialog).findByRole("button", { name: "Tawarkan food recall" }));
+    await user.click(await within(dialog).findByRole("button", { name: "Tawarkan recall" }));
     await waitFor(() => expect(offerFoodRecall).toHaveBeenCalledWith("a1"));
     expect(await within(dialog).findByRole("link", { name: "Buka di tablet" })).toHaveAttribute("href", OPEN_LINK.url);
     expect(within(dialog).getByText("Belum diisi.")).toBeInTheDocument();
@@ -46,7 +46,7 @@ describe("FoodRecallDialog", () => {
   it("food recall yang sudah diterima dokter tidak menawarkan link", async () => {
     vi.mocked(getFoodRecallLink).mockResolvedValue({ ok: true, data: { state: "RECEIVED", filled: true } });
     const dialog = await renderDialog();
-    expect(await within(dialog).findByText("Food recall sudah diterima dokter.")).toBeInTheDocument();
+    expect(await within(dialog).findByText("Recall sudah diterima dokter.")).toBeInTheDocument();
     expect(within(dialog).queryByRole("link", { name: "Buka di tablet" })).not.toBeInTheDocument();
   });
 });

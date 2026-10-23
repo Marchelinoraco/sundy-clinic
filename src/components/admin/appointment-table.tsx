@@ -407,7 +407,7 @@ export function AppointmentTable({
         <Box sx={{ py: 0.5 }}>
           <AppointmentStatusBadge status={row.status} />
           {row.intakeStatus && <Box sx={{ ...small, mt: 0.5 }}>Isian: {INTAKE_STATUS_LABEL[row.intakeStatus]}</Box>}
-          {row.foodRecall && <Box sx={{ ...small, mt: 0.5 }}>Food recall: {row.foodRecall === "DIISI" ? "sudah diisi" : "belum diisi"}</Box>}
+          {row.foodRecall && <Box sx={{ ...small, mt: 0.5 }}>Recall: {row.foodRecall === "DIISI" ? "sudah diisi" : "belum diisi"}</Box>}
           {row.bia && (
             <Box sx={{ ...small, mt: 0.5 }}>
               BIA terunggah: {row.bia.fileCount} berkas · {row.bia.lastLabel}

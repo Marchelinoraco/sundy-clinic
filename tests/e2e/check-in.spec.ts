@@ -38,7 +38,7 @@ test("resepsionis check-in dengan NIK, customer mengisi food recall di tablet, d
   // Resepsionis: NIK ditempel dari foto KTP dengan spasi (Review Focus 1).
   const { row, dialog } = await openCheckIn(page, code);
   await dialog.getByLabel("NIK (16 angka)").fill(`7171 0157 0590 001${n}`);
-  await expect(dialog.getByLabel("Tawarkan food recall")).toBeChecked();
+  await expect(dialog.getByLabel("Tawarkan recall")).toBeChecked();
   await dialog.getByRole("button", { name: "Check-in" }).click();
 
   const openOnTablet = dialog.getByRole("link", { name: "Buka di tablet" });
@@ -46,13 +46,19 @@ test("resepsionis check-in dengan NIK, customer mengisi food recall di tablet, d
   const link = (await openOnTablet.getAttribute("href"))!;
   expect(link.startsWith(`${E2E_BASE_URL}/food-recall#`)).toBe(true);
   await dialog.getByRole("button", { name: "Selesai" }).click();
-  await expect(row).toContainText("Food recall: belum diisi", { timeout: 30_000 });
+  await expect(row).toContainText("Recall: belum diisi", { timeout: 30_000 });
 
   // Customer di tablet: perangkat lain, tanpa login.
   const tabletContext = await newContext();
   const tablet = await tabletContext.newPage();
   await tablet.goto(link);
   await expect(tablet.getByText("Halo Rani,")).toBeVisible({ timeout: 30_000 });
+  // Bangun tidur cukup jamnya (spec recall R3), lalu catatan makan pukul 07.00.
+  await tablet.getByLabel("Jam").selectOption("5");
+  await tablet.getByRole("radio", { name: "Bangun tidur" }).click();
+  await tablet.getByRole("button", { name: "＋ Tambah catatan" }).click();
+  await tablet.getByLabel("Jam").selectOption("7");
+  await tablet.getByRole("radio", { name: "Makan/minum" }).click();
   await tablet.getByLabel("Isi catatan").fill("Nasi kuning dan teh manis");
   await tablet.getByRole("button", { name: "＋ Tambah catatan" }).click();
   await tablet.getByRole("button", { name: "Kirim" }).click();
@@ -61,7 +67,7 @@ test("resepsionis check-in dengan NIK, customer mengisi food recall di tablet, d
 
   // Resepsionis hanya melihat statusnya, tanpa isi (spec 4.4).
   await page.reload();
-  await expect(row).toContainText("Food recall: sudah diisi", { timeout: 30_000 });
+  await expect(row).toContainText("Recall: sudah diisi", { timeout: 30_000 });
   await expect(page.getByText("Nasi kuning dan teh manis")).toHaveCount(0);
 
   // Dokter (sesi sendiri): tanda di daftar pasien hari ini, tab Food recall terbuka pertama.
@@ -72,17 +78,17 @@ test("resepsionis check-in dengan NIK, customer mengisi food recall di tablet, d
     .getByRole("region", { name: "Pasien hari ini" })
     .getByRole("row")
     .filter({ hasText: `Rani Cekin ${testInfo.project.name}` });
-  await expect(todayRow).toContainText("food recall ✓", { timeout: 30_000 });
+  await expect(todayRow).toContainText("recall ✓", { timeout: 30_000 });
   await todayRow.getByRole("button", { name: "Periksa" }).click();
   // 60 dtk: halaman kunjungan dikompilasi `next dev` saat pertama dibuka, sementara spek lain ikut berjalan.
   await expect(doctor).toHaveURL(/\/admin\/kunjungan\/[^/]+$/, { timeout: 60_000 });
-  await expect(doctor.getByRole("tab", { name: "Food recall" })).toHaveAttribute("aria-selected", "true");
+  await expect(doctor.getByRole("tab", { name: "Recall" })).toHaveAttribute("aria-selected", "true");
   await expect(doctor.getByRole("tabpanel")).toContainText("Nasi kuning dan teh manis");
 
   await doctor.getByRole("tabpanel").getByRole("button", { name: "Salin ke S" }).click();
-  await expect(doctor.getByText("Food recall disalin ke S.")).toBeVisible();
+  await expect(doctor.getByText("Recall disalin ke S.")).toBeVisible();
   await expect(doctor.getByLabel("Keluhan dan anamnesis dokter")).toHaveValue(
-    /^Food recall H-1 \(.+\):\n07\.00 Makan\/minum — Nasi kuning dan teh manis$/,
+    /^Recall H-1 \(.+\):\n05\.00 Bangun tidur\n07\.00 Makan\/minum — Nasi kuning dan teh manis$/,
   );
 
   await doctor.getByLabel("Penilaian / diagnosis").fill("Obesitas derajat 1");
@@ -94,7 +100,7 @@ test("resepsionis check-in dengan NIK, customer mengisi food recall di tablet, d
 
   // Setelah final, link customer hanya mengabarkan bahwa catatannya sudah diterima.
   await tablet.reload();
-  await expect(tablet.getByText("Food recall Anda sudah diterima dokter.")).toBeVisible({ timeout: 30_000 });
+  await expect(tablet.getByText("Recall Anda sudah diterima dokter.")).toBeVisible({ timeout: 30_000 });
   await expect(tablet.getByRole("button", { name: "Kirim" })).toHaveCount(0);
   await tabletContext.close();
 });
@@ -116,7 +122,7 @@ test("resepsionis memindah pasien rangkap ke pemilik NIK, lalu check-in tanpa fo
 
   // Dialog kini memuat pasien lama: NIK-nya sudah ada, dan tanpa isian Slimming food recall tidak dicentang.
   await expect(dialog.getByText(`NIK 717101570590002${n}`)).toBeVisible();
-  await expect(dialog.getByLabel("Tawarkan food recall")).not.toBeChecked();
+  await expect(dialog.getByLabel("Tawarkan recall")).not.toBeChecked();
   await dialog.getByRole("button", { name: "Check-in" }).click();
   await expect(dialog).toBeHidden({ timeout: 30_000 });
   await expect(row).toContainText("Hadir", { timeout: 30_000 });

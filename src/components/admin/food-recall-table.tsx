@@ -8,12 +8,15 @@ import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import { useState } from "react";
-import { FOOD_RECALL_AUTHOR_LABEL, foodRecallRows, type FoodRecallAuthor, type FoodRecallEntry } from "@/lib/food-recall";
+import { FOOD_RECALL_AUTHOR_LABEL, RECALL_FIRST_HOUR, RECALL_LAST_HOUR, foodRecallRows, type FoodRecallAuthor, type FoodRecallEntry } from "@/lib/food-recall";
+import { minutesToTimeLabel } from "@/lib/time";
 
 /** Warna lencana penulis: dokter biru, perawat hijau, pasien abu (spec peran perawat 8). */
 const AUTHOR_COLOR: Record<FoodRecallAuthor, "info" | "success" | "text"> = { DOKTER: "info", PERAWAT: "success", CUSTOMER: "text" };
 
-/** Tabel 06.00–22.00 (spec check-in 5.1); jam kosong disembunyikan sampai diminta. */
+const ALL_HOURS = `${minutesToTimeLabel(RECALL_FIRST_HOUR * 60)}–${minutesToTimeLabel(RECALL_LAST_HOUR * 60)}`;
+
+/** Tabel 00.00–23.00 (spec check-in 5.1, spec recall R4); jam kosong disembunyikan sampai diminta. */
 export function FoodRecallTable({ entries, label }: { entries: readonly FoodRecallEntry[]; label: string }) {
   const [showAll, setShowAll] = useState(false);
   const rows = foodRecallRows(entries).filter((row) => showAll || row.entries.length > 0);
@@ -34,9 +37,9 @@ export function FoodRecallTable({ entries, label }: { entries: readonly FoodReca
                 {row.entries.map((entry, index) => (
                   <Box component="span" key={index} sx={{ mr: 1, display: "inline-block" }}>
                     <Box component="span" sx={{ color: "text.secondary" }}>
-                      {entry.kindLabel}:
-                    </Box>{" "}
-                    {entry.text}
+                      {entry.text ? `${entry.kindLabel}:` : entry.kindLabel}
+                    </Box>
+                    {entry.text && ` ${entry.text}`}
                     <Box
                       component="span"
                       sx={
@@ -68,7 +71,7 @@ export function FoodRecallTable({ entries, label }: { entries: readonly FoodReca
         sx={{ alignSelf: "flex-start", px: 0, minWidth: 0, fontSize: "0.75rem", color: "text.secondary", textDecoration: "underline" }}
         onClick={() => setShowAll((value) => !value)}
       >
-        {showAll ? "Sembunyikan jam kosong" : "Tampilkan 06.00–22.00"}
+        {showAll ? "Sembunyikan jam kosong" : `Tampilkan ${ALL_HOURS}`}
       </Button>
     </Box>
   );

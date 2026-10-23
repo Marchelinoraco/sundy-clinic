@@ -149,7 +149,7 @@ describe("PatientDetailView (spec D 5.3)", () => {
   it("riwayat kunjungan memuat food recall yang bisa dibuka", () => {
     renderAdmin(<PatientDetailView patient={patient} canReadRecords canWriteRecords />);
     const visits = screen.getByRole("region", { name: "Riwayat kunjungan" });
-    expect(within(visits).getByText("Food recall Selasa, 6 Oktober")).toBeInTheDocument();
+    expect(within(visits).getByText("Recall Selasa, 6 Oktober")).toBeInTheDocument();
     // Isinya di dalam <details> yang tertutup: dicari lewat teks, bukan peran tabel.
     expect(within(visits).getByText("Nasi kuning")).toBeInTheDocument();
   });

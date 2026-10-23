@@ -60,7 +60,7 @@ export function FoodRecallEntry() {
   }
 
   if (!loaded) return <p className="px-4 py-16 text-center text-brown-600">Memuat…</p>;
-  if (loaded.kind === "EMPTY") return <Notice title="Catatan makan kemarin" text={EMPTY_MESSAGE} />;
+  if (loaded.kind === "EMPTY") return <Notice title="Recall kemarin" text={EMPTY_MESSAGE} />;
   if (loaded.kind === "FAILED") {
     return <Notice title="Halaman gagal dimuat" text="Periksa koneksi lalu muat ulang halaman ini." />;
   }

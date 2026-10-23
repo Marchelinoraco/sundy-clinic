@@ -37,7 +37,7 @@ test("resepsionis check-in → perawat diberi tahu, mengisi angka vital, food re
   const dialog = reception.getByRole("dialog", { name: `Check-in — ${code}` });
   await expect(dialog.getByRole("button", { name: "Check-in" })).toBeVisible({ timeout: 30_000 });
   await dialog.getByLabel("NIK (16 angka)").fill(`717101570590003${n}`);
-  await expect(dialog.getByLabel("Tawarkan food recall")).not.toBeChecked();
+  await expect(dialog.getByLabel("Tawarkan recall")).not.toBeChecked();
   await dialog.getByRole("button", { name: "Check-in" }).click();
   await expect(reception.getByText(`${patientName} sudah check-in.`).first()).toBeVisible({ timeout: 30_000 });
 
@@ -59,12 +59,12 @@ test("resepsionis check-in → perawat diberi tahu, mengisi angka vital, food re
   await expect(vitals.getByText(/^Tersimpan \d{2}\.\d{2}$/)).toBeVisible({ timeout: 15_000 });
 
   // Food recall oleh perawat.
-  const foodRecall = nurse.getByRole("region", { name: "Food recall" });
-  await foodRecall.getByRole("button", { name: "Isi food recall" }).click();
+  const foodRecall = nurse.getByRole("region", { name: "Recall" });
+  await foodRecall.getByRole("button", { name: "Isi recall" }).click();
   await foodRecall.getByLabel("Isi catatan").fill("Nasi uduk dan teh manis");
   await foodRecall.getByRole("button", { name: "＋ Tambah catatan" }).click();
-  await foodRecall.getByRole("button", { name: "Simpan food recall" }).click();
-  await expect(nurse.getByText("Food recall disimpan.")).toBeVisible({ timeout: 30_000 });
+  await foodRecall.getByRole("button", { name: "Simpan recall" }).click();
+  await expect(nurse.getByText("Recall disimpan.")).toBeVisible({ timeout: 30_000 });
   await expect(foodRecall.getByText("perawat", { exact: true })).toBeVisible({ timeout: 30_000 });
 
   // BIA tanpa berkas: angka diketik perawat.
@@ -95,7 +95,7 @@ test("resepsionis check-in → perawat diberi tahu, mengisi angka vital, food re
   await expect(doctor).toHaveURL(/\/admin\/kunjungan\/[^/]+$/, { timeout: 60_000 });
   await expect(doctor.getByLabel("Berat badan (kg)")).toHaveValue("65,5");
   await expect(doctor.getByText(new RegExp(`^Diukur perawat ${E2E_PERAWAT.name} · \\d{2}\\.\\d{2}$`))).toBeVisible();
-  await doctor.getByRole("tab", { name: "Food recall" }).click();
+  await doctor.getByRole("tab", { name: "Recall" }).click();
   await expect(doctor.getByRole("tabpanel")).toContainText("Nasi uduk dan teh manis");
   await expect(doctor.getByRole("tabpanel").getByText("perawat", { exact: true })).toBeVisible();
   await doctor.getByRole("tab", { name: "BIA" }).click();

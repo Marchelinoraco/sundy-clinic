@@ -4,29 +4,29 @@ import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { ActivityEntry } from "@/lib/kuis/v1/answers";
-import { ACTIVITY_FIRST_HOUR, ACTIVITY_KINDS, ACTIVITY_LAST_HOUR, TEXT_LIMITS } from "@/lib/kuis/v1/options";
+import { RECALL_FIRST_HOUR, RECALL_KINDS, RECALL_LAST_HOUR, recallTextRequired, type RecallEntry, type RecallKind } from "@/lib/food-recall";
+import { TEXT_LIMITS } from "@/lib/kuis/v1/options";
 import { minutesToTimeLabel } from "@/lib/time";
 import { Segmented, optionsOf } from "./choice";
 
 const HOURS = Array.from(
-  { length: ACTIVITY_LAST_HOUR - ACTIVITY_FIRST_HOUR + 1 },
-  (_, index) => ACTIVITY_FIRST_HOUR + index,
+  { length: RECALL_LAST_HOUR - RECALL_FIRST_HOUR + 1 },
+  (_, index) => RECALL_FIRST_HOUR + index,
 );
 
 /**
- * P3 (K7): pasien hanya menambah yang benar-benar terjadi kemarin. Dokter
- * melihatnya sebagai tabel 06.00–22.00 (describe.ts → activityTable).
+ * Recall di tablet pasien (spec recall): pasien hanya menambah yang benar-benar terjadi kemarin, jam 00.00–23.00.
+ * Bangun tidur cukup jamnya. Dokter melihatnya sebagai tabel per jam (food-recall.ts → foodRecallRows).
  */
 export function ActivityList({
   entries,
   onChange,
 }: {
-  entries: ActivityEntry[];
-  onChange: (entries: ActivityEntry[]) => void;
+  entries: RecallEntry[];
+  onChange: (entries: RecallEntry[]) => void;
 }) {
   const [hour, setHour] = useState(7);
-  const [kind, setKind] = useState<ActivityEntry["kind"]>("MAKAN_MINUM");
+  const [kind, setKind] = useState<RecallKind>("MAKAN_MINUM");
   const [text, setText] = useState("");
   const hourId = useId();
   const textId = useId();
@@ -37,7 +37,7 @@ export function ActivityList({
 
   function add() {
     const trimmed = text.trim();
-    if (!trimmed) return;
+    if (!trimmed && recallTextRequired(kind)) return;
     onChange([...entries, { hour, kind, text: trimmed.slice(0, TEXT_LIMITS.activity) }]);
     setText("");
   }
@@ -52,11 +52,11 @@ export function ActivityList({
               className="flex items-center gap-3 rounded-xl border border-cream-300 bg-white px-3 py-2 text-sm"
             >
               <span className="w-12 font-semibold">{minutesToTimeLabel(entry.hour * 60)}</span>
-              <span className="text-brown-600">{ACTIVITY_KINDS[entry.kind]}</span>
+              <span className="text-brown-600">{RECALL_KINDS[entry.kind]}</span>
               <span className="flex-1">{entry.text}</span>
               <button
                 type="button"
-                aria-label={`Hapus ${entry.text}`}
+                aria-label={`Hapus ${entry.text || RECALL_KINDS[entry.kind]}`}
                 onClick={() => onChange(entries.filter((_, i) => i !== index))}
                 className="text-brown-500 hover:text-brown-900"
               >
@@ -83,7 +83,7 @@ export function ActivityList({
             ))}
           </select>
         </div>
-        <Segmented label="Jenis catatan" options={optionsOf(ACTIVITY_KINDS)} value={kind} onChange={setKind} />
+        <Segmented label="Jenis catatan" options={optionsOf(RECALL_KINDS)} value={kind} onChange={setKind} />
         <div className="space-y-1">
           <Label htmlFor={textId}>Isi catatan</Label>
           <Input
@@ -100,7 +100,7 @@ export function ActivityList({
             }}
           />
         </div>
-        <Button type="button" variant="outline" onClick={add} disabled={!text.trim()}>
+        <Button type="button" variant="outline" onClick={add} disabled={recallTextRequired(kind) && !text.trim()}>
           ＋ Tambah catatan
         </Button>
       </div>

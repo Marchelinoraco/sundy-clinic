@@ -12,7 +12,7 @@ const SIGNATURE_BYTES = 16;
 const CODE_PATTERN = /^([a-z0-9]{10,40})\.([A-Za-z0-9_-]{22})$/;
 
 export function foodRecallKey(secret: string | undefined = process.env.BETTER_AUTH_SECRET): Buffer {
-  if (!secret) throw new Error("BETTER_AUTH_SECRET belum diisi; link food recall tidak bisa dibuat.");
+  if (!secret) throw new Error("BETTER_AUTH_SECRET belum diisi; link recall tidak bisa dibuat.");
   return createHmac("sha256", secret).update(KEY_LABEL).digest();
 }
 
