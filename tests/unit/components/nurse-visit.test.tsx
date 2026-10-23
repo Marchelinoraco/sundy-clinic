@@ -33,10 +33,10 @@ describe("NurseVisitView (spec peran perawat 7)", () => {
     // Angka vital di atas food recall (spec vital perawat VP1).
     const regions = screen.getAllByRole("region").map((region) => region.getAttribute("aria-label") ?? region.getAttribute("aria-labelledby"));
     expect(regions.indexOf("Angka vital")).toBeGreaterThanOrEqual(0);
-    expect(regions.indexOf("Angka vital")).toBeLessThan(regions.indexOf("Food recall"));
-    expect(screen.getByRole("region", { name: "Food recall" })).toBeInTheDocument();
+    expect(regions.indexOf("Angka vital")).toBeLessThan(regions.indexOf("Recall"));
+    expect(screen.getByRole("region", { name: "Recall" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "BIA" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Isi food recall" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Isi recall" })).toBeInTheDocument();
     expect(screen.queryByText(/Diagnosis|Resep|Riwayat/)).toBeNull();
   });
 

@@ -29,7 +29,7 @@ export function NurseWorklistView({ rows, title = "Pasien hari ini" }: { rows: N
                 <TableCell>Pasien</TableCell>
                 <TableCell>Layanan</TableCell>
                 <TableCell>Tenaga</TableCell>
-                <TableCell>Food recall</TableCell>
+                <TableCell>Recall</TableCell>
                 <TableCell>BIA</TableCell>
                 <TableCell>Penanganan</TableCell>
                 <TableCell>Aksi</TableCell>

@@ -63,14 +63,14 @@ export function FoodRecallDialog({
         setInfo(result.data);
         router.refresh();
       } catch {
-        toast.error("Gagal menawarkan food recall. Coba lagi.");
+        toast.error("Gagal menawarkan recall. Coba lagi.");
       }
     });
   }
 
   return (
     <Dialog open={open} onClose={() => onOpenChange(false)} maxWidth="xs">
-      <DialogTitle sx={{ pr: 6 }}>Food recall — {target.code}</DialogTitle>
+      <DialogTitle sx={{ pr: 6 }}>Recall — {target.code}</DialogTitle>
       <DialogCloseButton onClick={() => onOpenChange(false)} />
       <DialogContent>
         <DialogContentText sx={{ mb: 2 }}>{target.patientName}</DialogContentText>
@@ -80,15 +80,15 @@ export function FoodRecallDialog({
           </Typography>
         ) : info === null ? (
           <Typography variant="body2" sx={{ color: "text.secondary" }}>
-            Food recall gagal dimuat. Coba lagi.
+            Recall gagal dimuat. Coba lagi.
           </Typography>
         ) : info.state === "NOT_OFFERED" ? (
           <Stack spacing={1}>
             <Typography variant="body2" sx={{ color: "text.secondary" }}>
-              Food recall belum ditawarkan saat check-in.
+              Recall belum ditawarkan saat check-in.
             </Typography>
             <Button type="button" variant="contained" fullWidth disabled={pending} onClick={offer}>
-              Tawarkan food recall
+              Tawarkan recall
             </Button>
           </Stack>
         ) : (

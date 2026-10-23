@@ -54,8 +54,8 @@ function VisitDetail({ visit }: { visit: EncounterHistoryItem }) {
             component="details"
             sx={{ "& > summary": { cursor: "pointer", fontSize: "0.75rem", fontWeight: 500, color: "text.secondary" } }}
           >
-            <summary>Food recall {visit.foodRecall.recallDateLabel}</summary>
-            <FoodRecallTable entries={visit.foodRecall.entries} label={`Food recall ${visit.foodRecall.recallDateLabel}`} />
+            <summary>Recall {visit.foodRecall.recallDateLabel}</summary>
+            <FoodRecallTable entries={visit.foodRecall.entries} label={`Recall ${visit.foodRecall.recallDateLabel}`} />
           </Box>
         )}
         {visit.addenda.map((addendum) => (

@@ -20,7 +20,7 @@ import { VitalsTrendTab } from "./vitals-trend-tab";
 
 const TABS: { key: ContextTab; label: string }[] = [
   { key: "intake", label: "Isian kuis" },
-  { key: "foodRecall", label: "Food recall" },
+  { key: "foodRecall", label: "Recall" },
   { key: "bia", label: "BIA" },
   { key: "previous", label: "Sebelumnya" },
   { key: "trend", label: "Tren" },

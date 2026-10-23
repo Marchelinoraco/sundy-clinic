@@ -56,7 +56,7 @@ export function FoodRecallLinkPanel({ info }: { info: ShownInfo }) {
           <Box
             component="img"
             src={qr}
-            alt="QR link food recall"
+            alt="QR link recall"
             sx={{ mx: "auto", width: 224, height: 224, borderRadius: 1.5, border: 1, borderColor: "divider", bgcolor: "common.white", p: 1 }}
           />
         )}
@@ -82,12 +82,12 @@ export function FoodRecallLinkPanel({ info }: { info: ShownInfo }) {
   if (info.state === "RECEIVED")
     return (
       <Typography variant="body2" sx={{ color: "text.secondary" }}>
-        Food recall sudah diterima dokter.
+        Recall sudah diterima dokter.
       </Typography>
     );
   return (
     <Typography variant="body2" sx={{ color: "text.secondary" }}>
-      Link food recall tidak berlaku lagi: hanya bisa dibuka pada hari kunjungan selama customer berstatus hadir.
+      Link recall tidak berlaku lagi: hanya bisa dibuka pada hari kunjungan selama customer berstatus hadir.
     </Typography>
   );
 }

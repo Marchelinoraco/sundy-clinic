@@ -35,7 +35,7 @@ export const BOOKING_ACTION_LABEL: Record<BookingAction, string> = {
   NO_SHOW: "Tidak hadir",
   RESCHEDULE: "Pindah jadwal",
   QUIZ_LINK: "Link kuis",
-  FOOD_RECALL: "Food recall",
+  FOOD_RECALL: "Recall",
   UPLOAD_BIA: "Unggah hasil BIA",
   CHANGE_WINDOWS: "Ubah waktu luang",
   REQUEST_NEW_TIME: "Minta waktu baru via WA",

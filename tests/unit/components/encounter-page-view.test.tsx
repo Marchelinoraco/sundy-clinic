@@ -121,7 +121,7 @@ describe("EncounterPageView", () => {
       },
     });
     renderAdmin(<EncounterPageView bia={biaVisit()} encounter={encounter} canWrite />);
-    expect(screen.getByRole("tab", { name: "Food recall" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Recall" })).toHaveAttribute("aria-selected", "true");
     await user.click(screen.getByRole("button", { name: "Salin ke S" }));
     expect(screen.getByLabelText("Keluhan dan anamnesis dokter")).toHaveValue(
       "BB naik 1 kg\n\nRecall H-1 (Rabu, 30 Sep):\n07.00 Makan/minum — Nasi kuning",
@@ -145,7 +145,7 @@ describe("EncounterPageView", () => {
     });
     renderAdmin(<EncounterPageView bia={biaVisit()} encounter={encounterDetail({ history: [visit] })} canWrite />);
     await user.click(screen.getByRole("tab", { name: "Sebelumnya" }));
-    expect(screen.getByText("Food recall Selasa, 22 September")).toBeInTheDocument();
+    expect(screen.getByText("Recall Selasa, 22 September")).toBeInTheDocument();
   });
 
   it("konsultasi online diberi label di kepala halaman dan Online (WhatsApp) di tempat cabang", () => {

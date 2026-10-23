@@ -83,7 +83,7 @@ describe("bookingRowActions (spec C1 5.2, C2 bagian 5)", () => {
 
   it("Hadir menjadi Check-in", () => {
     expect(BOOKING_ACTION_LABEL.ATTEND).toBe("Check-in");
-    expect(BOOKING_ACTION_LABEL.FOOD_RECALL).toBe("Food recall");
+    expect(BOOKING_ACTION_LABEL.FOOD_RECALL).toBe("Recall");
   });
 
   it("customer yang sudah check-in hari ini: Food recall di menu, sebelum Lihat isian", () => {

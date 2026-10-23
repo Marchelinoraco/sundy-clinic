@@ -188,7 +188,7 @@ export function PatientDetailView({
                     <TableCell>Cabang</TableCell>
                     <TableCell>Penulis</TableCell>
                     <TableCell>Penilaian</TableCell>
-                    <TableCell>Food recall</TableCell>
+                    <TableCell>Recall</TableCell>
                     <TableCell>Status</TableCell>
                     <TableCell>Aksi</TableCell>
                   </TableRow>
@@ -204,9 +204,9 @@ export function PatientDetailView({
                         {encounter.foodRecall && encounter.foodRecall.entries.length > 0 ? (
                           <details>
                             <Box component="summary" sx={{ cursor: "pointer", fontSize: "0.875rem" }}>
-                              Food recall {encounter.foodRecall.recallDateLabel}
+                              Recall {encounter.foodRecall.recallDateLabel}
                             </Box>
-                            <FoodRecallTable entries={encounter.foodRecall.entries} label={`Food recall ${encounter.foodRecall.recallDateLabel}`} />
+                            <FoodRecallTable entries={encounter.foodRecall.entries} label={`Recall ${encounter.foodRecall.recallDateLabel}`} />
                           </details>
                         ) : (
                           "—"

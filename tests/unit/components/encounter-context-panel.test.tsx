@@ -185,7 +185,7 @@ describe("EncounterContextPanel", () => {
 
   it("tab BIA ada di antara Food recall dan Sebelumnya, dan isinya tab BIA", async () => {
     renderAdmin(<EncounterContextPanel encounter={encounterDetail()} currentVitals={encounterDetail().vitals} bia={biaVisit()} />);
-    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Isian kuis", "Food recall", "BIA", "Sebelumnya", "Tren"]);
+    expect(screen.getAllByRole("tab").map((tab) => tab.textContent)).toEqual(["Isian kuis", "Recall", "BIA", "Sebelumnya", "Tren"]);
     await userEvent.click(screen.getByRole("tab", { name: "BIA" }));
     expect(screen.getByRole("tabpanel", { name: "BIA" })).toHaveTextContent("Belum ada hasil BIA untuk kunjungan ini.");
   });

@@ -63,7 +63,7 @@ export default async function AdminDashboardPage({
   ]);
   // Peran yang juga melihat daftar dokter (Super Admin) mendapat judul yang tidak memuat "Pasien hari ini" sama sekali:
   // pembaca layar dan uji (yang mencocokkan nama sebagian) tidak boleh tertukar dengan kotak dokter.
-  const nurseTitle = can(staff.role, "record:read") ? "Food recall & BIA hari ini" : "Pasien hari ini";
+  const nurseTitle = can(staff.role, "record:read") ? "Recall & BIA hari ini" : "Pasien hari ini";
 
   const dayLabel =
     schedule?.ok === true

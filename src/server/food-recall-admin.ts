@@ -11,9 +11,9 @@ import { isRecordLockedError, isUniqueViolation } from "@/server/db-errors";
 import { foodRecallLinkInfo, loadFoodRecallForAppointment } from "@/server/food-recall-store";
 import { requireCapability, type CurrentStaff } from "@/server/session";
 
-const LOCKED = "Catatan dokter sudah final; food recall tidak bisa diubah.";
-const NOT_CHECKED_IN = "Food recall hanya untuk customer yang sudah check-in.";
-const STALE = "Food recall baru saja diubah, mungkin pasien mengirim dari tablet. Muat ulang halaman, lalu lengkapi lagi.";
+const LOCKED = "Catatan dokter sudah final; recall tidak bisa diubah.";
+const NOT_CHECKED_IN = "Recall hanya untuk customer yang sudah check-in.";
+const STALE = "Recall baru saja diubah, mungkin pasien mengirim dari tablet. Muat ulang halaman, lalu lengkapi lagi.";
 
 /** Simpanan staf: `baseVersion` = versi (updatedAt ISO, atau null bila belum ada baris) saat penyunting dibuka. */
 type StaffFoodRecallInput = { appointmentId: string; entries: unknown; baseVersion?: string | null };
