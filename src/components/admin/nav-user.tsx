@@ -1,6 +1,7 @@
 "use client";
 
 import Logout from "@mui/icons-material/Logout";
+import Password from "@mui/icons-material/Password";
 import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
 import Divider from "@mui/material/Divider";
@@ -9,9 +10,11 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Typography from "@mui/material/Typography";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { signOut } from "@/lib/auth-client";
+import { can } from "@/lib/permissions";
 import { STAFF_ROLE_LABEL } from "@/lib/staff-role";
 import type { CurrentStaff } from "@/server/session";
 
@@ -36,6 +39,14 @@ export function NavUser({ staff }: { staff: CurrentStaff }) {
           </Typography>
         </Box>
         <Divider />
+        {can(staff.role, "approval:give") && (
+          <MenuItem component={Link} href="/admin/pin-persetujuan" onClick={() => setAnchor(null)}>
+            <ListItemIcon>
+              <Password fontSize="small" />
+            </ListItemIcon>
+            PIN persetujuan
+          </MenuItem>
+        )}
         <MenuItem
           onClick={async () => {
             setAnchor(null);

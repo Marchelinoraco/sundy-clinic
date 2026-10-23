@@ -15,6 +15,7 @@ import Typography from "@mui/material/Typography";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { approvedSuffix } from "@/lib/approval";
 import { formatRupiah } from "@/lib/format";
 import { validateLineDiscount, type DiscountKindValue } from "@/lib/invoice";
 import { clearLineDiscount, setLineDiscount } from "@/server/invoice-drafts";
@@ -22,8 +23,9 @@ import type { InvoiceLineRow } from "@/server/invoice-read";
 import { DialogCloseButton } from "../mui/dialog-close-button";
 import { SelectField } from "../mui/select-field";
 import { RupiahInput } from "../rupiah-input";
+import { useApproval } from "../approval/use-approval";
 
-type LineView = Pick<InvoiceLineRow, "id" | "name" | "gross" | "discountAmount" | "discountReason" | "discountSource">;
+type LineView = Pick<InvoiceLineRow, "id" | "name" | "gross" | "discountAmount" | "discountReason" | "discountSource" | "discountApprovedByName">;
 
 /** "Diskon −Rp30.000 · Promo: Oktober" di bawah nama baris (spec perbaikan tagihan 5.3). */
 export function LineDiscountNote({ line }: { line: LineView }) {
@@ -32,6 +34,7 @@ export function LineDiscountNote({ line }: { line: LineView }) {
     <Typography variant="caption" component="div" sx={{ color: "success.main", display: "flex", alignItems: "center", gap: 0.5, flexWrap: "wrap" }}>
       {line.discountSource === "PROMO" && <Chip label="Promo" size="small" color="success" variant="outlined" />}
       Diskon −{formatRupiah(line.discountAmount)} · {line.discountReason}
+      {approvedSuffix(line.discountApprovedByName)}
     </Typography>
   );
 }
@@ -46,6 +49,7 @@ export function LineDiscountDialog({ invoiceId, version, line, disabled = false 
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const { withApproval, dialog } = useApproval();
 
   const value = kind === "NOMINAL" ? (nominal ?? Number.NaN) : Number(percent || Number.NaN);
   const preview = kind === "PERSEN" && Number.isInteger(value) && value > 0 ? Math.floor((line.gross * value) / 100) : null;
@@ -58,11 +62,12 @@ export function LineDiscountDialog({ invoiceId, version, line, disabled = false 
     setError(null);
   }
 
-  function run(action: () => Promise<{ ok: true; data: unknown } | { ok: false; error: string }>, success: string) {
+  function run(action: () => Promise<{ ok: true; data: unknown } | { ok: false; error: string } | null>, success: string) {
     setError(null);
     startTransition(async () => {
       try {
         const result = await action();
+        if (result === null) return;
         if (!result.ok) {
           setError(result.error);
           return;
@@ -83,7 +88,7 @@ export function LineDiscountDialog({ invoiceId, version, line, disabled = false 
       setError(checked.message);
       return;
     }
-    run(() => setLineDiscount({ invoiceId, version, lineId: line.id, ...input }), "Diskon baris disimpan.");
+    run(() => withApproval((approval) => setLineDiscount({ invoiceId, version, lineId: line.id, ...input, approval })), "Diskon baris disimpan.");
   }
 
   return (
@@ -144,6 +149,7 @@ export function LineDiscountDialog({ invoiceId, version, line, disabled = false 
           </Button>
         </DialogActions>
       </Dialog>
+      {dialog}
     </>
   );
 }

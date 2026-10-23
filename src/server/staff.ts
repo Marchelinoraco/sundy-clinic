@@ -26,6 +26,8 @@ export type StaffRow = {
   specialty: string | null;
   bio: string | null;
   photoUrl: string | null;
+  /** Penyetuju yang sudah membuat PIN persetujuan (spec PIN P10). */
+  hasApprovalPin: boolean;
 };
 
 /** Kata sandi sementara hanya dikembalikan ke browser pemilik; tidak pernah disimpan, dicatat, atau dimasukkan ke audit. */
@@ -61,7 +63,7 @@ export async function listStaffAccounts(): Promise<StaffRow[]> {
   await requireCapability("staff:manage");
   const rows = await prisma.staff.findMany({
     orderBy: [{ isActive: "desc" }, { sortOrder: "asc" }, { name: "asc" }],
-    include: { user: { select: { email: true, mustChangePassword: true } } },
+    include: { user: { select: { email: true, mustChangePassword: true } }, approvalPin: { select: { staffId: true } } },
   });
   return rows.map((row) => ({
     id: row.id,
@@ -74,6 +76,7 @@ export async function listStaffAccounts(): Promise<StaffRow[]> {
     specialty: row.specialty,
     bio: row.bio,
     photoUrl: row.photoUrl,
+    hasApprovalPin: row.approvalPin !== null,
   }));
 }
 

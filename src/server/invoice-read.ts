@@ -167,7 +167,11 @@ export type InvoiceLineRow = {
   discountAmount: number;
   discountReason: string | null;
   discountSource: "PROMO" | "MANUAL" | null;
+  /** Penyetuju diskon manual baris (spec PIN P11). */
+  discountApprovedByName: string | null;
   priceNote: string | null;
+  /** Penyetuju harga di luar katalog (spec PIN P11). */
+  priceApprovedByName: string | null;
   serviceId: string | null;
   itemId: string | null;
   /** Berasal dari katalog (layanan atau barang): harga yang diubah wajib catatan. */
@@ -237,6 +241,8 @@ export type InvoiceDetail = {
   discountValue: number;
   discountReason: string | null;
   discountByName: string | null;
+  /** Penyetuju diskon tagihan (spec PIN P11). */
+  discountApprovedByName: string | null;
   totals: InvoiceTotals;
   notes: string | null;
   createdByName: string;
@@ -246,6 +252,8 @@ export type InvoiceDetail = {
   cancelledAt: Date | null;
   cancelledByName: string | null;
   cancelReason: string | null;
+  /** Penyetuju pembatalan tagihan final (spec PIN P11). */
+  cancelApprovedByName: string | null;
   lines: InvoiceLineRow[];
   /** Ada baris dari resep dokter: tombol Cetak etiket tampil (spec resep dokter 5). */
   hasPrescription: boolean;
@@ -281,6 +289,7 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
       discountValue: true,
       discountReason: true,
       discountByName: true,
+      discountApprovedByName: true,
       notes: true,
       createdByName: true,
       createdAt: true,
@@ -289,6 +298,7 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
       cancelledAt: true,
       cancelledByName: true,
       cancelReason: true,
+      cancelApprovedByName: true,
       branchId: true,
       appointmentId: true,
       patient: { select: { id: true, name: true, medicalRecordNumber: true } },
@@ -328,6 +338,7 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
           quantity: true,
           unitPrice: true,
           priceNote: true,
+          priceApprovedByName: true,
           serviceId: true,
           itemId: true,
           dispensingLineId: true,
@@ -336,6 +347,7 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
           discountAmount: true,
           discountReason: true,
           discountSource: true,
+          discountApprovedByName: true,
           materialCost: true,
           toolCost: true,
           otherCost: true,
@@ -383,7 +395,9 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
     discountAmount: line.discountAmount,
     discountReason: line.discountReason,
     discountSource: line.discountSource,
+    discountApprovedByName: line.discountApprovedByName,
     priceNote: line.priceNote,
+    priceApprovedByName: line.priceApprovedByName,
     serviceId: line.serviceId,
     itemId: line.itemId,
     catalogLinked: line.serviceId !== null || line.itemId !== null || line.treatmentPackageId !== null,
@@ -434,6 +448,7 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
     discountValue: invoice.discountValue,
     discountReason: invoice.discountReason,
     discountByName: invoice.discountByName,
+    discountApprovedByName: invoice.discountApprovedByName,
     totals,
     notes: invoice.notes,
     createdByName: invoice.createdByName,
@@ -443,6 +458,7 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
     cancelledAt: invoice.cancelledAt,
     cancelledByName: invoice.cancelledByName,
     cancelReason: invoice.cancelReason,
+    cancelApprovedByName: invoice.cancelApprovedByName,
     lines,
     hasPrescription: lines.some((line) => line.prescription !== null),
     payments: invoice.payments.map((payment) => ({

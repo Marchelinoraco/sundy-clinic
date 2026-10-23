@@ -20,6 +20,8 @@ const ACTION_LABEL: Record<string, string> = {
   "staff.account.reset": "mereset kata sandi staf",
   "staff.account.email": "mengganti email staf",
   "staff.password.change": "mengganti kata sandi sendiri",
+  "approval-pin.set": "membuat/mengganti PIN persetujuan",
+  "approval-pin.reset": "mereset PIN persetujuan",
   "staff.photo.update": "mengganti foto staf",
   "staff.photo.remove": "menghapus foto staf",
   "service.create": "menambah layanan internal",

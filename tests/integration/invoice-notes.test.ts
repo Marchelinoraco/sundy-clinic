@@ -8,6 +8,7 @@ import { getPublicReceipt } from "@/server/receipt-public";
 import { getReceiptMessage } from "@/server/receipt";
 import { cleanupBillingWorld, createBillingWorld, type BillingWorld } from "./invoice-world";
 import { unwrap } from "./unwrap";
+import { testApproval } from "./approver";
 
 type Role = "RESEPSIONIS" | "ADMIN_KEUANGAN" | "APOTEKER";
 const { actor } = vi.hoisted(() => ({ actor: { userId: "u", staffId: "s", name: "Uji Catatan", role: "RESEPSIONIS" as Role, email: "u@uji.test" } }));
@@ -52,7 +53,7 @@ describe("catatan internal tagihan", () => {
   });
 
   it("bisa diubah setelah final, juga oleh Admin Keuangan; kosong menghapus", async () => {
-    const { version } = await unwrap(addFreeLine({ invoiceId, version: (await prisma.invoice.findUniqueOrThrow({ where: { id: invoiceId } })).version, kind: "LAYANAN", name: "Catatan Uji", quantity: 1, unitPrice: 1000 }));
+    const { version } = await unwrap(addFreeLine({ approval: await testApproval(), invoiceId, version: (await prisma.invoice.findUniqueOrThrow({ where: { id: invoiceId } })).version, kind: "LAYANAN", name: "Catatan Uji", quantity: 1, unitPrice: 1000 }));
     await unwrap(finalizeInvoice({ invoiceId, version }));
     actor.role = "ADMIN_KEUANGAN";
     await unwrap(updateInvoiceNotes({ invoiceId, notes: "rahasia internal" }));

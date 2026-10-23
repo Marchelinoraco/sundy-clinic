@@ -7,6 +7,7 @@ import { cancelInvoice, finalizeInvoice } from "@/server/invoice-lifecycle";
 import { getInvoiceDetail } from "@/server/invoice-read";
 import { billingBatch, cleanupBillingWorld, createBillingWorld, finalVisit, seedDispensing, type BillingWorld } from "./invoice-world";
 import { unwrap } from "./unwrap";
+import { testApproval } from "./approver";
 
 const { actor } = vi.hoisted(() => ({ actor: { userId: "u", staffId: "s", name: "Rina Resepsionis", role: "RESEPSIONIS" as StaffRole, email: "u@uji.test" } }));
 vi.mock("@/server/session", async () => {
@@ -70,7 +71,7 @@ describe("baris resep dokter di tagihan (spec resep dokter 4)", () => {
     const { appointmentId, dispensingLineId } = await doctorVisit();
     const { id } = await unwrap(createInvoiceFromVisit(appointmentId));
     const line = (await getInvoiceDetail(id))!.lines.find((l) => l.prescription)!;
-    expect(await updateInvoiceLine({ invoiceId: id, version: await versionOf(id), lineId: line.id, quantity: 3, unitPrice: line.unitPrice, priceNote: "" })).toEqual({
+    expect(await updateInvoiceLine({ approval: await testApproval(), invoiceId: id, version: await versionOf(id), lineId: line.id, quantity: 3, unitPrice: line.unitPrice, priceNote: "" })).toEqual({
       ok: false,
       error: "Jumlah obat dari resep dokter diubah lewat tombol Kurangi.",
     });
@@ -159,7 +160,7 @@ describe("baris resep dokter di tagihan (spec resep dokter 4)", () => {
     await unwrap(reducePrescriptionLine({ invoiceId: id, version: await versionOf(id), lineId: line.id, quantity: 4, reason: "Stok kurang" }));
     await unwrap(finalizeInvoice({ invoiceId: id, version: await versionOf(id) }));
     actor.role = "SUPER_ADMIN";
-    await unwrap(cancelInvoice({ invoiceId: id, reason: "Salah pasien" }));
+    await unwrap(cancelInvoice({ approval: await testApproval(), invoiceId: id, reason: "Salah pasien" }));
     actor.role = "RESEPSIONIS";
 
     expect((await prisma.dispensing.findUniqueOrThrow({ where: { appointmentId } })).status).toBe("SELESAI");

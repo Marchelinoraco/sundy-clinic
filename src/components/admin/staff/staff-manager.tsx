@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { STAFF_ROLE_LABEL } from "@/lib/staff-role";
+import { resetApprovalPin } from "@/server/approval-pin";
 import { resetStaffPassword, setStaffActive, type Credentials, type StaffRow } from "@/server/staff";
 import { AdminDataGrid } from "../mui/admin-data-grid";
 import { StatusChip } from "../mui/status-chip";
@@ -30,7 +31,8 @@ type Dialog =
   | { kind: "account"; row: StaffRow }
   | { kind: "email"; row: StaffRow }
   | { kind: "deactivate"; row: StaffRow }
-  | { kind: "reset"; row: StaffRow };
+  | { kind: "reset"; row: StaffRow }
+  | { kind: "reset-pin"; row: StaffRow };
 
 /** Daftar staf dan seluruh aksi pengelolaannya (spec kelola staf 5.1). */
 export function StaffManager({ rows, currentStaffId }: { rows: StaffRow[]; currentStaffId: string }) {
@@ -136,6 +138,7 @@ export function StaffManager({ rows, currentStaffId }: { rows: StaffRow[]; curre
         {target && <MenuItem onClick={() => open({ kind: "edit", row: target })}>Ubah</MenuItem>}
         {target && !target.email && target.isActive && <MenuItem onClick={() => open({ kind: "account", row: target })}>Buat akun</MenuItem>}
         {target?.email && <MenuItem onClick={() => open({ kind: "reset", row: target })}>Reset kata sandi</MenuItem>}
+        {target?.hasApprovalPin && <MenuItem onClick={() => open({ kind: "reset-pin", row: target })}>Reset PIN</MenuItem>}
         {target?.email && <MenuItem onClick={() => open({ kind: "email", row: target })}>Ganti email</MenuItem>}
         {target && target.isActive && !self && (
           <MenuItem sx={{ color: "error.main" }} onClick={() => open({ kind: "deactivate", row: target })}>
@@ -178,6 +181,22 @@ export function StaffManager({ rows, currentStaffId }: { rows: StaffRow[]; curre
           onConfirm={async () => {
             const result = await resetStaffPassword(dialog.row.id);
             if (result.ok) showCredentials(dialog.row.name, result.data.credentials, dialog.row.id === currentStaffId);
+            return result;
+          }}
+        />
+      )}
+      {dialog?.kind === "reset-pin" && (
+        <StaffConfirmDialog
+          title={`Reset PIN ${dialog.row.name}?`}
+          description={`PIN persetujuan ${dialog.row.name} berhenti berlaku. ${dialog.row.name} membuat PIN baru lewat menu akun.`}
+          confirmLabel="Reset PIN"
+          onClose={() => setDialog(null)}
+          onConfirm={async () => {
+            const result = await resetApprovalPin(dialog.row.id);
+            if (result.ok) {
+              toast.success(`PIN ${dialog.row.name} direset.`);
+              router.refresh();
+            }
             return result;
           }}
         />

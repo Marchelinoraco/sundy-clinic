@@ -14,6 +14,7 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { DISCOUNT_KIND_LABEL, discountAmount, validateDiscount, type DiscountKindValue } from "@/lib/invoice";
 import { applyFinalDiscount } from "@/server/invoice-payments";
+import { useApproval } from "../approval/use-approval";
 import { DialogCloseButton } from "../mui/dialog-close-button";
 import { SelectField } from "../mui/select-field";
 
@@ -36,6 +37,7 @@ export function FinalDiscountDialog({
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const { withApproval, dialog } = useApproval();
 
   function save() {
     const input = { kind, value: Number(value), reason };
@@ -56,7 +58,8 @@ export function FinalDiscountDialog({
     setError(null);
     startTransition(async () => {
       try {
-        const result = await applyFinalDiscount({ invoiceId, ...input });
+        const result = await withApproval((approval) => applyFinalDiscount({ invoiceId, ...input, approval }));
+        if (result === null) return;
         if (!result.ok) {
           setError(result.error);
           return;
@@ -112,6 +115,7 @@ export function FinalDiscountDialog({
           </Button>
         </DialogActions>
       </Dialog>
+      {dialog}
     </>
   );
 }

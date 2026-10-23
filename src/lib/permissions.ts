@@ -34,10 +34,13 @@ export type Capability =
   | "counter:read"
   | "restock:request"
   | "nurse:work"
-  | "checkin:notify";
+  | "checkin:notify"
+  /** Menyetujui harga, diskon, pembatalan tagihan, dan pengembalian deposit dengan PIN (spec PIN P1, P7). */
+  | "approval:give";
 
 export const CAPABILITIES_BY_ROLE: Record<StaffRole, readonly Capability[]> = {
   SUPER_ADMIN: [
+    "approval:give",
     "staff:manage",
     "content:manage",
     "booking:manage",
@@ -88,7 +91,7 @@ export const CAPABILITIES_BY_ROLE: Record<StaffRole, readonly Capability[]> = {
   // Tidak mengubah stok, booking, jadwal, rekam medis, atau akun staf (spec stok 7.2).
   // Harga jual dan promo barang (spec perbaikan tagihan T9); harga beli menyusul di sub-proyek 3.
   // Katalog layanan internal dan situs (spec layanan situs 5).
-  ADMIN_KEUANGAN: ["stock:read", "payable:manage", "report:read", "invoice:read", "invoice:correct", "expense:manage", "profit:read", "price:manage", "catalog:manage", "payroll:manage"],
+  ADMIN_KEUANGAN: ["stock:read", "payable:manage", "report:read", "invoice:read", "invoice:correct", "expense:manage", "profit:read", "price:manage", "catalog:manage", "payroll:manage", "approval:give"],
 };
 
 export function can(role: StaffRole, capability: Capability): boolean {

@@ -9,6 +9,7 @@ import { applyFinalDiscount, recordInvoicePayment, revokeInvoicePayment } from "
 import { getInvoiceDetail } from "@/server/invoice-read";
 import { cleanupBillingWorld, createBillingWorld, type BillingWorld } from "./invoice-world";
 import { unwrap } from "./unwrap";
+import { testApproval } from "./approver";
 
 type Role = "SUPER_ADMIN" | "RESEPSIONIS" | "ADMIN_KEUANGAN" | "APOTEKER" | "DOKTER";
 const { actor } = vi.hoisted(() => ({
@@ -34,7 +35,7 @@ describe("pembayaran customer", () => {
   /** Tagihan final Rp 100.000 (satu baris bebas). */
   async function finalInvoice(price = 100000) {
     const { id } = await unwrap(createDirectSale({ patientId: world.patientId }));
-    const { version } = await unwrap(addFreeLine({ invoiceId: id, version: 1, kind: "LAYANAN", name: "Layanan Uji", quantity: 1, unitPrice: price }));
+    const { version } = await unwrap(addFreeLine({ approval: await testApproval(), invoiceId: id, version: 1, kind: "LAYANAN", name: "Layanan Uji", quantity: 1, unitPrice: price }));
     await unwrap(finalizeInvoice({ invoiceId: id, version }));
     return id;
   }
@@ -85,7 +86,7 @@ describe("pembayaran customer", () => {
     const message = "Tagihan ini belum final atau sudah dibatalkan.";
     expect(await pay(id)).toEqual({ ok: false, error: message });
     const final = await finalInvoice();
-    await unwrap(cancelInvoice({ invoiceId: final, reason: "Salah" }));
+    await unwrap(cancelInvoice({ approval: await testApproval(), invoiceId: final, reason: "Salah" }));
     expect(await pay(final)).toEqual({ ok: false, error: message });
     expect(await pay("tidak-ada")).toEqual({ ok: false, error: "Tagihan tidak ditemukan." });
   });
@@ -125,25 +126,25 @@ describe("pembayaran customer", () => {
   it("diskon sesudah final: hanya Admin Keuangan, tambahan saja, dan tidak di bawah yang sudah dibayar", async () => {
     const id = await finalInvoice();
     await unwrap(pay(id, { amount: 30000 }));
-    await expect(applyFinalDiscount({ invoiceId: id, kind: "PERSEN", value: 30, reason: "Kebijakan" })).rejects.toThrow(/forbidden: invoice:correct/);
+    await expect(applyFinalDiscount({ approval: await testApproval(), invoiceId: id, kind: "PERSEN", value: 30, reason: "Kebijakan" })).rejects.toThrow(/forbidden: invoice:correct/);
 
     actor.role = "ADMIN_KEUANGAN";
-    await unwrap(applyFinalDiscount({ invoiceId: id, kind: "PERSEN", value: 30, reason: "Kompensasi keluhan" }));
+    await unwrap(applyFinalDiscount({ approval: await testApproval(), invoiceId: id, kind: "PERSEN", value: 30, reason: "Kompensasi keluhan" }));
     expect(await getInvoiceDetail(id)).toMatchObject({
       discountKind: "PERSEN",
       discountValue: 30,
       discountReason: "Kompensasi keluhan",
       totals: { discount: 30000, total: 70000, balance: 40000 },
     });
-    expect(await applyFinalDiscount({ invoiceId: id, kind: "PERSEN", value: 20, reason: "Turun" })).toEqual({
+    expect(await applyFinalDiscount({ approval: await testApproval(), invoiceId: id, kind: "PERSEN", value: 20, reason: "Turun" })).toEqual({
       ok: false,
       error: "Diskon sesudah final hanya bisa ditambah.",
     });
-    expect(await applyFinalDiscount({ invoiceId: id, kind: "PERSEN", value: 80, reason: "Terlalu besar" })).toEqual({
+    expect(await applyFinalDiscount({ approval: await testApproval(), invoiceId: id, kind: "PERSEN", value: 80, reason: "Terlalu besar" })).toEqual({
       ok: false,
       error: "Diskon membuat total di bawah yang sudah dibayar.",
     });
-    expect(await applyFinalDiscount({ invoiceId: id, kind: "NOMINAL", value: 5000, reason: "x" })).toEqual({
+    expect(await applyFinalDiscount({ approval: await testApproval(), invoiceId: id, kind: "NOMINAL", value: 5000, reason: "x" })).toEqual({
       ok: false,
       error: "Diskon sesudah final hanya bisa ditambah.",
     });
@@ -153,16 +154,16 @@ describe("pembayaran customer", () => {
   it("diskon yang membuat sisa 0 melunasi tagihan; tagihan lunas atau draf tidak bisa diberi diskon", async () => {
     const id = await finalInvoice();
     actor.role = "ADMIN_KEUANGAN";
-    await unwrap(applyFinalDiscount({ invoiceId: id, kind: "PERSEN", value: 100, reason: "Pembebasan biaya" }));
+    await unwrap(applyFinalDiscount({ approval: await testApproval(), invoiceId: id, kind: "PERSEN", value: 100, reason: "Pembebasan biaya" }));
     expect(await getInvoiceDetail(id)).toMatchObject({ totals: { total: 0, display: "LUNAS" } });
-    expect(await applyFinalDiscount({ invoiceId: id, kind: "PERSEN", value: 100, reason: "lagi" })).toEqual({
+    expect(await applyFinalDiscount({ approval: await testApproval(), invoiceId: id, kind: "PERSEN", value: 100, reason: "lagi" })).toEqual({
       ok: false,
       error: "Tagihan ini sudah lunas.",
     });
     actor.role = "RESEPSIONIS";
     const { id: draftId } = await unwrap(createDirectSale({ patientId: world.patientId }));
     actor.role = "ADMIN_KEUANGAN";
-    expect(await applyFinalDiscount({ invoiceId: draftId, kind: "PERSEN", value: 10, reason: "x" })).toEqual({
+    expect(await applyFinalDiscount({ approval: await testApproval(), invoiceId: draftId, kind: "PERSEN", value: 10, reason: "x" })).toEqual({
       ok: false,
       error: "Diskon sesudah final hanya untuk tagihan yang sudah final.",
     });
@@ -175,7 +176,7 @@ describe("pembayaran customer", () => {
     for (const role of ["DOKTER", "APOTEKER"] as const) {
       actor.role = role;
       await expect(pay(id)).rejects.toThrow(/forbidden: invoice:manage/);
-      await expect(applyFinalDiscount({ invoiceId: id, kind: "PERSEN", value: 5, reason: "x" })).rejects.toThrow(/forbidden: invoice:correct/);
+      await expect(applyFinalDiscount({ approval: await testApproval(), invoiceId: id, kind: "PERSEN", value: 5, reason: "x" })).rejects.toThrow(/forbidden: invoice:correct/);
     }
   });
 });

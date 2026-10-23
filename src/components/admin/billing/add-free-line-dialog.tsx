@@ -16,6 +16,7 @@ import { formatRupiah } from "@/lib/format";
 import { validateFreeLine, validateServiceLineAdd } from "@/lib/invoice";
 import { addFreeLine, addServiceLine } from "@/server/invoice-drafts";
 import type { InternalServiceOption } from "@/server/internal-catalog";
+import { useApproval } from "../approval/use-approval";
 import { DialogCloseButton } from "../mui/dialog-close-button";
 import { SelectField } from "../mui/select-field";
 import { RupiahInput } from "../rupiah-input";
@@ -37,6 +38,7 @@ export function AddFreeLineDialog({ invoiceId, version, services = [] }: { invoi
   const [unitPrice, setUnitPrice] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const { withApproval, dialog } = useApproval();
 
   const choices: Choice[] = [
     ...services.map((service) => ({ id: service.id, label: `${service.name} — ${formatRupiah(service.price)}`, group: service.categoryName })),
@@ -88,7 +90,10 @@ export function AddFreeLineDialog({ invoiceId, version, services = [] }: { invoi
     setError(null);
     startTransition(async () => {
       try {
-        finish(await addFreeLine({ invoiceId, version, ...checked.value }));
+        // Baris bebas berharga di luar katalog: server meminta PIN persetujuan (spec PIN P13).
+        const result = await withApproval((approval) => addFreeLine({ invoiceId, version, ...checked.value, approval }));
+        if (result === null) return;
+        finish(result);
       } catch {
         setError("Gagal menambah baris. Coba lagi.");
       }
@@ -154,6 +159,7 @@ export function AddFreeLineDialog({ invoiceId, version, services = [] }: { invoi
           </Button>
         </DialogActions>
       </Dialog>
+      {dialog}
     </>
   );
 }

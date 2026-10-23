@@ -21,6 +21,7 @@ import { buildPublicReceipt } from "@/lib/receipt";
 import { cleanupBillingWorld, createBillingWorld, finalVisit, type BillingWorld } from "./invoice-world";
 import { catalogPackage } from "./package-world";
 import { unwrap } from "./unwrap";
+import { testApproval } from "./approver";
 
 type Role = "SUPER_ADMIN" | "RESEPSIONIS" | "ADMIN_KEUANGAN";
 const { actor } = vi.hoisted(() => ({ actor: { userId: "u", staffId: "s", name: "Resepsionis Sesi", role: "RESEPSIONIS" as Role, email: "u@uji.test" } }));
@@ -104,11 +105,11 @@ describe("memakai sesi paket", () => {
     const own = await ownPackage(facial3);
     const draft = await visitDraft();
     await unwrap(apply(draft, own.itemId));
-    expect(await updateInvoiceLine({ invoiceId: draft.id, version: await versionOf(draft.id), lineId: draft.line.id, quantity: 1, unitPrice: 1000, priceNote: "x" })).toEqual({
+    expect(await updateInvoiceLine({ approval: await testApproval(), invoiceId: draft.id, version: await versionOf(draft.id), lineId: draft.line.id, quantity: 1, unitPrice: 1000, priceNote: "x" })).toEqual({
       ok: false,
       error: "Baris sesi paket selalu Rp 0. Klik Lepas paket untuk menagih harga biasa.",
     });
-    expect(await setLineDiscount({ invoiceId: draft.id, version: await versionOf(draft.id), lineId: draft.line.id, kind: "NOMINAL", value: 1, reason: "x" })).toEqual({
+    expect(await setLineDiscount({ approval: await testApproval(), invoiceId: draft.id, version: await versionOf(draft.id), lineId: draft.line.id, kind: "NOMINAL", value: 1, reason: "x" })).toEqual({
       ok: false,
       error: "Baris sesi paket tidak bisa diberi diskon.",
     });
@@ -158,7 +159,7 @@ describe("memakai sesi paket", () => {
     const own = await ownPackage(facial3);
     const draft = await visitDraft();
     await unwrap(apply(draft, own.itemId));
-    await unwrap(cancelInvoice({ invoiceId: own.purchaseId, reason: "Salah customer" }));
+    await unwrap(cancelInvoice({ approval: await testApproval(), invoiceId: own.purchaseId, reason: "Salah customer" }));
     expect(await finalize(draft.id)).toEqual({ ok: false, error: `Paket ${own.name} sudah dibatalkan. Lepas paket dari baris Facial Uji.` });
   });
 
@@ -166,7 +167,7 @@ describe("memakai sesi paket", () => {
     const own = await ownPackage(facial3);
     const draft = await visitDraft();
     await unwrap(apply(draft, own.itemId));
-    await unwrap(updateInvoiceLine({ invoiceId: draft.id, version: await versionOf(draft.id), lineId: draft.line.id, quantity: 5, unitPrice: 0, priceNote: "" }));
+    await unwrap(updateInvoiceLine({ approval: await testApproval(), invoiceId: draft.id, version: await versionOf(draft.id), lineId: draft.line.id, quantity: 5, unitPrice: 0, priceNote: "" }));
     expect(await finalize(draft.id)).toEqual({ ok: false, error: `Sesi Facial Uji di paket ${own.name} tinggal 3. Lepas paket atau kurangi jumlahnya.` });
   });
 
@@ -176,7 +177,7 @@ describe("memakai sesi paket", () => {
     await unwrap(apply(draft, own.itemId));
     await unwrap(finalize(draft.id));
     await prisma.patientPackage.update({ where: { id: own.patientPackageId }, data: { startsOn: day(addDaysToDateString(today, -30)), expiresOn: day(addDaysToDateString(today, -1)) } });
-    await unwrap(cancelInvoice({ invoiceId: draft.id, reason: "Salah input" }));
+    await unwrap(cancelInvoice({ approval: await testApproval(), invoiceId: draft.id, reason: "Salah input" }));
     expect(await remaining(own.itemId)).toBe(3);
     expect((await prisma.packageSessionEntry.findMany({ where: { invoiceLineId: draft.line.id }, orderBy: { createdAt: "asc" } })).map((e) => [e.kind, e.delta])).toEqual([
       ["PAKAI", -1],

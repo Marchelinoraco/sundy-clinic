@@ -5,6 +5,7 @@ import { aturHargaJual } from "./helpers/harga";
 import { isiMeja } from "./helpers/stok-meja";
 import { signIn } from "./helpers/quiz";
 import { buatPasienBaru } from "./helpers/pasien-baru";
+import { setujui } from "./helpers/approval";
 
 // Satu cerita berurutan per proyek (desktop/ponsel, data masing-masing):
 // Apoteker menyiapkan stok → Resepsionis menagih penjualan langsung (barang, baris layanan, diskon),
@@ -84,6 +85,8 @@ test("resepsionis menagih penjualan langsung, memfinalkan, dan menerima pembayar
   await lineDialog.getByLabel("Nama", { exact: true }).fill("Layanan Tagihan");
   await lineDialog.getByLabel("Harga").fill("100000");
   await lineDialog.getByRole("button", { name: "Tambah" }).click();
+  // Baris bebas di luar katalog meminta PIN persetujuan (spec PIN P13).
+  await setujui(page);
   await expect(lineDialog).toBeHidden({ timeout: 30_000 });
   await expect(summary).toContainText("Rp 150.000", { timeout: 30_000 });
 
@@ -95,7 +98,10 @@ test("resepsionis menagih penjualan langsung, memfinalkan, dan menerima pembayar
   await expect(page.getByRole("alert").filter({ hasText: "20%" })).toBeVisible();
   await page.getByLabel("Nilai diskon").fill("10");
   await page.getByRole("button", { name: "Terapkan diskon" }).click();
+  // Diskon dalam batas tetap meminta PIN persetujuan (spec PIN P1b).
+  await setujui(page);
   await expect(summary).toContainText("Rp 135.000", { timeout: 30_000 });
+  await expect(page.getByText("Diskon tagihan · disetujui Keuangan E2E")).toBeVisible();
 
   // Tombol bunyi notifikasi mengambang di pojok kanan bawah tidak menutupi tombol terakhir halaman.
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
@@ -171,7 +177,10 @@ test("admin keuangan membatalkan pembayaran lalu tagihan; stok kembali", async (
   await page.getByRole("button", { name: "Batalkan tagihan" }).click();
   await cancel.getByLabel("Alasan").fill("Pelanggan batal");
   await cancel.getByRole("button", { name: "Batalkan tagihan" }).click();
+  // Membatalkan tagihan final meminta PIN, juga bagi Admin Keuangan sendiri (spec PIN P1c, P2).
+  await setujui(page);
   await expect(cancel).toBeHidden({ timeout: 30_000 });
+  await expect(page.getByText(/Pelanggan batal · disetujui Keuangan E2E/)).toBeVisible({ timeout: 30_000 });
   await expect(page.getByText("Dibatalkan", { exact: true }).first()).toBeVisible({ timeout: 30_000 });
 
   await page.context().clearCookies();

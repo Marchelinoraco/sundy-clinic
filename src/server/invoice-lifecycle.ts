@@ -1,6 +1,7 @@
 "use server";
 
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
+import { approvedSuffix, type ApprovalInput } from "@/lib/approval";
 import { prisma } from "@/lib/db";
 import { HOLD_MESSAGE } from "@/lib/dispensing";
 import { lineCosts } from "@/lib/costing";
@@ -13,6 +14,7 @@ import { witaDateString } from "@/lib/time";
 import { recordAudit } from "@/server/audit";
 import { lockInvoiceRow, nextInvoiceSequence, STALE_DRAFT, TOTALS_SELECT } from "@/server/invoice-store";
 import { activatePurchasedPackages, cancelPurchasedPackages, consumePackageSessions, restoreUsedSessions } from "@/server/package-store";
+import { requireApprover, verifyApproval } from "@/server/approval";
 import { requireCapability } from "@/server/session";
 import { takeFromBatch } from "@/server/stock-store";
 
@@ -166,7 +168,8 @@ export async function finalizeInvoice(input: { invoiceId: string; version: numbe
  * pembayaran: invoice:manage atau invoice:correct. Yang pernah dibayar hanya invoice:correct, dan
  * pembayaran aktifnya harus dibatalkan lebih dulu. Stok yang terambil dikembalikan lewat jurnal.
  */
-export async function cancelInvoice(input: { invoiceId: string; reason: string }): Promise<ActionResult<void>> {
+/** Membuang draf tanpa PIN; membatalkan tagihan final wajib PIN persetujuan (spec PIN P1c, P4). */
+export async function cancelInvoice(input: { invoiceId: string; reason: string; approval?: ApprovalInput }): Promise<ActionResult<void>> {
   return runAction(async () => {
     const actor = await requireCapability("invoice:read");
     const canCorrect = can(actor.role, "invoice:correct");
@@ -174,6 +177,7 @@ export async function cancelInvoice(input: { invoiceId: string; reason: string }
     const reason = validateReason(input?.reason);
     if (!reason.ok) throw new UserFacingError(reason.message);
     const invoiceId = String(input?.invoiceId ?? "");
+    const approver = await verifyApproval(input?.approval);
 
     const summary = await prisma.$transaction(async (tx) => {
       await lockInvoiceRow(tx, invoiceId);
@@ -196,6 +200,7 @@ export async function cancelInvoice(input: { invoiceId: string; reason: string }
       if (invoice.payments.length > 0 && !canCorrect) {
         throw new UserFacingError("Tagihan ini pernah dibayar. Pembatalan dilakukan oleh Admin Keuangan.");
       }
+      const approvedBy = invoice.status === "FINAL" ? requireApprover(approver) : null;
       if (invoice.status === "FINAL") {
         // Pemakaian dikembalikan dulu, lalu paket yang dibeli di tagihan ini dibatalkan (spec paket 7).
         await restoreUsedSessions(tx, invoiceId, actor);
@@ -243,9 +248,16 @@ export async function cancelInvoice(input: { invoiceId: string; reason: string }
       }
       await tx.invoice.update({
         where: { id: invoiceId },
-        data: { status: "DIBATALKAN", cancelledAt: new Date(), cancelledByName: actor.name, cancelReason: reason.value },
+        data: {
+          status: "DIBATALKAN",
+          cancelledAt: new Date(),
+          cancelledByName: actor.name,
+          cancelReason: reason.value,
+          cancelApprovedById: approvedBy?.id ?? null,
+          cancelApprovedByName: approvedBy?.name ?? null,
+        },
       });
-      return `${invoice.number ?? "Draf"} ${invoice.patient.name}: ${reason.value}`;
+      return `${invoice.number ?? "Draf"} ${invoice.patient.name}: ${reason.value}${approvedSuffix(approvedBy?.name)}`;
     });
 
     await recordAudit({ actor, action: "invoice.cancel", entity: "Invoice", entityId: invoiceId, summary });

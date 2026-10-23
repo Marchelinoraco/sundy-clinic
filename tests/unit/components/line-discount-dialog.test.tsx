@@ -7,6 +7,7 @@ import type { InvoiceLineRow } from "@/server/invoice-read";
 import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("@/server/invoice-drafts", () => ({ setLineDiscount: vi.fn(), clearLineDiscount: vi.fn() }));
+vi.mock("@/server/approval-pin", () => ({ listApprovers: vi.fn().mockResolvedValue({ ok: true, data: [{ id: "a1", name: "Rina" }] }) }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
@@ -22,6 +23,8 @@ const LINE: InvoiceLineRow = {
   discountReason: null,
   discountSource: null,
   priceNote: null,
+  priceApprovedByName: null,
+  discountApprovedByName: null,
   serviceId: null,
   itemId: "i1",
   catalogLinked: true,
@@ -38,6 +41,33 @@ const LINE: InvoiceLineRow = {
 beforeEach(() => vi.clearAllMocks());
 
 describe("LineDiscountDialog", () => {
+  it("diskon yang dibalas APPROVAL_REQUIRED membuka Persetujuan, lalu tersimpan dengan PIN (spec PIN P1b)", async () => {
+    vi.mocked(setLineDiscount)
+      .mockResolvedValueOnce({ ok: false, error: "Perlu persetujuan Admin Keuangan atau Super Admin." })
+      .mockResolvedValueOnce({ ok: true, data: { version: 3 } });
+    const user = userEvent.setup();
+    renderAdmin(<LineDiscountDialog invoiceId="inv" version={2} line={LINE} />);
+    await user.click(screen.getByRole("button", { name: "Diskon Serum C" }));
+    const dialog = await screen.findByRole("dialog", { name: "Diskon Serum C" });
+    await user.type(within(dialog).getByLabelText("Nominal"), "10000");
+    await user.type(within(dialog).getByLabelText("Alasan"), "Pelanggan lama");
+    await user.click(within(dialog).getByRole("button", { name: "Terapkan" }));
+    const approval = await screen.findByRole("dialog", { name: "Persetujuan" });
+    await waitFor(() => expect(within(approval).getByRole("option", { name: "Rina" })).toBeInTheDocument());
+    await user.selectOptions(within(approval).getByLabelText("Penyetuju"), "a1");
+    await user.type(within(approval).getByLabelText("PIN"), "135790");
+    await user.click(within(approval).getByRole("button", { name: "Setujui" }));
+    await waitFor(() =>
+      expect(setLineDiscount).toHaveBeenLastCalledWith({ invoiceId: "inv", version: 2, lineId: "l1", kind: "NOMINAL", value: 10000, reason: "Pelanggan lama", approval: { approverId: "a1", pin: "135790" } }),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Diskon Serum C" })).toBeNull());
+  });
+
+  it("catatan diskon menyebut penyetuju (spec PIN P11)", () => {
+    renderAdmin(<LineDiscountNote line={{ ...LINE, discountAmount: 10000, discountReason: "Pelanggan lama", discountSource: "MANUAL", discountApprovedByName: "Rina" }} />);
+    expect(screen.getByText(/Diskon −Rp 10\.000 · Pelanggan lama · disetujui Rina/)).toBeInTheDocument();
+  });
+
   it("persen: pratinjau rupiah, lalu dikirim dengan alasan", async () => {
     vi.mocked(setLineDiscount).mockResolvedValue({ ok: true, data: { version: 3 } });
     const user = userEvent.setup();

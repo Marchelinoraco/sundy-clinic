@@ -26,6 +26,9 @@ export const E2E_KEUANGAN = {
   name: "Keuangan E2E",
 };
 
+/** PIN persetujuan akun Admin Keuangan uji (spec PIN P7); dibuat ulang oleh prepare-db.mts setiap putaran. */
+export const E2E_APPROVAL_PIN = "135790";
+
 /** Akun Perawat (enum TERAPIS) khusus uji (spec peran perawat 4). */
 export const E2E_PERAWAT = {
   email: process.env.E2E_PERAWAT_EMAIL ?? "perawat-e2e@sundy.test",

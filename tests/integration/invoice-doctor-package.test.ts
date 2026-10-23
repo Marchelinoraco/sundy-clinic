@@ -7,6 +7,7 @@ import { cancelInvoice, finalizeInvoice } from "@/server/invoice-lifecycle";
 import { getInvoiceDetail } from "@/server/invoice-read";
 import { cleanupBillingWorld, createBillingWorld, finalVisit, type BillingWorld } from "./invoice-world";
 import { unwrap } from "./unwrap";
+import { testApproval } from "./approver";
 
 type Role = "SUPER_ADMIN" | "RESEPSIONIS" | "ADMIN_KEUANGAN";
 const { actor } = vi.hoisted(() => ({ actor: { userId: "u", staffId: "s", name: "Rina Kasir", role: "RESEPSIONIS" as Role, email: "u@uji.test" } }));
@@ -103,7 +104,7 @@ describe("paket dari dokter di tagihan (spec vital perawat PR2, PR3)", () => {
     await unwrap(declineDoctorPackage({ invoiceId, version: await versionOf(invoiceId), lineId: slimLine.id, reason: "Mahal" }));
     await unwrap(finalizeInvoice({ invoiceId, version: await versionOf(invoiceId) }));
     actor.role = "ADMIN_KEUANGAN";
-    await unwrap(cancelInvoice({ invoiceId, reason: "Salah input" }));
+    await unwrap(cancelInvoice({ approval: await testApproval(), invoiceId, reason: "Salah input" }));
     actor.role = "RESEPSIONIS";
 
     const { id: again } = await unwrap(createInvoiceFromVisit(appointmentId));

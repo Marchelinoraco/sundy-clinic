@@ -13,6 +13,7 @@ import { dateOnlyString } from "@/lib/stock";
 import { addDaysToDateString, witaDateString } from "@/lib/time";
 import { billingBatch, cleanupBillingWorld, createBillingWorld, finalVisit, type BillingWorld } from "./invoice-world";
 import { unwrap } from "./unwrap";
+import { testApproval } from "./approver";
 
 type Role = "SUPER_ADMIN" | "RESEPSIONIS" | "ADMIN_KEUANGAN";
 const { actor } = vi.hoisted(() => ({ actor: { userId: "u", staffId: "s", name: "Rina Kasir", role: "RESEPSIONIS" as Role, email: "u@uji.test" } }));
@@ -117,7 +118,7 @@ describe("invoice A4: paket per tanggal invoice (spec invoice A4 IA5, IA6, IA10)
 
     // Kunjungan kedua dibatalkan: invoice pembelian tetap seperti tanggalnya (Review Focus 1).
     actor.role = "ADMIN_KEUANGAN";
-    await unwrap(cancelInvoice({ invoiceId: second, reason: "Salah input" }));
+    await unwrap(cancelInvoice({ approval: await testApproval(), invoiceId: second, reason: "Salah input" }));
     expect((await loadInvoiceA4(purchase))!.packages).toEqual(before);
     expect((await getInvoiceA4(second))!.status).toBe("DIBATALKAN");
   });
@@ -134,7 +135,7 @@ describe("invoice A4: paket per tanggal invoice (spec invoice A4 IA5, IA6, IA10)
 
   it("invoice tanpa paket tidak punya kotak paket (Review Focus 3)", async () => {
     const { id } = await unwrap(createDirectSale({ patientId: world.patientId, branchId: world.branchId }));
-    await unwrap(addFreeLine({ invoiceId: id, version: await versionOf(id), kind: "LAYANAN", name: "Konsultasi bebas", quantity: 1, unitPrice: 50_000 }));
+    await unwrap(addFreeLine({ approval: await testApproval(), invoiceId: id, version: await versionOf(id), kind: "LAYANAN", name: "Konsultasi bebas", quantity: 1, unitPrice: 50_000 }));
     expect(await getInvoiceA4(id)).toBeNull();
     await finalize(id);
     expect((await loadInvoiceA4(id))!.packages).toEqual([]);
@@ -144,7 +145,7 @@ describe("invoice A4: paket per tanggal invoice (spec invoice A4 IA5, IA6, IA10)
 describe("invoice A4: tautan pasien dan panel (IA8, IA9)", () => {
   it("kode struk yang sah membuka invoice A4 dengan nomor RM dan pembayaran; dibatalkan dan kode palsu tidak", async () => {
     const { id } = await unwrap(createDirectSale({ patientId: world.patientId, branchId: world.branchId }));
-    await unwrap(addFreeLine({ invoiceId: id, version: await versionOf(id), kind: "LAYANAN", name: "Konsultasi bebas", quantity: 1, unitPrice: 100_000 }));
+    await unwrap(addFreeLine({ approval: await testApproval(), invoiceId: id, version: await versionOf(id), kind: "LAYANAN", name: "Konsultasi bebas", quantity: 1, unitPrice: 100_000 }));
     await finalize(id);
     await unwrap(recordInvoicePayment({ invoiceId: id, amount: 40_000, method: "TUNAI", paidAt: witaDateString(new Date()), reference: "" }));
     const code = await codeOf(id);
@@ -160,13 +161,13 @@ describe("invoice A4: tautan pasien dan panel (IA8, IA9)", () => {
     actor.role = "ADMIN_KEUANGAN";
     const revoke = await prisma.invoicePayment.findFirstOrThrow({ where: { invoiceId: id } });
     await prisma.invoicePayment.update({ where: { id: revoke.id }, data: { revokedAt: new Date(), revokedByName: "Uji", revokeReason: "Uji" } });
-    await unwrap(cancelInvoice({ invoiceId: id, reason: "Salah input" }));
+    await unwrap(cancelInvoice({ approval: await testApproval(), invoiceId: id, reason: "Salah input" }));
     expect(await unwrap(getPublicInvoice(code))).toEqual({ state: "CANCELLED" });
   });
 
   it("panel: resepsionis boleh membaca invoice A4 (invoice:read)", async () => {
     const { id } = await unwrap(createDirectSale({ patientId: world.patientId, branchId: world.branchId }));
-    await unwrap(addFreeLine({ invoiceId: id, version: await versionOf(id), kind: "LAYANAN", name: "Konsultasi bebas", quantity: 1, unitPrice: 10_000 }));
+    await unwrap(addFreeLine({ approval: await testApproval(), invoiceId: id, version: await versionOf(id), kind: "LAYANAN", name: "Konsultasi bebas", quantity: 1, unitPrice: 10_000 }));
     await finalize(id);
     expect((await getInvoiceA4(id))!.status).toBe("BELUM_DIBAYAR");
   });

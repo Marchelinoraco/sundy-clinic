@@ -6,6 +6,7 @@ import { finalizeInvoice } from "@/server/invoice-lifecycle";
 import { getInvoiceDetail } from "@/server/invoice-read";
 import { cleanupBillingWorld, createBillingWorld, finalVisit, type BillingWorld } from "./invoice-world";
 import { unwrap } from "./unwrap";
+import { testApproval } from "./approver";
 
 type Role = "RESEPSIONIS" | "ADMIN_KEUANGAN";
 const { actor } = vi.hoisted(() => ({ actor: { userId: "u", staffId: "s", name: "Staf Margin", role: "RESEPSIONIS" as Role, email: "u@uji.test" } }));
@@ -32,7 +33,7 @@ beforeAll(async () => {
   actor.role = "RESEPSIONIS";
   const { appointmentId } = await finalVisit(world);
   invoiceId = (await unwrap(createInvoiceFromVisit(appointmentId))).id;
-  await unwrap(setInvoiceDiscount({ invoiceId, version: await versionOf(invoiceId), kind: "NOMINAL", value: 20_000, reason: "Member" }));
+  await unwrap(setInvoiceDiscount({ approval: await testApproval(), invoiceId, version: await versionOf(invoiceId), kind: "NOMINAL", value: 20_000, reason: "Member" }));
   await unwrap(finalizeInvoice({ invoiceId, version: await versionOf(invoiceId) }));
 });
 beforeEach(() => {

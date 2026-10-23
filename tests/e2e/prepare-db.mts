@@ -6,7 +6,7 @@ import "dotenv/config";
 import { auth } from "../../src/lib/auth";
 import { prisma } from "../../src/lib/db";
 import { addDaysToDateString, combineWitaDateAndMinutes, witaDateString, witaWeekday } from "../../src/lib/time";
-import { E2E_ADMIN, E2E_APOTEKER, E2E_KEUANGAN, E2E_PERAWAT, E2E_RESEPSIONIS } from "./credentials";
+import { E2E_ADMIN, E2E_APOTEKER, E2E_APPROVAL_PIN, E2E_KEUANGAN, E2E_PERAWAT, E2E_RESEPSIONIS } from "./credentials";
 import { purgeEncounters } from "../purge-encounters";
 import { slimmingNewPatient } from "../fixtures/quiz-answers-v2";
 
@@ -94,6 +94,16 @@ await ensureAccount(E2E_RESEPSIONIS, "resepsionis-e2e", "RESEPSIONIS");
 await ensureAccount(E2E_APOTEKER, "apoteker-e2e", "APOTEKER");
 await ensureAccount(E2E_KEUANGAN, "keuangan-e2e", "ADMIN_KEUANGAN");
 await ensureAccount(E2E_PERAWAT, "perawat-e2e", "TERAPIS");
+
+// PIN persetujuan Admin Keuangan uji (spec PIN P7): diskon, ubah harga, dan pembatalan tagihan di e2e memintanya.
+// Hitungan salah dan kunci dikosongkan setiap putaran.
+const keuanganStaff = await prisma.staff.findUniqueOrThrow({ where: { slug: "keuangan-e2e" } });
+const approvalPinHash = await (await auth.$context).password.hash(E2E_APPROVAL_PIN);
+await prisma.approvalPin.upsert({
+  where: { staffId: keuanganStaff.id },
+  create: { staffId: keuanganStaff.id, pinHash: approvalPinHash },
+  update: { pinHash: approvalPinHash, failedCount: 0, lockedUntil: null },
+});
 
 // Rekening uji: halaman sukses menampilkan instruksi transfer yang lengkap.
 await prisma.clinicSetting.update({
