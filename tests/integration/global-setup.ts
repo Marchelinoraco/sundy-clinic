@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client";
 import { purgeEncounters } from "../purge-encounters";
 
 // Uji e2e (tests/e2e/prepare-db.mts) memakai basis data uji yang sama dan
-// meninggalkan booking, isian, kunjungan, dan hold. Beberapa berkas di sini menghapus
+// meninggalkan tagihan, booking, isian, kunjungan, dan hold. Beberapa berkas di sini menghapus
 // semua staf atau cabang, yang ditolak foreign key selama sisa itu ada —
 // hasilnya lalu bergantung pada urutan berkas. Rangkaian uji dimulai bersih.
 export default async function setup() {
@@ -12,11 +12,20 @@ export default async function setup() {
     adapter: new PrismaPg({ connectionString: process.env.TEST_DATABASE_URL! }),
   });
   try {
+    // Tagihan merujuk booking, pasien, dan cabang (Restrict); e2e meninggalkannya (prepare-db.mts menanam tagihan pengingat
+    // treatment). Urutan anak ke induk sama dengan prepare-db.mts.
+    await prisma.packageSessionEntry.deleteMany();
+    await prisma.invoiceLine.updateMany({ where: { patientPackageItemId: { not: null } }, data: { patientPackageItemId: null } });
+    await prisma.patientPackage.deleteMany();
     // Catatan deposit merujuk tagihan, pembayaran, booking, dan pasien (Restrict): dibuang lebih dulu.
     await prisma.depositRefundPart.deleteMany();
     await prisma.depositRefund.deleteMany();
     await prisma.depositUse.deleteMany();
     await prisma.depositCredit.deleteMany();
+    await prisma.invoicePayment.deleteMany();
+    await prisma.invoiceStockUse.deleteMany();
+    await prisma.invoiceLine.deleteMany();
+    await prisma.invoice.deleteMany();
     await purgeEncounters(prisma);
     await prisma.slotHold.deleteMany();
     await prisma.intake.deleteMany();

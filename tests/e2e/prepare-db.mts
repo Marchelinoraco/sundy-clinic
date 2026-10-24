@@ -575,6 +575,30 @@ for (const [index, project] of ["desktop", "mobile"].entries()) {
   });
 }
 
+// Pengingat treatment (pengingat-treatment.spec.ts): Relaxing Facial dan Facial Acne diingatkan tiap minggu (putaran sebelumnya
+// bisa mengubahnya), dan per proyek satu pasien yang membeli Relaxing Facial 7 hari lalu lewat penjualan langsung, sehingga
+// hari ini muncul di kotak 5 (spec pengingat treatment PT5, PT6). Tanpa booking: uji integrasi membuang semua booking di awal
+// dan tagihan yang merujuk booking akan menghalanginya.
+await prisma.service.updateMany({ where: { slug: { in: ["relaxing-facial", "facial-acne"] } }, data: { returnReminderDays: 7 } });
+for (const [index, project] of ["desktop", "mobile"].entries()) {
+  const patient = await prisma.patient.create({
+    data: { medicalRecordNumber: `SDY-E2E-TRT-${index + 1}`, name: `Pasien Treatment ${project}`, whatsapp: `6281200098${index}01` },
+  });
+  await prisma.invoice.create({
+    data: {
+      patientId: patient.id,
+      branchId: visitBranch.id,
+      status: "FINAL",
+      number: `TG-E2E-TRT-${index + 1}`,
+      finalizedAt: combineWitaDateAndMinutes(addDaysToDateString(today, -7), 19 * 60 + index * 30),
+      finalizedByName: "Resepsionis E2E",
+      createdById: "e2e",
+      createdByName: "Resepsionis E2E",
+      lines: { create: [{ kind: "TREATMENT", name: relaxingFacial.name, quantity: 1, unitPrice: relaxingFacial.promoPrice, serviceId: relaxingFacial.id, sortOrder: 0 }] },
+    },
+  });
+}
+
 // Angka vital perawat (spec vital perawat VP4): dokter baru bisa menekan Periksa setelah perawat menekan Selesai ditangani.
 // Kunjungan hari ini yang dibuka dokter di uji lain sudah selesai ditangani; E2E-PERAWAT dibiarkan untuk perawat.spec.ts.
 // Pasien Kunjungan diukur 118/78 mmHg, 72,5 kg, 160 cm: kunjungan.spec.ts memeriksa salinannya di bagian O.
