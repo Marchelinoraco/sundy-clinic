@@ -5,7 +5,8 @@ import PrivacyPolicyPage from "@/app/(public)/kebijakan-privasi/page";
 describe("halaman Kebijakan Privasi", () => {
   it("menyebut versi yang disetujui pasien saat mendaftar", () => {
     render(<PrivacyPolicyPage />);
-    expect(screen.getByText(/Versi 28 September 2026/)).toBeInTheDocument();
+    // Naik saat aturan biaya booking menjadi deposit (spec deposit D13; pemilik, 24 Okt 2026).
+    expect(screen.getByText(/Versi 24 Oktober 2026/)).toBeInTheDocument();
   });
 
   it("menjelaskan kuis pendaftaran dan biaya booking", () => {
