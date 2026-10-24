@@ -88,7 +88,8 @@ describe("kotak 5: waktunya treatment lagi", () => {
     const row = await rowOf(both);
     expect(row).toMatchObject({ treatments: "Peeling Ingat dan Facial Ingat", intervalDays: 7 });
     expect(row!.message.text).toContain("melakukan Peeling Ingat dan Facial Ingat di SunDY Clinic");
-    expect(row!.message.text).toContain("sebaiknya dilakukan setiap minggu");
+    // Jarak berbeda: anjuran "setiap minggu" hanya untuk Facial, bukan Peeling yang 2 minggu (temuan review).
+    expect(row!.message.text).toContain("Agar hasilnya maksimal, Facial Ingat sebaiknya dilakukan setiap minggu.");
     expect(row!.message.link).toMatch(/^https:\/\/wa\.me\/628/);
   });
 

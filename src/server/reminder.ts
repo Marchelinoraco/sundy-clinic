@@ -209,7 +209,7 @@ async function loadTreatmentReturnWork(now: Date): Promise<TreatmentReturnRow[]>
   for (const visit of visits) {
     if (hasReturnFlag(flags.get(visit.patientId))) continue;
     const dueOn = addDaysToDateString(visit.treatmentOn, visit.intervalDays);
-    const text = treatmentReminderMessage({ patientName: visit.patientName, treatments: visit.treatments, treatmentOn: visit.treatmentOn, intervalDays: visit.intervalDays });
+    const text = treatmentReminderMessage({ patientName: visit.patientName, treatments: visit.items, treatmentOn: visit.treatmentOn });
     const last = reminders.get(visit.patientId);
     rows.push({
       patientId: visit.patientId,

@@ -16,6 +16,8 @@ export type TreatmentVisit = {
   treatmentOn: string;
   /** Nama baris treatment pada tanggal itu, urut seperti di tagihan. */
   treatments: string[];
+  /** Treatment yang sama beserta jaraknya masing-masing, untuk anjuran di pesan. */
+  items: { name: string; intervalDays: number }[];
   /** Jarak terpendek di antara treatment itu, dari pengaturan layanan saat ini (PT2, PT7). */
   intervalDays: number;
 };
@@ -50,26 +52,38 @@ export async function latestTreatmentVisits(db: Db, filter: { since?: string; pa
   const latest = new Map<string, TreatmentVisit>();
   for (const invoice of invoices) {
     const treatmentOn = witaDateString(invoice.appointment?.startAt ?? (invoice.finalizedAt as Date));
-    const names = invoice.lines.map((line) => line.name);
-    const interval = Math.min(...invoice.lines.map((line) => intervalOf.get(line.serviceId as string) as number));
+    const lineItems = invoice.lines.map((line) => ({ name: line.name, intervalDays: intervalOf.get(line.serviceId as string) as number }));
     const current = latest.get(invoice.patient.id);
     if (current && current.treatmentOn > treatmentOn) continue;
     if (current && current.treatmentOn === treatmentOn) {
-      current.treatments.push(...names.filter((name) => !current.treatments.includes(name)));
-      current.intervalDays = Math.min(current.intervalDays, interval);
+      mergeItems(current.items, lineItems);
+      current.treatments = current.items.map((item) => item.name);
+      current.intervalDays = Math.min(...current.items.map((item) => item.intervalDays));
       continue;
     }
+    const items = mergeItems([], lineItems);
     latest.set(invoice.patient.id, {
       patientId: invoice.patient.id,
       patientName: invoice.patient.name,
       medicalRecordNumber: invoice.patient.medicalRecordNumber,
       whatsapp: invoice.patient.whatsapp,
       treatmentOn,
-      treatments: [...new Set(names)],
-      intervalDays: interval,
+      treatments: items.map((item) => item.name),
+      items,
+      intervalDays: Math.min(...items.map((item) => item.intervalDays)),
     });
   }
   return [...latest.values()];
+}
+
+/** Menambahkan treatment ke daftar; nama yang sudah ada memakai jarak terpendeknya. */
+function mergeItems(items: { name: string; intervalDays: number }[], added: readonly { name: string; intervalDays: number }[]) {
+  for (const item of added) {
+    const existing = items.find((candidate) => candidate.name === item.name);
+    if (existing) existing.intervalDays = Math.min(existing.intervalDays, item.intervalDays);
+    else items.push({ ...item });
+  }
+  return items;
 }
 
 /**

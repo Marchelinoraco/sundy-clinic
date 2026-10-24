@@ -3,11 +3,21 @@ import { isReturnInterval, RETURN_INTERVALS, returnIntervalLabel, returnInterval
 
 describe("pesan pengingat treatment (spec pengingat treatment PT7, PT11)", () => {
   it("isi pesan persis", () => {
-    expect(treatmentReminderMessage({ patientName: "Rina Wulandari", treatments: ["Facial Brightening"], treatmentOn: "2026-10-17", intervalDays: 7 })).toBe(
+    expect(treatmentReminderMessage({ patientName: "Rina Wulandari", treatments: [{ name: "Facial Brightening", intervalDays: 7 }], treatmentOn: "2026-10-17" })).toBe(
       "Halo Rina, terima kasih sudah melakukan Facial Brightening di SunDY Clinic pada Sabtu, 17 Oktober 2026. Agar hasilnya maksimal, treatment ini sebaiknya dilakukan setiap minggu. Yuk jadwalkan kunjungan berikutnya — balas pesan ini untuk memilih waktu. SunDY Clinic",
     );
-    expect(treatmentReminderMessage({ patientName: "Ani", treatments: ["Peeling", "Laser Toning"], treatmentOn: "2026-10-10", intervalDays: 14 })).toContain(
+    expect(
+      treatmentReminderMessage({ patientName: "Ani", treatments: [{ name: "Peeling", intervalDays: 14 }, { name: "Laser Toning", intervalDays: 14 }], treatmentOn: "2026-10-10" }),
+    ).toContain(
       "melakukan Peeling dan Laser Toning di SunDY Clinic pada Sabtu, 10 Oktober 2026. Agar hasilnya maksimal, treatment ini sebaiknya dilakukan setiap 2 minggu.",
+    );
+  });
+
+  it("jarak berbeda dalam satu kunjungan: anjuran hanya untuk treatment berjarak terpendek, bukan semua (temuan review)", () => {
+    expect(
+      treatmentReminderMessage({ patientName: "Rina", treatments: [{ name: "Facial Brightening", intervalDays: 7 }, { name: "Botox", intervalDays: 90 }], treatmentOn: "2026-10-17" }),
+    ).toBe(
+      "Halo Rina, terima kasih sudah melakukan Facial Brightening dan Botox di SunDY Clinic pada Sabtu, 17 Oktober 2026. Agar hasilnya maksimal, Facial Brightening sebaiknya dilakukan setiap minggu. Yuk jadwalkan kunjungan berikutnya — balas pesan ini untuk memilih waktu. SunDY Clinic",
     );
   });
 

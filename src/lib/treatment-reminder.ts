@@ -41,12 +41,19 @@ export function treatmentNamesLabel(names: readonly string[]): string {
   return `${names.slice(0, -1).join(", ")}, dan ${names[names.length - 1]}`;
 }
 
-/** Pesan WhatsApp "waktunya treatment lagi" (PT11); `treatmentOn` = tanggal treatment WITA (YYYY-MM-DD). */
-export function treatmentReminderMessage(input: { patientName: string; treatments: readonly string[]; treatmentOn: string; intervalDays: number }): string {
+/**
+ * Pesan WhatsApp "waktunya treatment lagi" (PT11); `treatmentOn` = tanggal treatment WITA (YYYY-MM-DD). Semua treatment
+ * kunjungan itu disebut; anjurannya memakai jarak terpendek (PT7). Bila jaraknya berbeda, anjuran menyebut nama treatment
+ * berjarak terpendek saja, supaya Botox tidak ikut dianjurkan tiap minggu (temuan review).
+ */
+export function treatmentReminderMessage(input: { patientName: string; treatments: readonly { name: string; intervalDays: number }[]; treatmentOn: string }): string {
   const date = formatIndonesianDate(new Date(`${input.treatmentOn}T00:00:00Z`));
+  const shortest = Math.min(...input.treatments.map((treatment) => treatment.intervalDays));
+  const due = input.treatments.filter((treatment) => treatment.intervalDays === shortest).map((treatment) => treatment.name);
+  const subject = due.length === input.treatments.length ? "treatment ini" : treatmentNamesLabel(due);
   return (
-    `Halo ${firstName(input.patientName)}, terima kasih sudah melakukan ${treatmentNamesLabel(input.treatments)} di SunDY Clinic pada ${date}. ` +
-    `Agar hasilnya maksimal, treatment ini sebaiknya dilakukan ${returnIntervalPhrase(input.intervalDays)}. ` +
+    `Halo ${firstName(input.patientName)}, terima kasih sudah melakukan ${treatmentNamesLabel(input.treatments.map((treatment) => treatment.name))} di SunDY Clinic pada ${date}. ` +
+    `Agar hasilnya maksimal, ${subject} sebaiknya dilakukan ${returnIntervalPhrase(shortest)}. ` +
     "Yuk jadwalkan kunjungan berikutnya — balas pesan ini untuk memilih waktu. SunDY Clinic"
   );
 }

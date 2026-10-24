@@ -56,7 +56,7 @@ export async function listTreatmentPatients(filter: { q?: string; olderThanWeeks
       flag?.packageVisitOn ? `paket aktif · kunjungan berikutnya ${dateLabel(flag.packageVisitOn)}` : null,
       flag?.cameBackOn ? `sudah datang lagi ${dateLabel(flag.cameBackOn)}` : null,
     ].filter((marker): marker is string => marker !== null);
-    const text = treatmentReminderMessage({ patientName: visit.patientName, treatments: visit.treatments, treatmentOn: visit.treatmentOn, intervalDays: visit.intervalDays });
+    const text = treatmentReminderMessage({ patientName: visit.patientName, treatments: visit.items, treatmentOn: visit.treatmentOn });
     const last = reminders.get(visit.patientId);
     return {
       patientId: visit.patientId,
