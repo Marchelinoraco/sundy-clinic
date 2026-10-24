@@ -176,34 +176,37 @@ model ServiceCostLine {
 }
 
 model Service {
-  id              String            @id @default(cuid())
-  slug            String            @unique
-  name            String
-  description     String?
+  id                 String            @id @default(cuid())
+  slug               String            @unique
+  name               String
+  description        String?
   /// Harga sebelum promo dalam rupiah penuh. null bila tidak ada harga coret.
-  normalPrice     Int?
+  normalPrice        Int?
   /// Harga yang berlaku dalam rupiah penuh.
-  promoPrice      Int
+  promoPrice         Int
   /// Satuan harga yang tampil setelah angka, misal "/ unit" atau "/ 5 titik".
-  priceNote       String?
-  durationMin     Int               @default(30)
-  imageUrl        String?
+  priceNote          String?
+  durationMin        Int               @default(30)
+  imageUrl           String?
   /// Ditampilkan di bagian "Our Signature Treatment" pada beranda.
-  isSignature     Boolean           @default(false)
-  isActive        Boolean           @default(true)
-  sortOrder       Int               @default(0)
+  isSignature        Boolean           @default(false)
+  isActive           Boolean           @default(true)
+  sortOrder          Int               @default(0)
   /// Menentukan antrean staf mana yang terpakai saat layanan ini dipesan:
   /// true wajib staf berperan DOKTER, false boleh DOKTER atau TERAPIS.
   /// Usulan awal — lihat keputusan D10 pada PRD, perlu dikonfirmasi pemilik.
-  requiresDoctor  Boolean           @default(false)
+  requiresDoctor     Boolean           @default(false)
+  /// Jarak pengingat "waktunya treatment lagi" dalam hari (7, 14, 21, 30, 60, 90, 180); kosong = tidak diingatkan
+  /// (spec pengingat treatment PT2). CHECK service_return_reminder_days di migrasi.
+  returnReminderDays Int?
   /// Biaya operasional per sesi (spec harga modal 5), diisi Admin Keuangan. CHECK service_cost_values.
-  materialCost    Int               @default(0)
-  toolCost        Int               @default(0)
+  materialCost       Int               @default(0)
+  toolCost           Int               @default(0)
   /// Komisi pelaksana per sesi: NOMINAL = rupiah, PERSEN = persen dari harga katalog; kosong = tanpa komisi.
-  commissionKind  DiscountKind?
-  commissionValue Int               @default(0)
+  commissionKind     DiscountKind?
+  commissionValue    Int               @default(0)
   /// Biaya lainnya per sesi dengan nama bebas (spec biaya lainnya BL1).
-  costLines       ServiceCostLine[]
+  costLines          ServiceCostLine[]
 
   categoryId String
   category   ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
@@ -445,9 +448,10 @@ model Patient {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  packages     PatientPackage[]
-  appointments Appointment[]
-  intakes      Intake[]
+  packages           PatientPackage[]
+  appointments       Appointment[]
+  intakes            Intake[]
+  treatmentReminders TreatmentReminder[]
 
   @@index([whatsapp])
   @@index([name])
@@ -1957,4 +1961,18 @@ model DepositRefundPart {
   amount   Int
 
   @@index([creditId])
+}
+
+/// Pengingat "waktunya treatment lagi" yang dikirim lewat WhatsApp (spec pengingat treatment PT12). Satu baris per tekan
+/// Kirim; `treatmentOn` = tanggal kunjungan treatment yang diingatkan (WITA).
+model TreatmentReminder {
+  id          String   @id @default(cuid())
+  patientId   String
+  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  treatmentOn DateTime @db.Date
+  sentAt      DateTime @default(now())
+  staffId     String
+  staffName   String
+
+  @@index([patientId, sentAt])
 }

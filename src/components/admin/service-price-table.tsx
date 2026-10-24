@@ -16,7 +16,9 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { CONSULTATION_SERVICE_SLUG } from "@/lib/booking-rules";
 import type { OtherCost, ServiceCostInput } from "@/lib/costing";
-import { setServiceActive, updateServicePrice } from "@/server/service-admin";
+import { RETURN_INTERVALS, returnIntervalLabel } from "@/lib/treatment-reminder";
+import { setServiceActive, setServiceReturnReminder, updateServicePrice } from "@/server/service-admin";
+import { SelectField } from "./mui/select-field";
 import { EmptyState, SectionCard } from "./page-layout";
 import { RupiahInput } from "./rupiah-input";
 import { ServiceCostDialog } from "./service-cost-dialog";
@@ -33,6 +35,8 @@ type PriceService = {
   durationMin: number;
   requiresDoctor: boolean;
   isActive: boolean;
+  /** Jarak pengingat treatment dalam hari; null = tidak diingatkan (spec pengingat treatment PT2). */
+  returnReminderDays: number | null;
   /** Jumlah layanan situs aktif yang menautkan; 0 = "Hanya internal". */
   siteCount: number;
   otherCosts: OtherCost[];
@@ -40,6 +44,43 @@ type PriceService = {
 export type PriceCategory = { id: string; name: string; services: PriceService[] };
 
 const ALL = "semua";
+
+/** Pilihan "Ingatkan kembali" yang langsung tersimpan saat diganti (spec pengingat treatment PT2). */
+function ReturnReminderSelect({ service }: { service: PriceService }) {
+  const [days, setDays] = useState<number | null>(service.returnReminderDays);
+  const [pending, startTransition] = useTransition();
+
+  function change(value: string) {
+    const next = value === "" ? null : Number(value);
+    const previous = days;
+    setDays(next);
+    startTransition(async () => {
+      try {
+        const result = await setServiceReturnReminder({ serviceId: service.id, days: next });
+        if (!result.ok) {
+          setDays(previous);
+          toast.error(result.error);
+          return;
+        }
+        toast.success(`${service.name}: ${returnIntervalLabel(next)}.`);
+      } catch {
+        setDays(previous);
+        toast.error("Gagal menyimpan. Coba lagi.");
+      }
+    });
+  }
+
+  return (
+    <SelectField aria-label={`Ingatkan kembali ${service.name}`} value={days === null ? "" : String(days)} onChange={change} disabled={pending} fullWidth={false} sx={{ minWidth: 150 }}>
+      <option value="">{returnIntervalLabel(null)}</option>
+      {RETURN_INTERVALS.map((value) => (
+        <option key={value} value={String(value)}>
+          {returnIntervalLabel(value)}
+        </option>
+      ))}
+    </SelectField>
+  );
+}
 
 function PriceRow({ service, hidden, categoryOptions }: { service: PriceService; hidden: boolean; categoryOptions: { id: string; name: string }[] }) {
   const [saved, setSaved] = useState({ normalPrice: service.normalPrice, promoPrice: service.promoPrice as number | null });
@@ -93,6 +134,9 @@ function PriceRow({ service, hidden, categoryOptions }: { service: PriceService;
       <TableCell>
         {/* Harga yang baru disimpan di baris ini ikut ke dialog, supaya Simpan di dialog tidak menimpanya dengan harga lama. */}
         <ServiceCostDialog service={{ ...service, normalPrice: saved.normalPrice, promoPrice: saved.promoPrice ?? service.promoPrice }} />
+      </TableCell>
+      <TableCell>
+        <ReturnReminderSelect service={service} />
       </TableCell>
       <TableCell sx={{ whiteSpace: "nowrap" }}>{service.siteCount > 0 ? `${service.siteCount} layanan situs` : "Hanya internal"}</TableCell>
       <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
@@ -181,6 +225,7 @@ export function ServicePriceTable({ categories, categoryOptions }: { categories:
                     <TableCell>Harga coret</TableCell>
                     <TableCell>Harga berlaku</TableCell>
                     <TableCell>Biaya per sesi</TableCell>
+                    <TableCell>Ingatkan kembali</TableCell>
                     <TableCell>Di situs</TableCell>
                     <TableCell />
                   </TableRow>

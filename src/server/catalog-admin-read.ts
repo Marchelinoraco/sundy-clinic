@@ -14,6 +14,8 @@ export type InternalServiceRow = {
   durationMin: number;
   requiresDoctor: boolean;
   isActive: boolean;
+  /** Jarak pengingat treatment dalam hari; null = tidak diingatkan (spec pengingat treatment PT2). */
+  returnReminderDays: number | null;
   /** Jumlah layanan situs aktif yang menautkan layanan ini; 0 = "Hanya internal". */
   siteCount: number;
   /** Biaya lainnya per sesi, urut seperti di dialog (spec biaya lainnya BL1). */
@@ -62,6 +64,7 @@ export async function getInternalCatalog(): Promise<InternalCategory[]> {
           durationMin: true,
           requiresDoctor: true,
           isActive: true,
+          returnReminderDays: true,
           materialCost: true,
           toolCost: true,
           commissionKind: true,

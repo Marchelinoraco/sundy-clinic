@@ -2,14 +2,14 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ServicePriceTable, type PriceCategory } from "@/components/admin/service-price-table";
-import { updateServicePrice } from "@/server/service-admin";
+import { setServiceReturnReminder, updateServicePrice } from "@/server/service-admin";
 import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
-vi.mock("@/server/service-admin", () => ({ updateServicePrice: vi.fn(), updateServicePricing: vi.fn(), createInternalService: vi.fn(), updateInternalService: vi.fn(), setServiceActive: vi.fn() }));
+vi.mock("@/server/service-admin", () => ({ updateServicePrice: vi.fn(), updateServicePricing: vi.fn(), createInternalService: vi.fn(), updateInternalService: vi.fn(), setServiceActive: vi.fn(), setServiceReturnReminder: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
-const NO_COST = { materialCost: 0, toolCost: 0, commissionKind: null, commissionValue: 0, otherCosts: [], slug: "x", categoryId: "c1", durationMin: 60, requiresDoctor: false, isActive: true, siteCount: 1 };
+const NO_COST = { materialCost: 0, toolCost: 0, commissionKind: null, commissionValue: 0, otherCosts: [], slug: "x", categoryId: "c1", durationMin: 60, requiresDoctor: false, isActive: true, siteCount: 1, returnReminderDays: 7 };
 
 const CATEGORIES: PriceCategory[] = [
   {
@@ -22,6 +22,21 @@ const CATEGORIES: PriceCategory[] = [
   },
   { id: "c2", name: "Laser Treatment", services: [{ id: "s3", name: "Lip Laser", normalPrice: null, promoPrice: 99000, ...NO_COST }] },
 ];
+
+describe("jarak pengingat (spec pengingat treatment PT2)", () => {
+  it("setiap layanan punya pilihan Ingatkan kembali; mengganti pilihan langsung tersimpan", async () => {
+    vi.mocked(setServiceReturnReminder).mockResolvedValue({ ok: true, data: undefined });
+    const user = userEvent.setup();
+    renderAdmin(<ServicePriceTable categories={CATEGORIES} categoryOptions={[]} />);
+    const select = screen.getByLabelText("Ingatkan kembali Relaxing Facial");
+    expect(select).toHaveValue("7");
+    expect(within(select).getByRole("option", { name: "Tidak diingatkan" })).toBeInTheDocument();
+    await user.selectOptions(select, "14");
+    await waitFor(() => expect(setServiceReturnReminder).toHaveBeenCalledWith({ serviceId: "s1", days: 14 }));
+    await user.selectOptions(screen.getByLabelText("Ingatkan kembali Facial Acne"), "");
+    await waitFor(() => expect(setServiceReturnReminder).toHaveBeenCalledWith({ serviceId: "s2", days: null }));
+  });
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
