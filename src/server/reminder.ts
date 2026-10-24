@@ -12,6 +12,7 @@ import { prisma } from "@/lib/db";
 import { nextOpenWindow, ONLINE_BRANCH_LABEL, windowLabel } from "@/lib/online-consultation";
 import { packageVisitMessage, planVisits, visitContentsLabel } from "@/lib/package-visit";
 import { groupReminderWork, reminderDay } from "@/lib/reminder-work";
+import { RETURN_INTERVALS, RETURN_WINDOW_DAYS, treatmentNamesLabel, treatmentReminderMessage } from "@/lib/treatment-reminder";
 import { dateOnlyString } from "@/lib/stock";
 import { addDaysToDateString, combineWitaDateAndMinutes, witaDateString } from "@/lib/time";
 import { buildWhatsAppLinkTo } from "@/lib/whatsapp";
@@ -20,6 +21,7 @@ import { remainingByItem, visitsDoneByPackage } from "@/server/package-store";
 import { quizLinkFor } from "@/server/quiz-link-code";
 import { requireCapability } from "@/server/session";
 import { publicSiteUrl } from "@/server/site-url";
+import { hasReturnFlag, lastTreatmentReminders, latestTreatmentVisits, returnFlags } from "@/server/treatment-visits";
 
 /** Satu baris halaman Pengingat. Hanya identitas dan jadwal — tanpa data klinis. */
 export type ReminderRow = {
@@ -59,12 +61,28 @@ export type PackageReminderRow = {
   sent: { sentAt: Date; sentByName: string } | null;
 };
 
+/** Kotak 5: pasien yang waktunya treatment lagi (spec pengingat treatment PT6). */
+export type TreatmentReturnRow = {
+  patientId: string;
+  patientName: string;
+  /** "A dan B". */
+  treatments: string;
+  treatmentOn: string;
+  intervalDays: number;
+  /** Tanggal treatment + jarak. */
+  dueOn: string;
+  overdue: boolean;
+  message: WhatsAppMessage;
+  sent: { sentAt: Date; sentByName: string } | null;
+};
+
 export type ReminderWorklist = {
   today: string;
   confirm: ReminderRow[];
   remind: ReminderRow[];
   reminded: ReminderRow[];
   packageVisits: PackageReminderRow[];
+  treatmentReturns: TreatmentReturnRow[];
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -173,12 +191,54 @@ async function loadPackageVisitWork(now: Date): Promise<PackageReminderRow[]> {
   return rows.sort((a, b) => Number(a.sent !== null) - Number(b.sent !== null) || Number(b.overdue) - Number(a.overdue));
 }
 
-/** Angka di menu Pengingat: pesan yang masih harus dikirim (kotak 1, kotak 2, dan kunjungan paket yang belum diingatkan). */
+/**
+ * Pasien yang waktunya treatment lagi (spec pengingat treatment PT6–PT9): tanggal treatment terbaru + jarak sudah tiba, paling
+ * lama 7 hari lalu, dan tidak punya booking berikutnya, kunjungan sesudahnya, atau paket aktif berjadwal.
+ */
+async function loadTreatmentReturnWork(now: Date): Promise<TreatmentReturnRow[]> {
+  const today = witaDateString(now);
+  // Treatment yang lebih tua dari jarak terpanjang + jendela tidak pernah jatuh tempo hari ini.
+  const since = addDaysToDateString(today, -(Math.max(...RETURN_INTERVALS) + RETURN_WINDOW_DAYS + 1));
+  const visits = (await latestTreatmentVisits(prisma, { since })).filter((visit) => {
+    const dueOn = addDaysToDateString(visit.treatmentOn, visit.intervalDays);
+    return dueOn <= today && today <= addDaysToDateString(dueOn, RETURN_WINDOW_DAYS - 1);
+  });
+  if (visits.length === 0) return [];
+  const [flags, reminders] = await Promise.all([returnFlags(prisma, visits, today), lastTreatmentReminders(prisma, visits.map((visit) => visit.patientId))]);
+  const rows: TreatmentReturnRow[] = [];
+  for (const visit of visits) {
+    if (hasReturnFlag(flags.get(visit.patientId))) continue;
+    const dueOn = addDaysToDateString(visit.treatmentOn, visit.intervalDays);
+    const text = treatmentReminderMessage({ patientName: visit.patientName, treatments: visit.items, treatmentOn: visit.treatmentOn });
+    const last = reminders.get(visit.patientId);
+    rows.push({
+      patientId: visit.patientId,
+      patientName: visit.patientName,
+      treatments: treatmentNamesLabel(visit.treatments),
+      treatmentOn: visit.treatmentOn,
+      intervalDays: visit.intervalDays,
+      dueOn,
+      overdue: dueOn < today,
+      message: { text, link: buildWhatsAppLinkTo(visit.whatsapp, text) },
+      sent: last && last.treatmentOn === visit.treatmentOn ? { sentAt: last.sentAt, sentByName: last.staffName } : null,
+    });
+  }
+  // Yang belum dikirim di atas, yang terlewat paling atas, lalu jatuh tempo terlama dan nama.
+  return rows.sort(
+    (a, b) =>
+      Number(a.sent !== null) - Number(b.sent !== null) ||
+      Number(b.overdue) - Number(a.overdue) ||
+      a.dueOn.localeCompare(b.dueOn) ||
+      a.patientName.localeCompare(b.patientName),
+  );
+}
+
+/** Angka di menu Pengingat: pesan yang masih harus dikirim (kotak 1, kotak 2, kunjungan paket, dan treatment yang belum diingatkan). */
 export async function countReminderWork(): Promise<number> {
   await requireCapability("booking:manage");
   const now = new Date();
-  const [groups, packageVisits] = await Promise.all([loadReminderGroups(now), loadPackageVisitWork(now)]);
-  return groups.confirm.length + groups.remind.length + packageVisits.filter((row) => !row.sent).length;
+  const [groups, packageVisits, treatmentReturns] = await Promise.all([loadReminderGroups(now), loadPackageVisitWork(now), loadTreatmentReturnWork(now)]);
+  return groups.confirm.length + groups.remind.length + packageVisits.filter((row) => !row.sent).length + treatmentReturns.filter((row) => !row.sent).length;
 }
 
 /** Kotak 1 dan 2 halaman Pengingat secara terpisah, untuk kotak dasbor (spec D 4.2). */
@@ -191,7 +251,7 @@ export async function getReminderCounts(): Promise<{ confirm: number; remind: nu
 export async function getReminderWorklist(): Promise<ReminderWorklist> {
   await requireCapability("booking:manage");
   const now = new Date();
-  const [groups, packageVisits] = await Promise.all([loadReminderGroups(now), loadPackageVisitWork(now)]);
+  const [groups, packageVisits, treatmentReturns] = await Promise.all([loadReminderGroups(now), loadPackageVisitWork(now), loadTreatmentReturnWork(now)]);
   const siteUrl = publicSiteUrl();
 
   type Loaded = (typeof groups.confirm)[number];
@@ -243,5 +303,6 @@ export async function getReminderWorklist(): Promise<ReminderWorklist> {
       }),
     ),
     packageVisits,
+    treatmentReturns,
   };
 }

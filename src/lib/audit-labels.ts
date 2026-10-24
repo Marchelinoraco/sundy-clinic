@@ -24,6 +24,7 @@ const ACTION_LABEL: Record<string, string> = {
   "approval-pin.reset": "mereset PIN persetujuan",
   "deposit.refund": "mengembalikan deposit",
   "deposit.credit": "mencatat saldo deposit",
+  "service.reminder": "mengubah jarak pengingat layanan",
   "staff.photo.update": "mengganti foto staf",
   "staff.photo.remove": "menghapus foto staf",
   "service.create": "menambah layanan internal",

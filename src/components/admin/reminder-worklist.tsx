@@ -13,11 +13,13 @@ import type { RescheduleTarget } from "@/lib/booking-actions";
 import { REMINDER_REPLIES, REMINDER_REPLY_LABEL } from "@/lib/booking-messages";
 import { formatIndonesianDate, formatShortIndonesianDate } from "@/lib/format";
 import { combineWitaDateAndMinutes, minutesToTimeLabel, witaDateString, witaMinutesOfDay } from "@/lib/time";
+import { returnIntervalLabel } from "@/lib/treatment-reminder";
 import { recordReminderReply, revokeAppointmentMessage } from "@/server/appointment-message";
 import type { ReminderRow, ReminderWorklist } from "@/server/reminder";
 import { MessageActions } from "./message-actions";
 import { PackageReminderSendButton } from "./package-reminder-send-button";
 import { RescheduleDialog } from "./reschedule-dialog";
+import { TreatmentReminderSendButton } from "./treatment-reminder-send-button";
 
 function time(date: Date): string {
   return minutesToTimeLabel(witaMinutesOfDay(date));
@@ -260,6 +262,37 @@ export function ReminderWorklistView({ worklist }: { worklist: ReminderWorklist 
               </Box>
             ) : row.message.link ? (
               <PackageReminderSendButton href={row.message.link} patientPackageId={row.patientPackageId} visitOn={row.visitOn} />
+            ) : (
+              <Typography variant="body2" sx={{ color: "text.secondary" }}>
+                Nomor WhatsApp pasien tidak dikenali.
+              </Typography>
+            )}
+          </Box>
+        ))}
+      </WorkBox>
+
+      <WorkBox id="pengingat-treatment" title="5 · Waktunya treatment lagi — ajak kembali" count={worklist.treatmentReturns.length}>
+        {worklist.treatmentReturns.map((row) => (
+          <Box component="li" key={row.patientId} sx={ITEM}>
+            <Box sx={{ fontSize: "0.875rem" }}>
+              <Box component="span" sx={{ fontWeight: 500 }}>
+                {row.patientName}
+              </Box>{" "}
+              <Box component="span" sx={{ color: "text.secondary" }}>
+                · {row.treatments} · {formatIndonesianDate(combineWitaDateAndMinutes(row.treatmentOn, 12 * 60))} · tiap {returnIntervalLabel(row.intervalDays)}
+              </Box>
+              {row.overdue && !row.sent && (
+                <Box component="span" data-tone="error" sx={{ ml: 0.5, fontSize: "0.75rem", fontWeight: 600, color: "error.main" }}>
+                  terlewat
+                </Box>
+              )}
+            </Box>
+            {row.sent ? (
+              <Box component="span" sx={{ fontSize: "0.875rem", color: "success.main" }}>
+                Sudah diingatkan · {sentWhen(row.sent.sentAt)} oleh {row.sent.sentByName}
+              </Box>
+            ) : row.message.link ? (
+              <TreatmentReminderSendButton href={row.message.link} patientId={row.patientId} treatmentOn={row.treatmentOn} />
             ) : (
               <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 Nomor WhatsApp pasien tidak dikenali.

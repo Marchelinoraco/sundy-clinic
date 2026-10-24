@@ -18,6 +18,7 @@ import { formatRupiah } from "@/lib/format";
 import { ONLINE_SERVICE_SLUG } from "@/lib/online-consultation";
 import { validatePriceChange, type PriceInput } from "@/lib/price-validation";
 import { validateInternalService, type InternalServiceInput } from "@/lib/service-catalog";
+import { isReturnInterval, returnIntervalLabel } from "@/lib/treatment-reminder";
 import { slugify } from "@/lib/slug";
 import { recordAudit } from "@/server/audit";
 import { revalidateServicePages } from "@/server/catalog-revalidate";
@@ -216,6 +217,21 @@ export async function updateInternalService(input: { id: string } & InternalServ
       summary: before.name === value.name ? value.name : `${before.name} -> ${value.name}`,
     });
     await revalidateServicePages(before.id);
+  });
+}
+
+/** Jarak pengingat "waktunya treatment lagi" per layanan; null = tidak diingatkan (spec pengingat treatment PT2, PT3). */
+export async function setServiceReturnReminder(input: { serviceId: string; days: number | null }): Promise<ActionResult> {
+  return runAction(async () => {
+    const actor = await requireCapability("catalog:manage");
+    const days = input?.days ?? null;
+    if (days !== null && !isReturnInterval(days)) throw new UserFacingError("Pilih jarak pengingat.");
+    const service = await findEditableService(input?.serviceId);
+
+    await prisma.service.update({ where: { id: service.id }, data: { returnReminderDays: days } });
+    await recordAudit({ actor, action: "service.reminder", entity: "Service", entityId: service.id, summary: `${service.name}: ${returnIntervalLabel(days)}` });
+    safeRevalidatePath("/admin/layanan");
+    safeRevalidatePath("/admin/pengingat");
   });
 }
 
