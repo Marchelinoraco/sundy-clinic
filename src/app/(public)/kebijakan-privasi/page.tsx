@@ -56,9 +56,9 @@ export default function PrivacyPolicyPage() {
           <h2 className="font-display text-2xl text-brown-900">Biaya booking</h2>
           <p className="mt-2">
             Jadwal dari situs, WhatsApp, atau telepon dikunci dengan biaya booking yang
-            ditransfer ke rekening klinik. Biaya ini terpisah dari biaya layanan, tidak
-            dikembalikan, dan tetap berlaku bila Anda pindah jadwal paling lambat 2 jam sebelum
-            jadwal. Booking dari situs yang belum dikonfirmasi dalam 24 jam (hari Minggu dan
+            ditransfer ke rekening klinik. Biaya ini menjadi deposit yang dipotong dari tagihan
+            saat Anda berkunjung. Deposit hangus bila booking dibatalkan atau Anda tidak hadir,
+            tetapi tetap berlaku bila Anda pindah jadwal paling lambat 2 jam sebelum jadwal. Booking dari situs yang belum dikonfirmasi dalam 24 jam (hari Minggu dan
             hari libur tidak dihitung) dibatalkan otomatis.
           </p>
         </section>

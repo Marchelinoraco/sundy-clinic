@@ -120,6 +120,13 @@ export type RawReport = {
   customerPaid: number;
   supplierPaid: number;
   supplierRefunded: number;
+  /**
+   * Biaya booking yang sudah dihitung di muka lalu menutup tagihan: deposit booking terpakai, saldo dari sisa deposit
+   * booking yang dipakai, dan bagian sisa itu yang dikembalikan (spec deposit D11). Dikurangkan agar tidak dihitung dua kali.
+   */
+  bookingDepositUsed: number;
+  /** Pengembalian deposit dalam bentuk uang pada periode ini: uang keluar (spec deposit D17). */
+  depositRefunds: number;
 };
 
 export type ReportTotals = {
@@ -129,6 +136,7 @@ export type ReportTotals = {
   package: number;
   discount: number;
   upfront: number;
+  bookingDeposit: number;
   revenue: number;
   cogs: number;
   grossProfit: number;
@@ -143,6 +151,7 @@ export type CashFlow = {
   inflow: number;
   supplier: number;
   expenses: number;
+  depositRefunds: number;
   outflow: number;
   net: number;
 };
@@ -157,15 +166,18 @@ export type ReportView = {
   missingCost: number;
 };
 
-/** Rumus spec laporan 3.1–3.3. Pembayaran hutang supplier hanya masuk arus kas, tidak mengurangi laba. */
+/**
+ * Rumus spec laporan 3.1–3.3. Pembayaran hutang supplier hanya masuk arus kas, tidak mengurangi laba. Deposit booking
+ * terpakai dikurangkan dari pendapatan; pengembalian deposit masuk uang keluar (spec deposit D11, D17).
+ */
 export function summarizeReport(raw: RawReport): ReportView {
   const upfront = raw.upfrontFee + raw.upfrontOnline;
-  const revenue = raw.service + raw.treatment + raw.goods + raw.package - raw.discount + upfront;
+  const revenue = raw.service + raw.treatment + raw.goods + raw.package - raw.discount - raw.bookingDepositUsed + upfront;
   const expenses = raw.expenses.reduce((sum, row) => sum + row.amount, 0);
   const grossProfit = revenue - raw.cogs;
   const supplier = raw.supplierPaid - raw.supplierRefunded;
   const inflow = raw.customerPaid + upfront;
-  const outflow = supplier + expenses;
+  const outflow = supplier + expenses + raw.depositRefunds;
   return {
     totals: {
       service: raw.service,
@@ -174,6 +186,7 @@ export function summarizeReport(raw: RawReport): ReportView {
       package: raw.package,
       discount: raw.discount,
       upfront,
+      bookingDeposit: raw.bookingDepositUsed,
       revenue,
       cogs: raw.cogs,
       grossProfit,
@@ -182,7 +195,7 @@ export function summarizeReport(raw: RawReport): ReportView {
       outstanding: raw.outstanding,
     },
     expensesByCategory: raw.expenses,
-    cash: { customer: raw.customerPaid, upfront, inflow, supplier, expenses, outflow, net: inflow - outflow },
+    cash: { customer: raw.customerPaid, upfront, inflow, supplier, expenses, depositRefunds: raw.depositRefunds, outflow, net: inflow - outflow },
     invoiceCount: raw.invoiceCount,
     upfrontFee: raw.upfrontFee,
     upfrontOnline: raw.upfrontOnline,
@@ -250,6 +263,7 @@ export function reportCsvRows(meta: { period: ReportPeriod; branchName: string }
     ["Obat dan produk", totals.goods],
     ["Paket", totals.package],
     ["Diskon", -totals.discount],
+    ["Deposit booking terpakai", -totals.bookingDeposit],
     ["Biaya booking (di muka)", view.upfrontFee],
     ["Konsultasi Online (di muka)", view.upfrontOnline],
     ["Total pendapatan", totals.revenue],
@@ -268,6 +282,7 @@ export function reportCsvRows(meta: { period: ReportPeriod; branchName: string }
     ["Total masuk", cash.inflow],
     ["Pembayaran hutang supplier (neto)", cash.supplier],
     ["Pengeluaran", cash.expenses],
+    ["Pengembalian deposit", cash.depositRefunds],
     ["Total keluar", cash.outflow],
     ["Kas bersih", cash.net],
   ];

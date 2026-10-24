@@ -15,7 +15,7 @@ const RAW: RawReport = {
     { categoryId: "k1", name: "Sewa", isActive: true, amount: 400_000 },
     { categoryId: "k2", name: "Gaji lama", isActive: false, amount: 600_000 },
   ],
-  customerPaid: 1_500_000, supplierPaid: 300_000, supplierRefunded: 50_000,
+  customerPaid: 1_500_000, supplierPaid: 300_000, supplierRefunded: 50_000, bookingDepositUsed: 0, depositRefunds: 0,
 };
 const PREVIOUS: RawReport = { ...RAW, service: 500_000, expenses: [{ categoryId: "k1", name: "Sewa", isActive: true, amount: 300_000 }] };
 const LOSS: RawReport = { ...RAW, service: 0, treatment: 0, goods: 0, discount: 0, upfrontFee: 0, upfrontOnline: 0, cogs: 0, outstanding: 0, customerPaid: 0, supplierPaid: 0, supplierRefunded: 0 };
@@ -68,6 +68,20 @@ describe("rincian laporan", () => {
     expect(row("Total pengeluaran")).toHaveTextContent("Rp 1.000.000");
     expect(row("Laba bersih")).toHaveTextContent("Rp 1.030.000");
     expect(row("Belum tertagih (informasi)")).toHaveTextContent("Rp 50.000");
+  });
+});
+
+describe("deposit di laporan (spec deposit D11, D17)", () => {
+  it("rincian memuat deposit booking terpakai sebagai pengurang; arus kas memuat pengembalian deposit sebagai uang keluar", () => {
+    const view = summarizeReport({ ...RAW, bookingDepositUsed: 150_000, depositRefunds: 250_000 });
+    renderAdmin(<ReportDetail current={view} previous={summarizeReport(PREVIOUS)} />);
+    const table = screen.getByRole("table", { name: "Rincian laporan" });
+    expect(within(table).getByText("Deposit booking terpakai").closest("tr")).toHaveTextContent("Rp 150.000");
+    expect(within(table).getByText("Total pendapatan").closest("tr")).toHaveTextContent("Rp 2.000.000");
+    renderAdmin(<CashFlowCard cash={view.cash} />);
+    const section = screen.getByRole("region", { name: "Arus kas" });
+    expect(within(section).getByText("Pengembalian deposit").closest("tr")).toHaveTextContent("Rp 250.000");
+    expect(within(section).getByText("Total keluar").closest("tr")).toHaveTextContent("Rp 1.500.000");
   });
 });
 

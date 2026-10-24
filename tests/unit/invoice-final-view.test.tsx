@@ -92,11 +92,42 @@ function finalDetail(patch: Partial<InvoiceDetail> = {}): InvoiceDetail {
     droppedPrescriptions: [],
     declinedPackages: [],
     margin: null,
+    deposit: { booking: 0, saldo: 0, estimate: false },
+    depositNotes: [],
     ...patch,
   };
 }
 
 beforeEach(() => vi.clearAllMocks());
+
+describe("deposit di tagihan final (spec deposit D9)", () => {
+  it("deposit booking, saldo deposit, sisa 0, dan catatan kelebihan; tidak menawarkan pembayaran", () => {
+    const paidQris = [{ ...payment, amount: 100000, method: "QRIS" as const }];
+    const base = finalDetail({ payments: paidQris });
+    const totals = invoiceTotals({ status: "FINAL", discountKind: null, discountValue: 0, lines: base.lines, payments: paidQris, depositUses: [{ amount: 100000 }, { amount: 50000 }] });
+    renderAdmin(
+      <InvoiceFinalView
+        detail={{ ...base, totals, deposit: { booking: 100000, saldo: 50000, estimate: false }, depositNotes: ["Kelebihan Rp 50.000 menjadi deposit, berlaku s.d. 23 Nov 2026"] }}
+        today="2026-10-07"
+        canManage
+        canCorrect={false}
+        canSeeCost={false}
+      />,
+    );
+    const summary = screen.getByRole("region", { name: "Ringkasan tagihan" });
+    expect(within(summary).getByText("Deposit booking").parentElement).toHaveTextContent("-Rp 100.000");
+    expect(within(summary).getByText("Saldo deposit").parentElement).toHaveTextContent("-Rp 50.000");
+    expect(within(summary).getByText("Sisa").parentElement).toHaveTextContent("Rp 0");
+    expect(within(summary).getByText("Kelebihan Rp 50.000 menjadi deposit, berlaku s.d. 23 Nov 2026")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Catat pembayaran" })).toBeNull();
+  });
+
+  it("tanpa deposit tidak ada baris deposit", () => {
+    renderAdmin(<InvoiceFinalView detail={finalDetail()} today="2026-10-07" canManage canCorrect={false} canSeeCost={false} />);
+    expect(screen.queryByText("Deposit booking")).toBeNull();
+    expect(screen.queryByText("Saldo deposit")).toBeNull();
+  });
+});
 
 describe("tampilan tagihan final", () => {
   it("menampilkan baris, total, dibayar, sisa, dan riwayat pembayaran", () => {

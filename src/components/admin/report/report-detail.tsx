@@ -31,6 +31,7 @@ export function ReportDetail({ current, previous }: { current: ReportView; previ
     { label: "Obat dan produk", current: c.goods, previous: p.goods },
     { label: "Paket", current: c.package, previous: p.package },
     { label: "Diskon", current: c.discount, previous: p.discount, note: "pengurang" },
+    { label: "Deposit booking terpakai", current: c.bookingDeposit, previous: p.bookingDeposit, note: "pengurang; sudah dihitung di biaya booking" },
     { label: "Biaya booking (di muka)", current: current.upfrontFee, previous: previous.upfrontFee },
     { label: "Konsultasi Online (di muka)", current: current.upfrontOnline, previous: previous.upfrontOnline },
     { label: "Total pendapatan", current: c.revenue, previous: p.revenue, strong: true },

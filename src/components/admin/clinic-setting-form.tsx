@@ -60,8 +60,9 @@ export function ClinicSettingForm({ setting }: { setting: ClinicSettingView }) {
         <SectionCard title="Biaya booking">
           <RupiahInput id="booking-fee" label="Biaya booking" value={bookingFee} onChange={setBookingFee} sx={{ maxWidth: 192 }} />
           <Typography variant="caption" component="p" sx={{ color: "text.secondary", mt: 1 }}>
-            Berlaku untuk booking baru dari situs, WhatsApp, dan telepon. Walk-in tidak dikenai biaya. Biaya booking terpisah dari
-            biaya layanan, tidak dikembalikan, dan tetap berlaku bila pasien pindah jadwal paling lambat 2 jam sebelumnya.
+            Berlaku untuk booking baru dari situs, WhatsApp, dan telepon. Walk-in tidak dikenai biaya. Biaya booking menjadi deposit
+            yang dipotong dari tagihan kunjungan, hangus bila batal atau tidak hadir, dan tetap berlaku bila pasien pindah jadwal paling
+            lambat 2 jam sebelumnya.
           </Typography>
         </SectionCard>
         <SectionCard title="Rekening transfer">

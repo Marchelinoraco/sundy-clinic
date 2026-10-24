@@ -91,10 +91,18 @@ export function InvoiceA4Paper({ invoice }: { invoice: InvoiceA4 }) {
         {invoice.itemDiscount > 0 && <Row left="Diskon item" right={`-${formatRupiah(invoice.itemDiscount)}`} />}
         {invoice.discount > 0 && <Row left="Diskon" right={`-${formatRupiah(invoice.discount)}`} />}
         <Row left="Total" right={formatRupiah(invoice.total)} strong />
+        {invoice.bookingDeposit > 0 && <Row left="Deposit booking" right={`-${formatRupiah(invoice.bookingDeposit)}`} />}
+        {invoice.saldoDeposit > 0 && <Row left="Saldo deposit" right={`-${formatRupiah(invoice.saldoDeposit)}`} />}
         {invoice.payments.map((payment, index) => (
           <Row key={index} left={payment.text} right={formatRupiah(payment.amount)} />
         ))}
         {invoice.balance > 0 && invoice.status !== "DIBATALKAN" && <Row left="Sisa" right={formatRupiah(invoice.balance)} strong />}
+        {invoice.status !== "DIBATALKAN" &&
+          invoice.depositNotes.map((note) => (
+            <p key={note} className="invoice-a4-catatan">
+              {note}
+            </p>
+          ))}
       </div>
 
       {invoice.packages.length > 0 && (

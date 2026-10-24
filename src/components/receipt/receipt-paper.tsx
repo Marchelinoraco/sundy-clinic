@@ -42,10 +42,15 @@ export function ReceiptPaper({ receipt, className = "" }: { receipt: PublicRecei
       {receipt.itemDiscount > 0 && <Row left="Diskon item" right={`-${formatRupiah(receipt.itemDiscount)}`} />}
       {receipt.discount > 0 && <Row left="Diskon" right={`-${formatRupiah(receipt.discount)}`} />}
       <Row left="Total" right={formatRupiah(receipt.total)} strong />
+      {receipt.bookingDeposit > 0 && <Row left="Deposit booking" right={`-${formatRupiah(receipt.bookingDeposit)}`} />}
+      {receipt.saldoDeposit > 0 && <Row left="Saldo deposit" right={`-${formatRupiah(receipt.saldoDeposit)}`} />}
       {receipt.payments.map((payment, index) => (
         <Row key={index} left={`${dateLabel(payment.paidAt)} · ${PAYMENT_METHOD_LABEL[payment.method]}`} right={formatRupiah(payment.amount)} />
       ))}
       {receipt.balance > 0 && <Row left="Sisa" right={formatRupiah(receipt.balance)} strong />}
+      {receipt.depositNotes.map((note) => (
+        <p key={note}>{note}</p>
+      ))}
       <div className="struk-tengah struk-penutup">
         <strong>{RECEIPT_STATUS_LABEL[receipt.status]}</strong>
         <div>Terima kasih</div>

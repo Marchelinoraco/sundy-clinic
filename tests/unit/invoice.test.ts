@@ -44,7 +44,7 @@ describe("subtotal, diskon, dan total", () => {
   const base: InvoiceInput = { status: "FINAL", discountKind: null, discountValue: 0, lines, payments: [] };
 
   it("total, dibayar, sisa, dan status tampil", () => {
-    expect(invoiceTotals(base)).toEqual({ grossSubtotal: 204000, itemDiscount: 0, subtotal: 204000, discount: 0, total: 204000, paid: 0, balance: 204000, display: "BELUM_DIBAYAR" });
+    expect(invoiceTotals(base)).toEqual({ grossSubtotal: 204000, itemDiscount: 0, subtotal: 204000, discount: 0, total: 204000, deposit: 0, paid: 0, balance: 204000, display: "BELUM_DIBAYAR" });
     const partial = { ...base, discountKind: "NOMINAL" as const, discountValue: 4000, payments: [{ amount: 50000, revokedAt: null }] };
     expect(invoiceTotals(partial)).toMatchObject({ discount: 4000, total: 200000, paid: 50000, balance: 150000, display: "SEBAGIAN" });
     const paid = { ...base, payments: [{ amount: 204000, revokedAt: null }] };
@@ -56,6 +56,13 @@ describe("subtotal, diskon, dan total", () => {
     expect(invoiceTotals(revoked)).toMatchObject({ paid: 0, display: "BELUM_DIBAYAR" });
     expect(invoiceTotals({ ...base, status: "DRAF" }).display).toBe("DRAF");
     expect(invoiceTotals({ ...base, status: "DIBATALKAN" })).toMatchObject({ display: "DIBATALKAN", balance: 0 });
+  });
+
+  it("deposit dipotong dari sisa: sebagian menjadi status Deposit, penuh menjadi Lunas (spec deposit D1, D8)", () => {
+    expect(invoiceTotals({ ...base, depositUses: [{ amount: 100000 }] })).toMatchObject({ total: 204000, deposit: 100000, paid: 0, balance: 104000, display: "SEBAGIAN" });
+    expect(invoiceTotals({ ...base, depositUses: [{ amount: 100000 }, { amount: 104000 }] })).toMatchObject({ deposit: 204000, balance: 0, display: "LUNAS" });
+    expect(invoiceTotals({ ...base, depositUses: [{ amount: 100000 }], payments: [{ amount: 104000, revokedAt: null }] })).toMatchObject({ balance: 0, display: "LUNAS" });
+    expect(invoiceTotals({ ...base, status: "DIBATALKAN", depositUses: [{ amount: 100000 }] })).toMatchObject({ balance: 0, display: "DIBATALKAN" });
   });
 
   it("diskon penuh membuat total Rp 0 dan langsung Lunas", () => {
@@ -202,8 +209,14 @@ describe("validateInvoicePayment", () => {
     });
   });
 
+  it("non-tunai boleh melebihi sisa: kelebihannya menjadi saldo deposit (spec deposit D5)", () => {
+    expect(validateInvoicePayment({ ...pay, amount: 130000 }, ctx)).toMatchObject({ ok: true, value: { amount: 130000, method: "QRIS" } });
+    expect(validateInvoicePayment({ ...pay, method: "EDC", clinicBankAccountId: "acc", amount: 130000 }, ctx).ok).toBe(true);
+    expect(validateInvoicePayment({ ...pay, method: "TUNAI", amount: 130000 }, ctx)).toEqual({ ok: false, message: "Nominal melebihi sisa tagihan (Rp 80.000)." });
+  });
+
   it("menolak nominal di atas sisa, tanpa sisa, metode asing, dan tanggal yang tidak sah", () => {
-    expect(validateInvoicePayment({ ...pay, amount: 80001 }, ctx)).toEqual({ ok: false, message: "Nominal melebihi sisa tagihan (Rp 80.000)." });
+    expect(validateInvoicePayment({ ...pay, method: "TUNAI", amount: 80001 }, ctx)).toEqual({ ok: false, message: "Nominal melebihi sisa tagihan (Rp 80.000)." });
     expect(validateInvoicePayment(pay, { ...ctx, limit: 0 })).toEqual({ ok: false, message: "Tagihan ini tidak punya sisa." });
     expect(validateInvoicePayment({ ...pay, amount: 0 }, ctx)).toEqual({ ok: false, message: "Nominal harus bilangan bulat lebih dari 0." });
     expect(validateInvoicePayment({ ...pay, method: "CEK" }, ctx)).toEqual({ ok: false, message: "Pilih metode pembayaran." });

@@ -24,10 +24,32 @@ const source = (patch: Partial<InvoiceA4Source> = {}): InvoiceA4Source => ({
     { name: "Slimming Capsule", quantity: 7, unit: "kapsul", unitPrice: 0, discountAmount: 0, discountSource: null, note: "Jatah paket Glowing 3 Bulan" },
   ],
   payments: [],
+  depositUses: [],
+  depositCredits: [],
   ...patch,
 });
 
 const glowing = { name: "Glowing 3 Bulan", expiresOn: "2027-01-19", items: [{ name: "Facial Brightening", unit: null, total: 4, used: 1, remaining: 3 }], nextVisitOn: "2026-10-29" };
+
+describe("deposit di invoice A4 (spec deposit D9)", () => {
+  it("baris deposit booking dan catatan kelebihan; deposit + pembayaran melunasi", () => {
+    const invoice = buildInvoiceA4(
+      source({
+        payments: [paid(1_150_000, { method: "QRIS" })],
+        depositUses: [{ kind: "BOOKING", amount: 100_000 }],
+        depositCredits: [{ amount: 50_000, source: "KELEBIHAN_BAYAR", validUntil: new Date("2026-11-21T00:00:00Z") }],
+      }),
+      [],
+    );
+    expect(invoice).toMatchObject({
+      bookingDeposit: 100_000,
+      saldoDeposit: 0,
+      balance: 0,
+      status: "LUNAS",
+      depositNotes: ["Kelebihan Rp 50.000 menjadi deposit, berlaku s.d. 21 Nov 2026"],
+    });
+  });
+});
 
 describe("invoice A4 (spec invoice A4)", () => {
   it("cap air mengikuti status bayar terkini; pembayaran dibatalkan tidak dihitung (IA3, IA6, Review Focus 2)", () => {

@@ -74,7 +74,7 @@ export function transferInstructionText(input: {
     input.bankAccount ?? MISSING_BANK_ACCOUNT_LINE,
     "lalu kirim bukti transfer di chat ini.",
     "",
-    "Biaya booking terpisah dari biaya layanan dan tidak dikembalikan, tetapi tetap berlaku bila Anda pindah jadwal paling lambat 2 jam sebelumnya.",
+    "Biaya booking menjadi deposit yang dipotong dari tagihan saat Anda berkunjung. Deposit hangus bila booking dibatalkan atau Anda tidak hadir, tetapi tetap berlaku bila Anda pindah jadwal paling lambat 2 jam sebelumnya.",
   ];
   if (input.quizLink) lines.push("", ...quizLinkLines(input.quizLink));
   return lines.join("\n");

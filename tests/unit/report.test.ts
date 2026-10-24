@@ -97,6 +97,8 @@ const RAW: RawReport = {
   customerPaid: 1_500_000,
   supplierPaid: 300_000,
   supplierRefunded: 50_000,
+  bookingDepositUsed: 0,
+  depositRefunds: 0,
 };
 
 describe("rumus laporan", () => {
@@ -130,9 +132,19 @@ describe("rumus laporan", () => {
       inflow: 1_950_000,
       supplier: 250_000,
       expenses: 1_000_000,
+      depositRefunds: 0,
       outflow: 1_250_000,
       net: 700_000,
     });
+  });
+
+  it("deposit booking terpakai mengurangi pendapatan; pengembalian deposit menambah uang keluar (spec deposit D11, D17)", () => {
+    const view = summarizeReport({ ...RAW, bookingDepositUsed: 150_000, depositRefunds: 250_000 });
+    expect(view.totals).toMatchObject({ bookingDeposit: 150_000, revenue: 2_000_000, netProfit: 880_000 });
+    expect(view.cash).toMatchObject({ inflow: 1_950_000, depositRefunds: 250_000, outflow: 1_500_000, net: 450_000 });
+    const rows = reportCsvRows({ period: { from: "2026-10-01", to: "2026-10-31" }, branchName: "Semua cabang" }, view);
+    expect(rows).toContainEqual(["Deposit booking terpakai", -150_000]);
+    expect(rows).toContainEqual(["Pengembalian deposit", 250_000]);
   });
 
   it("rugi: pengeluaran tanpa pendapatan; label Rugi bila negatif dan Laba bila nol atau positif", () => {
@@ -228,6 +240,8 @@ describe("pendapatan paket", () => {
       customerPaid: 0,
       supplierPaid: 0,
       supplierRefunded: 0,
+      bookingDepositUsed: 0,
+      depositRefunds: 0,
     };
     const view = summarizeReport(raw);
     expect(view.totals).toMatchObject({ package: 900_000, revenue: 950_000 });

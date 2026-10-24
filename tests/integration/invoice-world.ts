@@ -152,6 +152,12 @@ export async function cleanupBillingWorld(slug: string, patientWhatsapps: string
   await prisma.invoiceLine.updateMany({ where: { invoice: { branch }, patientPackageItemId: { not: null } }, data: { patientPackageItemId: null } });
   await prisma.patientPackage.deleteMany({ where: { purchaseLine: { invoice: { branch } } } });
   await prisma.invoiceStockUse.deleteMany({ where: { line: { invoice: { branch } } } });
+  // Catatan deposit (spec deposit) merujuk tagihan, pembayaran, dan pasien: dibuang sebelum keduanya.
+  const patients = { whatsapp: { in: patientWhatsapps } };
+  await prisma.depositUse.deleteMany({ where: { OR: [{ invoice: { branch } }, { invoice: { patient: patients } }] } });
+  await prisma.depositRefund.deleteMany({ where: { patient: patients } });
+  await prisma.depositRefundPart.deleteMany({ where: { credit: { OR: [{ sourceInvoice: { branch } }, { patient: patients }] } } });
+  await prisma.depositCredit.deleteMany({ where: { OR: [{ sourceInvoice: { branch } }, { patient: patients }] } });
   await prisma.invoicePayment.deleteMany({ where: { invoice: { branch } } });
   await prisma.invoiceLine.deleteMany({ where: { invoice: { branch } } });
   await prisma.invoice.deleteMany({ where: { branch } });

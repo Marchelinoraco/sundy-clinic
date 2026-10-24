@@ -15,9 +15,11 @@ import {
   type InvoiceView,
 } from "@/lib/invoice";
 import { can } from "@/lib/permissions";
+import { allocateCredits, depositSummary } from "@/lib/deposit";
 import { dateOnlyString, type PaymentMethodValue } from "@/lib/stock";
 import { witaDateString } from "@/lib/time";
-import { TOTALS_SELECT } from "@/server/invoice-store";
+import { activeCredits, bookingDepositFor } from "@/server/deposit-store";
+import { DEPOSIT_SUMMARY_SELECT, TOTALS_SELECT } from "@/server/invoice-store";
 import type { InvoiceA4 } from "@/lib/invoice-a4";
 import { loadInvoiceA4 } from "@/server/invoice-a4-store";
 import { packageLineNotes } from "@/server/package-store";
@@ -79,7 +81,8 @@ export async function listInvoices(filter: { view: Exclude<InvoiceView, "PERLU_D
         branchName: invoice.branch.name,
         display: totals.display,
         total: totals.total,
-        balance: totals.balance,
+        // Kelebihan bayar menjadi saldo deposit (spec deposit D5), bukan sisa negatif.
+        balance: Math.max(0, totals.balance),
         lineCount: invoice.lines.length,
       };
     })
@@ -260,9 +263,26 @@ export type InvoiceDetail = {
   payments: InvoicePaymentRow[];
   /** Pernah ada pembayaran (termasuk yang dibatalkan): pembatalan tagihan butuh invoice:correct. */
   everPaid: boolean;
+  /**
+   * Potongan deposit (spec deposit D9). Final: yang tercatat saat finalisasi. Draf: perkiraan (`estimate`), dihitung
+   * seperti finalisasi tanpa menulis; totals draf belum memuatnya.
+   */
+  deposit: { booking: number; saldo: number; estimate: boolean };
+  /** "Kelebihan Rp … menjadi deposit, berlaku s.d. …" untuk saldo yang lahir dari tagihan ini. */
+  depositNotes: string[];
   /** Ringkasan margin tagihan (spec harga modal 7); null bagi peran tanpa price:manage. `revenue` = total tagihan. */
   margin: { revenue: number; stockCost: number; materialCost: number; toolCost: number; otherCost: number; commission: number; margin: number; missingStockCost: boolean } | null;
 };
+
+/** Perkiraan potongan deposit draf (spec deposit D9): urutan sama dengan finalisasi (D1, D6), tanpa menulis. */
+async function draftDepositEstimate(patientId: string, appointmentId: string | null, total: number): Promise<{ booking: number; saldo: number }> {
+  const today = witaDateString(new Date());
+  const booking = Math.min(await bookingDepositFor(prisma, appointmentId), Math.max(0, total));
+  const left = total - booking;
+  if (left <= 0) return { booking, saldo: 0 };
+  const parts = allocateCredits(await activeCredits(prisma, patientId, today), left, today);
+  return { booking, saldo: parts.reduce((sum, part) => sum + part.amount, 0) };
+}
 
 /** Ringkasan margin dari `costing` setiap baris (spec harga modal 7). */
 function marginSummary(lines: readonly InvoiceLineRow[], revenue: number, missingStockCost: boolean): NonNullable<InvoiceDetail["margin"]> {
@@ -363,6 +383,7 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
         },
       },
       payments: { orderBy: { createdAt: "asc" } },
+      ...DEPOSIT_SUMMARY_SELECT,
     },
   });
   if (!invoice) return null;
@@ -374,7 +395,13 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
     discountValue: invoice.discountValue,
     lines: invoice.lines,
     payments: invoice.payments,
+    depositUses: invoice.depositUses,
   });
+  const recorded = depositSummary(invoice.depositUses, invoice.depositCredits);
+  const deposit =
+    invoice.status === "DRAF"
+      ? { ...(await draftDepositEstimate(invoice.patient.id, invoice.appointmentId, totals.total)), estimate: true }
+      : { booking: recorded.booking, saldo: recorded.saldo, estimate: false };
   const costingOf = (line: (typeof invoice.lines)[number]) => {
     if (!withCost) return null;
     const stockCost =
@@ -478,6 +505,8 @@ export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null
       revokeReason: payment.revokeReason,
     })),
     everPaid: invoice.payments.length > 0,
+    deposit,
+    depositNotes: recorded.notes,
     margin: withCost ? marginSummary(lines, totals.total, invoice.lines.some((line) => line.kind === "BARANG" && line.stockUses.some((use) => use.unitCost === null))) : null,
   };
 }

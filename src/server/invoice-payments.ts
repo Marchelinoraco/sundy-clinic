@@ -10,6 +10,7 @@ import { safeRevalidatePath } from "@/lib/revalidate";
 import { dateOnly, PAYMENT_METHOD_LABEL, validateReason } from "@/lib/stock";
 import { witaDateString } from "@/lib/time";
 import { recordAudit } from "@/server/audit";
+import { lockPatient, recordOverpayment, releaseOverpayment } from "@/server/deposit-store";
 import { lockInvoiceRow, TOTALS_SELECT } from "@/server/invoice-store";
 import { requireApprover, verifyApproval } from "@/server/approval";
 import { requireCapability } from "@/server/session";
@@ -22,7 +23,8 @@ function revalidatePayments(invoiceId: string) {
 
 /**
  * Catat pembayaran customer (spec tagihan 4.4). Batasnya sisa tagihan saat ini, dihitung setelah
- * tagihan dikunci: dua pembayaran bersamaan tidak bisa sama-sama melunasi.
+ * tagihan dikunci: dua pembayaran bersamaan tidak bisa sama-sama melunasi. Kelebihan non-tunai menjadi
+ * saldo deposit pasien (spec deposit D5).
  */
 export async function recordInvoicePayment(input: InvoicePaymentInput): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
@@ -34,7 +36,7 @@ export async function recordInvoicePayment(input: InvoicePaymentInput): Promise<
       await lockInvoiceRow(tx, invoiceId);
       const invoice = await tx.invoice.findUnique({
         where: { id: invoiceId },
-        select: { number: true, finalizedAt: true, patient: { select: { name: true } }, ...TOTALS_SELECT },
+        select: { number: true, finalizedAt: true, patientId: true, patient: { select: { name: true } }, ...TOTALS_SELECT },
       });
       if (!invoice) throw new UserFacingError("Tagihan tidak ditemukan.");
       if (invoice.status !== "FINAL" || !invoice.finalizedAt) throw new UserFacingError("Tagihan ini belum final atau sudah dibatalkan.");
@@ -71,16 +73,31 @@ export async function recordInvoicePayment(input: InvoicePaymentInput): Promise<
         },
         select: { id: true },
       });
-      return { id: created.id, summary: `${invoice.number} ${invoice.patient.name}: ${formatRupiah(payment.amount)} (${PAYMENT_METHOD_LABEL[payment.method]})` };
+      let credit: { id: string; summary: string } | null = null;
+      if (payment.amount > balance) {
+        await lockPatient(tx, invoice.patientId);
+        const excess = payment.amount - balance;
+        const recorded = await recordOverpayment(
+          tx,
+          { patientId: invoice.patientId, invoiceId, paymentId: created.id, amount: excess, paidAt: payment.paidAt },
+          actor,
+        );
+        credit = { id: recorded.id, summary: `${invoice.patient.name}: kelebihan bayar ${invoice.number} ${formatRupiah(excess)}, berlaku sampai ${recorded.validUntil}` };
+      }
+      return { id: created.id, credit, summary: `${invoice.number} ${invoice.patient.name}: ${formatRupiah(payment.amount)} (${PAYMENT_METHOD_LABEL[payment.method]})` };
     });
 
     await recordAudit({ actor, action: "invoice-payment.create", entity: "InvoicePayment", entityId: result.id, summary: result.summary });
+    if (result.credit) await recordAudit({ actor, action: "deposit.credit", entity: "DepositCredit", entityId: result.credit.id, summary: result.credit.summary });
     revalidatePayments(invoiceId);
     return { id: result.id };
   });
 }
 
-/** Batalkan pembayaran salah input (spec tagihan 5): tidak dihapus, ditandai dibatalkan beserta alasannya. */
+/**
+ * Batalkan pembayaran salah input (spec tagihan 5): tidak dihapus, ditandai dibatalkan beserta alasannya.
+ * Saldo deposit dari kelebihannya ikut hilang, kecuali sudah dipakai atau dikembalikan (spec deposit D5).
+ */
 export async function revokeInvoicePayment(input: { paymentId: string; reason: string }): Promise<ActionResult<void>> {
   return runAction(async () => {
     const actor = await requireCapability("invoice:correct");
@@ -95,11 +112,22 @@ export async function revokeInvoicePayment(input: { paymentId: string; reason: s
 
     await prisma.$transaction(async (tx) => {
       await lockInvoiceRow(tx, payment.invoiceId);
+      // Kelebihan pembayaran lain di tagihan ini sudah jadi saldo; membatalkan pembayaran ini membuka sisa lagi, jadi
+      // saldo itu tidak lagi nyata (temuan review). Pembayaran berlebihnya dibatalkan lebih dulu.
+      const overpaid = await tx.depositCredit.findFirst({
+        where: { sourceInvoiceId: payment.invoiceId, source: "KELEBIHAN_BAYAR", sourcePaymentId: { not: id } },
+        select: { sourcePayment: { select: { amount: true, method: true } } },
+      });
+      if (overpaid?.sourcePayment) {
+        const { amount, method } = overpaid.sourcePayment;
+        throw new UserFacingError(`Batalkan dulu pembayaran berlebih ${formatRupiah(amount)} (${PAYMENT_METHOD_LABEL[method]}); kelebihannya sudah menjadi saldo deposit.`);
+      }
       const { count } = await tx.invoicePayment.updateMany({
         where: { id, revokedAt: null },
         data: { revokedAt: new Date(), revokedByName: actor.name, revokeReason: reason.value },
       });
       if (count === 0) throw new UserFacingError("Pembayaran ini sudah dibatalkan.");
+      await releaseOverpayment(tx, id);
     });
 
     await recordAudit({
@@ -115,7 +143,8 @@ export async function revokeInvoicePayment(input: { paymentId: string; reason: s
 
 /**
  * Tambah diskon di tagihan final yang belum lunas (spec tagihan 5): hanya menambah, dan total tidak
- * boleh turun di bawah yang sudah dibayar. Diskon yang membuat sisa 0 melunasi tagihan.
+ * boleh turun di bawah yang sudah dibayar ditambah deposit yang dipakai (spec deposit D14). Diskon yang
+ * membuat sisa 0 melunasi tagihan.
  */
 export async function applyFinalDiscount(input: {
   invoiceId: string;
@@ -148,7 +177,7 @@ export async function applyFinalDiscount(input: {
       if (!discount.kind) throw new UserFacingError("Pilih jenis dan nilai diskon.");
       const amount = discountAmount(subtotal, discount.kind, discount.value);
       if (amount <= totals.discount) throw new UserFacingError("Diskon sesudah final hanya bisa ditambah.");
-      if (subtotal - amount < totals.paid) throw new UserFacingError("Diskon membuat total di bawah yang sudah dibayar.");
+      if (subtotal - amount < totals.paid + totals.deposit) throw new UserFacingError("Diskon membuat total di bawah yang sudah dibayar.");
       const approvedBy = requireApprover(approver);
 
       await tx.invoice.update({

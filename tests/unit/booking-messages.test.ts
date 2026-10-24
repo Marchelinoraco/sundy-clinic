@@ -38,7 +38,7 @@ describe("confirmationText", () => {
         "Peta: https://maps.app.goo.gl/abc",
         "",
         "Mohon datang 10 menit sebelum jadwal.",
-        "Ingin pindah jadwal? Kabari kami di chat ini paling lambat 2 jam sebelumnya; biaya booking tetap berlaku. Bila dibatalkan, biaya booking tidak dikembalikan.",
+        "Ingin pindah jadwal? Kabari kami di chat ini paling lambat 2 jam sebelumnya; deposit booking tetap berlaku. Bila dibatalkan, deposit booking hangus.",
         "Cek status booking: https://sundyclinic.com/cek-booking?kode=SDY-7KQ2",
         "",
         "Sampai jumpa di klinik.",

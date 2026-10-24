@@ -26,6 +26,8 @@ function source(patch: Partial<ReceiptSource> = {}): ReceiptSource {
       { name: "Paket S 0.3", quantity: 1, unitPrice: 1_600_000, discountAmount: 0, discountSource: null },
     ],
     payments: [{ amount: 3_100_000, method: "QRIS", paidAt: new Date("2026-10-12T00:00:00Z"), revokedAt: null }],
+    depositUses: [],
+    depositCredits: [],
     ...patch,
   };
 }
@@ -52,6 +54,28 @@ describe("buildPublicReceipt", () => {
       balance: 0,
       payments: [{ paidAt: "2026-10-12", method: "QRIS", amount: 3_100_000 }],
       status: "LUNAS",
+      bookingDeposit: 0,
+      saldoDeposit: 0,
+      depositNotes: [],
+    });
+  });
+
+  it("deposit booking, saldo deposit, dan catatan kelebihan (spec deposit D9)", () => {
+    const receipt = buildPublicReceipt(
+      source({
+        payments: [{ amount: 3_000_000, method: "QRIS", paidAt: new Date("2026-10-12T00:00:00Z"), revokedAt: null }],
+        depositUses: [{ kind: "BOOKING", amount: 100_000 }, { kind: "SALDO", amount: 50_000 }],
+        depositCredits: [{ amount: 50_000, source: "KELEBIHAN_BAYAR", validUntil: new Date("2026-11-11T00:00:00Z") }],
+      }),
+    );
+    expect(receipt).toMatchObject({
+      total: 3_100_000,
+      bookingDeposit: 100_000,
+      saldoDeposit: 50_000,
+      paid: 3_000_000,
+      balance: 0,
+      status: "LUNAS",
+      depositNotes: ["Kelebihan Rp 50.000 menjadi deposit, berlaku s.d. 11 Nov 2026"],
     });
   });
 

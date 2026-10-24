@@ -12,6 +12,7 @@ import TextField from "@mui/material/TextField";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
+import { DEPOSIT_VALID_DAYS } from "@/lib/deposit";
 import { formatRupiah } from "@/lib/format";
 import { validateInvoicePayment } from "@/lib/invoice";
 import { PAYMENT_METHOD_LABEL, PAYMENT_METHODS, type PaymentMethodValue } from "@/lib/stock";
@@ -53,6 +54,8 @@ export function InvoicePaymentDialog({
   const transfer = method === "TRANSFER";
   const edc = method === "EDC";
   const noAccounts = (transfer || edc) && bankAccounts.length === 0;
+  // Kelebihan non-tunai menjadi saldo deposit pasien (spec deposit D5); tunai tetap dibatasi sisa.
+  const excess = method !== "TUNAI" && amount !== null && amount > limit ? amount - limit : 0;
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -111,6 +114,11 @@ export function InvoicePaymentDialog({
           <DialogContentText>Sisa tagihan {formatRupiah(limit)}.</DialogContentText>
           <Stack spacing={2} sx={{ pt: 2 }}>
             <RupiahInput id="inv-payment-amount" label="Nominal" value={amount} onChange={setTyped} fullWidth />
+            {excess > 0 && (
+              <Alert severity="info">
+                Kelebihan {formatRupiah(excess)} menjadi saldo deposit pasien, berlaku {DEPOSIT_VALID_DAYS} hari.
+              </Alert>
+            )}
             <SelectField id="inv-payment-method" label="Metode" value={method} onChange={(value) => setMethod(value as PaymentMethodValue)}>
               {PAYMENT_METHODS.map((value) => (
                 <option key={value} value={value}>

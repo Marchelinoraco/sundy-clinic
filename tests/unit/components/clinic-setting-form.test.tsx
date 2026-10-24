@@ -19,6 +19,13 @@ beforeEach(() => {
 });
 
 describe("ClinicSettingForm (spec D 5.5)", () => {
+  it("biaya booking dijelaskan sebagai deposit (spec deposit D13)", () => {
+    renderAdmin(<ClinicSettingForm setting={SETTING} />);
+    expect(screen.getByRole("region", { name: "Biaya booking" })).toHaveTextContent(
+      "Berlaku untuk booking baru dari situs, WhatsApp, dan telepon. Walk-in tidak dikenai biaya. Biaya booking menjadi deposit yang dipotong dari tagihan kunjungan, hangus bila batal atau tidak hadir, dan tetap berlaku bila pasien pindah jadwal paling lambat 2 jam sebelumnya.",
+    );
+  });
+
   it("kepala halaman dengan Simpan; biaya dalam rupiah; dua kartu", () => {
     renderAdmin(<ClinicSettingForm setting={SETTING} />);
     expect(screen.getByRole("heading", { level: 1, name: "Pengaturan" })).toBeInTheDocument();

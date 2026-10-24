@@ -93,7 +93,7 @@ export function InvoiceFinalView({
         {canSendReceipt && <ReceiptSendDialog invoiceId={detail.id} />}
           {canSendReceipt && <ReceiptResetDialog invoiceId={detail.id} />}
           {canDiscount && (
-            <FinalDiscountDialog invoiceId={detail.id} subtotal={totals.subtotal} currentDiscount={totals.discount} paid={totals.paid} />
+            <FinalDiscountDialog invoiceId={detail.id} subtotal={totals.subtotal} currentDiscount={totals.discount} paid={totals.paid + totals.deposit} />
           )}
           {canCancel && <CancelInvoiceDialog invoiceId={detail.id} label={detail.number ?? "Tagihan"} />}
         </Stack>
@@ -182,14 +182,31 @@ export function InvoiceFinalView({
               <span>Total</span>
               <span>{formatRupiah(totals.total)}</span>
             </Stack>
+            {detail.deposit.booking > 0 && (
+              <Stack direction="row" sx={row}>
+                <span>Deposit booking</span>
+                <span>-{formatRupiah(detail.deposit.booking)}</span>
+              </Stack>
+            )}
+            {detail.deposit.saldo > 0 && (
+              <Stack direction="row" sx={row}>
+                <span>Saldo deposit</span>
+                <span>-{formatRupiah(detail.deposit.saldo)}</span>
+              </Stack>
+            )}
             <Stack direction="row" sx={row}>
               <span>Dibayar</span>
               <span>{formatRupiah(totals.paid)}</span>
             </Stack>
             <Stack direction="row" sx={{ ...row, fontWeight: 500 }}>
               <span>Sisa</span>
-              <span>{formatRupiah(totals.balance)}</span>
+              <span>{formatRupiah(Math.max(0, totals.balance))}</span>
             </Stack>
+            {detail.depositNotes.map((note) => (
+              <Typography key={note} variant="caption" component="p" sx={{ color: "text.secondary" }}>
+                {note}
+              </Typography>
+            ))}
           </Stack>
         </Box>
 

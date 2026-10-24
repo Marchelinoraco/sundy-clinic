@@ -60,7 +60,7 @@ describe("transferInstructionText", () => {
         "BCA 1234567890 a.n. SunDY Clinic",
         "lalu kirim bukti transfer di chat ini.",
         "",
-        "Biaya booking terpisah dari biaya layanan dan tidak dikembalikan, tetapi tetap berlaku bila Anda pindah jadwal paling lambat 2 jam sebelumnya.",
+        "Biaya booking menjadi deposit yang dipotong dari tagihan saat Anda berkunjung. Deposit hangus bila booking dibatalkan atau Anda tidak hadir, tetapi tetap berlaku bila Anda pindah jadwal paling lambat 2 jam sebelumnya.",
       ].join("\n"),
     );
   });

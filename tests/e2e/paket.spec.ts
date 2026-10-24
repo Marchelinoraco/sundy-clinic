@@ -60,7 +60,7 @@ test("paket dijual dengan DP, sesinya dipakai di kunjungan berikutnya, lalu dipe
   await pay.getByLabel("Nominal").fill("100000");
   await pay.getByRole("button", { name: "Simpan" }).click();
   await expect(pay).toBeHidden({ timeout: 30_000 });
-  await expect(rp.getByText("Deposit", { exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(rp.getByRole("main").getByText("Deposit", { exact: true })).toBeVisible({ timeout: 30_000 });
 
   // Kunjungan kedua memakai sesi paket.
   await rp.goto("/admin/tagihan");

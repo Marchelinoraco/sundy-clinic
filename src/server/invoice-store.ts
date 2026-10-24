@@ -13,6 +13,13 @@ export const TOTALS_SELECT = {
   discountValue: true,
   lines: { select: { quantity: true, unitPrice: true, discountAmount: true, discountSource: true } },
   payments: { select: { amount: true, revokedAt: true } },
+  depositUses: { select: { amount: true } },
+} as const;
+
+/** Potongan deposit dan saldo yang lahir dari tagihan, untuk layar tagihan, struk, dan invoice A4 (spec deposit D9). */
+export const DEPOSIT_SUMMARY_SELECT = {
+  depositUses: { select: { kind: true, amount: true } },
+  depositCredits: { orderBy: { createdAt: "asc" }, select: { amount: true, source: true, validUntil: true } },
 } as const;
 
 /**

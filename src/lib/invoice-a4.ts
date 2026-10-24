@@ -1,3 +1,4 @@
+import { depositSummary } from "./deposit";
 import { invoiceTotals } from "./invoice";
 import type { ReceiptLine, ReceiptSource } from "./receipt";
 import { dateLabel, dateOnlyString, PAYMENT_METHOD_LABEL, type PaymentMethodValue } from "./stock";
@@ -43,6 +44,10 @@ export type InvoiceA4 = {
   payments: { paidAt: string; text: string; amount: number }[];
   status: InvoiceA4Status;
   packages: InvoiceA4Package[];
+  /** Potongan deposit dan catatan saldo baru (spec deposit D9). */
+  bookingDeposit: number;
+  saldoDeposit: number;
+  depositNotes: string[];
 };
 
 /** "22 Okt 2026 · Transfer bank ke BCA … a.n. …" (IA4a, IA4b, IA12). */
@@ -64,6 +69,7 @@ export function packageItemText(item: InvoiceA4PackageItem): string {
 export function buildInvoiceA4(source: InvoiceA4Source, packages: InvoiceA4Package[]): InvoiceA4 | null {
   if (source.status === "DRAF" || !source.number || !source.finalizedAt) return null;
   const totals = invoiceTotals(source);
+  const deposit = depositSummary(source.depositUses, source.depositCredits);
   const status: InvoiceA4Status =
     totals.display === "DIBATALKAN" ? "DIBATALKAN" : totals.display === "LUNAS" ? "LUNAS" : totals.display === "SEBAGIAN" ? "DEPOSIT" : "BELUM_DIBAYAR";
   return {
@@ -92,6 +98,9 @@ export function buildInvoiceA4(source: InvoiceA4Source, packages: InvoiceA4Packa
       }),
     status,
     packages,
+    bookingDeposit: deposit.booking,
+    saldoDeposit: deposit.saldo,
+    depositNotes: deposit.notes,
   };
 }
 

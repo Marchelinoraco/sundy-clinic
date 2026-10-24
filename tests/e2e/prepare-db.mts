@@ -30,6 +30,11 @@ await prisma.employee.deleteMany();
 await prisma.packageSessionEntry.deleteMany();
 await prisma.invoiceLine.updateMany({ where: { patientPackageItemId: { not: null } }, data: { patientPackageItemId: null } });
 await prisma.patientPackage.deleteMany();
+// Deposit (spec deposit) merujuk tagihan, pembayaran, booking, dan pasien: dibuang lebih dulu.
+await prisma.depositRefundPart.deleteMany();
+await prisma.depositRefund.deleteMany();
+await prisma.depositUse.deleteMany();
+await prisma.depositCredit.deleteMany();
 await prisma.invoicePayment.deleteMany();
 await prisma.invoiceStockUse.deleteMany();
 await prisma.invoiceLine.deleteMany();
@@ -535,6 +540,38 @@ for (const [index, project] of ["desktop", "mobile"].entries()) {
       serviceId: visitService.id,
       patientId: patient.id,
     },
+  });
+}
+
+// Deposit (deposit.spec.ts): per proyek satu pasien dengan booking Rp 100.000 yang sudah diverifikasi (ada audit
+// appointment.verify, spec deposit D3) dan kunjungan final hari ini pukul 20.00/20.30, di luar jam buka.
+for (const [index, project] of ["desktop", "mobile"].entries()) {
+  const patient = await prisma.patient.create({
+    data: { medicalRecordNumber: `SDY-E2E-DEPOSIT-${index + 1}`, name: `Pasien Deposit ${project}`, whatsapp: `6281200094${index}01`, birthDate: new Date("1993-03-17T00:00:00Z"), gender: "P" },
+  });
+  const startAt = combineWitaDateAndMinutes(today, 20 * 60 + index * 30);
+  const appointment = await prisma.appointment.create({
+    data: {
+      code: `E2E-DEPOSIT-${index + 1}`,
+      type: "KONSULTASI",
+      startAt,
+      endAt: new Date(startAt.getTime() + 30 * 60_000),
+      status: "HADIR",
+      source: "WHATSAPP",
+      bookingFee: 100000,
+      branchId: visitBranch.id,
+      staffId: visitDoctor.id,
+      serviceId: visitService.id,
+      patientId: patient.id,
+    },
+  });
+  await prisma.auditLog.create({
+    data: { actorStaffId: "e2e", actorName: "Admin E2E", actorRole: "SUPER_ADMIN", action: "appointment.verify", entity: "Appointment", entityId: appointment.id },
+  });
+  const encounter = await prisma.encounter.create({ data: { appointmentId: appointment.id, createdById: visitDoctor.id, createdByName: visitDoctor.name } });
+  await prisma.encounter.update({
+    where: { id: encounter.id },
+    data: { status: "FINAL", assessment: "E2E deposit", finalizedAt: new Date(), finalizedById: visitDoctor.id, finalizedByName: visitDoctor.name },
   });
 }
 
