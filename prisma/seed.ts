@@ -1,6 +1,7 @@
 import { pathToFileURL } from "node:url";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
+import { NO_RETURN_REMINDER_SLUGS } from "../src/lib/treatment-reminder";
 
 /**
  * Seed memakai DATABASE_URL_UNPOOLED, bukan DATABASE_URL.
@@ -115,8 +116,6 @@ type SeedService = {
   sortOrder: number;
 };
 
-/** Layanan yang bukan treatment: tidak memicu pengingat "waktunya treatment lagi" (spec pengingat treatment PT3). */
-const NO_RETURN_REMINDER = new Set(["konsultasi-dokter", "konsultasi-online", "timbang-bia", "meal-plan"]);
 
 // "Our Signature Treatment" pada materi promosi bukan layanan tersendiri.
 // Ia menyorot empat layanan yang sudah ada, jadi disimpan sebagai penanda
@@ -749,7 +748,7 @@ export async function seed(): Promise<void> {
           update: data,
           // Jarak pengingat treatment hanya saat dibuat, supaya seed ulang tidak menimpa pengaturan klinik (spec pengingat
           // treatment PT3).
-          create: { ...data, returnReminderDays: NO_RETURN_REMINDER.has(service.slug) ? null : 7 },
+          create: { ...data, returnReminderDays: NO_RETURN_REMINDER_SLUGS.has(service.slug) ? null : 7 },
         });
       }),
       TRANSACTION_OPTIONS,
