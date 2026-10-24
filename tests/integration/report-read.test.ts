@@ -230,6 +230,7 @@ describe("laporan untung-rugi", () => {
       discount: 100_000,
       upfront: 450_000, // biaya booking 200.000 + Konsultasi Online 250.000
       bookingDeposit: 0,
+      expiredDeposit: 0,
       revenue: 2_350_000,
       cogs: 120_000,
       grossProfit: 2_230_000,

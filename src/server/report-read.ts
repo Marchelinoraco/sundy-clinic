@@ -22,6 +22,7 @@ import {
   commissionDetails,
   depositRefundAggregates,
   expensesByMonth,
+  expiredDepositAggregates,
   invoiceAggregates,
   marginAggregates,
   packageSessionsUsed,
@@ -34,18 +35,19 @@ import { requireCapability } from "@/server/session";
  * Mengumpulkan angka mentah satu periode dan cabang (spec laporan 3). Tanpa tabel ringkasan:
  * semuanya dihitung langsung dari data sumber. `branchId` null = semua cabang (termasuk pengeluaran umum).
  */
-export async function collectReport(period: ReportPeriod, branchId: string | null): Promise<RawReport> {
+export async function collectReport(period: ReportPeriod, branchId: string | null, today: string = witaDateString(new Date())): Promise<RawReport> {
   const { start, end } = periodInstants(period);
   const dates = { gte: dateOnly(period.from), lte: dateOnly(period.to) };
   const branch = branchId ? { branchId } : {};
 
-  const [aggregates, expenseGroups, upfront, customerPaid, supplierGroups, refunds] = await Promise.all([
+  const [aggregates, expenseGroups, upfront, customerPaid, supplierGroups, refunds, expired] = await Promise.all([
     invoiceAggregates(start, end, branchId, false),
     prisma.expense.groupBy({ by: ["categoryId"], where: { voidedAt: null, date: dates, ...branch }, _sum: { amount: true } }),
     upfrontEntries(start, end, branch),
     prisma.invoicePayment.aggregate({ where: { revokedAt: null, paidAt: dates, invoice: branch }, _sum: { amount: true } }),
     prisma.supplierPayment.groupBy({ by: ["kind"], where: { revokedAt: null, paidAt: dates, invoice: branch }, _sum: { amount: true } }),
     depositRefundAggregates(period.from, period.to, branchId, false),
+    expiredDepositAggregates(period.from, period.to, today, branchId, false),
   ]);
 
   const total = aggregates[0];
@@ -68,6 +70,7 @@ export async function collectReport(period: ReportPeriod, branchId: string | nul
     supplierRefunded: supplierGroups.find((g) => g.kind === "PENGEMBALIAN")?._sum.amount ?? 0,
     bookingDepositUsed: (total?.bookingDeposit ?? 0) + (refund?.booking ?? 0),
     depositRefunds: refund?.refunds ?? 0,
+    expiredDeposit: expired[0]?.expired ?? 0,
   };
 
   if (expenseGroups.length > 0) {
@@ -148,9 +151,9 @@ export async function getProfitReport(filter: { period: ReportPeriod; branchId: 
   const months = trendMonths(witaDateString(now));
   const { start, end } = periodInstants(checked.value);
   const [current, before, trend, packageSessions] = await Promise.all([
-    collectReport(checked.value, filter.branchId),
-    collectReport(previous, filter.branchId),
-    collectTrend(months, filter.branchId),
+    collectReport(checked.value, filter.branchId, witaDateString(now)),
+    collectReport(previous, filter.branchId, witaDateString(now)),
+    collectTrend(months, filter.branchId, witaDateString(now)),
     packageSessionsUsed(start, end, filter.branchId),
   ]);
   const currentView = summarizeReport(current);
@@ -173,16 +176,17 @@ export async function getProfitReport(filter: { period: ReportPeriod; branchId: 
  * basis data, pengeluaran per bulan satu query, dan pendapatan di muka diambil sekali untuk seluruh rentang lalu
  * dibagi per bulan menurut waktu verifikasi pertamanya.
  */
-async function collectTrend(months: string[], branchId: string | null): Promise<TrendPoint[]> {
+async function collectTrend(months: string[], branchId: string | null, today: string): Promise<TrendPoint[]> {
   const first = monthPeriod(months[0]);
   const last = monthPeriod(months[months.length - 1]);
   const { start } = periodInstants(first);
   const { end } = periodInstants(last);
-  const [aggregates, expenses, upfront, refunds] = await Promise.all([
+  const [aggregates, expenses, upfront, refunds, expired] = await Promise.all([
     invoiceAggregates(start, end, branchId, true),
     expensesByMonth(first.from, last.to, branchId),
     upfrontEntries(start, end, branchId ? { branchId } : {}),
     depositRefundAggregates(first.from, last.to, branchId, true),
+    expiredDepositAggregates(first.from, last.to, today, branchId, true),
   ]);
   const upfrontOf = new Map<string, { fee: number; online: number }>();
   for (const entry of upfront) {
@@ -212,6 +216,7 @@ async function collectTrend(months: string[], branchId: string | null): Promise<
       supplierRefunded: 0,
       bookingDepositUsed: (row?.bookingDeposit ?? 0) + (refund?.booking ?? 0),
       depositRefunds: 0,
+      expiredDeposit: expired.find((entry) => entry.bucket === month)?.expired ?? 0,
     });
     return trendPoint(month, view);
   });
@@ -222,7 +227,7 @@ export async function getMonthProfit(now: Date = new Date()): Promise<{ month: s
   await requireCapability("profit:read");
   await ensureRecurringExpenses(witaDateString(now));
   const month = currentMonthOf(witaDateString(now));
-  const view = summarizeReport(await collectReport(monthPeriod(month), null));
+  const view = summarizeReport(await collectReport(monthPeriod(month), null, witaDateString(now)));
   return { month, revenue: view.totals.revenue, netProfit: view.totals.netProfit };
 }
 

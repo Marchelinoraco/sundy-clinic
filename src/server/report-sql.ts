@@ -131,6 +131,36 @@ export async function invoiceAggregates(start: Date, end: Date, branchId: string
 }
 
 /**
+ * Sisa saldo kelebihan bayar yang hangus (spec deposit D19): pendapatan pada tanggal hangusnya, sehari sesudah
+ * "berlaku s.d.", dan hanya yang sudah hangus per `today`. Sisa deposit booking tidak ikut, karena biaya bookingnya sudah
+ * dihitung saat diverifikasi. Cabang = cabang tagihan asal saldonya.
+ */
+export async function expiredDepositAggregates(
+  fromDate: string,
+  toDate: string,
+  today: string,
+  branchId: string | null,
+  byMonth: boolean,
+): Promise<{ bucket: string; expired: number }[]> {
+  const branch = branchId ? Prisma.sql`AND i."branchId" = ${branchId}` : Prisma.empty;
+  const bucket = byMonth ? Prisma.sql`to_char(c."validUntil" + 1, 'YYYY-MM')` : Prisma.sql`'semua'`;
+  const day = (value: string) => new Date(`${value}T00:00:00Z`);
+  const rows = await prisma.$queryRaw<{ bucket: string; expired: bigint | null }[]>`
+    SELECT ${bucket} AS bucket,
+           SUM(GREATEST(0, c."amount"
+             - COALESCE((SELECT SUM(u."amount") FROM "DepositUse" u WHERE u."creditId" = c."id"), 0)
+             - COALESCE((SELECT SUM(p."amount") FROM "DepositRefundPart" p WHERE p."creditId" = c."id"), 0))) AS expired
+    FROM "DepositCredit" c
+    LEFT JOIN "Invoice" i ON i."id" = c."sourceInvoiceId"
+    WHERE c."source" = 'KELEBIHAN_BAYAR'
+      AND c."validUntil" + 1 >= ${day(fromDate)} AND c."validUntil" + 1 <= ${day(toDate)} AND c."validUntil" < ${day(today)} ${branch}
+    GROUP BY 1
+    ORDER BY 1
+  `;
+  return rows.map((row) => ({ bucket: row.bucket, expired: Number(row.expired ?? 0) }));
+}
+
+/**
  * Pengembalian deposit per tanggal pengembalian (spec deposit D17): semuanya uang keluar; bagian dari sisa deposit
  * booking juga mengurangi pendapatan (D11). Cabang = cabang tagihan asal saldonya, karena pengembalian milik pasien.
  */

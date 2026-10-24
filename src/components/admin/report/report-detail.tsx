@@ -34,6 +34,7 @@ export function ReportDetail({ current, previous }: { current: ReportView; previ
     { label: "Deposit booking terpakai", current: c.bookingDeposit, previous: p.bookingDeposit, note: "pengurang; sudah dihitung di biaya booking" },
     { label: "Biaya booking (di muka)", current: current.upfrontFee, previous: previous.upfrontFee },
     { label: "Konsultasi Online (di muka)", current: current.upfrontOnline, previous: previous.upfrontOnline },
+    { label: "Saldo deposit hangus", current: c.expiredDeposit, previous: p.expiredDeposit, note: "kelebihan bayar yang tidak dipakai" },
     { label: "Total pendapatan", current: c.revenue, previous: p.revenue, strong: true },
     { label: "Harga pokok", current: c.cogs, previous: p.cogs },
     { label: "Laba kotor", current: c.grossProfit, previous: p.grossProfit, strong: true },
