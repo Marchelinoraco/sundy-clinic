@@ -1,3 +1,6 @@
+import { formatIndonesianDate } from "./format";
+import { firstName } from "./quiz-link";
+
 // Pengingat "waktunya treatment lagi" (spec pengingat treatment PT2, PT11). Murni: dipakai halaman dan server.
 
 /** Pilihan jarak pengingat per layanan, dalam hari ("1 bulan" = 30 hari). */
@@ -26,4 +29,24 @@ export function returnIntervalLabel(days: number | null): string {
 /** Frasa di pesan WhatsApp: "setiap minggu", "setiap 2 minggu", … */
 export function returnIntervalPhrase(days: number): string {
   return PHRASE[days] ?? `setiap ${days} hari`;
+}
+
+/** Baris yang belum dikirim tetap di kotak 5 selama 7 hari sejak waktunya, supaya hari libur terkejar (rencana). */
+export const RETURN_WINDOW_DAYS = 7;
+
+/** "A", "A dan B", "A, B, dan C". */
+export function treatmentNamesLabel(names: readonly string[]): string {
+  if (names.length <= 1) return names[0] ?? "";
+  if (names.length === 2) return `${names[0]} dan ${names[1]}`;
+  return `${names.slice(0, -1).join(", ")}, dan ${names[names.length - 1]}`;
+}
+
+/** Pesan WhatsApp "waktunya treatment lagi" (PT11); `treatmentOn` = tanggal treatment WITA (YYYY-MM-DD). */
+export function treatmentReminderMessage(input: { patientName: string; treatments: readonly string[]; treatmentOn: string; intervalDays: number }): string {
+  const date = formatIndonesianDate(new Date(`${input.treatmentOn}T00:00:00Z`));
+  return (
+    `Halo ${firstName(input.patientName)}, terima kasih sudah melakukan ${treatmentNamesLabel(input.treatments)} di SunDY Clinic pada ${date}. ` +
+    `Agar hasilnya maksimal, treatment ini sebaiknya dilakukan ${returnIntervalPhrase(input.intervalDays)}. ` +
+    "Yuk jadwalkan kunjungan berikutnya — balas pesan ini untuk memilih waktu. SunDY Clinic"
+  );
 }

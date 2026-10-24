@@ -7,6 +7,7 @@ import { recordAppointmentMessage, recordReminderReply, revokeAppointmentMessage
 import { recordPackageVisitReminder } from "@/server/package-reminder";
 import type { PackageReminderRow, ReminderRow, ReminderWorklist } from "@/server/reminder";
 import { getStaffAvailabilityRange } from "@/server/schedule";
+import { recordTreatmentReminder } from "@/server/treatment-reminder";
 import { renderAdmin } from "../helpers/render-admin";
 
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -18,6 +19,7 @@ vi.mock("@/server/appointment-message", () => ({
   revokeAppointmentMessage: vi.fn(),
 }));
 vi.mock("@/server/package-reminder", () => ({ recordPackageVisitReminder: vi.fn() }));
+vi.mock("@/server/treatment-reminder", () => ({ recordTreatmentReminder: vi.fn() }));
 vi.mock("@/server/schedule", () => ({
   getStaffAvailabilityRange: vi.fn(),
   getStaffAvailabilityForAdmin: vi.fn(),
@@ -98,6 +100,41 @@ const WORKLIST: ReminderWorklist = {
     visit("p2", "Dewi Lengkong", "2026-10-05", { shifted: true }),
     visit("p3", "Sinta Wowor", "2026-10-05", { sent: { sentAt, sentByName: "Rina" } }),
   ],
+  treatmentReturns: [
+    {
+      patientId: "t1",
+      patientName: "Rina Wulandari",
+      treatments: "Facial Brightening",
+      treatmentOn: "2026-09-26",
+      intervalDays: 7,
+      dueOn: "2026-10-03",
+      overdue: false,
+      message: { text: "Halo Rina", link: "https://wa.me/6281200000001?text=Halo%20Rina" },
+      sent: null,
+    },
+    {
+      patientId: "t2",
+      patientName: "Dewi Lestari",
+      treatments: "Relaxing Facial",
+      treatmentOn: "2026-09-26",
+      intervalDays: 7,
+      dueOn: "2026-10-03",
+      overdue: false,
+      message: { text: "Halo Dewi", link: "https://wa.me/6281200000002?text=Halo%20Dewi" },
+      sent: { sentAt, sentByName: "Mey" },
+    },
+    {
+      patientId: "t3",
+      patientName: "Sinta Tanpa WA",
+      treatments: "Peeling",
+      treatmentOn: "2026-09-19",
+      intervalDays: 14,
+      dueOn: "2026-10-03",
+      overdue: false,
+      message: { text: "Halo Sinta", link: null },
+      sent: null,
+    },
+  ],
 };
 
 const region = (name: RegExp) => screen.getByRole("region", { name });
@@ -122,8 +159,22 @@ describe("ReminderWorklistView", () => {
     expect(region(/Sudah diingatkan — catat balasannya \(3\)/)).toBeInTheDocument();
     unmount();
 
-    renderAdmin(<ReminderWorklistView worklist={{ today: TODAY, confirm: [], remind: [], reminded: [], packageVisits: [] }} />);
-    expect(screen.getAllByText("Tidak ada.")).toHaveLength(4);
+    renderAdmin(<ReminderWorklistView worklist={{ today: TODAY, confirm: [], remind: [], reminded: [], packageVisits: [], treatmentReturns: [] }} />);
+    expect(screen.getAllByText("Tidak ada.")).toHaveLength(5);
+  });
+
+  it("kotak 5: treatment, tanggal, jarak; Kirim mencatat kiriman; yang terkirim dan tanpa WA (spec pengingat treatment PT6, PT12, PT14)", async () => {
+    vi.mocked(recordTreatmentReminder).mockResolvedValue({ ok: true, data: undefined });
+    renderAdmin(<ReminderWorklistView worklist={WORKLIST} />);
+    expect(region(/5 · Waktunya treatment lagi — ajak kembali \(3\)/)).toBeInTheDocument();
+    const rina = item(/Waktunya treatment lagi/, "Rina Wulandari");
+    expect(rina).toHaveTextContent("Rina Wulandari · Facial Brightening · Sabtu, 26 September 2026 · tiap 1 minggu");
+    const send = within(rina).getByRole("link", { name: "Kirim" });
+    expect(send).toHaveAttribute("href", "https://wa.me/6281200000001?text=Halo%20Rina");
+    await userEvent.click(send);
+    await waitFor(() => expect(recordTreatmentReminder).toHaveBeenCalledWith({ patientId: "t1", treatmentOn: "2026-09-26" }));
+    expect(item(/Waktunya treatment lagi/, "Dewi Lestari")).toHaveTextContent(/Sudah diingatkan · .* oleh Mey/);
+    expect(item(/Waktunya treatment lagi/, "Sinta Tanpa WA")).toHaveTextContent("Nomor WhatsApp pasien tidak dikenali.");
   });
 
   it("kotak 1: kirim konfirmasi mencatat jenis KONFIRMASI", async () => {
