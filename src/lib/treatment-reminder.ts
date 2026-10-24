@@ -3,6 +3,20 @@ import { firstName } from "./quiz-link";
 
 // Pengingat "waktunya treatment lagi" (spec pengingat treatment PT2, PT11). Murni: dipakai halaman dan server.
 
+/**
+ * Layanan yang awalnya tidak diingatkan (PT3): konsultasi, BIA, meal plan (bukan treatment), dan treatment intim yang
+ * namanya tidak pantas tampil di pratinjau notifikasi WhatsApp. Dipakai seed; migrasi pengingat treatment memakai daftar yang sama.
+ */
+export const NO_RETURN_REMINDER_SLUGS: ReadonlySet<string> = new Set([
+  "konsultasi-dokter",
+  "konsultasi-online",
+  "konsultasi-bia",
+  "timbang-bia",
+  "bia",
+  "meal-plan",
+  "hifu-miss-v",
+]);
+
 /** Pilihan jarak pengingat per layanan, dalam hari ("1 bulan" = 30 hari). */
 export const RETURN_INTERVALS = [7, 14, 21, 30, 60, 90, 180] as const;
 
