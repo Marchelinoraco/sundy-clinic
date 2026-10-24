@@ -99,6 +99,7 @@ const RAW: RawReport = {
   supplierRefunded: 50_000,
   bookingDepositUsed: 0,
   depositRefunds: 0,
+  expiredDeposit: 0,
 };
 
 describe("rumus laporan", () => {
@@ -136,6 +137,14 @@ describe("rumus laporan", () => {
       outflow: 1_250_000,
       net: 700_000,
     });
+  });
+
+  it("saldo kelebihan bayar yang hangus menambah pendapatan, tidak mengubah arus kas (spec deposit D19)", () => {
+    const view = summarizeReport({ ...RAW, expiredDeposit: 40_000 });
+    expect(view.totals).toMatchObject({ expiredDeposit: 40_000, revenue: 2_190_000, netProfit: 1_070_000 });
+    expect(view.cash).toEqual(summarizeReport(RAW).cash);
+    const rows = reportCsvRows({ period: { from: "2026-10-01", to: "2026-10-31" }, branchName: "Semua cabang" }, view);
+    expect(rows).toContainEqual(["Saldo deposit hangus", 40_000]);
   });
 
   it("deposit booking terpakai mengurangi pendapatan; pengembalian deposit menambah uang keluar (spec deposit D11, D17)", () => {
@@ -242,6 +251,7 @@ describe("pendapatan paket", () => {
       supplierRefunded: 0,
       bookingDepositUsed: 0,
       depositRefunds: 0,
+      expiredDeposit: 0,
     };
     const view = summarizeReport(raw);
     expect(view.totals).toMatchObject({ package: 900_000, revenue: 950_000 });

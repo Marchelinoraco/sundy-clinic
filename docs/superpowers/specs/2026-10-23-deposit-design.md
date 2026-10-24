@@ -45,6 +45,7 @@ menjadi **saldo deposit pasien**. Saldo itu dipotong otomatis dari tagihan berik
 | D17 | Di laporan, pengembalian dihitung sebagai **uang keluar** pada tanggal pengembalian, sehingga pemasukan periode itu berkurang. | Claude |
 | D18 | **Daftar deposit semua pasien:** menu **Deposit** untuk Resepsionis, Admin Keuangan, dan Super Admin. Tab **Aktif** berisi pasien dengan saldo yang masih berlaku: total saldo, kedaluwarsa terdekat, dan tombol Kembalikan uang. Tab **Riwayat** berisi semua gerakan: masuk (deposit booking, kelebihan bayar, sisa deposit booking), dipakai, dikembalikan, dan hangus, dengan tanggal, tagihan, staf, dan penyetuju. | pemilik; isi: Claude |
 | D13 | Teks lama diganti: pesan WA konfirmasi ("biaya booking tetap berlaku…tidak dikembalikan") dan buku panduan ("terpisah dari biaya layanan") menjadi "biaya booking menjadi deposit yang dipotong dari tagihan; hangus bila batal atau tidak hadir". | Claude |
+| D19 | **Saldo kelebihan bayar yang hangus dihitung pendapatan** pada tanggal hangusnya (sehari sesudah "berlaku s.d."), sebesar sisa yang belum dipakai atau dikembalikan, di cabang tagihan asalnya. Laporan menulisnya sebagai "Saldo deposit hangus". Sisa deposit booking yang hangus tidak ditambahkan lagi, karena biaya bookingnya sudah dihitung saat diverifikasi. | pemilik (24 Okt 2026); rincian: Claude |
 
 ## 3. Data (migrasi hanya menambah)
 

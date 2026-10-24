@@ -2,6 +2,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
 import { summarizeReport } from "@/lib/report";
+import { addDaysToDateString, witaDateString } from "@/lib/time";
 import { collectReport } from "@/server/report-read";
 import { cleanupBillingWorld, createBillingWorld, type BillingWorld } from "./invoice-world";
 
@@ -75,5 +76,41 @@ describe("deposit di laporan", () => {
     expect(view.totals.revenue).toBe(360_000);
     expect(view.cash).toMatchObject({ inflow: 570_000, depositRefunds: 210_000, outflow: 210_000, net: 360_000 });
     expect(await collectReport(MAY, "cabang-lain")).toMatchObject({ bookingDepositUsed: 0, depositRefunds: 0 });
+  });
+
+  it("saldo kelebihan bayar yang hangus menjadi pendapatan pada tanggal hangusnya, sebesar sisanya (spec deposit D19)", async () => {
+    const today = witaDateString(new Date());
+    const past = (days: number) => addDaysToDateString(today, days);
+    const source = await prisma.invoice.create({
+      data: {
+        patientId: world.patientId, branchId: world.branchId, status: "FINAL", number: "TG-HANGUS-1", finalizedAt: at(past(-40)), createdById: "s", createdByName: "Uji",
+        lines: { create: [{ kind: "LAYANAN", name: "Layanan Hangus", quantity: 1, unitPrice: 10_000, sortOrder: 0 }] },
+      },
+    });
+    const expiring = (amount: number, validUntil: string, kind: "KELEBIHAN_BAYAR" | "SISA_DEPOSIT_BOOKING" = "KELEBIHAN_BAYAR") =>
+      prisma.depositCredit.create({
+        data: { patientId: world.patientId, amount, source: kind, sourceInvoiceId: source.id, recordedOn: day(addDaysToDateString(validUntil, -30)), validUntil: day(validUntil), staffId: "s", staffName: "Uji" },
+      });
+    // Hangus 3 hari lalu: 100.000, sudah dipakai 30.000 dan dikembalikan 20.000 → pendapatan 50.000.
+    const partly = await expiring(100_000, past(-4));
+    const user = await prisma.invoice.create({
+      data: { patientId: world.patientId, branchId: world.branchId, status: "FINAL", number: "TG-HANGUS-2", finalizedAt: at(past(-20)), createdById: "s", createdByName: "Uji" },
+    });
+    await prisma.depositUse.create({ data: { invoiceId: user.id, kind: "SALDO", creditId: partly.id, amount: 30_000 } });
+    await prisma.depositRefund.create({
+      data: {
+        patientId: world.patientId, amount: 20_000, method: "TUNAI", reason: "Uji", refundedOn: day(past(-10)), staffId: "s", staffName: "Uji",
+        approvedById: "a", approvedByName: "Penyetuju", parts: { create: [{ creditId: partly.id, amount: 20_000 }] },
+      },
+    });
+    await expiring(70_000, today); // masih berlaku hari ini
+    await expiring(60_000, past(-2), "SISA_DEPOSIT_BOOKING"); // biaya bookingnya sudah dihitung saat diverifikasi
+    await expiring(80_000, past(-40)); // hangus di luar periode
+
+    const period = { from: past(-10), to: today };
+    expect(await collectReport(period, world.branchId)).toMatchObject({ expiredDeposit: 50_000 });
+    expect(await collectReport(period, "cabang-lain")).toMatchObject({ expiredDeposit: 0 });
+    // Periode yang mencakup hari esok tidak menghitung saldo yang belum hangus.
+    expect(await collectReport({ from: past(-10), to: past(5) }, world.branchId)).toMatchObject({ expiredDeposit: 50_000 });
   });
 });

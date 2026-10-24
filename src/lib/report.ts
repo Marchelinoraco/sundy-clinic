@@ -127,6 +127,8 @@ export type RawReport = {
   bookingDepositUsed: number;
   /** Pengembalian deposit dalam bentuk uang pada periode ini: uang keluar (spec deposit D17). */
   depositRefunds: number;
+  /** Sisa saldo kelebihan bayar yang hangus pada periode ini: pendapatan (spec deposit D19). */
+  expiredDeposit: number;
 };
 
 export type ReportTotals = {
@@ -137,6 +139,7 @@ export type ReportTotals = {
   discount: number;
   upfront: number;
   bookingDeposit: number;
+  expiredDeposit: number;
   revenue: number;
   cogs: number;
   grossProfit: number;
@@ -168,11 +171,12 @@ export type ReportView = {
 
 /**
  * Rumus spec laporan 3.1–3.3. Pembayaran hutang supplier hanya masuk arus kas, tidak mengurangi laba. Deposit booking
- * terpakai dikurangkan dari pendapatan; pengembalian deposit masuk uang keluar (spec deposit D11, D17).
+ * terpakai dikurangkan dari pendapatan; saldo kelebihan bayar yang hangus menambahnya; pengembalian deposit masuk uang
+ * keluar (spec deposit D11, D17, D19).
  */
 export function summarizeReport(raw: RawReport): ReportView {
   const upfront = raw.upfrontFee + raw.upfrontOnline;
-  const revenue = raw.service + raw.treatment + raw.goods + raw.package - raw.discount - raw.bookingDepositUsed + upfront;
+  const revenue = raw.service + raw.treatment + raw.goods + raw.package - raw.discount - raw.bookingDepositUsed + upfront + raw.expiredDeposit;
   const expenses = raw.expenses.reduce((sum, row) => sum + row.amount, 0);
   const grossProfit = revenue - raw.cogs;
   const supplier = raw.supplierPaid - raw.supplierRefunded;
@@ -187,6 +191,7 @@ export function summarizeReport(raw: RawReport): ReportView {
       discount: raw.discount,
       upfront,
       bookingDeposit: raw.bookingDepositUsed,
+      expiredDeposit: raw.expiredDeposit,
       revenue,
       cogs: raw.cogs,
       grossProfit,
@@ -266,6 +271,7 @@ export function reportCsvRows(meta: { period: ReportPeriod; branchName: string }
     ["Deposit booking terpakai", -totals.bookingDeposit],
     ["Biaya booking (di muka)", view.upfrontFee],
     ["Konsultasi Online (di muka)", view.upfrontOnline],
+    ["Saldo deposit hangus", totals.expiredDeposit],
     ["Total pendapatan", totals.revenue],
     ["Harga pokok", totals.cogs],
     ["Laba kotor", totals.grossProfit],
