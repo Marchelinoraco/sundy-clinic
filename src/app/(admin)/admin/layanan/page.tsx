@@ -3,12 +3,13 @@ import { ClinicConsultationCard } from "@/components/admin/clinic-consultation-c
 import { OnlineServiceCard } from "@/components/admin/online-service-card";
 import { EmptyState, PageBody, PageHeader } from "@/components/admin/page-layout";
 import { PageTabs } from "@/components/admin/page-tabs";
+import { CategoryManagerDialog } from "@/components/admin/service/category-manager-dialog";
 import { InternalServiceDialog } from "@/components/admin/service/internal-service-dialog";
 import { SiteServiceDialog, type SiteServiceOption } from "@/components/admin/service/site-service-dialog";
 import { SiteServiceTable } from "@/components/admin/service/site-service-table";
 import { ServicePriceTable } from "@/components/admin/service-price-table";
 import { can } from "@/lib/permissions";
-import { getInternalCatalog, getSiteCatalog, listServiceCategories } from "@/server/catalog-admin-read";
+import { getInternalCatalog, getSiteCatalog, listServiceCategories, listServiceCategoryRows } from "@/server/catalog-admin-read";
 import { getClinicConsultationMinutes, getOnlineServiceSettings } from "@/server/service-admin";
 import { requireCapability } from "@/server/session";
 
@@ -21,7 +22,7 @@ export default async function AdminServicesPage({ searchParams }: { searchParams
   const staff = await requireCapability("catalog:manage");
   const canContent = can(staff.role, "content:manage");
   const tab: Tab = (await searchParams).tab === "situs" ? "situs" : "internal";
-  const [internal, categoryOptions] = await Promise.all([getInternalCatalog(), listServiceCategories()]);
+  const [internal, categoryOptions, categoryRows] = await Promise.all([getInternalCatalog(), listServiceCategories(), listServiceCategoryRows()]);
   // Pilihan tautan layanan situs: semua layanan internal (termasuk nonaktif) kecuali Konsultasi Online (spec layanan situs 5.2).
   const serviceOptions: SiteServiceOption[] = internal.flatMap((category) =>
     category.services.map((s) => ({ id: s.id, name: s.name, categoryId: s.categoryId, price: s.promoPrice, isActive: s.isActive })),
@@ -35,11 +36,15 @@ export default async function AdminServicesPage({ searchParams }: { searchParams
           title="Layanan & Harga"
           description="Katalog internal dipakai booking, tagihan, dan paket. Katalog situs adalah isi promosi yang tertaut ke layanan internal."
           actions={
-            tab === "internal" ? (
-              <InternalServiceDialog categories={categoryOptions} />
-            ) : (
-              <SiteServiceDialog categories={categoryOptions} services={serviceOptions} />
-            )
+            <>
+              {/* Kelola kategori di kedua tab (spec kategori layanan KL2). */}
+              <CategoryManagerDialog categories={categoryRows} />
+              {tab === "internal" ? (
+                <InternalServiceDialog categories={categoryOptions} />
+              ) : (
+                <SiteServiceDialog categories={categoryOptions} services={serviceOptions} />
+              )}
+            </>
           }
         />
         <PageTabs
