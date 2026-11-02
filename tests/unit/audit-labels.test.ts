@@ -46,4 +46,12 @@ describe("label aksi audit", () => {
     expect(auditActionLabel("payroll.pay")).toBe("membayar gaji");
     expect(auditActionLabel("payroll.void")).toBe("membatalkan pembayaran gaji");
   });
+
+  it("aksi kategori layanan punya bahasa manusia (spec kategori layanan KL12)", () => {
+    expect(auditActionLabel("service_category.create")).toBe("menambah kategori layanan");
+    expect(auditActionLabel("service_category.update")).toBe("mengubah kategori layanan");
+    expect(auditActionLabel("service_category.move")).toBe("mengubah urutan kategori layanan");
+    expect(auditActionLabel("service_category.delete")).toBe("menghapus kategori layanan");
+    expect(auditActionLabel("service_category.photo")).toBe("mengganti foto kategori layanan");
+  });
 });

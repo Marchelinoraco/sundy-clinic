@@ -84,6 +84,41 @@ export async function getInternalCatalog(): Promise<InternalCategory[]> {
     }));
 }
 
+/** Satu baris di dialog Kelola kategori (spec kategori layanan KL2). Hitungan memasukkan layanan nonaktif dan tersembunyi. */
+export type ServiceCategoryRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  imageUrl: string | null;
+  selfBookable: boolean;
+  serviceCount: number;
+  siteServiceCount: number;
+  /** Berisi Konsultasi Online, yang tidak bisa dipindah admin: kategori ini tidak bisa dihapus (KL8). */
+  locked: boolean;
+};
+
+export async function listServiceCategoryRows(): Promise<ServiceCategoryRow[]> {
+  await requireCapability("catalog:manage");
+  const rows = await prisma.serviceCategory.findMany({
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      imageUrl: true,
+      selfBookable: true,
+      services: { where: { slug: ONLINE_SERVICE_SLUG }, select: { id: true } },
+      _count: { select: { services: true, siteServices: true } },
+    },
+  });
+  return rows.map(({ services, _count, ...row }) => ({
+    ...row,
+    serviceCount: _count.services,
+    siteServiceCount: _count.siteServices,
+    locked: services.length > 0,
+  }));
+}
+
 export async function listServiceCategories(): Promise<{ id: string; name: string }[]> {
   await requireCapability("catalog:manage");
   return prisma.serviceCategory.findMany({ orderBy: { sortOrder: "asc" }, select: { id: true, name: true } });
