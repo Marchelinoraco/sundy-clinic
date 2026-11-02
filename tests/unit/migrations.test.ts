@@ -325,3 +325,24 @@ describe("migrasi stok meja", () => {
     }
   });
 });
+
+// Relasi kategori diubah dari hapus berantai menjadi tolak hapus: konstrainnya dibuang lalu dibuat lagi di berkas yang sama.
+describe("migrasi kategori layanan", () => {
+  const sql = readFileSync("prisma/migrations/20261102090000_kategori_layanan/migration.sql", "utf8");
+
+  it("tidak menghapus kolom atau tabel yang dikenal rilis sebelumnya", () => {
+    expect(sql).not.toMatch(/DROP\s+(COLUMN|TABLE)/i);
+  });
+
+  it("menambah foto dan sakelar; Slimming tidak dipilih sendiri di situs", () => {
+    expect(sql).toMatch(/ADD COLUMN\s+"imageUrl" TEXT/);
+    expect(sql).toMatch(/ADD COLUMN\s+"selfBookable" BOOLEAN NOT NULL DEFAULT true/);
+    expect(sql).toContain(`UPDATE "ServiceCategory" SET "selfBookable" = false WHERE "slug" = 'slimming'`);
+  });
+
+  it("nama unik tanpa membedakan huruf besar-kecil; kategori berisi tidak bisa dihapus", () => {
+    expect(sql).toMatch(/CREATE UNIQUE INDEX "?service_category_name_lower"? ON "ServiceCategory" \(lower\("name"\)\)/);
+    expect(sql).toMatch(/"Service_categoryId_fkey" FOREIGN KEY \("categoryId"\) REFERENCES "ServiceCategory"\("id"\) ON DELETE RESTRICT/);
+    expect(sql).toMatch(/"SiteService_categoryId_fkey" FOREIGN KEY \("categoryId"\) REFERENCES "ServiceCategory"\("id"\) ON DELETE RESTRICT/);
+  });
+});

@@ -50,6 +50,8 @@ describe("server action appointment", () => {
     await prisma.staff.deleteMany({ where: { slug: "staf-appointment-uji" } });
     await prisma.branch.deleteMany({ where: { slug: "cabang-appointment-uji" } });
     await prisma.staff.deleteMany({ where: { slug: "terapis-appointment-uji" } });
+    // Kategori berisi layanan tidak bisa dihapus (spec kategori layanan KL7): layanannya dihapus dulu.
+    await prisma.service.deleteMany({ where: { category: { slug: "kategori-appointment-uji" } } });
     await prisma.serviceCategory.deleteMany({ where: { slug: "kategori-appointment-uji" } });
 
     const patient = await prisma.patient.create({
@@ -106,6 +108,8 @@ describe("server action appointment", () => {
     await prisma.staff.deleteMany({ where: { slug: "staf-appointment-uji" } });
     await prisma.branch.deleteMany({ where: { slug: "cabang-appointment-uji" } });
     await prisma.staff.deleteMany({ where: { slug: "terapis-appointment-uji" } });
+    // Kategori berisi layanan tidak bisa dihapus (spec kategori layanan KL7): layanannya dihapus dulu.
+    await prisma.service.deleteMany({ where: { category: { slug: "kategori-appointment-uji" } } });
     await prisma.serviceCategory.deleteMany({ where: { slug: "kategori-appointment-uji" } });
     await prisma.$disconnect();
   });
