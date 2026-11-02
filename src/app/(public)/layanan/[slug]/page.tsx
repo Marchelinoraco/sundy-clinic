@@ -63,7 +63,7 @@ export default async function ServiceDetailPage({ params }: PageProps) {
           </nav>
         }
         title={service.name}
-        image={serviceImage(service, service.category.slug)}
+        image={serviceImage(service, service.category)}
         imageSize="large"
         description={
           <>
@@ -118,7 +118,7 @@ export default async function ServiceDetailPage({ params }: PageProps) {
           <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {related.map((other, index) => (
               <Reveal key={other.id} delay={staggerDelay(index)} className="h-full">
-                <ServiceCard service={other} categorySlug={service.category.slug} />
+                <ServiceCard service={other} category={service.category} />
               </Reveal>
             ))}
           </div>

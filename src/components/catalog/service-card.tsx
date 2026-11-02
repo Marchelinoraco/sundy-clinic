@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Tilt } from "@/components/motion/tilt";
-import { serviceImage } from "@/lib/site-images";
+import { serviceImage, type CardCategory } from "@/lib/site-images";
 import { PriceTag } from "./price-tag";
 
 type ServiceCardProps = {
@@ -15,11 +15,11 @@ type ServiceCardProps = {
     imageUrl?: string | null;
   };
   /** Kategori layanan; fotonya dipakai bila layanan belum punya foto sendiri. */
-  categorySlug?: string | null;
+  category?: CardCategory | null;
 };
 
-export function ServiceCard({ service, categorySlug }: ServiceCardProps) {
-  const image = serviceImage(service, categorySlug);
+export function ServiceCard({ service, category }: ServiceCardProps) {
+  const image = serviceImage(service, category);
 
   return (
     <Tilt>

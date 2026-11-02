@@ -3,10 +3,11 @@ import type { ComponentProps } from "react";
 import { ServiceCard } from "@/components/catalog/service-card";
 import { Reveal } from "@/components/motion/reveal";
 import { staggerDelay } from "@/components/motion/stagger";
+import type { CardCategory } from "@/lib/site-images";
 
 type SignatureService = ComponentProps<typeof ServiceCard>["service"] & {
   id: string;
-  category: { slug: string };
+  category: CardCategory;
 };
 
 /** Layanan signature: digeser menyamping dengan jepretan per kartu di ponsel, kisi di layar lebar. */
@@ -26,7 +27,7 @@ export function SignatureTreatments({ services }: { services: SignatureService[]
         {services.map((service, index) => (
           <li key={service.id} className="w-[78%] shrink-0 snap-start sm:w-auto">
             <Reveal delay={staggerDelay(index)} className="h-full">
-              <ServiceCard service={service} categorySlug={service.category.slug} />
+              <ServiceCard service={service} category={service.category} />
             </Reveal>
           </li>
         ))}

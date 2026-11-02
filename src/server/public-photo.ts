@@ -6,10 +6,10 @@ import { UserFacingError } from "@/lib/action-result";
 import { DOCTOR_PHOTO_MAX_BYTES, DOCTOR_PHOTO_MAX_SIDE, DOCTOR_PHOTO_MIN_SIDE, DOCTOR_PHOTO_NAME, detectPhotoKind } from "@/lib/doctor-profile";
 import { patientFilesDir } from "@/server/bia-storage";
 
-/** Foto publik (dokter dan layanan situs): pengolahan dan penyimpanan bersama (spec profil dokter 4, spec layanan situs 5.3). */
+/** Foto publik (dokter, layanan situs, kategori): pengolahan dan penyimpanan bersama (spec profil dokter 4, spec layanan situs 5.3, spec kategori layanan KL9). */
 const MAX_INPUT_PIXELS = 40_000_000;
 
-export type PhotoFolder = "dokter" | "layanan";
+export type PhotoFolder = "dokter" | "layanan" | "kategori";
 export type ProcessedPhoto = { bytes: Buffer; width: number; height: number; fingerprint: string };
 
 /**

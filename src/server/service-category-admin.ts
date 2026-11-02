@@ -6,6 +6,7 @@ import { prisma } from "@/lib/db";
 import { ONLINE_SERVICE_SLUG } from "@/lib/online-consultation";
 import { categorySlugBase, nextFreeSlug, validateServiceCategory, type ServiceCategoryInput } from "@/lib/service-category";
 import { recordAudit } from "@/server/audit";
+import { discardCategoryPhoto, removeCategoryPhotoFor } from "@/server/category-photo";
 import { revalidateSitePages } from "@/server/catalog-revalidate";
 import { isUniqueViolation } from "@/server/db-errors";
 import { requireCapability } from "@/server/session";
@@ -127,6 +128,7 @@ export async function deleteServiceCategory(id: string): Promise<ActionResult> {
       select: {
         id: true,
         name: true,
+        imageUrl: true,
         services: { where: { slug: ONLINE_SERVICE_SLUG }, select: { id: true } },
         _count: { select: { services: true, siteServices: true } },
       },
@@ -152,7 +154,15 @@ export async function deleteServiceCategory(id: string): Promise<ActionResult> {
       }
       throw error;
     }
+    await discardCategoryPhoto(row.imageUrl);
     await recordAudit({ actor, action: "service_category.delete", entity: "ServiceCategory", entityId: row.id, summary: row.name });
     revalidateSitePages([]);
+  });
+}
+
+export async function removeServiceCategoryPhoto(id: string): Promise<ActionResult> {
+  return runAction(async () => {
+    const actor = await requireCapability("catalog:manage");
+    await removeCategoryPhotoFor(actor, id);
   });
 }
