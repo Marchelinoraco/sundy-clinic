@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { CONSULTATION_SERVICE_SLUG, SLIMMING_CATEGORY_SLUG } from "@/lib/booking-rules";
+import { CONSULTATION_SERVICE_SLUG } from "@/lib/booking-rules";
 import { ONLINE_SERVICE_SLUG } from "@/lib/online-consultation";
 import { getClinicSetting } from "@/server/clinic-setting";
 import { loadOnlineService } from "@/server/online-store";
@@ -78,7 +78,8 @@ export async function getBookingOptions(): Promise<BookingOptions> {
         service: {
           isActive: true,
           slug: { notIn: [CONSULTATION_SERVICE_SLUG, ONLINE_SERVICE_SLUG] },
-          category: { slug: { not: SLIMMING_CATEGORY_SLUG } },
+          // Hanya kategori yang boleh dipilih sendiri pasien (spec kategori layanan KL14).
+          category: { selfBookable: true },
         },
       },
       orderBy: [{ category: { sortOrder: "asc" } }, { sortOrder: "asc" }, { name: "asc" }],

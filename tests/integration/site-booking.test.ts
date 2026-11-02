@@ -257,6 +257,25 @@ describe("Kirim pendaftaran situs", () => {
     expect(result).toMatchObject({ ok: false });
   });
 
+  it("menolak permintaan rakitan untuk layanan di kategori bersakelar mati (spec kategori layanan KL14, Review Focus 4)", async () => {
+    const facial = await prisma.service.findUniqueOrThrow({ where: { id: world.treatmentId } });
+    await prisma.serviceCategory.update({ where: { id: facial.categoryId }, data: { selfBookable: false } });
+    try {
+      const token = await holdFor("14:30", world.treatmentId, world.therapistId);
+      const result = await submitSiteBooking(
+        input(token, "14:30", {
+          serviceId: world.treatmentId,
+          staffId: world.therapistId,
+          answers: aestheticReturningPatient,
+          identity: returningPatientIdentity,
+        }),
+      );
+      expect(result).toEqual({ ok: false, error: "Silakan pilih Konsultasi Dokter. Treatment ditentukan dokter setelah pemeriksaan." });
+    } finally {
+      await prisma.serviceCategory.update({ where: { id: facial.categoryId }, data: { selfBookable: true } });
+    }
+  });
+
   it("menolak treatment khusus internal walau permintaannya dirakit sendiri (spec layanan situs 4.1)", async () => {
     const facial = await prisma.service.findUniqueOrThrow({ where: { id: world.treatmentId } });
     const internal = await prisma.service.create({

@@ -36,4 +36,13 @@ describe("pilihan treatment /daftar dari katalog situs", () => {
     expect((await getBookingOptions()).treatments.some((t) => t.id === world.treatmentId)).toBe(false);
     await prisma.service.update({ where: { id: world.treatmentId }, data: { isActive: true } });
   });
+
+  it("hanya menawarkan treatment dari kategori yang boleh dipilih sendiri (spec kategori layanan KL14)", async () => {
+    const facial = await prisma.service.findUniqueOrThrow({ where: { id: world.treatmentId } });
+    await prisma.serviceCategory.update({ where: { id: facial.categoryId }, data: { selfBookable: false } });
+    expect((await getBookingOptions()).treatments.some((t) => t.id === world.treatmentId)).toBe(false);
+
+    await prisma.serviceCategory.update({ where: { id: facial.categoryId }, data: { selfBookable: true } });
+    expect((await getBookingOptions()).treatments.some((t) => t.id === world.treatmentId)).toBe(true);
+  });
 });
