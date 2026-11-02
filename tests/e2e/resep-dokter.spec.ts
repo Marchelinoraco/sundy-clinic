@@ -31,7 +31,7 @@ test("admin keuangan menyiapkan paket katalog", async ({ page }, testInfo) => {
   await create.getByLabel("Nama paket").fill(packageName(testInfo));
   await create.getByLabel("Harga paket").fill("1500000");
   await create.getByLabel("Masa berlaku (hari)").fill("90");
-  await pilihMemuat(create.getByLabel("Treatment 1"), "Relaxing Facial");
+  await pilihMemuat(create.getByLabel("Layanan 1"), "Relaxing Facial");
   await create.getByLabel("Jumlah sesi 1").fill("4");
   await create.getByRole("button", { name: "Simpan" }).click();
   await expect(create).toBeHidden({ timeout: 30_000 });

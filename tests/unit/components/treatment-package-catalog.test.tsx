@@ -12,6 +12,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 const services = [
   { id: "s1", name: "Relaxing Facial", categoryName: "Facial Treatment", price: 149_000, costPerSession: 50_000 },
   { id: "s2", name: "Peeling", categoryName: "Peeling", price: 99_000, costPerSession: 30_000 },
+  { id: "s3", name: "Konsultasi Dokter", categoryName: "Konsultasi & Jasa", price: 200_000, costPerSession: 0 },
 ];
 const slimming = { id: "it9", name: "Slimming", unit: "kapsul", kindLabel: "Obat", sellPrice: 5000, lastUnitCost: 2000 };
 const glow: CatalogPackage = {
@@ -67,7 +68,7 @@ describe("TreatmentPackageCatalog", () => {
     expect(dialog).toHaveTextContent(/Bila dibeli hari ini: s\.d\. \d{1,2} \S+ \d{4}\./);
     expect(dialog).toHaveTextContent("Catatan internal untuk staf; tidak tampil di tagihan atau struk.");
     await user.type(within(dialog).getByLabelText("Harga paket"), "600000");
-    await user.selectOptions(within(dialog).getByLabelText("Treatment 1"), "s1");
+    await user.selectOptions(within(dialog).getByLabelText("Layanan 1"), "s1");
     await user.clear(within(dialog).getByLabelText("Jumlah sesi 1"));
     await user.type(within(dialog).getByLabelText("Jumlah sesi 1"), "4");
     const treatment = within(dialog).getByRole("group", { name: "Isi paket 1" });
@@ -87,7 +88,7 @@ describe("TreatmentPackageCatalog", () => {
     expect(summary).toHaveTextContent("Nilai normal isi paketharga jual semua isi bila dibeli satuanRp 746.000");
     expect(summary).toHaveTextContent("Harga paketRp 600.000");
     expect(summary).toHaveTextContent("Customer hematRp 146.000 (19,6%)");
-    expect(summary).toHaveTextContent("Total biaya isi paketbiaya treatment + harga beli barangRp 260.000");
+    expect(summary).toHaveTextContent("Total biaya isi paketbiaya layanan + harga beli barangRp 260.000");
     expect(summary).toHaveTextContent("Selisih harga paket − biayaRp 340.000 (56,7%)");
     expect(within(dialog).getByRole("button", { name: "Simpan" })).toBeEnabled();
   });
@@ -102,7 +103,7 @@ describe("TreatmentPackageCatalog", () => {
     expect(dialog).toHaveTextContent("Kunjungan 1 di hari beli bila langsung dipakai, bila tidak 7 hari kemudian. Berikutnya tiap 7 hari.");
     await user.type(within(dialog).getByLabelText("Nama paket"), "Paket Lux");
     await user.type(within(dialog).getByLabelText("Harga paket"), "2000000");
-    await user.selectOptions(within(dialog).getByLabelText("Treatment 1"), "s1");
+    await user.selectOptions(within(dialog).getByLabelText("Layanan 1"), "s1");
     await user.clear(within(dialog).getByLabelText("Jumlah sesi 1"));
     await user.type(within(dialog).getByLabelText("Jumlah sesi 1"), "4");
     await user.click(within(dialog).getByRole("button", { name: "+ Obat / produk" }));
@@ -138,7 +139,7 @@ describe("TreatmentPackageCatalog", () => {
     await user.click(screen.getByRole("button", { name: "+ Paket" }));
     const dialog = await screen.findByRole("dialog", { name: "Tambah paket" });
     await user.type(within(dialog).getByLabelText("Harga paket"), "40000");
-    await user.selectOptions(within(dialog).getByLabelText("Treatment 1"), "s1");
+    await user.selectOptions(within(dialog).getByLabelText("Layanan 1"), "s1");
     expect(within(dialog).getByRole("alert")).toHaveTextContent("Harga paket Rp 40.000 di bawah total biaya isi Rp 50.000. Naikkan harga paket atau kurangi isinya.");
     expect(within(dialog).getByRole("region", { name: "Ringkasan paket" })).toHaveTextContent("Selisih harga paket − biaya-Rp 10.000");
     expect(within(dialog).getByRole("button", { name: "Simpan" })).toBeDisabled();
@@ -150,12 +151,12 @@ describe("TreatmentPackageCatalog", () => {
     await user.click(screen.getByRole("button", { name: "+ Paket" }));
     const dialog = await screen.findByRole("dialog", { name: "Tambah paket" });
     await user.type(within(dialog).getByLabelText("Harga paket"), "600000");
-    await user.selectOptions(within(dialog).getByLabelText("Treatment 1"), "s1");
+    await user.selectOptions(within(dialog).getByLabelText("Layanan 1"), "s1");
     await user.click(within(dialog).getByRole("button", { name: "+ Obat / produk" }));
     await user.selectOptions(within(dialog).getByLabelText("Obat / produk 2"), "it9");
     expect(within(dialog).getByRole("group", { name: "Isi paket 2" })).toHaveTextContent("Harga beli belum diisi. Isi di Stok → Barang masuk.");
     expect(within(dialog).getByRole("alert")).toHaveTextContent("Harga beli Slimming belum diisi. Isi di Stok → Barang masuk.");
-    expect(within(dialog).getByRole("region", { name: "Ringkasan paket" })).toHaveTextContent("Total biaya isi paketbiaya treatment + harga beli barangbelum lengkap");
+    expect(within(dialog).getByRole("region", { name: "Ringkasan paket" })).toHaveTextContent("Total biaya isi paketbiaya layanan + harga beli barangbelum lengkap");
     expect(within(dialog).getByRole("button", { name: "Simpan" })).toBeDisabled();
   });
 
@@ -169,11 +170,11 @@ describe("TreatmentPackageCatalog", () => {
     await user.type(within(dialog).getByLabelText("Harga paket"), "900000");
     await user.clear(within(dialog).getByLabelText("Masa berlaku (hari)"));
     await user.type(within(dialog).getByLabelText("Masa berlaku (hari)"), "90");
-    await user.selectOptions(within(dialog).getByLabelText("Treatment 1"), "s1");
+    await user.selectOptions(within(dialog).getByLabelText("Layanan 1"), "s1");
     await user.clear(within(dialog).getByLabelText("Jumlah sesi 1"));
     await user.type(within(dialog).getByLabelText("Jumlah sesi 1"), "3");
-    await user.click(within(dialog).getByRole("button", { name: "+ Treatment" }));
-    await user.selectOptions(within(dialog).getByLabelText("Treatment 2"), "s2");
+    await user.click(within(dialog).getByRole("button", { name: "+ Layanan" }));
+    await user.selectOptions(within(dialog).getByLabelText("Layanan 2"), "s2");
     await user.clear(within(dialog).getByLabelText("Jumlah sesi 2"));
     await user.type(within(dialog).getByLabelText("Jumlah sesi 2"), "2");
     await user.click(within(dialog).getByRole("button", { name: "Simpan" }));
@@ -200,7 +201,7 @@ describe("TreatmentPackageCatalog", () => {
     const dialog = await screen.findByRole("dialog", { name: "Tambah paket" });
     await user.type(within(dialog).getByLabelText("Nama paket"), "Paket Lux");
     await user.type(within(dialog).getByLabelText("Harga paket"), "2000000");
-    await user.selectOptions(within(dialog).getByLabelText("Treatment 1"), "s1");
+    await user.selectOptions(within(dialog).getByLabelText("Layanan 1"), "s1");
     await user.click(within(dialog).getByRole("button", { name: "+ Obat / produk" }));
     await user.selectOptions(within(dialog).getByLabelText("Obat / produk 2"), "it9");
     await user.clear(within(dialog).getByLabelText("Jumlah 2"));
@@ -248,5 +249,20 @@ describe("TreatmentPackageCatalog", () => {
 
     await user.click(screen.getByRole("button", { name: "Nonaktifkan Facial Glow 5x" }));
     await waitFor(() => expect(setTreatmentPackageActive).toHaveBeenCalledWith("p1", false));
+  });
+
+  it("isi paket disebut Layanan: jasa konsultasi bisa dipilih seperti treatment (spec kategori layanan KL15)", async () => {
+    const user = userEvent.setup();
+    renderAdmin(<TreatmentPackageCatalog packages={[]} services={services} />);
+    await user.click(screen.getByRole("button", { name: "+ Paket" }));
+    const dialog = await screen.findByRole("dialog", { name: "Tambah paket" });
+    const first = within(dialog).getByRole("group", { name: "Isi paket 1" });
+    expect(first).toHaveTextContent("Layanan 1");
+    expect(first).toHaveTextContent("Pilih layanan dari katalog.");
+    await user.selectOptions(within(dialog).getByLabelText("Layanan 1"), "s3");
+    expect(first).toHaveTextContent("Harga jual Rp 200.000/sesi");
+    await user.click(within(dialog).getByRole("button", { name: "+ Layanan" }));
+    expect(within(dialog).getByRole("button", { name: "Hapus layanan 2" })).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "+ Treatment" })).not.toBeInTheDocument();
   });
 });

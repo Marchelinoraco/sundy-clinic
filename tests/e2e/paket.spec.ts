@@ -31,7 +31,7 @@ test("paket dijual dengan DP, sesinya dipakai di kunjungan berikutnya, lalu dipe
   await create.getByLabel("Nama paket").fill(packageName);
   await create.getByLabel("Harga paket").fill("400000");
   await create.getByLabel("Masa berlaku (hari)").fill("90");
-  await pilihMemuat(create.getByLabel("Treatment 1"), "Relaxing Facial");
+  await pilihMemuat(create.getByLabel("Layanan 1"), "Relaxing Facial");
   await create.getByLabel("Jumlah sesi 1").fill("3");
   await create.getByRole("button", { name: "Simpan" }).click();
   await expect(create).toBeHidden({ timeout: 30_000 });
@@ -142,7 +142,7 @@ test("paket berisi barang: jatah kapsul diambil di tagihan pembelian, stok meja 
   const create = ak.getByRole("dialog", { name: "Tambah paket" });
   await create.getByLabel("Nama paket").fill(packageName);
   await create.getByLabel("Harga paket").fill("900000");
-  await pilihMemuat(create.getByLabel("Treatment 1"), "Relaxing Facial");
+  await pilihMemuat(create.getByLabel("Layanan 1"), "Relaxing Facial");
   await create.getByRole("button", { name: "+ Obat / produk" }).click();
   await pilihMemuat(create.getByLabel("Obat / produk 2", { exact: true }), itemName);
   await create.getByLabel("Jumlah 2", { exact: true }).fill("30");

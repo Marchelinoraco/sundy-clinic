@@ -32,7 +32,7 @@ describe("validateTreatmentPackage", () => {
     expect(bad({ items: [] })).toEqual({ ok: false, message: "Tambahkan minimal satu isi paket." });
     expect(bad({ items: [{ serviceId: "", sessions: 1 }] })).toEqual({ ok: false, message: "Pilih treatment." });
     expect(bad({ items: [{ serviceId: "s1", sessions: 0 }] })).toEqual({ ok: false, message: "Jumlah sesi 1–100." });
-    expect(bad({ items: [{ serviceId: "s1", sessions: 1 }, { serviceId: "s1", sessions: 2 }] })).toEqual({ ok: false, message: "Treatment yang sama tidak boleh dua kali." });
+    expect(bad({ items: [{ serviceId: "s1", sessions: 1 }, { serviceId: "s1", sessions: 2 }] })).toEqual({ ok: false, message: "Layanan yang sama tidak boleh dua kali." });
     expect(validateTreatmentPackage(null)).toEqual({ ok: false, message: "Data tidak sah. Muat ulang halaman lalu coba lagi." });
   });
 

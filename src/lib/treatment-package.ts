@@ -87,7 +87,7 @@ export function validateTreatmentPackage(raw: unknown): Validation<ValidTreatmen
     }
     if (typeof item.serviceId !== "string" || !item.serviceId) return fail("Pilih treatment.");
     if (!isWhole(item.sessions, 1, PACKAGE_SESSIONS_MAX)) return fail(`Jumlah sesi 1–${PACKAGE_SESSIONS_MAX}.`);
-    if (items.some((other) => other.serviceId === item.serviceId)) return fail("Treatment yang sama tidak boleh dua kali.");
+    if (items.some((other) => other.serviceId === item.serviceId)) return fail("Layanan yang sama tidak boleh dua kali.");
     items.push({ serviceId: item.serviceId, itemId: null, sessions: item.sessions as number, perVisit: null });
   }
   // Barang tanpa jumlah per kunjungan dibagi rata dengan sesi treatment terbanyak (JP15).
