@@ -71,7 +71,11 @@ bash scripts/server/cek-situs.sh https://sundyclinic.com
 ```
 
 - Rilis panjang sebaiknya dijalankan di latar belakang di server (koneksi seluler pemilik sering putus):
-  `sudo -u sundyapp -H bash -c "cd /home/sundyapp && nohup /www/sundy/current/scripts/server/deploy.sh > deploy.log 2>&1 < /dev/null &"`.
+  `sudo -u sundyapp -H bash -c "cd /home/sundyapp && NODE_OPTIONS=--max-old-space-size=2048 nohup /www/sundy/current/scripts/server/deploy.sh > deploy.log 2>&1 < /dev/null &"`.
+  Sejak 21 Okt 2026 build di server 2 GB butuh `NODE_OPTIONS=--max-old-space-size=2048` (1536 kehabisan heap saat cek tipe).
+  Build bisa ±25 menit; selesai bila `deploy.log` memuat `[deploy] aktif: <rilis>` atau `GAGAL`. Selama build disk naik
+  ±1,6 GB sebelum rilis tertua dihapus (3 Nov 2026: 83% → 95% → 83%); bila sisa disk di bawah 2 GB, kosongkan dulu (bagian 9).
+  Peringatan build `Can't resolve 'lna'` dari paket `qz-tray` tidak berbahaya.
 - **Migrasi database dijalankan sebelum rilis baru aktif.** Perubahan skema harus tetap cocok dengan kode rilis
   sebelumnya (tambah kolom dulu, hapus di rilis berikutnya) — kalau tidak, "kembali" tidak menolong.
 - **Sejak Plan 3b-1 (pendaftaran situs), jangan `deploy.sh kembali` ke rilis sebelum 3b-1 setelah ada booking dari situs.** Booking situs boleh belum punya pasien, dan kode lama menganggap pasien selalu ada — daftar booking akan rusak. Bila terpaksa, cocokkan dulu semua booking berlabel "Belum dicocokkan".
@@ -80,6 +84,7 @@ bash scripts/server/cek-situs.sh https://sundyclinic.com
 - **Sejak pengelolaan akun staf (kolom `user.mustChangePassword`), cek dulu sebelum `deploy.sh kembali`:** rilis lama mengabaikan tanda wajib ganti kata sandi, sehingga akun yang belum mengganti kata sandi sementaranya bisa langsung memakai panel. Jalankan `sudo -u postgres psql -d sundy -c 'SELECT email FROM "user" WHERE "mustChangePassword"'`; bila ada baris, minta pemilik mereset ulang akun itu setelah kembali ke rilis baru, atau tunda "kembali" sampai kosong.
 - **Sejak peran Perawat, jangan `deploy.sh kembali` ke rilis sebelum Perawat setelah perawat menyimpan food recall.** Rilis lama hanya mengenal penulis `CUSTOMER`/`DOKTER`, sehingga food recall yang berisi baris `PERAWAT` tampil kosong; bila dokter lalu menekan Lengkapi dan menyimpan, isi lamanya tertimpa. Baris pada kunjungan final tidak bisa diperbaiki lewat SQL (trigger `food_recall_locked`). Cek dulu: `sudo -u postgres psql -d sundy -c "SELECT count(*) FROM \"FoodRecall\" WHERE entries::text LIKE '%PERAWAT%'"` — bila lebih dari 0, perbaiki dengan rilis baru (maju), jangan kembali. Rilis sejak Perawat membaca food recall per baris, jadi penulis baru di masa depan tidak lagi mengosongkan tabel.
 - **Sejak paket berisi barang, jangan `deploy.sh kembali` ke rilis sebelum fitur ini setelah ada paket yang berisi barang.** Rilis lama menganggap setiap isi paket punya treatment, sehingga katalog paket, kartu paket customer, dan finalisasi tagihan bisa galat. Cek dulu: `sudo -u postgres psql -d sundy -c 'SELECT (SELECT count(*) FROM "TreatmentPackageItem" WHERE "itemId" IS NOT NULL) AS katalog, (SELECT count(*) FROM "PatientPackageItem" WHERE "itemId" IS NOT NULL) AS customer'` — bila salah satunya lebih dari 0, perbaiki dengan rilis baru (maju), jangan kembali.
+- **Sejak kelola kategori layanan (rilis 20261103-132333), cek dulu sebelum `deploy.sh kembali`:** rilis lama mengabaikan sakelar kategori "Pasien boleh memilih sendiri di situs" dan kembali memakai aturan lama (hanya slug `slimming` yang tidak dipesan sendiri). Kategori lain yang sakelarnya dimatikan admin akan ditawarkan lagi kepada pasien Aesthetic lama di /daftar. Foto kategori unggahan juga tidak tampil (kartu kembali ke foto bawaan). Cek: `sudo -u postgres psql -d sundy -c "SELECT name FROM \"ServiceCategory\" WHERE NOT \"selfBookable\" AND slug <> 'slimming'"` — bila ada baris, perbaiki dengan rilis baru (maju); bila terpaksa kembali, nonaktifkan dulu layanan situs di kategori itu (Layanan & Harga → Layanan situs) supaya tidak bisa dipesan sendiri.
 - Rilis gagal dihapus otomatis dan versi aktif tidak berubah.
 
 ## 5. Mode pemeliharaan
