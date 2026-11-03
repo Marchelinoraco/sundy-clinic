@@ -17,9 +17,6 @@ export function isConsultationDuration(value: unknown): value is (typeof CONSULT
   return typeof value === "number" && (CONSULTATION_DURATIONS as readonly number[]).includes(value);
 }
 
-/** Layanan kategori ini tidak ditawarkan sebagai treatment untuk pasien Aesthetic lama. */
-export const SLIMMING_CATEGORY_SLUG = "slimming";
-
 /** Tanggal WITA "YYYY-MM-DD" yang boleh dipilih pasien: hari ini s/d 30 hari ke depan. */
 export function isBookableDate(date: string, now: Date): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;

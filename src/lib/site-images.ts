@@ -87,16 +87,18 @@ function lookup<T>(map: Record<string, T>, key: string | null | undefined): T | 
   return key && Object.hasOwn(map, key) ? map[key] : undefined;
 }
 
-export function categoryImage(slug?: string | null): SiteImage {
-  return lookup(CATEGORY_IMAGES, slug) ?? FALLBACK_IMAGE;
+/** Kategori pemilik kartu layanan; `imageUrl` = foto kategori unggahan admin (spec kategori layanan KL9). */
+export type CardCategory = { slug: string; name: string; imageUrl?: string | null };
+
+/** Foto kategori unggahan → foto bawaan menurut slug → foto umum klinik. */
+export function categoryImage(category?: CardCategory | null): SiteImage {
+  if (category && isLocalImage(category.imageUrl)) return { src: category.imageUrl, alt: category.name };
+  return lookup(CATEGORY_IMAGES, category?.slug) ?? FALLBACK_IMAGE;
 }
 
-export function serviceImage(
-  service: { name: string; imageUrl?: string | null },
-  categorySlug?: string | null,
-): SiteImage {
+export function serviceImage(service: { name: string; imageUrl?: string | null }, category?: CardCategory | null): SiteImage {
   if (isLocalImage(service.imageUrl)) return { src: service.imageUrl, alt: service.name };
-  return categoryImage(categorySlug);
+  return categoryImage(category);
 }
 
 export function productImage(product: { name: string; imageUrl?: string | null }): SiteImage {

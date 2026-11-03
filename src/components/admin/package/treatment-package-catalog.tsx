@@ -256,7 +256,7 @@ function PackageDialog({
                 Isi paket
               </Typography>
               <Typography variant="caption" component="p" sx={{ color: "text.secondary" }}>
-                Sesi treatment dipakai di tagihan; obat dan produk diambil bertahap dari stok meja.
+                Sesi layanan dipakai di tagihan; obat dan produk diambil bertahap dari stok meja.
               </Typography>
             </Box>
             {draft.items.map((item, index) => {
@@ -266,7 +266,7 @@ function PackageDialog({
               const unit = item.goods ? (stock?.unit ?? "") : "sesi";
               const quantity = Number(item.sessions) > 0 ? Number(item.sessions) : 0;
               const missingCost = stock !== undefined && stock.lastUnitCost === null;
-              const kind = item.goods ? "Obat / produk" : "Treatment";
+              const kind = item.goods ? "Obat / produk" : "Layanan";
               const info = service
                 ? `Harga jual ${formatRupiah(service.price)}/sesi · biaya ${formatRupiah(service.costPerSession)}/sesi`
                 : stock
@@ -275,7 +275,7 @@ function PackageDialog({
                     : `Harga jual ${stock.sellPrice === null ? "belum diisi" : `${formatRupiah(stock.sellPrice)}/${stock.unit}`} · harga beli terakhir ${formatRupiah(stock.lastUnitCost ?? 0)}/${stock.unit}`
                   : item.goods
                     ? "Pilih obat atau produk dari stok."
-                    : "Pilih treatment dari katalog layanan.";
+                    : "Pilih layanan dari katalog.";
               const unitPrice = service?.price ?? stock?.sellPrice ?? null;
               const unitCost = service ? service.costPerSession : (stock?.lastUnitCost ?? null);
               return (
@@ -321,7 +321,7 @@ function PackageDialog({
                         </>
                       ) : (
                         <>
-                          <option value="">Pilih treatment</option>
+                          <option value="">Pilih layanan</option>
                           {services.map((option) => (
                             <option key={option.id} value={option.id}>
                               {option.name} ({option.categoryName})
@@ -368,7 +368,7 @@ function PackageDialog({
             })}
             <Stack direction="row" spacing={1}>
               <Button type="button" size="small" variant="outlined" onClick={() => setDraft((d) => ({ ...d, items: [...d.items, { goods: false, id: "", sessions: "1", perVisit: "" }] }))}>
-                + Treatment
+                + Layanan
               </Button>
               {stockItems.length > 0 && (
                 <Button type="button" size="small" variant="outlined" onClick={() => setDraft((d) => ({ ...d, items: [...d.items, { goods: true, id: "", sessions: "1", perVisit: "" }] }))}>
@@ -380,7 +380,7 @@ function PackageDialog({
               <SummaryRow label="Nilai normal isi paket" note="harga jual semua isi bila dibeli satuan" value={formatRupiah(summary.normalValue)} />
               <SummaryRow label="Harga paket" value={draft.price === null ? "—" : formatRupiah(price)} />
               {draft.price !== null && <SummaryRow label="Customer hemat" value={`${formatRupiah(summary.saving)}${percentOf(summary.saving, summary.normalValue)}`} />}
-              <SummaryRow label="Total biaya isi paket" note="biaya treatment + harga beli barang" value={summary.complete ? formatRupiah(summary.cost) : "belum lengkap"} />
+              <SummaryRow label="Total biaya isi paket" note="biaya layanan + harga beli barang" value={summary.complete ? formatRupiah(summary.cost) : "belum lengkap"} />
               <SummaryRow
                 label="Selisih harga paket − biaya"
                 value={summary.complete && draft.price !== null ? `${formatRupiah(summary.margin)}${percentOf(summary.margin, price)}` : "belum bisa dihitung"}

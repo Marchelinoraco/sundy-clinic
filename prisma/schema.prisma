@@ -152,12 +152,18 @@ model ScheduleException {
   @@index([staffId, date])
 }
 
+/// Dikelola admin dari Layanan & Harga (spec kategori layanan). Slug dibuat sekali dan tidak diubah (KL5).
 model ServiceCategory {
   id           String        @id @default(cuid())
   slug         String        @unique
+  /// Unik tanpa membedakan huruf besar-kecil (indeks service_category_name_lower di migrasi).
   name         String
   description  String?
   sortOrder    Int           @default(0)
+  /// Foto unggahan (/foto-kategori/<nama>) untuk kartu layanan situs tanpa foto sendiri (KL9); kosong = foto bawaan.
+  imageUrl     String?
+  /// Pasien lama Aesthetic boleh memilih layanan kategori ini sendiri di /daftar (KL14). Slimming: false.
+  selfBookable Boolean       @default(true)
   services     Service[]
   siteServices SiteService[]
 }
@@ -208,8 +214,9 @@ model Service {
   /// Biaya lainnya per sesi dengan nama bebas (spec biaya lainnya BL1).
   costLines          ServiceCostLine[]
 
+  /// Restrict: kategori yang masih berisi layanan tidak bisa dihapus (spec kategori layanan KL7).
   categoryId String
-  category   ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  category   ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
 
   packageItems TreatmentPackageItem[]
   appointments Appointment[]
@@ -240,7 +247,7 @@ model SiteService {
   sortOrder   Int     @default(0)
 
   categoryId String
-  category   ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  category   ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   serviceId  String
   service    Service         @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 

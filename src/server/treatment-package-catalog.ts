@@ -157,7 +157,7 @@ async function checkCatalog(value: ValidTreatmentPackage, exceptId?: string) {
   const serviceIds = value.items.flatMap((item) => (item.serviceId ? [item.serviceId] : []));
   const itemIds = value.items.flatMap((item) => (item.itemId ? [item.itemId] : []));
   const services = await prisma.service.findMany({ where: { id: { in: serviceIds }, isActive: true }, select: { id: true } });
-  if (services.length !== serviceIds.length) throw new UserFacingError("Treatment tidak ditemukan atau nonaktif.");
+  if (services.length !== serviceIds.length) throw new UserFacingError("Layanan tidak ditemukan atau nonaktif.");
   const goods = await prisma.stockItem.findMany({ where: { id: { in: itemIds }, isActive: true }, select: { id: true } });
   if (goods.length !== itemIds.length) throw new UserFacingError("Barang tidak ditemukan atau nonaktif.");
   await assertNameFree(value.name, exceptId);

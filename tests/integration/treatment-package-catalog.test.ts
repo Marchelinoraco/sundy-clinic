@@ -80,7 +80,7 @@ describe("katalog paket treatment", () => {
     await unwrap(createTreatmentPackage({ ...input(), name }));
     expect(await createTreatmentPackage({ ...input(), name: name.toUpperCase() })).toEqual({ ok: false, error: "Paket dengan nama ini sudah ada." });
     await prisma.service.update({ where: { id: world.slimmingTreatmentId }, data: { isActive: false } });
-    expect(await createTreatmentPackage({ ...input(), name: `${SLUG} Lain` })).toEqual({ ok: false, error: "Treatment tidak ditemukan atau nonaktif." });
+    expect(await createTreatmentPackage({ ...input(), name: `${SLUG} Lain` })).toEqual({ ok: false, error: "Layanan tidak ditemukan atau nonaktif." });
     await prisma.service.update({ where: { id: world.slimmingTreatmentId }, data: { isActive: true } });
     expect(await createTreatmentPackage({ ...input(), items: [] })).toEqual({ ok: false, error: "Tambahkan minimal satu isi paket." });
   });

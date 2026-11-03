@@ -46,6 +46,9 @@ function allImages(): SiteImage[] {
   ];
 }
 
+const HIFU_CATEGORY = { slug: "hifu", name: "HIFU Treatment" };
+const UPLOADED = "/foto-kategori/c1-0123abcd.webp";
+
 describe("peta foto situs publik", () => {
   it("setiap berkas yang dipetakan ada di public/", () => {
     const missing = allImages().filter((image) => !existsSync(join("public", image.src)));
@@ -63,29 +66,44 @@ describe("peta foto situs publik", () => {
   });
 
   it("memakai foto cadangan untuk kategori yang belum punya foto", () => {
-    expect(categoryImage("kategori-baru")).toEqual(FALLBACK_IMAGE);
+    expect(categoryImage({ slug: "kategori-baru", name: "Kategori Baru" })).toEqual(FALLBACK_IMAGE);
+    expect(categoryImage({ slug: "kategori-baru", name: "Kategori Baru", imageUrl: null })).toEqual(FALLBACK_IMAGE);
     expect(categoryImage(null)).toEqual(FALLBACK_IMAGE);
     expect(categoryImage(undefined)).toEqual(FALLBACK_IMAGE);
   });
 
   it("tidak tertipu nama bawaan objek sebagai slug kategori", () => {
-    expect(categoryImage("constructor")).toEqual(FALLBACK_IMAGE);
-    expect(categoryImage("__proto__")).toEqual(FALLBACK_IMAGE);
+    expect(categoryImage({ slug: "constructor", name: "X" })).toEqual(FALLBACK_IMAGE);
+    expect(categoryImage({ slug: "__proto__", name: "X" })).toEqual(FALLBACK_IMAGE);
     expect(branchImage("toString")).toEqual(CLINIC_GALLERY[0]);
     expect(doctorPhotos({ slug: "constructor", name: "X" })).toBeNull();
   });
 
   it("mendahulukan foto layanan yang diisi lewat data", () => {
-    expect(serviceImage({ name: "HIFU Wajah", imageUrl: "/images/layanan/hifu.jpg" }, "hifu")).toEqual({
+    expect(serviceImage({ name: "HIFU Wajah", imageUrl: "/images/layanan/hifu.jpg" }, HIFU_CATEGORY)).toEqual({
       src: "/images/layanan/hifu.jpg",
       alt: "HIFU Wajah",
     });
-    expect(serviceImage({ name: "HIFU Wajah", imageUrl: null }, "hifu")).toEqual(CATEGORY_IMAGES.hifu);
+    expect(serviceImage({ name: "HIFU Wajah", imageUrl: null }, HIFU_CATEGORY)).toEqual(CATEGORY_IMAGES.hifu);
+    expect(serviceImage({ name: "HIFU Wajah", imageUrl: "/foto-layanan/s1-0123abcd.webp" }, { ...HIFU_CATEGORY, imageUrl: UPLOADED })).toEqual({
+      src: "/foto-layanan/s1-0123abcd.webp",
+      alt: "HIFU Wajah",
+    });
+  });
+
+  it("memakai foto kategori unggahan sebelum foto bawaan kategori (spec kategori layanan KL9)", () => {
+    expect(categoryImage({ ...HIFU_CATEGORY, imageUrl: UPLOADED })).toEqual({ src: UPLOADED, alt: "HIFU Treatment" });
+    expect(categoryImage({ slug: "hair", name: "Hair Treatment", imageUrl: UPLOADED })).toEqual({ src: UPLOADED, alt: "Hair Treatment" });
+    expect(serviceImage({ name: "PRP Rambut", imageUrl: null }, { slug: "hair", name: "Hair Treatment", imageUrl: UPLOADED })).toEqual({
+      src: UPLOADED,
+      alt: "Hair Treatment",
+    });
+    expect(categoryImage({ ...HIFU_CATEGORY, imageUrl: "https://contoh.com/a.jpg" })).toEqual(CATEGORY_IMAGES.hifu);
   });
 
   it("mengabaikan alamat foto yang bukan berkas lokal", () => {
     for (const imageUrl of ["https://contoh.com/a.jpg", "//cdn.contoh.com/a.jpg", "foto.jpg", "", "   "]) {
-      expect(serviceImage({ name: "HIFU Wajah", imageUrl }, "hifu")).toEqual(CATEGORY_IMAGES.hifu);
+      expect(serviceImage({ name: "HIFU Wajah", imageUrl }, HIFU_CATEGORY)).toEqual(CATEGORY_IMAGES.hifu);
       expect(productImage({ name: "Kapsul M", imageUrl })).toEqual(PRODUCT_IMAGE);
     }
   });

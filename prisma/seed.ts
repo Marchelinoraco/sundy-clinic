@@ -98,6 +98,7 @@ const categories = [
     name: "Slimming & Wellness",
     description: "Signature treatment dan layanan satuan program slimming",
     sortOrder: 11,
+    selfBookable: false,
   },
 ];
 
@@ -702,10 +703,11 @@ export async function seed(): Promise<void> {
             create: person,
           }),
         ),
+        // Kategori dikelola admin (spec kategori layanan KL13): seed hanya membuat yang belum ada, tidak menimpa perubahan.
         ...categories.map((category) =>
           prisma.serviceCategory.upsert({
             where: { slug: category.slug },
-            update: category,
+            update: {},
             create: category,
           }),
         ),

@@ -48,8 +48,10 @@ export async function createBookingWorld(slug: string): Promise<BookingWorld> {
 
   const slimming = await prisma.serviceCategory.upsert({
     where: { slug: "slimming" },
-    update: {},
-    create: { slug: "slimming", name: "Slimming & Wellness" },
+    // Slimming tidak dipilih sendiri oleh pasien Aesthetic lama (spec kategori layanan KL14). Urutan seperti seed: seed tidak
+    // menimpa kategori yang sudah ada (KL13), jadi kategori buatan uji harus sudah benar.
+    update: { selfBookable: false },
+    create: { slug: "slimming", name: "Slimming & Wellness", selfBookable: false, sortOrder: 11 },
   });
   const consultation = await prisma.service.upsert({
     where: { slug: "konsultasi-dokter" },
@@ -143,8 +145,10 @@ export function at(date: string, time: string): Date {
 export async function setOnlineService(input: { price: number; active: boolean }): Promise<string> {
   const slimming = await prisma.serviceCategory.upsert({
     where: { slug: "slimming" },
-    update: {},
-    create: { slug: "slimming", name: "Slimming & Wellness" },
+    // Slimming tidak dipilih sendiri oleh pasien Aesthetic lama (spec kategori layanan KL14). Urutan seperti seed: seed tidak
+    // menimpa kategori yang sudah ada (KL13), jadi kategori buatan uji harus sudah benar.
+    update: { selfBookable: false },
+    create: { slug: "slimming", name: "Slimming & Wellness", selfBookable: false, sortOrder: 11 },
   });
   const service = await prisma.service.upsert({
     where: { slug: "konsultasi-online" },

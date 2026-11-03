@@ -53,7 +53,7 @@ export default async function ServicesPage() {
             <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
               {category.services.map((service, index) => (
                 <Reveal key={service.id} delay={staggerDelay(index)} className="h-full">
-                  <ServiceCard service={service} categorySlug={category.slug} />
+                  <ServiceCard service={service} category={category} />
                 </Reveal>
               ))}
             </div>

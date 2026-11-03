@@ -52,7 +52,7 @@ export default async function SlimmingProgramPage({ searchParams }: PageProps) {
   const individualServices = INDIVIDUAL_SERVICE_SLUGS.flatMap((slug) => {
     for (const category of categories) {
       const service = category.services.find((candidate) => candidate.slug === slug);
-      if (service) return [{ service, categorySlug: category.slug }];
+      if (service) return [{ service, category }];
     }
     return [];
   });
@@ -85,9 +85,9 @@ export default async function SlimmingProgramPage({ searchParams }: PageProps) {
         </p>
 
         <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {individualServices.map(({ service, categorySlug }, index) => (
+          {individualServices.map(({ service, category }, index) => (
             <Reveal key={service.id} delay={staggerDelay(index)} className="h-full">
-              <ServiceCard service={service} categorySlug={categorySlug} />
+              <ServiceCard service={service} category={category} />
             </Reveal>
           ))}
         </div>

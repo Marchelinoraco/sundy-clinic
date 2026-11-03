@@ -20,6 +20,10 @@ await prisma.scheduleTemplate.deleteMany({ where: { weekday: 0, staff: { name: "
 await prisma.expense.deleteMany();
 await prisma.recurringExpense.deleteMany();
 await prisma.expenseCategory.deleteMany({ where: { name: { startsWith: "E2E" } } });
+// Kategori layanan buatan e2e (kategori-layanan.spec.ts) yang tertinggal dari putaran gagal: layanannya dibuang dulu,
+// karena kategori berisi tidak bisa dihapus (spec kategori layanan KL7).
+await prisma.service.deleteMany({ where: { category: { name: { startsWith: "E2E Kategori" } } } });
+await prisma.serviceCategory.deleteMany({ where: { name: { startsWith: "E2E Kategori" } } });
 // Penggajian dan karyawan uji (spec karyawan): bulan penggajian unik global, jadi dikosongkan setiap putaran.
 await prisma.invoiceLine.updateMany({ where: { payrollItemId: { not: null } }, data: { payrollItemId: null } });
 await prisma.payrollItem.deleteMany();

@@ -14,6 +14,9 @@ describe("skema katalog", () => {
   });
 
   afterAll(async () => {
+    // Sisa kategori uji tidak boleh tertinggal: seed tidak menimpa kategori yang sudah ada (spec kategori layanan KL13).
+    await prisma.service.deleteMany({ where: { slug: { startsWith: "skema-uji" } } });
+    await prisma.serviceCategory.deleteMany({ where: { slug: { startsWith: "skema-uji" } } });
     await prisma.$disconnect();
   });
 
@@ -122,15 +125,20 @@ describe("skema katalog", () => {
     expect(await prisma.packageItem.count()).toBe(0);
   });
 
-  it("menghapus layanan saat kategorinya dihapus", async () => {
+  it("menolak menghapus kategori yang masih berisi layanan (spec kategori layanan KL7)", async () => {
     const category = await prisma.serviceCategory.create({
-      data: { slug: "laser", name: "Laser", sortOrder: 3 },
+      data: { slug: "skema-uji-berisi", name: "Kategori Skema Berisi", sortOrder: 3 },
     });
     await prisma.service.create({
-      data: { slug: "lip-laser", name: "Lip Laser", promoPrice: 99000, categoryId: category.id },
+      data: { slug: "skema-uji-layanan", name: "Layanan Skema", promoPrice: 99000, categoryId: category.id },
     });
 
-    await prisma.serviceCategory.delete({ where: { id: category.id } });
-    expect(await prisma.service.count()).toBe(0);
+    await expect(prisma.serviceCategory.delete({ where: { id: category.id } })).rejects.toThrow();
+    expect(await prisma.service.count()).toBe(1);
+  });
+
+  it("nama kategori unik tanpa membedakan huruf besar-kecil (KL3)", async () => {
+    await prisma.serviceCategory.create({ data: { slug: "skema-uji-nama", name: "Kategori Skema Nama" } });
+    await expect(prisma.serviceCategory.create({ data: { slug: "skema-uji-nama-2", name: "kategori skema NAMA" } })).rejects.toThrow();
   });
 });
