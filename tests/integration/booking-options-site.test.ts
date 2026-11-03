@@ -45,4 +45,20 @@ describe("pilihan treatment /daftar dari katalog situs", () => {
     await prisma.serviceCategory.update({ where: { id: facial.categoryId }, data: { selfBookable: true } });
     expect((await getBookingOptions()).treatments.some((t) => t.id === world.treatmentId)).toBe(true);
   });
+
+  it("layanan situs di kategori bersakelar mati tidak ditawarkan walau layanan internalnya di kategori yang boleh (KL14, review akhir)", async () => {
+    const jasa = await prisma.serviceCategory.create({ data: { slug: `${SLUG}-jasa`, name: "Jasa Opsi Uji", selfBookable: false } });
+    const sites = await prisma.siteService.findMany({ where: { serviceId: world.treatmentId }, select: { id: true, categoryId: true } });
+    const [first, ...others] = sites;
+    await prisma.siteService.update({ where: { id: first.id }, data: { categoryId: jasa.id } });
+    try {
+      // Masih ada layanan situs lain di kategori yang boleh: tetap ditawarkan lewat yang itu.
+      if (others.length > 0) expect((await getBookingOptions()).treatments.some((t) => t.id === world.treatmentId)).toBe(true);
+      await prisma.siteService.updateMany({ where: { serviceId: world.treatmentId }, data: { categoryId: jasa.id } });
+      expect((await getBookingOptions()).treatments.some((t) => t.id === world.treatmentId)).toBe(false);
+    } finally {
+      for (const site of sites) await prisma.siteService.update({ where: { id: site.id }, data: { categoryId: site.categoryId } });
+      await prisma.serviceCategory.delete({ where: { id: jasa.id } });
+    }
+  });
 });

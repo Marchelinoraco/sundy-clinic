@@ -75,6 +75,8 @@ export async function getBookingOptions(): Promise<BookingOptions> {
     prisma.siteService.findMany({
       where: {
         isActive: true,
+        // Kategori layanan situs dan kategori layanan internalnya sama-sama harus boleh dipilih sendiri (spec kategori layanan KL14).
+        category: { selfBookable: true },
         service: {
           isActive: true,
           slug: { notIn: [CONSULTATION_SERVICE_SLUG, ONLINE_SERVICE_SLUG] },

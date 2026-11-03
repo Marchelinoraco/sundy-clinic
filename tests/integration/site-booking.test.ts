@@ -276,6 +276,27 @@ describe("Kirim pendaftaran situs", () => {
     }
   });
 
+  it("menolak permintaan rakitan bila layanan situsnya di kategori bersakelar mati, walau kategori layanan internalnya boleh (KL14, review akhir)", async () => {
+    const jasa = await prisma.serviceCategory.create({ data: { slug: `${SLUG}-jasa`, name: "Jasa Situs Uji", selfBookable: false } });
+    const sites = await prisma.siteService.findMany({ where: { serviceId: world.treatmentId }, select: { id: true, categoryId: true } });
+    await prisma.siteService.updateMany({ where: { serviceId: world.treatmentId }, data: { categoryId: jasa.id } });
+    try {
+      const token = await holdFor("15:00", world.treatmentId, world.therapistId);
+      const result = await submitSiteBooking(
+        input(token, "15:00", {
+          serviceId: world.treatmentId,
+          staffId: world.therapistId,
+          answers: aestheticReturningPatient,
+          identity: returningPatientIdentity,
+        }),
+      );
+      expect(result).toEqual({ ok: false, error: "Silakan pilih Konsultasi Dokter. Treatment ditentukan dokter setelah pemeriksaan." });
+    } finally {
+      for (const site of sites) await prisma.siteService.update({ where: { id: site.id }, data: { categoryId: site.categoryId } });
+      await prisma.serviceCategory.delete({ where: { id: jasa.id } });
+    }
+  });
+
   it("menolak treatment khusus internal walau permintaannya dirakit sendiri (spec layanan situs 4.1)", async () => {
     const facial = await prisma.service.findUniqueOrThrow({ where: { id: world.treatmentId } });
     const internal = await prisma.service.create({

@@ -66,6 +66,8 @@ async function loadServiceAndBranch(serviceId: string, branchId: string) {
         isActive: true,
         category: { select: { selfBookable: true } },
         siteServices: { where: { isActive: true }, select: { id: true }, take: 1 },
+        // Layanan situs aktif di kategori yang boleh dipilih sendiri; kategorinya bisa berbeda dari kategori layanan internal (KL14).
+        _count: { select: { siteServices: { where: { isActive: true, category: { selfBookable: true } } } } },
       },
     }),
     prisma.branch.findUnique({ where: { id: branchId }, select: { status: true } }),
@@ -319,11 +321,15 @@ async function buildReceipt(appointmentId: string): Promise<BookingReceipt> {
 }
 
 /** Pasien baru dan pasien non-Aesthetic hanya memesan Konsultasi Dokter (K9). */
-function assertServiceFits(service: { slug: string; category: { selfBookable: boolean } }, answers: QuizAnswers) {
+function assertServiceFits(
+  service: { slug: string; category: { selfBookable: boolean }; _count: { siteServices: number } },
+  answers: QuizAnswers,
+) {
   if (service.slug === CONSULTATION_SERVICE_SLUG) return;
   const mayChooseTreatment = answers.patientType === "LAMA" && answers.purpose === "AESTHETIC";
   // Kategori bersakelar mati (spec kategori layanan KL14), misalnya Slimming, tidak dipilih sendiri oleh pasien.
-  if (!mayChooseTreatment || !service.category.selfBookable) {
+  const selfBookable = service.category.selfBookable && service._count.siteServices > 0;
+  if (!mayChooseTreatment || !selfBookable) {
     throw new UserFacingError(
       "Silakan pilih Konsultasi Dokter. Treatment ditentukan dokter setelah pemeriksaan.",
     );
