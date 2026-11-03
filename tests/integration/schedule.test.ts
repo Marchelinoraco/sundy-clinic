@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/db";
 import { unwrap } from "./unwrap";
 import {
@@ -202,6 +202,10 @@ describe("getStaffAvailability — melawan basis data sungguhan", () => {
   let branchId: string;
 
   beforeEach(async () => {
+    // Slot yang sudah lewat tidak ditawarkan, jadi jam dibekukan di Minggu 2026-10-04 08.00 WITA: Senin uji selalu "besok".
+    // Tanpa ini tes gagal begitu tanggal uji lewat (sejak 5 Okt 2026).
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-04T00:00:00Z"));
     await prisma.intake.deleteMany();
     await prisma.appointment.deleteMany();
     await prisma.patient.deleteMany({
@@ -240,6 +244,10 @@ describe("getStaffAvailability — melawan basis data sungguhan", () => {
         slotMinutes: 30,
       }),
     );
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   afterAll(async () => {
@@ -338,19 +346,14 @@ describe("getStaffAvailability — melawan basis data sungguhan", () => {
     // Senin 2026-10-05 pukul 14.00 WITA. Pasien walk-in yang berdiri di meja
     // resepsionis harus bisa dicatat untuk jam yang sama, sedangkan
     // pendaftaran mandiri tetap paling cepat 2 jam dari sekarang (PRD F4).
-    vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-10-05T06:00:00Z"));
-    try {
-      const input = { staffId, branchId, date: "2026-10-05", durationMinutes: 30 };
-      const publicSlots = await getStaffAvailability(input);
-      const adminSlots = await getStaffAvailabilityForAdmin(input);
+    const input = { staffId, branchId, date: "2026-10-05", durationMinutes: 30 };
+    const publicSlots = await getStaffAvailability(input);
+    const adminSlots = await getStaffAvailabilityForAdmin(input);
 
-      expect(publicSlots[0].label).toBe("16.00");
-      expect(adminSlots[0].label).toBe("14.00");
-      expect(adminSlots.map((s) => s.label)).not.toContain("13.30");
-    } finally {
-      vi.useRealTimers();
-    }
+    expect(publicSlots[0].label).toBe("16.00");
+    expect(adminSlots[0].label).toBe("14.00");
+    expect(adminSlots.map((s) => s.label)).not.toContain("13.30");
   });
 
   it("menghitung booking sebelum pukul 08.00 WITA sebagai hari yang sama", async () => {
