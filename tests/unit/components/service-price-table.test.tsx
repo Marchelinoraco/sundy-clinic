@@ -89,7 +89,8 @@ describe("ServicePriceTable (spec D 5.4)", () => {
     await user.type(screen.getByRole("textbox", { name: "Harga berlaku Lip Laser" }), "0");
     await user.click(within(screen.getByRole("row", { name: /Lip Laser/ })).getByRole("button", { name: "Simpan" }));
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Harga coret harus lebih tinggi dari harga berlaku."));
-    expect(within(screen.getByRole("row", { name: /Lip Laser/ })).getByRole("button", { name: "Simpan" })).toBeInTheDocument();
+    // Galat tampil sebelum transisi selesai; tombol sempat bertuliskan "Menyimpan…". Tunggu tombolnya kembali.
+    expect(await within(screen.getByRole("row", { name: /Lip Laser/ })).findByRole("button", { name: "Simpan" })).toBeEnabled();
   });
 
   it("cari dan chip kategori menyaring tanpa membuang perubahan", async () => {
