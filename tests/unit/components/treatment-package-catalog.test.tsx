@@ -259,6 +259,11 @@ describe("TreatmentPackageCatalog", () => {
     const first = within(dialog).getByRole("group", { name: "Isi paket 1" });
     expect(first).toHaveTextContent("Layanan 1");
     expect(first).toHaveTextContent("Pilih layanan dari katalog.");
+    expect(within(first).getByRole("option", { name: "Pilih layanan" })).toBeInTheDocument();
+    expect(dialog).toHaveTextContent("Sesi layanan dipakai di tagihan");
+    // "Treatment" hanya boleh tersisa sebagai bagian nama kategori, mis. "Facial Treatment".
+    expect(dialog).not.toHaveTextContent("Pilih treatment");
+    expect(dialog).not.toHaveTextContent("Sesi treatment");
     await user.selectOptions(within(dialog).getByLabelText("Layanan 1"), "s3");
     expect(first).toHaveTextContent("Harga jual Rp 200.000/sesi");
     await user.click(within(dialog).getByRole("button", { name: "+ Layanan" }));

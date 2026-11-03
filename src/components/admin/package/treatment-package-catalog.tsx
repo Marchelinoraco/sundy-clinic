@@ -256,7 +256,7 @@ function PackageDialog({
                 Isi paket
               </Typography>
               <Typography variant="caption" component="p" sx={{ color: "text.secondary" }}>
-                Sesi treatment dipakai di tagihan; obat dan produk diambil bertahap dari stok meja.
+                Sesi layanan dipakai di tagihan; obat dan produk diambil bertahap dari stok meja.
               </Typography>
             </Box>
             {draft.items.map((item, index) => {
@@ -321,7 +321,7 @@ function PackageDialog({
                         </>
                       ) : (
                         <>
-                          <option value="">Pilih treatment</option>
+                          <option value="">Pilih layanan</option>
                           {services.map((option) => (
                             <option key={option.id} value={option.id}>
                               {option.name} ({option.categoryName})
