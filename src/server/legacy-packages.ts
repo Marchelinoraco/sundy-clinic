@@ -3,7 +3,7 @@
 import type { Prisma } from "@prisma/client";
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
 import { prisma } from "@/lib/db";
-import { validateLegacyPackage, type LegacyPackageForm } from "@/lib/legacy-package";
+import { validateLegacyPackage, validateReason, validateRemainingCorrection, type LegacyPackageForm } from "@/lib/legacy-package";
 import { firstLegacyPatientError, nikTakenMessage, validateLegacyPatient, type LegacyPatientInput } from "@/lib/patient-registration";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { dateLabel } from "@/lib/stock";
@@ -11,7 +11,7 @@ import { witaDateString } from "@/lib/time";
 import { NO_EXPIRY_DATE, packageContentsLabel } from "@/lib/treatment-package";
 import { recordAudit } from "@/server/audit";
 import { isUniqueViolation } from "@/server/db-errors";
-import { CATALOG_ITEM_SELECT, catalogItemsData, remainingByItem } from "@/server/package-store";
+import { CATALOG_ITEM_SELECT, catalogItemsData, lockPatientPackages, remainingByItem } from "@/server/package-store";
 import { insertPatient } from "@/server/patient-store";
 import { requireCapability } from "@/server/session";
 
@@ -170,5 +170,115 @@ export async function createLegacyPackage(
     safeRevalidatePath(`/admin/pasien/${patient.id}`);
     if (saved.isNew) safeRevalidatePath("/admin/pasien");
     return { patientPackageId: created.id, patientId: patient.id, summary: `Paket ${pkg.name} untuk ${patient.name} (${patient.medicalRecordNumber}): sisa ${contents}` };
+  });
+}
+
+/** Paket lama yang dikunci untuk dibatalkan atau dikoreksi; ditolak bila bukan paket lama atau sudah dibatalkan. */
+async function lockedLegacyPackage(tx: Db, packageId: string) {
+  await lockPatientPackages(tx, [packageId]);
+  const pkg = await tx.patientPackage.findUnique({
+    where: { id: packageId },
+    select: { id: true, name: true, source: true, status: true, patientId: true, items: { orderBy: { sortOrder: "asc" }, select: { id: true, serviceName: true, sessions: true } } },
+  });
+  if (!pkg) throw new UserFacingError("Paket tidak ditemukan.");
+  if (pkg.source !== "KLUTO") throw new UserFacingError("Hanya paket lama (Kluto) yang bisa diubah di sini.");
+  if (pkg.status === "DIBATALKAN") throw new UserFacingError("Paket ini sudah dibatalkan.");
+  return pkg;
+}
+
+function revalidatePackage(packageId: string, patientId: string) {
+  safeRevalidatePath("/admin/paket");
+  safeRevalidatePath(`/admin/paket/${packageId}`);
+  safeRevalidatePath(`/admin/pasien/${patientId}`);
+}
+
+/**
+ * Batalkan paket lama (salah pasien atau salah paket, spec bagian 6). Ditolak bila sesinya sudah dipakai di tagihan yang
+ * masih final — sama dengan pembatalan paket yang dibeli (spec paket P12) — sehingga sesi yang dikembalikan pembatalan
+ * tagihan tidak pernah jatuh ke paket yang sudah dibatalkan. Salah angka memakai Koreksi sisa.
+ */
+export async function cancelLegacyPackage(input: { packageId: string; reason: string }): Promise<ActionResult<void>> {
+  return runAction(async () => {
+    const actor = await requireCapability("invoice:correct");
+    const packageId = String(input?.packageId ?? "");
+    const pkg = await prisma.$transaction(async (tx) => {
+      const pkg = await lockedLegacyPackage(tx, packageId);
+      const reason = validateReason(input?.reason, "Isi alasan pembatalan.");
+      if (!reason.ok) throw new UserFacingError(reason.message);
+      const used = await tx.packageSessionEntry.findFirst({
+        where: { kind: "PAKAI", item: { patientPackageId: pkg.id }, invoiceLine: { invoice: { status: "FINAL" } } },
+        orderBy: { createdAt: "asc" },
+        select: { invoiceLine: { select: { invoice: { select: { number: true } } } } },
+      });
+      if (used) throw new UserFacingError(`Sesi paket ini sudah dipakai di tagihan ${used.invoiceLine?.invoice.number ?? "lain"}. Pakai Koreksi sisa.`);
+      const remaining = await remainingByItem(tx, pkg.items.map((item) => item.id));
+      const entries = pkg.items
+        .map((item) => ({ item, left: remaining.get(item.id) ?? 0 }))
+        .filter(({ left }) => left > 0)
+        .map(({ item, left }) => ({
+          patientPackageItemId: item.id,
+          kind: "BATAL_PAKET" as const,
+          delta: -left,
+          reason: reason.value,
+          staffId: actor.staffId,
+          staffName: actor.name,
+        }));
+      if (entries.length > 0) await tx.packageSessionEntry.createMany({ data: entries });
+      await tx.patientPackage.update({ where: { id: pkg.id }, data: { status: "DIBATALKAN", nextVisitOn: null } });
+      return { ...pkg, reason: reason.value };
+    });
+    await recordAudit({ actor, action: "patient-package.legacy-cancel", entity: "PatientPackage", entityId: pkg.id, summary: `${pkg.name}: ${pkg.reason}` });
+    revalidatePackage(pkg.id, pkg.patientId);
+  });
+}
+
+/**
+ * Koreksi sisa paket lama (salah angka, spec bagian 6), kapan saja selama paket aktif: satu entri KOREKSI_KLUTO per isi yang
+ * berubah. Batas per isi = jatah − pemakaian bersih di SunDY, dihitung ulang di sini (tidak memercayai angka dari browser).
+ * Paket yang semua sisanya menjadi 0 tidak punya rencana kunjungan lagi.
+ */
+export async function correctLegacyRemaining(input: { packageId: string; reason: string; remaining: Record<string, number> }): Promise<ActionResult<void>> {
+  return runAction(async () => {
+    const actor = await requireCapability("invoice:correct");
+    const packageId = String(input?.packageId ?? "");
+    const result = await prisma.$transaction(async (tx) => {
+      const pkg = await lockedLegacyPackage(tx, packageId);
+      const itemIds = pkg.items.map((item) => item.id);
+      const [remaining, usedHere] = await Promise.all([
+        remainingByItem(tx, itemIds),
+        tx.packageSessionEntry.groupBy({ by: ["patientPackageItemId"], where: { patientPackageItemId: { in: itemIds }, kind: { in: ["PAKAI", "BATAL_PAKAI"] } }, _sum: { delta: true } }),
+      ]);
+      const checked = validateRemainingCorrection(input, {
+        items: pkg.items.map((item) => ({
+          id: item.id,
+          name: item.serviceName,
+          remaining: remaining.get(item.id) ?? 0,
+          max: item.sessions + (usedHere.find((row) => row.patientPackageItemId === item.id)?._sum.delta ?? 0),
+        })),
+      });
+      if (!checked.ok) throw new UserFacingError(checked.message);
+      await tx.packageSessionEntry.createMany({
+        data: checked.value.changes.map((change) => ({
+          patientPackageItemId: change.itemId,
+          kind: "KOREKSI_KLUTO" as const,
+          delta: change.to - change.from,
+          reason: checked.value.reason,
+          staffId: actor.staffId,
+          staffName: actor.name,
+        })),
+      });
+      const after = pkg.items.map((item) => checked.value.changes.find((change) => change.itemId === item.id)?.to ?? remaining.get(item.id) ?? 0);
+      if (after.every((value) => value <= 0)) await tx.patientPackage.update({ where: { id: pkg.id }, data: { nextVisitOn: null } });
+      return { pkg, changes: checked.value.changes, reason: checked.value.reason };
+    });
+    const changes = result.changes.map((change) => `${change.name} ${change.from}→${change.to}`).join(", ");
+    await recordAudit({
+      actor,
+      action: "patient-package.legacy-correct",
+      entity: "PatientPackage",
+      entityId: result.pkg.id,
+      summary: `${result.pkg.name}: ${changes} (${result.reason})`,
+    });
+    revalidatePackage(result.pkg.id, result.pkg.patientId);
   });
 }
