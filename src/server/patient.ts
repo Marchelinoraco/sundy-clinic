@@ -25,6 +25,7 @@ import { placeLabel } from "@/lib/online-consultation";
 import {
   firstRegistrationError,
   MARITAL_STATUS_LABEL,
+  nikTakenMessage,
   validatePatientRegistration,
   type PatientRegistrationInput,
 } from "@/lib/patient-registration";
@@ -93,10 +94,6 @@ async function findNikOwner(nik: string) {
     where: { nik },
     select: { ...summarySelect(new Date()), birthDate: true },
   });
-}
-
-function nikTakenMessage(owner: { name: string; medicalRecordNumber: string }): string {
-  return `NIK ini sudah terdaftar atas nama ${owner.name} (${owner.medicalRecordNumber}).`;
 }
 
 /**

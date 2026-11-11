@@ -168,3 +168,123 @@ export function firstRegistrationError(errors: RegistrationErrors): string {
   }
   return "Data pasien belum lengkap.";
 }
+
+/** "NIK ini sudah terdaftar atas nama …" — dipakai dialog Pasien baru dan dialog paket lama (spec paket lama bagian 4). */
+export function nikTakenMessage(owner: { name: string; medicalRecordNumber: string }): string {
+  return `NIK ini sudah terdaftar atas nama ${owner.name} (${owner.medicalRecordNumber}).`;
+}
+
+/** Pasien baru dari dialog paket lama Kluto (spec paket lama PL9): isian apa adanya dari browser. */
+export type LegacyPatientInput = {
+  nik: string;
+  name: string;
+  whatsapp: string;
+  birthDate: string;
+  gender: string | null;
+  address: string;
+  email: string;
+  emergencyContactName: string;
+  emergencyContactPhone: string;
+};
+
+export type ValidLegacyPatient = {
+  nik: string | null;
+  name: string;
+  whatsapp: string;
+  birthDate: Date | null;
+  gender: "L" | "P" | null;
+  address: string | null;
+  email: string | null;
+  emergencyContactName: string | null;
+  emergencyContactPhone: string | null;
+};
+
+export type LegacyPatientErrors = Partial<Record<keyof LegacyPatientInput, string>>;
+
+/** Urutan isian di dialog paket lama; galat pertama server mengikuti urutan ini. */
+const LEGACY_PATIENT_FIELDS: readonly (keyof LegacyPatientInput)[] = [
+  "name",
+  "whatsapp",
+  "nik",
+  "birthDate",
+  "gender",
+  "address",
+  "email",
+  "emergencyContactName",
+  "emergencyContactPhone",
+];
+
+/**
+ * Seperti validatePatientRegistration, tetapi hanya nama dan WA yang wajib (PL9): sisanya dilengkapi saat check-in.
+ * Isian yang diisi tetap diperiksa dengan aturan dan pesan yang sama; NIK kosong tidak butuh alasan.
+ */
+export function validateLegacyPatient(
+  input: Record<string, unknown>,
+  today: string,
+): { ok: true; value: ValidLegacyPatient } | { ok: false; errors: LegacyPatientErrors } {
+  const errors: LegacyPatientErrors = {};
+
+  const nikText = text(input.nik).trim();
+  const nik = nikText ? normalizeNik(nikText) : null;
+  if (nikText && !nik) errors.nik = NIK_FORMAT_ERROR;
+
+  const name = text(input.name).trim().replace(/\s+/g, " ");
+  if (!name) errors.name = "Nama pasien wajib diisi.";
+  else if (name.length > NAME_MAX) errors.name = `Nama pasien paling banyak ${NAME_MAX} karakter.`;
+
+  const whatsappText = text(input.whatsapp).trim();
+  const whatsapp = whatsappText ? normalizeWhatsapp(whatsappText) : null;
+  if (!whatsappText) errors.whatsapp = "Nomor HP (WhatsApp) wajib diisi.";
+  else if (!whatsapp) errors.whatsapp = "Nomor HP (WhatsApp) tidak sah. Contoh: 081234567890.";
+
+  const birthText = text(input.birthDate).trim();
+  if (birthText) {
+    if (!isRealDate(birthText)) errors.birthDate = "Tanggal lahir tidak sah.";
+    else if (birthText > today) errors.birthDate = "Tanggal lahir tidak boleh di masa depan.";
+    else if (birthText < BIRTH_DATE_MIN) errors.birthDate = "Tanggal lahir tidak boleh sebelum tahun 1900.";
+  }
+
+  let gender: "L" | "P" | null = null;
+  if (!isBlank(input.gender)) {
+    if (input.gender === "L" || input.gender === "P") gender = input.gender;
+    else errors.gender = "Jenis kelamin tidak dikenal.";
+  }
+
+  const address = text(input.address).trim();
+  if (address.length > ADDRESS_MAX) errors.address = `Alamat paling banyak ${ADDRESS_MAX} karakter.`;
+
+  const emailText = text(input.email).trim().toLowerCase();
+  if (emailText && (emailText.length > EMAIL_MAX || !EMAIL_PATTERN.test(emailText))) errors.email = "Email tidak sah. Contoh: nama@contoh.com.";
+
+  const emergencyContactName = text(input.emergencyContactName).trim().replace(/\s+/g, " ");
+  const emergencyPhoneText = text(input.emergencyContactPhone).trim();
+  const emergencyContactPhone = emergencyPhoneText ? normalizeWhatsapp(emergencyPhoneText) : null;
+  if (emergencyContactName.length > NAME_MAX) errors.emergencyContactName = `Nama kontak darurat paling banyak ${NAME_MAX} karakter.`;
+  else if (!emergencyContactName && emergencyPhoneText) errors.emergencyContactName = "Nama kontak darurat wajib diisi.";
+  if (emergencyPhoneText && !emergencyContactPhone) errors.emergencyContactPhone = "Nomor kontak darurat tidak sah. Contoh: 081234567890.";
+  else if (emergencyContactName && !emergencyPhoneText) errors.emergencyContactPhone = "Nomor kontak darurat wajib diisi.";
+
+  if (Object.keys(errors).length > 0 || !whatsapp) return { ok: false, errors };
+  return {
+    ok: true,
+    value: {
+      nik,
+      name,
+      whatsapp,
+      birthDate: birthText ? new Date(`${birthText}T00:00:00Z`) : null,
+      gender,
+      address: address || null,
+      email: emailText || null,
+      emergencyContactName: emergencyContactName || null,
+      emergencyContactPhone,
+    },
+  };
+}
+
+export function firstLegacyPatientError(errors: LegacyPatientErrors): string {
+  for (const field of LEGACY_PATIENT_FIELDS) {
+    const message = errors[field];
+    if (message) return message;
+  }
+  return "Data pasien belum lengkap.";
+}

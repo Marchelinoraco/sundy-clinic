@@ -4,6 +4,8 @@ import {
   packageCostSummary,
   packageExpiresOn,
   packageOptionsFor,
+  isNoExpiry,
+  NO_EXPIRY_DATE,
   packageOptionsSummary,
   packagePriceError,
   packageState,
@@ -12,6 +14,7 @@ import {
   type PackageOption,
   validateExtension,
   validateTreatmentPackage,
+  validityLabel,
 } from "@/lib/treatment-package";
 
 const valid = { name: " Facial Glow 5x ", price: 1_500_000, validDays: 180, description: "", items: [{ serviceId: "s1", sessions: 5 }] };
@@ -212,5 +215,37 @@ describe("jarak kunjungan dan jumlah per kunjungan di katalog (spec jadwal paket
     expect(validateTreatmentPackage({ ...base, visitIntervalDays: 366 })).toEqual({ ok: false, message: "Jarak antar kunjungan 1–365 hari." });
     expect(validateTreatmentPackage({ ...base, items: [{ itemId: "i1", sessions: 28, perVisit: 29 }] })).toEqual({ ok: false, message: "Jumlah per kunjungan 1–28." });
     expect(validateTreatmentPackage({ ...base, items: [{ itemId: "i1", sessions: 28, perVisit: 0 }] })).toEqual({ ok: false, message: "Jumlah per kunjungan 1–28." });
+  });
+});
+
+describe("paket tanpa batas waktu (spec paket lama PL6)", () => {
+  const legacy = {
+    patientPackageItemId: "i1",
+    purchaseLineId: null,
+    patientPackageId: "p1",
+    packageName: "Lux",
+    serviceId: "s1",
+    itemId: null,
+    serviceName: "Facial",
+    unit: null,
+    sessions: 4,
+    remaining: 1,
+    startsOn: "2025-03-01",
+    expiresOn: NO_EXPIRY_DATE,
+    legacy: true,
+  };
+  it("label masa berlaku tidak pernah menampilkan tanggal penanda", () => {
+    expect(isNoExpiry(NO_EXPIRY_DATE)).toBe(true);
+    expect(isNoExpiry("2027-04-12")).toBe(false);
+    expect(validityLabel(NO_EXPIRY_DATE)).toBe("tanpa batas waktu");
+    expect(validityLabel("2027-04-12")).toBe("berlaku s.d. 12 Apr 2027");
+  });
+  it("pilihan paket lama di editor tagihan ditandai paket lama Kluto", () => {
+    expect(packageTargetLabel(legacy)).toBe("Lux (paket lama Kluto) · sisa 1 · tanpa batas waktu");
+    expect(packageOptionsSummary([legacy])).toEqual(["Lux (paket lama Kluto: sisa 1 Facial; tanpa batas waktu)"]);
+    expect(packageTargetLabel(legacy)).not.toContain("9999");
+  });
+  it("paket lama tidak pernah kedaluwarsa", () => {
+    expect(packageState({ status: "AKTIF", expiresOn: NO_EXPIRY_DATE, remaining: 1 }, "2099-01-01")).toBe("AKTIF");
   });
 });

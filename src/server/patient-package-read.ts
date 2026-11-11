@@ -29,7 +29,7 @@ export async function listPackageOptions(patientId: string, invoiceId?: string):
       serviceName: true,
       unit: true,
       sessions: true,
-      patientPackage: { select: { id: true, name: true, startsOn: true, expiresOn: true } },
+      patientPackage: { select: { id: true, name: true, startsOn: true, expiresOn: true, source: true } },
     },
   });
   const ids = items.map((item) => item.id);
@@ -54,6 +54,7 @@ export async function listPackageOptions(patientId: string, invoiceId?: string):
       (sums.find((row) => row.patientPackageItemId === item.id)?._sum.delta ?? 0) - (pending.find((row) => row.patientPackageItemId === item.id)?._sum.quantity ?? 0),
     startsOn: dateOnlyString(item.patientPackage.startsOn),
     expiresOn: dateOnlyString(item.patientPackage.expiresOn),
+    legacy: item.patientPackage.source === "KLUTO",
   }));
   return [...owned, ...(invoiceId ? await purchasedHere(String(invoiceId), today) : [])].filter((option) => option.remaining > 0);
 }

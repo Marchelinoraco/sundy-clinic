@@ -16,6 +16,20 @@ export const PACKAGE_REASON_MAX = 200;
 export const PACKAGE_VISIT_INTERVAL_MAX = 365;
 export const PACKAGE_VISIT_INTERVAL_DEFAULT = 7;
 const LAST_DATE = "2100-12-31";
+/**
+ * Tanggal penanda paket tanpa batas waktu (paket lama dari Kluto, spec paket lama PL6). Disimpan di `expiresOn` agar kueri
+ * "belum kedaluwarsa" tetap berlaku dan paket lama terurut paling akhir; tidak pernah ditampilkan.
+ */
+export const NO_EXPIRY_DATE = "9999-12-31";
+
+export function isNoExpiry(expiresOn: string): boolean {
+  return expiresOn === NO_EXPIRY_DATE;
+}
+
+/** "berlaku s.d. 12 Apr 2027", atau "tanpa batas waktu" untuk paket lama. */
+export function validityLabel(expiresOn: string): string {
+  return isNoExpiry(expiresOn) ? "tanpa batas waktu" : `berlaku s.d. ${dateLabel(expiresOn)}`;
+}
 
 export type PackageEntryKindValue = "BELI" | "PAKAI" | "BATAL_PAKAI" | "PERPANJANG" | "BATAL_PAKET" | "PAKAI_KLUTO" | "KOREKSI_KLUTO";
 export const PACKAGE_ENTRY_LABEL: Record<PackageEntryKindValue, string> = {
@@ -142,6 +156,8 @@ export type PackageOption = {
   remaining: number;
   startsOn: string;
   expiresOn: string;
+  /** Paket lama dari Kluto (spec paket lama bagian 5); tidak ada = paket biasa. */
+  legacy?: boolean;
 };
 
 export const optionKey = (option: Pick<PackageOption, "patientPackageItemId" | "purchaseLineId" | "serviceId" | "itemId">): string =>
@@ -173,9 +189,9 @@ export function sessionNote(input: { packageName: string; remaining: number; ses
 /** Teks satu pilihan paket di dialog "Pakai". */
 export function packageTargetLabel(option: PackageOption): string {
   const left = option.unit ? `${option.remaining} ${option.unit}` : `${option.remaining}`;
-  return option.purchaseLineId
-    ? `${option.packageName} (dibeli di tagihan ini) · sisa ${left}`
-    : `${option.packageName} · sisa ${left} · berlaku s.d. ${dateLabel(option.expiresOn)}`;
+  if (option.purchaseLineId) return `${option.packageName} (dibeli di tagihan ini) · sisa ${left}`;
+  const name = option.legacy ? `${option.packageName} (paket lama Kluto)` : option.packageName;
+  return `${name} · sisa ${left} · ${validityLabel(option.expiresOn)}`;
 }
 
 export function validateExtension(raw: unknown, ctx: { currentExpiresOn: string }): Validation<{ expiresOn: string; reason: string }> {
@@ -198,7 +214,8 @@ export function packageOptionsSummary(options: readonly PackageOption[]): string
   return [...groups.values()].map((items) => {
     const sessions = items.map((item) => (item.unit ? `${item.remaining} ${item.unit} ${item.serviceName}` : `${item.remaining} ${item.serviceName}`)).join(", ");
     if (items[0].purchaseLineId) return `${items[0].packageName} (dibeli di tagihan ini: ${sessions})`;
-    return `${items[0].packageName} (sisa ${sessions}; berlaku s.d. ${dateLabel(items[0].expiresOn)})`;
+    const prefix = items[0].legacy ? "paket lama Kluto: " : "";
+    return `${items[0].packageName} (${prefix}sisa ${sessions}; ${validityLabel(items[0].expiresOn)})`;
   });
 }
 
