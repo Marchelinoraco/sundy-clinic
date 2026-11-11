@@ -37,7 +37,7 @@ export default async function PatientPackagePage({ params }: { params: Promise<{
         <PageHeader
           title={pkg.name}
           trail={[{ label: "Paket", href: "/admin/paket" }, { label: pkg.patient.name }]}
-          description={`${pkg.patient.name} · ${pkg.patient.medicalRecordNumber} · dibeli ${dateLabel(pkg.startsOn)} (${pkg.purchaseInvoice.number ?? "draf"}) · ${formatRupiah(pkg.price)} · berlaku s.d. ${dateLabel(pkg.expiresOn)}`}
+          description={`${pkg.patient.name} · ${pkg.patient.medicalRecordNumber} · dibeli ${dateLabel(pkg.startsOn)} (${pkg.purchaseInvoice?.number ?? "draf"}) · ${formatRupiah(pkg.price)} · berlaku s.d. ${dateLabel(pkg.expiresOn)}`}
           actions={
             <>
               <StatusChip label={PACKAGE_STATE_LABEL[pkg.state]} />

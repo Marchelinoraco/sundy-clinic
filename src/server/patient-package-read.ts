@@ -133,7 +133,8 @@ export type PatientPackageSummary = {
   state: PatientPackageState;
   /** `unit` terisi untuk barang (spec paket barang PB6). */
   items: { serviceName: string; unit: string | null; sessions: number; remaining: number }[];
-  purchaseInvoice: { id: string; number: string | null };
+  /** Kosong untuk paket lama dari Kluto (spec paket lama bagian 3). */
+  purchaseInvoice: { id: string; number: string | null } | null;
   patient: { id: string; name: string; medicalRecordNumber: string };
 };
 export type PackageEntryRow = {
@@ -198,7 +199,7 @@ async function summarize(rows: SummaryRow[]): Promise<(PatientPackageSummary & {
       expiresOn,
       state: packageState({ status: row.status, expiresOn, remaining: items.reduce((sum, item) => sum + item.remaining, 0) }, today),
       items,
-      purchaseInvoice: row.purchaseLine.invoice,
+      purchaseInvoice: row.purchaseLine?.invoice ?? null,
       patient: row.patient,
     };
   });

@@ -17,13 +17,15 @@ export const PACKAGE_VISIT_INTERVAL_MAX = 365;
 export const PACKAGE_VISIT_INTERVAL_DEFAULT = 7;
 const LAST_DATE = "2100-12-31";
 
-export type PackageEntryKindValue = "BELI" | "PAKAI" | "BATAL_PAKAI" | "PERPANJANG" | "BATAL_PAKET";
+export type PackageEntryKindValue = "BELI" | "PAKAI" | "BATAL_PAKAI" | "PERPANJANG" | "BATAL_PAKET" | "PAKAI_KLUTO" | "KOREKSI_KLUTO";
 export const PACKAGE_ENTRY_LABEL: Record<PackageEntryKindValue, string> = {
   BELI: "Beli",
   PAKAI: "Pakai",
   BATAL_PAKAI: "Batal pakai",
   PERPANJANG: "Perpanjang",
   BATAL_PAKET: "Paket dibatalkan",
+  PAKAI_KLUTO: "Terpakai di Kluto",
+  KOREKSI_KLUTO: "Koreksi",
 };
 
 export type PatientPackageState = "AKTIF" | "KEDALUWARSA" | "HABIS" | "DIBATALKAN";

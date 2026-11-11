@@ -9,7 +9,7 @@ import { DEPOSIT_SUMMARY_SELECT } from "@/server/invoice-store";
  * tanpa harga pokok, biaya, atau catatan internal.
  */
 
-type Snapshot = InvoiceA4Package & { purchaseLineId: string; itemIds: string[] };
+type Snapshot = InvoiceA4Package & { purchaseLineId: string | null; itemIds: string[] };
 
 /**
  * Paket yang dibeli atau dipakai di invoice ini, menurut buku sesi sesaat sesudah invoice difinalkan (IA6, IA10): batasnya
@@ -41,7 +41,7 @@ async function packageSnapshots(invoiceId: string, finalizedAt: Date): Promise<S
     const at = invoice.finalizedAt?.getTime() ?? 0;
     if (at > (newest.get(patientPackageId)?.at ?? -1)) newest.set(patientPackageId, { id: invoice.id, at });
   };
-  for (const pkg of packages) if (pkg.purchaseLine.invoice.status === "FINAL") consider(pkg.id, pkg.purchaseLine.invoice);
+  for (const pkg of packages) if (pkg.purchaseLine?.invoice.status === "FINAL") consider(pkg.id, pkg.purchaseLine.invoice);
   for (const use of uses) if (use.invoiceLine) consider(use.item.patientPackageId, use.invoiceLine.invoice);
   const own = await prisma.packageSessionEntry.aggregate({ where: { kind: { in: ["BELI", "PAKAI"] }, invoiceLine: { invoiceId } }, _max: { createdAt: true } });
   const cutoff = own._max.createdAt ?? finalizedAt;
