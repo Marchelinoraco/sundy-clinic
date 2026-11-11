@@ -44,3 +44,13 @@ describe("PatientPackageTable", () => {
     expect(screen.getByText("Belum ada paket.")).toBeInTheDocument();
   });
 });
+
+describe("PatientPackageTable — paket lama (spec paket lama bagian 5)", () => {
+  it("paket lama bertanda 'Paket lama (Kluto)' dan berlaku 'Tanpa batas waktu', tanpa tanggal penanda", () => {
+    renderAdmin(<PatientPackageTable rows={[{ ...row, id: "pp3", name: "Lux", source: "KLUTO", expiresOn: "9999-12-31", purchaseInvoice: null }]} />);
+    const table = screen.getByRole("table", { name: "Paket customer" });
+    expect(table).toHaveTextContent("Paket lama (Kluto)");
+    expect(table).toHaveTextContent("Tanpa batas waktu");
+    expect(table).not.toHaveTextContent("9999");
+  });
+});
