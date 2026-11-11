@@ -150,6 +150,7 @@ async function loadPackageVisitWork(now: Date): Promise<PackageReminderRow[]> {
       visitIntervalDays: true,
       nextVisitOn: true,
       expiresOn: true,
+      priorVisits: true,
       patient: { select: { name: true, whatsapp: true } },
       items: { orderBy: { sortOrder: "asc" }, select: { id: true, serviceName: true, unit: true, perVisit: true } },
       visitReminders: { select: { visitOn: true, sentAt: true, staffName: true } },
@@ -169,7 +170,8 @@ async function loadPackageVisitWork(now: Date): Promise<PackageReminderRow[]> {
     const day = reminderDay(visitOn, closedDates);
     if (day > today) continue;
     const items = pkg.items.map((item) => ({ name: item.serviceName, unit: item.unit, remaining: remaining.get(item.id) ?? 0, perVisit: item.perVisit }));
-    const visitNumber = (visitsDone.get(pkg.id) ?? 0) + 1;
+    // Paket lama meneruskan hitungan kunjungan Kluto (spec paket lama PL5).
+    const visitNumber = pkg.priorVisits + (visitsDone.get(pkg.id) ?? 0) + 1;
     const [visit] = planVisits({ nextVisitOn: visitOn, intervalDays: pkg.visitIntervalDays, visitsDone: visitNumber - 1, items });
     if (!visit) continue;
     const text = packageVisitMessage({ patientName: pkg.patient.name, packageName: pkg.name, visitNumber, visitOn, today, contents: visit.contents });

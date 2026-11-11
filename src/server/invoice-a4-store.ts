@@ -65,7 +65,10 @@ async function packageSnapshots(invoiceId: string, finalizedAt: Date): Promise<S
       nextVisitOn: pkg.nextVisitOn && newest.get(pkg.id)?.id === invoiceId && pkg.nextVisitOn <= pkg.expiresOn ? dateOnlyString(pkg.nextVisitOn) : null,
       items: pkg.items.map((item) => {
         const rows = known.filter((entry) => entry.patientPackageItemId === item.id);
-        const used = -rows.filter((entry) => entry.kind === "PAKAI" || entry.kind === "BATAL_PAKAI").reduce((sum, entry) => sum + entry.delta, 0);
+        // Paket lama: terpakai di Kluto dan koreksi sisa ikut dihitung, sehingga terpakai + sisa = jatah (spec paket lama bagian 5).
+        const used = -rows
+          .filter((entry) => entry.kind === "PAKAI" || entry.kind === "BATAL_PAKAI" || entry.kind === "PAKAI_KLUTO" || entry.kind === "KOREKSI_KLUTO")
+          .reduce((sum, entry) => sum + entry.delta, 0);
         const remaining = rows.reduce((sum, entry) => sum + entry.delta, 0);
         return { name: item.serviceName, unit: item.unit, total: item.sessions, used, remaining };
       }),

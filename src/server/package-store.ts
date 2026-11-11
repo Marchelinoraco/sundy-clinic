@@ -319,6 +319,11 @@ async function recomputeNextVisit(tx: Db, patientPackageId: string, opts: { excl
   });
   const usedAt = last?.invoiceLine?.invoice.finalizedAt;
   if (usedAt) return moveNextVisit(tx, patientPackageId, witaDateString(usedAt));
-  const pkg = await tx.patientPackage.findUniqueOrThrow({ where: { id: patientPackageId }, select: { startsOn: true } });
+  const pkg = await tx.patientPackage.findUniqueOrThrow({ where: { id: patientPackageId }, select: { startsOn: true, source: true } });
+  // Paket lama: tanggal beli di Kluto bisa bertahun-tahun lalu dan langsung "terlewat"; rencananya kembali kosong (spec paket lama bagian 9).
+  if (pkg.source === "KLUTO") {
+    await tx.patientPackage.update({ where: { id: patientPackageId }, data: { nextVisitOn: null } });
+    return;
+  }
   return moveNextVisit(tx, patientPackageId, dateOnlyString(pkg.startsOn));
 }

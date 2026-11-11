@@ -8,7 +8,7 @@ import { dateLabel, dateOnlyString } from "@/lib/stock";
 import { witaDateString } from "@/lib/time";
 import { validateExtension } from "@/lib/treatment-package";
 import { recordAudit } from "@/server/audit";
-import { lockPatientPackages } from "@/server/package-store";
+import { lockPatientPackages, remainingByItem } from "@/server/package-store";
 import { requireAnyCapability, requireCapability } from "@/server/session";
 
 const day = (value: string) => new Date(`${value}T00:00:00Z`);
@@ -60,13 +60,18 @@ export async function changeNextVisit(input: { packageId: string; visitOn: strin
     const packageId = String(input?.packageId ?? "");
     const summary = await prisma.$transaction(async (tx) => {
       await lockPatientPackages(tx, [packageId]);
-      const pkg = await tx.patientPackage.findUnique({ where: { id: packageId }, select: { name: true, status: true, expiresOn: true, nextVisitOn: true } });
+      const pkg = await tx.patientPackage.findUnique({
+        where: { id: packageId },
+        select: { name: true, status: true, expiresOn: true, nextVisitOn: true, items: { select: { id: true } } },
+      });
       if (!pkg) throw new UserFacingError("Paket tidak ditemukan.");
-      if (pkg.status !== "AKTIF" || !pkg.nextVisitOn) throw new UserFacingError("Paket ini sudah tidak punya rencana kunjungan.");
+      // Rencana kosong boleh diisi selama paket aktif dan masih bersisa (paket lama, spec paket lama PL13 dan bagian 6).
+      const left = [...(await remainingByItem(tx, pkg.items.map((item) => item.id))).values()].some((value) => value > 0);
+      if (pkg.status !== "AKTIF" || (!pkg.nextVisitOn && !left)) throw new UserFacingError("Paket ini sudah tidak punya rencana kunjungan.");
       const checked = validatePlanDate(input?.visitOn, { today: witaDateString(new Date()), expiresOn: dateOnlyString(pkg.expiresOn) });
       if (!checked.ok) throw new UserFacingError(checked.message);
       await tx.patientPackage.update({ where: { id: packageId }, data: { nextVisitOn: day(checked.value) } });
-      return `${pkg.name}: ${dateLabel(dateOnlyString(pkg.nextVisitOn))} → ${dateLabel(checked.value)}`;
+      return `${pkg.name}: ${pkg.nextVisitOn ? dateLabel(dateOnlyString(pkg.nextVisitOn)) : "—"} → ${dateLabel(checked.value)}`;
     });
     await recordAudit({ actor, action: "patient-package.next-visit", entity: "PatientPackage", entityId: packageId, summary });
     safeRevalidatePath("/admin/paket");

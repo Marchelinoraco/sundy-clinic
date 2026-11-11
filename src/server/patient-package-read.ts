@@ -108,7 +108,14 @@ export async function listPackageVisitPlans(patientId: string): Promise<PackageV
   const packages = await prisma.patientPackage.findMany({
     where: { patientId: String(patientId ?? ""), status: "AKTIF", expiresOn: { gte: day(today) }, nextVisitOn: { not: null } },
     orderBy: { expiresOn: "asc" },
-    select: { id: true, name: true, nextVisitOn: true, visitIntervalDays: true, items: { orderBy: { sortOrder: "asc" }, select: { id: true, serviceName: true, unit: true, perVisit: true } } },
+    select: {
+      id: true,
+      name: true,
+      nextVisitOn: true,
+      visitIntervalDays: true,
+      priorVisits: true,
+      items: { orderBy: { sortOrder: "asc" }, select: { id: true, serviceName: true, unit: true, perVisit: true } },
+    },
   });
   if (packages.length === 0) return [];
   const [remaining, visitsDone] = await Promise.all([
@@ -119,7 +126,8 @@ export async function listPackageVisitPlans(patientId: string): Promise<PackageV
     const [visit] = planVisits({
       nextVisitOn: dateOnlyString(pkg.nextVisitOn!),
       intervalDays: pkg.visitIntervalDays,
-      visitsDone: visitsDone.get(pkg.id) ?? 0,
+      // Kunjungan di Kluto ikut dihitung agar nomor kunjungan paket lama meneruskan hitungan Kluto (spec paket lama PL5).
+      visitsDone: pkg.priorVisits + (visitsDone.get(pkg.id) ?? 0),
       items: pkg.items.map((item) => ({ name: item.serviceName, unit: item.unit, remaining: remaining.get(item.id) ?? 0, perVisit: item.perVisit })),
     });
     return visit ? [{ patientPackageId: pkg.id, packageName: pkg.name, visit }] : [];
@@ -132,8 +140,11 @@ export type PatientPackageSummary = {
   startsOn: string;
   expiresOn: string;
   state: PatientPackageState;
+  /** Paket lama dari Kluto: tanpa tagihan pembelian, tanpa batas waktu (spec paket lama bagian 3). */
+  source: "TAGIHAN" | "KLUTO";
+  note: string | null;
   /** `unit` terisi untuk barang (spec paket barang PB6). */
-  items: { serviceName: string; unit: string | null; sessions: number; remaining: number }[];
+  items: { id: string; serviceName: string; unit: string | null; sessions: number; remaining: number }[];
   /** Kosong untuk paket lama dari Kluto (spec paket lama bagian 3). */
   purchaseInvoice: { id: string; number: string | null } | null;
   patient: { id: string; name: string; medicalRecordNumber: string };
@@ -153,7 +164,11 @@ export type PackageEntryRow = {
 };
 /** Kunjungan yang sudah terjadi: satu tagihan final yang memakai paket (spec jadwal paket JP7). */
 export type PackageDoneVisit = { number: number; date: string; invoice: { id: string; number: string | null }; contents: VisitContent[] };
-export type PatientPackageDetail = PatientPackageSummary & {
+export type PatientPackageDetail = Omit<PatientPackageSummary, "items"> & {
+  /** `usedHere` = pemakaian bersih di SunDY (PAKAI − BATAL_PAKAI), batas Koreksi sisa = jatah − usedHere (spec paket lama bagian 6). */
+  items: (PatientPackageSummary["items"][number] & { usedHere: number })[];
+  /** Kunjungan di Kluto (paket lama); 0 untuk paket yang dijual di SunDY. */
+  priorVisits: number;
   price: number;
   entries: PackageEntryRow[];
   nextVisitOn: string | null;
@@ -170,6 +185,9 @@ const SUMMARY_SELECT = {
   status: true,
   nextVisitOn: true,
   visitIntervalDays: true,
+  source: true,
+  note: true,
+  priorVisits: true,
   patient: { select: { id: true, name: true, medicalRecordNumber: true } },
   purchaseLine: { select: { invoice: { select: { id: true, number: true } } } },
   items: { orderBy: { sortOrder: "asc" }, select: { id: true, serviceName: true, unit: true, sessions: true, perVisit: true } },
@@ -186,6 +204,7 @@ async function summarize(rows: SummaryRow[]): Promise<(PatientPackageSummary & {
   const today = witaDateString(new Date());
   const summaries = rows.map((row) => {
     const items = row.items.map((item) => ({
+      id: item.id,
       serviceName: item.serviceName,
       unit: item.unit,
       sessions: item.sessions,
@@ -199,6 +218,8 @@ async function summarize(rows: SummaryRow[]): Promise<(PatientPackageSummary & {
       startsOn: dateOnlyString(row.startsOn),
       expiresOn,
       state: packageState({ status: row.status, expiresOn, remaining: items.reduce((sum, item) => sum + item.remaining, 0) }, today),
+      source: row.source,
+      note: row.note,
       items,
       purchaseInvoice: row.purchaseLine?.invoice ?? null,
       patient: row.patient,
@@ -213,20 +234,26 @@ export async function listPatientPackages(patientId: string): Promise<PatientPac
   return summarize(rows);
 }
 
-/** Tab "Paket customer": paling banyak 200, terbaru dulu, cari nama paket, nama customer, atau nomor RM. */
-export async function searchPatientPackages(q?: string): Promise<PatientPackageSummary[]> {
+/**
+ * Tab "Paket customer": paling banyak 200, terbaru dulu, cari nama paket, nama customer, atau nomor RM. `source: "KLUTO"`
+ * = saringan "Paket lama (Kluto)" untuk pencocokan oleh Admin Keuangan (spec paket lama PL12).
+ */
+export async function searchPatientPackages(q?: string, opts?: { source?: "KLUTO" }): Promise<PatientPackageSummary[]> {
   await requireCapability("invoice:read");
   const term = q?.trim();
   const rows = await prisma.patientPackage.findMany({
-    where: term
-      ? {
-          OR: [
-            { name: { contains: term, mode: "insensitive" } },
-            { patient: { name: { contains: term, mode: "insensitive" } } },
-            { patient: { medicalRecordNumber: { contains: term, mode: "insensitive" } } },
-          ],
-        }
-      : {},
+    where: {
+      ...(opts?.source === "KLUTO" ? { source: "KLUTO" as const } : {}),
+      ...(term
+        ? {
+            OR: [
+              { name: { contains: term, mode: "insensitive" as const } },
+              { patient: { name: { contains: term, mode: "insensitive" as const } } },
+              { patient: { medicalRecordNumber: { contains: term, mode: "insensitive" as const } } },
+            ],
+          }
+        : {}),
+    },
     orderBy: { createdAt: "desc" },
     take: 200,
     select: SUMMARY_SELECT,
@@ -256,15 +283,22 @@ export async function getPatientPackage(id: string): Promise<PatientPackageDetai
     },
   });
   const nextVisitOn = row.nextVisitOn ? dateOnlyString(row.nextVisitOn) : null;
-  const doneVisits = await packageDoneVisits(row.id, row.items);
+  const doneVisits = await packageDoneVisits(row.id, row.items, row.priorVisits);
+  const usedHere = await prisma.packageSessionEntry.groupBy({
+    by: ["patientPackageItemId"],
+    where: { patientPackageItemId: { in: row.items.map((item) => item.id) }, kind: { in: ["PAKAI", "BATAL_PAKAI"] } },
+    _sum: { delta: true },
+  });
   const plan = planVisits({
     nextVisitOn,
     intervalDays: row.visitIntervalDays,
-    visitsDone: doneVisits.length,
+    visitsDone: row.priorVisits + doneVisits.length,
     items: row.items.map((item, index) => ({ name: item.serviceName, unit: item.unit, remaining: summary.items[index].remaining, perVisit: item.perVisit })),
   });
   return {
     ...summary,
+    items: summary.items.map((item) => ({ ...item, usedHere: 0 - (usedHere.find((row) => row.patientPackageItemId === item.id)?._sum.delta ?? 0) })),
+    priorVisits: row.priorVisits,
     nextVisitOn,
     doneVisits,
     plan,
@@ -283,8 +317,15 @@ export async function getPatientPackage(id: string): Promise<PatientPackageDetai
   };
 }
 
-/** Tagihan final yang memakai paket, urut waktu final; isinya = jumlah PAKAI per isi paket (spec jadwal paket JP7). */
-async function packageDoneVisits(patientPackageId: string, items: readonly { id: string; serviceName: string; unit: string | null }[]): Promise<PackageDoneVisit[]> {
+/**
+ * Tagihan final yang memakai paket, urut waktu final; isinya = jumlah PAKAI per isi paket (spec jadwal paket JP7). Nomor
+ * kunjungan dimulai sesudah kunjungan di Kluto (`priorVisits`, spec paket lama PL5).
+ */
+async function packageDoneVisits(
+  patientPackageId: string,
+  items: readonly { id: string; serviceName: string; unit: string | null }[],
+  priorVisits: number,
+): Promise<PackageDoneVisit[]> {
   const uses = await prisma.packageSessionEntry.findMany({
     where: { kind: "PAKAI", item: { patientPackageId }, invoiceLine: { invoice: { status: "FINAL" } } },
     select: { patientPackageItemId: true, delta: true, invoiceLine: { select: { invoice: { select: { id: true, number: true, finalizedAt: true } } } } },
@@ -294,7 +335,7 @@ async function packageDoneVisits(patientPackageId: string, items: readonly { id:
   return [...invoices.values()]
     .sort((a, b) => (a.finalizedAt?.getTime() ?? 0) - (b.finalizedAt?.getTime() ?? 0))
     .map((invoice, index) => ({
-      number: index + 1,
+      number: priorVisits + index + 1,
       date: invoice.finalizedAt ? witaDateString(invoice.finalizedAt) : "",
       invoice: { id: invoice.id, number: invoice.number },
       contents: items.flatMap((item) => {
