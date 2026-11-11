@@ -2,7 +2,7 @@
 
 - **Versi:** 1.0
 - **Tanggal:** 11 November 2026
-- **Status:** Menunggu tinjauan pemilik
+- **Status:** Disetujui pemilik 11 November 2026
 - **Menggantikan:** sub-proyek "impor Kluto" untuk bagian paket. Kluto tidak bisa mengekspor data, jadi tidak ada impor berkas.
 - **Menyentuh:**
   - `PatientPackage`: asal paket, tagihan pembelian boleh kosong, catatan, tanpa batas waktu;
