@@ -306,7 +306,8 @@ export function InvoiceDraftEditor({
           {visitPlans.map((plan) => (
             <Stack key={plan.patientPackageId} direction="row" spacing={1} useFlexGap sx={{ mt: 1, flexWrap: "wrap", alignItems: "center" }}>
               <span>
-                {plan.packageName} — Rencana kunjungan {plan.visit.number} ({dateLabel(plan.visit.date)}): {visitContentsLabel(plan.visit.contents)}
+                {plan.packageName}
+                {plan.legacy && " (paket lama Kluto)"} — Rencana kunjungan {plan.visit.number} ({dateLabel(plan.visit.date)}): {visitContentsLabel(plan.visit.contents)}
               </span>
               <Button
                 type="button"

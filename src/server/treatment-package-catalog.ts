@@ -56,7 +56,8 @@ const SELECT = {
     orderBy: { sortOrder: "asc" },
     select: { serviceId: true, itemId: true, sessions: true, perVisit: true, service: { select: { name: true } }, item: { select: { name: true, unit: true } } },
   },
-  _count: { select: { patientPackages: true } },
+  // "Terjual" hanya penjualan lewat tagihan SunDY; paket lama dari Kluto bukan penjualan SunDY (spec paket lama PL7).
+  _count: { select: { patientPackages: { where: { source: "TAGIHAN" as const } } } },
 } as const;
 type Row = Prisma.TreatmentPackageGetPayload<{ select: typeof SELECT }>;
 

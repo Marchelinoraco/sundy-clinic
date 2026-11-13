@@ -99,7 +99,8 @@ async function purchasedHere(invoiceId: string, today: string): Promise<PackageO
   );
 }
 
-export type PackageVisitPlan = { patientPackageId: string; packageName: string; visit: PlannedVisit };
+/** `legacy`: paket lama dari Kluto, ditandai di tombol "Pakai sesuai rencana" (spec paket lama bagian 5). */
+export type PackageVisitPlan = { patientPackageId: string; packageName: string; legacy?: boolean; visit: PlannedVisit };
 
 /** Rencana kunjungan berikutnya tiap paket aktif milik customer, untuk tombol "Pakai sesuai rencana" (spec jadwal paket JP8). */
 export async function listPackageVisitPlans(patientId: string): Promise<PackageVisitPlan[]> {
@@ -114,6 +115,7 @@ export async function listPackageVisitPlans(patientId: string): Promise<PackageV
       nextVisitOn: true,
       visitIntervalDays: true,
       priorVisits: true,
+      source: true,
       items: { orderBy: { sortOrder: "asc" }, select: { id: true, serviceName: true, unit: true, perVisit: true } },
     },
   });
@@ -130,7 +132,7 @@ export async function listPackageVisitPlans(patientId: string): Promise<PackageV
       visitsDone: pkg.priorVisits + (visitsDone.get(pkg.id) ?? 0),
       items: pkg.items.map((item) => ({ name: item.serviceName, unit: item.unit, remaining: remaining.get(item.id) ?? 0, perVisit: item.perVisit })),
     });
-    return visit ? [{ patientPackageId: pkg.id, packageName: pkg.name, visit }] : [];
+    return visit ? [{ patientPackageId: pkg.id, packageName: pkg.name, legacy: pkg.source === "KLUTO", visit }] : [];
   });
 }
 

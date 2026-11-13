@@ -9,6 +9,7 @@ import { listLegacyCatalog } from "@/server/legacy-package-read";
 import { createLegacyPackage, findLegacyDuplicates } from "@/server/legacy-packages";
 import { listPackageOptions, listPatientPackages } from "@/server/patient-package-read";
 import { getProfitReport } from "@/server/report-read";
+import { listTreatmentPackages } from "@/server/treatment-package-catalog";
 import { cleanupBillingWorld, createBillingWorld, type BillingWorld } from "./invoice-world";
 import { catalogPackage } from "./package-world";
 import { unwrap } from "./unwrap";
@@ -187,6 +188,13 @@ describe("memasukkan paket lama (Kluto)", () => {
     expect(mine.find((pkg) => pkg.id === luxId)?.items[1]).toMatchObject({ unit: "botol", sessions: 28, perVisit: 7 });
     const itemId = mine.at(-1)!.items[0].id;
     await unwrap(createLegacyPackage({ patient: { id: world.patientId }, form: form({ packageId: oldId, used: { [itemId]: 1 } }) }));
+  });
+
+  it("paket lama tidak dihitung 'Terjual' di katalog (spec PL7; temuan review akhir)", async () => {
+    await unwrap(createLegacyPackage({ patient: { id: world.patientId }, form: form({ confirmDuplicate: true }) }));
+    actor.role = "SUPER_ADMIN";
+    const lux = (await listTreatmentPackages()).find((row) => row.id === luxId)!;
+    expect(lux.soldCount).toBe(0);
   });
 
   it("pasien rangkap yang sudah digabung tidak bisa dipilih", async () => {

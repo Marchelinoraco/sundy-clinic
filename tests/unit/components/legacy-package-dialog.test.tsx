@@ -116,6 +116,25 @@ describe("LegacyPackageDialog", () => {
     expect(createLegacyPackage).not.toHaveBeenCalled();
   });
 
+  it("jumlah kunjungan di Kluto wajib diisi: dimulai kosong, simpan ditolak bila dilewati (temuan review akhir)", async () => {
+    const { user, dialog } = await openWithAni();
+    expect(within(dialog).getByLabelText("Jumlah kunjungan di Kluto")).toHaveValue(null);
+    setDateField("Tanggal beli di Kluto", "2025-03-01", within(dialog));
+    await user.click(within(dialog).getByRole("button", { name: "Simpan" }));
+    expect(await within(dialog).findByText("Jumlah kunjungan di Kluto 0–1000.")).toBeInTheDocument();
+    expect(createLegacyPackage).not.toHaveBeenCalled();
+  });
+
+  it("'Ganti' pasien membersihkan peringatan paket ganda pasien sebelumnya (temuan review akhir)", async () => {
+    vi.mocked(findLegacyDuplicates).mockResolvedValue({ ok: true, data: [{ patientPackageId: "pp0", enteredOn: "2026-11-10", staffName: "Rina", remainingLabel: "2× Facial" }] });
+    const { user, dialog } = await openWithAni();
+    await waitFor(() => expect(dialog).toHaveTextContent("Rina"));
+    await user.click(within(dialog).getByRole("button", { name: "Ganti" }));
+    await user.click(within(dialog).getByRole("checkbox", { name: "Pasien belum ada di SunDY" }));
+    expect(dialog).not.toHaveTextContent("Pasien ini sudah punya paket lama ini");
+    expect(within(dialog).getByRole("button", { name: "Simpan" })).toBeEnabled();
+  });
+
   it("pasien belum ada: WA yang sudah terdaftar menawarkan 'Pakai pasien ini' (Review Focus 1)", async () => {
     vi.mocked(findPatientsByWhatsapp).mockResolvedValue([ani]);
     const user = userEvent.setup();

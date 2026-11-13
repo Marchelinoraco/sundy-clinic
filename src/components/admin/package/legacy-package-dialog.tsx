@@ -42,7 +42,8 @@ export function LegacyPackageDialog({ catalog, today }: { catalog: LegacyCatalog
   const [patientErrors, setPatientErrors] = useState<LegacyPatientErrors>({});
   const [packageId, setPackageId] = useState("");
   const [boughtOn, setBoughtOn] = useState("");
-  const [visits, setVisits] = useState("0");
+  // Wajib diisi (spec bagian 4.4): kosong di awal, sehingga melewatinya ditolak dan tidak diam-diam berarti "belum dipakai".
+  const [visits, setVisits] = useState("");
   const [used, setUsed] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<string[]>([]);
   const [nextVisitOn, setNextVisitOn] = useState("");
@@ -74,7 +75,7 @@ export function LegacyPackageDialog({ catalog, today }: { catalog: LegacyCatalog
     setPatientErrors({});
     setPackageId("");
     setBoughtOn("");
-    setVisits("0");
+    setVisits("");
     setUsed({});
     setTouched([]);
     setNextVisitOn("");
@@ -89,6 +90,13 @@ export function LegacyPackageDialog({ catalog, today }: { catalog: LegacyCatalog
     setPatient(next);
     setIsNew(false);
     setPatientErrors({});
+    setDuplicates([]);
+    setConfirmDuplicate(false);
+  }
+
+  /** "Ganti": peringatan paket ganda milik pasien sebelumnya tidak boleh tertinggal. */
+  function changePatient() {
+    setPatient(null);
     setDuplicates([]);
     setConfirmDuplicate(false);
   }
@@ -190,7 +198,7 @@ export function LegacyPackageDialog({ catalog, today }: { catalog: LegacyCatalog
                   <Typography sx={{ fontWeight: 500 }}>
                     {patient.name} · {patient.medicalRecordNumber}
                   </Typography>
-                  <Button type="button" size="small" onClick={() => setPatient(null)}>
+                  <Button type="button" size="small" onClick={changePatient}>
                     Ganti
                   </Button>
                 </Stack>

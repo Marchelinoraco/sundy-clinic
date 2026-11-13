@@ -101,6 +101,7 @@ test("resepsionis memasukkan paket lama, sesinya dipakai di tagihan, Admin Keuan
   await expect(dialog.getByRole("button", { name: "Simpan" })).toBeDisabled();
   await dialog.getByRole("checkbox", { name: "Ini paket yang berbeda" }).check();
   await isiTanggal(dialog, "Tanggal beli di Kluto", "2025-07-01");
+  await dialog.getByLabel("Jumlah kunjungan di Kluto").fill("0");
   await dialog.getByRole("button", { name: "Simpan" }).click();
   await expect(dialog.getByRole("button", { name: "Tambah paket lama lain" })).toBeVisible({ timeout: 30_000 });
   await dialog.getByRole("button", { name: "Close" }).click();

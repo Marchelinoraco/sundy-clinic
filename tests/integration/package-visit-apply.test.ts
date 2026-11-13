@@ -64,6 +64,7 @@ describe("Pakai sesuai rencana (spec jadwal paket JP8)", () => {
       {
         patientPackageId: pkgId,
         packageName: `${SLUG} Lux`,
+        legacy: false,
         visit: {
           number: 1,
           date: addDaysToDateString(today(), 7),

@@ -9,7 +9,7 @@ import { loadInvoiceA4 } from "@/server/invoice-a4-store";
 import { cancelInvoice, finalizeInvoice } from "@/server/invoice-lifecycle";
 import { createLegacyPackage } from "@/server/legacy-packages";
 import { visitsDoneByPackage } from "@/server/package-store";
-import { getPatientPackage, listPackageOptions, searchPatientPackages } from "@/server/patient-package-read";
+import { getPatientPackage, listPackageOptions, listPackageVisitPlans, searchPatientPackages } from "@/server/patient-package-read";
 import { changeNextVisit } from "@/server/patient-packages";
 import { getReminderWorklist } from "@/server/reminder";
 import { packageSessionsUsed } from "@/server/report-sql";
@@ -118,6 +118,8 @@ describe("paket lama dipakai di SunDY", () => {
     const owned = await prisma.patientPackage.findUniqueOrThrow({ where: { id: legacy.patientPackageId } });
     expect(witaDateString(owned.nextVisitOn!)).toBe(addDaysToDateString(today, 7));
 
+    const plans = await listPackageVisitPlans(world.patientId);
+    expect(plans.find((plan) => plan.patientPackageId === legacy.patientPackageId)).toMatchObject({ legacy: true, visit: { number: 3 } });
     const detail = (await getPatientPackage(legacy.patientPackageId))!;
     expect(detail.priorVisits).toBe(1);
     expect(detail.doneVisits.map((visit) => visit.number)).toEqual([2]);
