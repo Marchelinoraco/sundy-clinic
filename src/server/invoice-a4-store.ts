@@ -9,7 +9,7 @@ import { DEPOSIT_SUMMARY_SELECT } from "@/server/invoice-store";
  * tanpa harga pokok, biaya, atau catatan internal.
  */
 
-type Snapshot = InvoiceA4Package & { purchaseLineId: string; itemIds: string[] };
+type Snapshot = InvoiceA4Package & { purchaseLineId: string | null; itemIds: string[] };
 
 /**
  * Paket yang dibeli atau dipakai di invoice ini, menurut buku sesi sesaat sesudah invoice difinalkan (IA6, IA10): batasnya
@@ -41,7 +41,7 @@ async function packageSnapshots(invoiceId: string, finalizedAt: Date): Promise<S
     const at = invoice.finalizedAt?.getTime() ?? 0;
     if (at > (newest.get(patientPackageId)?.at ?? -1)) newest.set(patientPackageId, { id: invoice.id, at });
   };
-  for (const pkg of packages) if (pkg.purchaseLine.invoice.status === "FINAL") consider(pkg.id, pkg.purchaseLine.invoice);
+  for (const pkg of packages) if (pkg.purchaseLine?.invoice.status === "FINAL") consider(pkg.id, pkg.purchaseLine.invoice);
   for (const use of uses) if (use.invoiceLine) consider(use.item.patientPackageId, use.invoiceLine.invoice);
   const own = await prisma.packageSessionEntry.aggregate({ where: { kind: { in: ["BELI", "PAKAI"] }, invoiceLine: { invoiceId } }, _max: { createdAt: true } });
   const cutoff = own._max.createdAt ?? finalizedAt;
@@ -65,7 +65,10 @@ async function packageSnapshots(invoiceId: string, finalizedAt: Date): Promise<S
       nextVisitOn: pkg.nextVisitOn && newest.get(pkg.id)?.id === invoiceId && pkg.nextVisitOn <= pkg.expiresOn ? dateOnlyString(pkg.nextVisitOn) : null,
       items: pkg.items.map((item) => {
         const rows = known.filter((entry) => entry.patientPackageItemId === item.id);
-        const used = -rows.filter((entry) => entry.kind === "PAKAI" || entry.kind === "BATAL_PAKAI").reduce((sum, entry) => sum + entry.delta, 0);
+        // Paket lama: terpakai di Kluto dan koreksi sisa ikut dihitung, sehingga terpakai + sisa = jatah (spec paket lama bagian 5).
+        const used = -rows
+          .filter((entry) => entry.kind === "PAKAI" || entry.kind === "BATAL_PAKAI" || entry.kind === "PAKAI_KLUTO" || entry.kind === "KOREKSI_KLUTO")
+          .reduce((sum, entry) => sum + entry.delta, 0);
         const remaining = rows.reduce((sum, entry) => sum + entry.delta, 0);
         return { name: item.serviceName, unit: item.unit, total: item.sessions, used, remaining };
       }),

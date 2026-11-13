@@ -3,6 +3,7 @@ import { formatRupiah } from "@/lib/format";
 import { INVOICE_A4_STAMP, packageItemText, type InvoiceA4 } from "@/lib/invoice-a4";
 import { formatReceiptDateTime } from "@/lib/receipt";
 import { dateLabel } from "@/lib/stock";
+import { validityLabel } from "@/lib/treatment-package";
 
 // Invoice A4 (spec invoice A4): kop surat, cap air status, item, pembayaran, dan progres paket. Tanpa MUI dan Tailwind
 // (seperti ReceiptPaper): dipakai halaman publik /invoice dan halaman cetak panel. Kop memakai <div>, bukan <header>,
@@ -111,7 +112,7 @@ export function InvoiceA4Paper({ invoice }: { invoice: InvoiceA4 }) {
           {invoice.packages.map((pkg, index) => (
             <div key={index}>
               <h3>
-                {pkg.name} · berlaku s.d. {dateLabel(pkg.expiresOn)}
+                {pkg.name} · {validityLabel(pkg.expiresOn)}
               </h3>
               {pkg.items.map((item, itemIndex) => (
                 <div key={itemIndex} className="invoice-a4-isi">

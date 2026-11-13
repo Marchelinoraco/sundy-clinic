@@ -17,15 +17,26 @@ import { DateField } from "../mui/date-field";
 import { DialogCloseButton } from "../mui/dialog-close-button";
 
 /** Resepsionis atau Admin Keuangan mengubah tanggal kunjungan berikutnya (spec jadwal paket JP9, JP16). */
-export function ChangeVisitDialog({ packageId, nextVisitOn, today, expiresOn }: { packageId: string; nextVisitOn: string; today: string; expiresOn: string }) {
+export function ChangeVisitDialog({
+  packageId,
+  nextVisitOn,
+  today,
+  expiresOn,
+}: {
+  packageId: string;
+  /** Kosong untuk paket lama yang belum diberi rencana (spec paket lama PL13): isian dimulai dari hari ini. */
+  nextVisitOn: string | null;
+  today: string;
+  expiresOn: string;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [date, setDate] = useState(nextVisitOn);
+  const [date, setDate] = useState(nextVisitOn ?? today);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   function openDialog() {
-    setDate(nextVisitOn);
+    setDate(nextVisitOn ?? today);
     setError(null);
     setOpen(true);
   }

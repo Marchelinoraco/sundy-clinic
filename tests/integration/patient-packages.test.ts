@@ -58,7 +58,7 @@ describe("paket customer", () => {
   it("daftar per pasien dan pencarian: sisa per treatment, status, tagihan pembelian", async () => {
     const [row] = await listPatientPackages(world.patientId);
     expect(row).toMatchObject({ id: patientPackageId, name: `${SLUG} Facial 3x`, state: "AKTIF", startsOn: today, items: [{ serviceName: "Facial Uji", sessions: 3, remaining: 2 }] });
-    expect(row.purchaseInvoice.number).toMatch(/^TG-\d{4}-\d{4}$/);
+    expect(row.purchaseInvoice?.number).toMatch(/^TG-\d{4}-\d{4}$/);
     expect((await searchPatientPackages(`${SLUG} facial`)).map((r) => r.id)).toContain(patientPackageId);
     expect((await searchPatientPackages("tidak ada paket begini")).length).toBe(0);
   });
@@ -67,7 +67,7 @@ describe("paket customer", () => {
     const detail = (await getPatientPackage(patientPackageId))!;
     expect(detail.entries.map((e) => [e.kind, e.delta, e.invoice?.number ?? null])).toEqual([
       ["PAKAI", -1, usageNumber],
-      ["BELI", 3, detail.purchaseInvoice.number],
+      ["BELI", 3, detail.purchaseInvoice?.number],
     ]);
     expect(await getPatientPackage("tidak-ada")).toBeNull();
   });

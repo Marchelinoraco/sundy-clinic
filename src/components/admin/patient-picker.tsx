@@ -31,7 +31,8 @@ export function PatientBookingInfo({ patient }: { patient: PatientSummary }) {
 
 type SearchState = { query: string; patients: PatientSummary[] };
 
-export function PatientPicker({ onSelect }: { onSelect: (patient: PatientSummary) => void }) {
+/** `allowNew={false}`: tanpa tombol "+ Pasien Baru", bila pemanggil punya isian pasien baru sendiri (dialog paket lama). */
+export function PatientPicker({ onSelect, allowNew = true }: { onSelect: (patient: PatientSummary) => void; allowNew?: boolean }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState<SearchState>({ query: "", patients: [] });
@@ -101,7 +102,7 @@ export function PatientPicker({ onSelect }: { onSelect: (patient: PatientSummary
           />
         )}
       />
-      <NewPatientForm onCreated={onSelect} onPickExisting={onSelect} />
+      {allowNew && <NewPatientForm onCreated={onSelect} onPickExisting={onSelect} />}
     </Stack>
   );
 }

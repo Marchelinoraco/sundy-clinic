@@ -114,6 +114,31 @@ export async function visitsDoneByPackage(db: Db, patientPackageIds: readonly st
   return new Map([...invoices].map(([id, set]) => [id, set.size]));
 }
 
+/** Isi katalog yang disalin ke paket customer, untuk paket yang dijual maupun paket lama dari Kluto (spec paket lama bagian 3). */
+export const CATALOG_ITEM_SELECT = {
+  id: true,
+  serviceId: true,
+  itemId: true,
+  sessions: true,
+  perVisit: true,
+  service: { select: { name: true } },
+  item: { select: { name: true, unit: true } },
+} as const;
+export type CatalogItemRow = Prisma.TreatmentPackageItemGetPayload<{ select: typeof CATALOG_ITEM_SELECT }>;
+
+/** Salinan isi katalog untuk `PatientPackage.items.create`: nama dan satuan disalin agar perubahan katalog tidak mengubah paket. */
+export function catalogItemsData(items: readonly CatalogItemRow[]): Prisma.PatientPackageItemCreateWithoutPatientPackageInput[] {
+  return items.map((item, index) => ({
+    serviceId: item.serviceId,
+    itemId: item.itemId,
+    serviceName: item.service?.name ?? item.item?.name ?? "",
+    unit: item.item?.unit ?? null,
+    sessions: item.sessions,
+    perVisit: item.perVisit,
+    sortOrder: index,
+  }));
+}
+
 type PurchaseLine = {
   id: string;
   kind: string;
@@ -145,10 +170,7 @@ export async function activatePurchasedPackages(
         validDays: true,
         visitIntervalDays: true,
         isActive: true,
-        items: {
-          orderBy: { sortOrder: "asc" },
-          select: { serviceId: true, itemId: true, sessions: true, perVisit: true, service: { select: { name: true } }, item: { select: { name: true, unit: true } } },
-        },
+        items: { orderBy: { sortOrder: "asc" }, select: CATALOG_ITEM_SELECT },
       },
     });
     if (!pkg || !pkg.isActive) throw new UserFacingError(`Paket ${line.name} sudah tidak dijual. Hapus barisnya.`);
@@ -165,17 +187,7 @@ export async function activatePurchasedPackages(
         // Kunjungan 1 = tanggal beli + jarak; bila paket langsung dipakai di tagihan ini, consumePackageSessions memberi hasil yang sama
         // (keputusan pemilik 22 Okt 2026, spec jadwal paket JP11).
         nextVisitOn: day(addDaysToDateString(today, pkg.visitIntervalDays)),
-        items: {
-          create: pkg.items.map((item, index) => ({
-            serviceId: item.serviceId,
-            itemId: item.itemId,
-            serviceName: item.service?.name ?? item.item?.name ?? "",
-            unit: item.item?.unit ?? null,
-            sessions: item.sessions,
-            perVisit: item.perVisit,
-            sortOrder: index,
-          })),
-        },
+        items: { create: catalogItemsData(pkg.items) },
       },
       select: { items: { select: { id: true, sessions: true, serviceId: true, itemId: true } } },
     });
@@ -307,6 +319,11 @@ async function recomputeNextVisit(tx: Db, patientPackageId: string, opts: { excl
   });
   const usedAt = last?.invoiceLine?.invoice.finalizedAt;
   if (usedAt) return moveNextVisit(tx, patientPackageId, witaDateString(usedAt));
-  const pkg = await tx.patientPackage.findUniqueOrThrow({ where: { id: patientPackageId }, select: { startsOn: true } });
+  const pkg = await tx.patientPackage.findUniqueOrThrow({ where: { id: patientPackageId }, select: { startsOn: true, source: true } });
+  // Paket lama: tanggal beli di Kluto bisa bertahun-tahun lalu dan langsung "terlewat"; rencananya kembali kosong (spec paket lama bagian 9).
+  if (pkg.source === "KLUTO") {
+    await tx.patientPackage.update({ where: { id: patientPackageId }, data: { nextVisitOn: null } });
+    return;
+  }
   return moveNextVisit(tx, patientPackageId, dateOnlyString(pkg.startsOn));
 }

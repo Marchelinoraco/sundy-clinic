@@ -395,6 +395,13 @@ describe("editor draf tagihan", () => {
     expect(mocks.refresh).toHaveBeenCalled();
   });
 
+  it("rencana kunjungan paket lama ditandai paket lama Kluto (spec paket lama bagian 5)", () => {
+    const plan = { patientPackageId: "pp2", packageName: "Lux", legacy: true, visit: { number: 4, date: "2026-10-29", contents: [{ name: "Facial Brightening", unit: null, quantity: 1 }] } };
+    renderAdmin(<InvoiceDraftEditor detail={detail()} items={items} canExceedDiscount={false} visitPlans={[plan]} />);
+    const box = screen.getByRole("alert", { name: "Paket customer" });
+    expect(box).toHaveTextContent("Lux (paket lama Kluto) — Rencana kunjungan 4 (29 Okt 2026): Facial Brightening");
+  });
+
   it("paket dari dokter: Tidak dibeli menggantikan Hapus; yang tidak dibeli bisa dikembalikan (spec vital perawat PR2, PR3)", async () => {
     mocks.restoreDoctorPackage.mockResolvedValue({ ok: true, data: { version: 4 } });
     const withPackage = detail();

@@ -10,10 +10,12 @@ const row: PatientPackageSummary = {
   startsOn: "2026-10-13",
   expiresOn: "2027-04-10",
   state: "AKTIF",
+  source: "TAGIHAN",
+  note: null,
   items: [
-    { serviceName: "Facial", unit: null, sessions: 3, remaining: 2 },
-    { serviceName: "Peeling", unit: null, sessions: 2, remaining: 2 },
-    { serviceName: "Slimming", unit: "kapsul", sessions: 30, remaining: 20 },
+    { id: "i1", serviceName: "Facial", unit: null, sessions: 3, remaining: 2 },
+    { id: "i2", serviceName: "Peeling", unit: null, sessions: 2, remaining: 2 },
+    { id: "i3", serviceName: "Slimming", unit: "kapsul", sessions: 30, remaining: 20 },
   ],
   purchaseInvoice: { id: "inv1", number: "TG-2026-0042" },
   patient: { id: "p1", name: "Ani Uji", medicalRecordNumber: "SDY-2026-0001" },
@@ -40,5 +42,15 @@ describe("PatientPackageTable", () => {
     unmount();
     renderAdmin(<PatientPackageTable rows={[]} />);
     expect(screen.getByText("Belum ada paket.")).toBeInTheDocument();
+  });
+});
+
+describe("PatientPackageTable — paket lama (spec paket lama bagian 5)", () => {
+  it("paket lama bertanda 'Paket lama (Kluto)' dan berlaku 'Tanpa batas waktu', tanpa tanggal penanda", () => {
+    renderAdmin(<PatientPackageTable rows={[{ ...row, id: "pp3", name: "Lux", source: "KLUTO", expiresOn: "9999-12-31", purchaseInvoice: null }]} />);
+    const table = screen.getByRole("table", { name: "Paket customer" });
+    expect(table).toHaveTextContent("Paket lama (Kluto)");
+    expect(table).toHaveTextContent("Tanpa batas waktu");
+    expect(table).not.toHaveTextContent("9999");
   });
 });

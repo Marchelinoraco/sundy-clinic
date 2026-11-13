@@ -7,7 +7,7 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import { dateLabel } from "@/lib/stock";
-import { PACKAGE_STATE_LABEL, type PatientPackageState } from "@/lib/treatment-package";
+import { isNoExpiry, PACKAGE_STATE_LABEL, type PatientPackageState } from "@/lib/treatment-package";
 import type { PatientPackageSummary } from "@/server/patient-package-read";
 import { TextLink } from "../mui/links";
 import { StatusChip, type StatusTone } from "../mui/status-chip";
@@ -45,6 +45,11 @@ export function PatientPackageTable({ rows, showPatient = true }: { rows: Patien
               )}
               <TableCell>
                 <TextLink href={`/admin/paket/${row.id}`}>{row.name}</TextLink>
+                {row.source === "KLUTO" && (
+                  <Typography variant="caption" component="div" sx={{ color: "text.secondary" }}>
+                    Paket lama (Kluto)
+                  </Typography>
+                )}
               </TableCell>
               <TableCell>
                 {row.items.map((item) => (
@@ -54,7 +59,7 @@ export function PatientPackageTable({ rows, showPatient = true }: { rows: Patien
                   </div>
                 ))}
               </TableCell>
-              <TableCell>{dateLabel(row.expiresOn)}</TableCell>
+              <TableCell>{isNoExpiry(row.expiresOn) ? "Tanpa batas waktu" : dateLabel(row.expiresOn)}</TableCell>
               <TableCell>
                 <StatusChip label={PACKAGE_STATE_LABEL[row.state]} tone={TONE[row.state]} />
               </TableCell>

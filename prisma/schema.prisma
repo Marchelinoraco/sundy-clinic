@@ -1402,6 +1402,16 @@ enum PackageEntryKind {
   BATAL_PAKAI
   PERPANJANG
   BATAL_PAKET
+  /// Sesi yang sudah terpakai di Kluto sebelum paket lama dimasukkan (spec paket lama bagian 3). Tanpa baris tagihan.
+  PAKAI_KLUTO
+  /// Koreksi sisa paket lama oleh Admin Keuangan/Super Admin, wajib beralasan (spec paket lama PL11).
+  KOREKSI_KLUTO
+}
+
+/// Asal paket customer (spec paket lama bagian 3): dijual lewat tagihan SunDY, atau diketik dari Kluto.
+enum PatientPackageSource {
+  TAGIHAN
+  KLUTO
 }
 
 /// Katalog paket treatment (spec paket 3–4). Tidak pernah dihapus; dinonaktifkan.
@@ -1453,8 +1463,15 @@ model PatientPackage {
   package           TreatmentPackage       @relation(fields: [packageId], references: [id], onDelete: Restrict)
   name              String
   price             Int
-  purchaseLineId    String                 @unique
-  purchaseLine      InvoiceLine            @relation("PackagePurchase", fields: [purchaseLineId], references: [id], onDelete: Restrict)
+  /// Kosong hanya untuk paket lama dari Kluto (CHECK patient_package_source).
+  purchaseLineId    String?                @unique
+  purchaseLine      InvoiceLine?           @relation("PackagePurchase", fields: [purchaseLineId], references: [id], onDelete: Restrict)
+  /// KLUTO: harga 0, tanpa tagihan pembelian, expiresOn = 9999-12-31 (tanpa batas waktu) — spec paket lama PL6, PL7.
+  source            PatientPackageSource   @default(TAGIHAN)
+  /// Catatan paket lama, mis. nomor nota Kluto (≤ 200). Selalu kosong untuk TAGIHAN.
+  note              String?
+  /// Jumlah kunjungan di Kluto; ditambahkan ke kunjungan SunDY saat menomori kunjungan (spec paket lama PL5). 0 untuk TAGIHAN.
+  priorVisits       Int                    @default(0)
   startsOn          DateTime               @db.Date
   /// Inklusif. Kedaluwarsa dihitung dari tanggal ini, bukan disimpan sebagai status.
   expiresOn         DateTime               @db.Date

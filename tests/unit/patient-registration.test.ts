@@ -4,6 +4,9 @@ import {
   firstRegistrationError,
   isMaritalStatus,
   MARITAL_STATUS_LABEL,
+  firstLegacyPatientError,
+  nikTakenMessage,
+  validateLegacyPatient,
   validatePatientRegistration,
   type RegistrationErrors,
 } from "@/lib/patient-registration";
@@ -198,5 +201,51 @@ describe("firstRegistrationError", () => {
 
   it("punya cadangan bila tidak ada galat per isian", () => {
     expect(firstRegistrationError({})).toBe("Data pasien belum lengkap.");
+  });
+});
+
+describe("validateLegacyPatient (pasien paket lama Kluto, spec paket lama PL9)", () => {
+  const BLANK = { nik: "", name: "Ani Kluto", whatsapp: "081234567890", birthDate: "", gender: null, address: "", email: "", emergencyContactName: "", emergencyContactPhone: "" };
+  const legacy = (patch: Record<string, unknown> = {}) => validateLegacyPatient({ ...BLANK, ...patch }, TODAY);
+  const legacyErrors = (patch: Record<string, unknown>) => {
+    const result = legacy(patch);
+    if (result.ok) throw new Error(`Diharapkan ditolak: ${JSON.stringify(patch)}`);
+    return result.errors;
+  };
+
+  it("cukup nama dan WA; isian lain kosong menjadi null", () => {
+    expect(legacy()).toEqual({
+      ok: true,
+      value: { nik: null, name: "Ani Kluto", whatsapp: "6281234567890", birthDate: null, gender: null, address: null, email: null, emergencyContactName: null, emergencyContactPhone: null },
+    });
+  });
+
+  it("nama dan WA tetap wajib dengan pesan yang sama", () => {
+    expect(legacyErrors({ name: " " }).name).toBe("Nama pasien wajib diisi.");
+    expect(legacyErrors({ whatsapp: "" }).whatsapp).toBe("Nomor HP (WhatsApp) wajib diisi.");
+  });
+
+  it("isian opsional yang diisi tetap diperiksa", () => {
+    expect(legacyErrors({ nik: "123" }).nik).toBe(NIK_FORMAT_ERROR);
+    expect(legacyErrors({ birthDate: "2026-10-13" }).birthDate).toBe("Tanggal lahir tidak boleh di masa depan.");
+    expect(legacyErrors({ gender: "X" }).gender).toBe("Jenis kelamin tidak dikenal.");
+    expect(legacyErrors({ email: "bukan-email" }).email).toBe("Email tidak sah. Contoh: nama@contoh.com.");
+  });
+
+  it("kontak darurat berpasangan: isi keduanya atau kosongkan keduanya", () => {
+    expect(legacyErrors({ emergencyContactName: "Budi" }).emergencyContactPhone).toBe("Nomor kontak darurat wajib diisi.");
+    expect(legacyErrors({ emergencyContactPhone: "081298765432" }).emergencyContactName).toBe("Nama kontak darurat wajib diisi.");
+    expect(legacy({ emergencyContactName: "Budi", emergencyContactPhone: "081298765432", nik: "7171015705900001", gender: "P", birthDate: "1990-05-17" })).toMatchObject({
+      ok: true,
+      value: { emergencyContactName: "Budi", emergencyContactPhone: "6281298765432", nik: "7171015705900001", gender: "P" },
+    });
+  });
+
+  it("galat pertama menurut urutan formulir", () => {
+    expect(firstLegacyPatientError({ whatsapp: "b", name: "a" })).toBe("a");
+  });
+
+  it("pesan NIK sudah terdaftar", () => {
+    expect(nikTakenMessage({ name: "Siti", medicalRecordNumber: "RM-2026-0001" })).toBe("NIK ini sudah terdaftar atas nama Siti (RM-2026-0001).");
   });
 });

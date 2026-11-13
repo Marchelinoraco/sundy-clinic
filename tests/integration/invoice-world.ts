@@ -146,11 +146,15 @@ export async function seedDispensing(
 export async function cleanupBillingWorld(slug: string, patientWhatsapps: string[] = []): Promise<void> {
   const branch = { slug: { startsWith: slug } };
   // Paket treatment (rencana paket Task 1): buku sesi → lepas baris pemakaian → paket customer → (baris tagihan) → katalog.
+  // Paket lama dari Kluto tidak punya tagihan pembelian: dikenali lewat pasien dunia uji (spec paket lama bagian 3).
+  const ownedBy = { patient: { whatsapp: { in: patientWhatsapps } } };
   await prisma.packageSessionEntry.deleteMany({
-    where: { OR: [{ invoiceLine: { invoice: { branch } } }, { item: { patientPackage: { purchaseLine: { invoice: { branch } } } } }] },
+    where: {
+      OR: [{ invoiceLine: { invoice: { branch } } }, { item: { patientPackage: { purchaseLine: { invoice: { branch } } } } }, { item: { patientPackage: ownedBy } }],
+    },
   });
   await prisma.invoiceLine.updateMany({ where: { invoice: { branch }, patientPackageItemId: { not: null } }, data: { patientPackageItemId: null } });
-  await prisma.patientPackage.deleteMany({ where: { purchaseLine: { invoice: { branch } } } });
+  await prisma.patientPackage.deleteMany({ where: { OR: [{ purchaseLine: { invoice: { branch } } }, ownedBy] } });
   await prisma.invoiceStockUse.deleteMany({ where: { line: { invoice: { branch } } } });
   // Catatan deposit (spec deposit) merujuk tagihan, pembayaran, dan pasien: dibuang sebelum keduanya.
   const patients = { whatsapp: { in: patientWhatsapps } };
