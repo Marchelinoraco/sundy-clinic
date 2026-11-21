@@ -21,6 +21,7 @@ vi.mock("@/server/staff", () => ({
   removeStaffPhoto: vi.fn(),
 }));
 vi.mock("@/components/admin/staff/send-photo", () => ({ sendStaffPhoto: vi.fn() }));
+vi.mock("@/server/staff-access", () => ({ setStaffExtraCapabilities: vi.fn() }));
 vi.mock("@/server/approval-pin", () => ({ resetApprovalPin: vi.fn() }));
 
 const row = (patch: Partial<StaffRow>): StaffRow => ({
@@ -77,7 +78,7 @@ describe("daftar dan menu aksi", () => {
     vi.mocked(resetApprovalPin).mockResolvedValue({ ok: true, data: undefined });
     const keuangan = row({ id: "s-keu", name: "Rina Keuangan", role: "ADMIN_KEUANGAN", email: "rina.k@sundy.test", hasApprovalPin: true });
     renderManager([OWNER, keuangan]);
-    expect(items(await openMenu(user, "Rina Keuangan"))).toEqual(["Ubah", "Reset kata sandi", "Reset PIN", "Ganti email", "Nonaktifkan"]);
+    expect(items(await openMenu(user, "Rina Keuangan"))).toEqual(["Ubah", "Akses tambahan", "Reset kata sandi", "Reset PIN", "Ganti email", "Nonaktifkan"]);
     await user.click(screen.getByRole("menuitem", { name: "Reset PIN" }));
     const dialog = await screen.findByRole("alertdialog", { name: "Reset PIN Rina Keuangan?" });
     await user.click(within(dialog).getByRole("button", { name: "Reset PIN" }));
@@ -87,14 +88,14 @@ describe("daftar dan menu aksi", () => {
   it("menu tiap baris hanya berisi aksi yang berlaku", async () => {
     const user = userEvent.setup();
     renderManager();
-    expect(items(await openMenu(user, "Dr. Diane"))).toEqual(["Ubah", "Buat akun", "Nonaktifkan"]);
+    expect(items(await openMenu(user, "Dr. Diane"))).toEqual(["Ubah", "Akses tambahan", "Buat akun", "Nonaktifkan"]);
     await user.keyboard("{Escape}");
     // Perawat tanpa akun bisa diberi akun (spec peran perawat 4).
-    expect(items(await openMenu(user, "Terapis Mahakeret"))).toEqual(["Ubah", "Buat akun", "Nonaktifkan"]);
+    expect(items(await openMenu(user, "Terapis Mahakeret"))).toEqual(["Ubah", "Akses tambahan", "Buat akun", "Nonaktifkan"]);
     await user.keyboard("{Escape}");
-    expect(items(await openMenu(user, "Rina Baru"))).toEqual(["Ubah", "Reset kata sandi", "Ganti email", "Nonaktifkan"]);
+    expect(items(await openMenu(user, "Rina Baru"))).toEqual(["Ubah", "Akses tambahan", "Reset kata sandi", "Ganti email", "Nonaktifkan"]);
     await user.keyboard("{Escape}");
-    expect(items(await openMenu(user, "Budi Berhenti"))).toEqual(["Ubah", "Reset kata sandi", "Ganti email", "Aktifkan"]);
+    expect(items(await openMenu(user, "Budi Berhenti"))).toEqual(["Ubah", "Akses tambahan", "Reset kata sandi", "Ganti email", "Aktifkan"]);
   });
 
   it("tombol menu memberi tahu pembaca layar status dan menu yang dikendalikannya", async () => {
@@ -120,6 +121,20 @@ describe("daftar dan menu aksi", () => {
     const status = cells.find((c) => c.getAttribute("data-field") === "isActive")!;
     expect(within(account).queryByText("Wajib ganti kata sandi")).toBeNull();
     expect(within(status).getByText("Wajib ganti kata sandi")).toBeInTheDocument();
+  });
+
+  it("'Akses tambahan' tidak ada untuk Super Admin, ada untuk peran lain; chip '+n akses' mengikuti jumlah", async () => {
+    const user = userEvent.setup();
+    const extra = row({ id: "s-x", name: "Sinta Stok", role: "RESEPSIONIS", extraCapabilities: ["stock:item"] });
+    renderManager([OWNER, extra, BARU]);
+    expect(items(await openMenu(user, "Pemilik SunDY"))).not.toContain("Akses tambahan");
+    await user.keyboard("{Escape}");
+    expect(items(await openMenu(user, "Sinta Stok"))).toContain("Akses tambahan");
+    await user.click(screen.getByRole("menuitem", { name: "Akses tambahan" }));
+    expect(await screen.findByRole("dialog", { name: "Akses tambahan — Sinta Stok" })).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    const grid = screen.getByRole("grid", { name: "Daftar staf" });
+    expect(within(grid).getAllByText("+1 akses")).toHaveLength(1);
   });
 
   it("pemilik tidak punya 'Nonaktifkan' untuk dirinya sendiri, tetapi boleh mereset akunnya", async () => {
