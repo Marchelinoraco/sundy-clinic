@@ -115,7 +115,7 @@ model StaffCapabilityGrant {
   staffId     String
   staff       Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
   capability  String
-  grantedById String?
+  grantedById String
   createdAt   DateTime @default(now())
 
   @@unique([staffId, capability])

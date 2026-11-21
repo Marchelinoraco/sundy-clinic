@@ -3,7 +3,7 @@ CREATE TABLE "StaffCapabilityGrant" (
     "id" TEXT NOT NULL,
     "staffId" TEXT NOT NULL,
     "capability" TEXT NOT NULL,
-    "grantedById" TEXT,
+    "grantedById" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "StaffCapabilityGrant_pkey" PRIMARY KEY ("id")

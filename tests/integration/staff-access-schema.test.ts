@@ -16,11 +16,11 @@ describe("skema hak tambahan staf", () => {
       data: { slug: "resepsionis-hibah", name: "Resepsionis Hibah", role: "RESEPSIONIS" },
     });
     await prisma.staffCapabilityGrant.create({
-      data: { staffId: staff.id, capability: "stock.view" },
+      data: { staffId: staff.id, capability: "stock.view", grantedById: staff.id },
     });
     await expect(
       prisma.staffCapabilityGrant.create({
-        data: { staffId: staff.id, capability: "stock.view" },
+        data: { staffId: staff.id, capability: "stock.view", grantedById: staff.id },
       }),
     ).rejects.toThrow();
   });
@@ -30,7 +30,7 @@ describe("skema hak tambahan staf", () => {
       data: { slug: "resepsionis-hapus", name: "Resepsionis Hapus", role: "RESEPSIONIS" },
     });
     await prisma.staffCapabilityGrant.create({
-      data: { staffId: staff.id, capability: "stock.view" },
+      data: { staffId: staff.id, capability: "stock.view", grantedById: staff.id },
     });
     await prisma.staff.delete({ where: { id: staff.id } });
     expect(await prisma.staffCapabilityGrant.count()).toBe(0);
