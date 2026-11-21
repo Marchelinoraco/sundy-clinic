@@ -4,11 +4,11 @@ import { prisma } from "@/lib/db";
 import type { Capability } from "@/lib/permissions";
 import type { PurchaseInput } from "@/lib/stock";
 import { addDaysToDateString, witaDateString } from "@/lib/time";
-import { moveToCounter } from "@/server/counter-stock";
-import { createPurchase } from "@/server/purchases";
-import { sendRestockRequest } from "@/server/restock";
+import { moveToCounter, pullToWarehouse } from "@/server/counter-stock";
+import { cancelPurchase, createPurchase } from "@/server/purchases";
+import { createRestockRequest, rejectRestockRequest, sendRestockRequest } from "@/server/restock";
 import { createStockItem, createSupplier } from "@/server/stock-catalog";
-import { adjustStock } from "@/server/stock-movements";
+import { adjustStock, createSupplierReturn } from "@/server/stock-movements";
 import { cleanupStockWorld, createStockWorld, seedBatch, type StockWorld } from "./stock-world";
 
 // Akses tambahan per akun (spec akses tambahan 4): Resepsionis dengan hibah tertentu saja.
@@ -54,6 +54,16 @@ const purchase = (): PurchaseInput => {
   };
 };
 
+// Permintaan restock nyata: Resepsionis boleh meminta dari perannya sendiri (restock:request).
+async function createRequest() {
+  seq += 1;
+  const item = await prisma.stockItem.create({ data: { code: `${SLUG.toUpperCase()}-R${seq}`, name: `${SLUG} Barang ${seq}`, kind: "PRODUK", unit: "pcs", sellPrice: 1000 } });
+  await seedBatch(world, { invoiceNumber: `AS-Q${seq}`, itemId: item.id, quantity: 10, expiryDate: null });
+  const result = await createRestockRequest({ branchId: world.branchId, note: "", lines: [{ itemId: item.id, quantity: 5 }] });
+  if (!result.ok) throw new Error(result.error);
+  return result.data;
+}
+
 beforeAll(async () => {
   await cleanupStockWorld(SLUG);
   world = await createStockWorld(SLUG);
@@ -91,9 +101,38 @@ describe("akses tambahan stok", () => {
     grant("stock:counter");
     await seedBatch(world, { invoiceNumber: "AS-C", itemId: world.drugId, quantity: 5, counter: 0, expiryDate: null, invoiceDate: today, dueDate: today });
     expect((await moveToCounter({ branchId: world.branchId, itemId: world.drugId, quantity: 1 })).ok).toBe(true);
-    // Lolos pemeriksaan hak akses; permintaan fiktif ditolak dengan pesan biasa, bukan "forbidden".
-    const sent = await sendRestockRequest({ requestId: "tidak-ada", version: 1, lines: [] });
-    expect(JSON.stringify(sent)).not.toMatch(/forbidden/);
+    const { id } = await createRequest();
+    const [line] = await prisma.restockRequestLine.findMany({ where: { requestId: id } });
+    expect(await sendRestockRequest({ requestId: id, version: 1, lines: [{ lineId: line.id, quantity: 1 }] })).toEqual({ ok: true, data: undefined });
     await expect(createPurchase(purchase())).rejects.toThrow("forbidden: stock:receive");
+  });
+
+  it("batal faktur: stock:receive berhasil; tanpa stock:receive/payable:manage ditolak", async () => {
+    const { invoiceId } = await seedBatch(world, { invoiceNumber: "AS-X1", itemId: world.drugId, quantity: 4, expiryDate: null });
+    grant("stock:read");
+    expect(await cancelPurchase({ invoiceId, reason: "Salah input" })).toEqual({ ok: false, error: "Anda tidak berhak membatalkan faktur." });
+    grant("stock:receive");
+    expect(await cancelPurchase({ invoiceId, reason: "Salah input" })).toEqual({ ok: true, data: undefined });
+    grant();
+    await expect(cancelPurchase({ invoiceId, reason: "Salah input" })).rejects.toThrow(/forbidden/);
+  });
+
+  it("retur ke supplier: stock:receive berhasil, tanpa hibah ditolak", async () => {
+    const { invoiceId, batchId } = await seedBatch(world, { invoiceNumber: "AS-X2", itemId: world.drugId, quantity: 4, expiryDate: null });
+    const input = { invoiceId, lines: [{ batchId, quantity: 1 }], note: "" };
+    await expect(createSupplierReturn(input)).rejects.toThrow("forbidden: stock:receive");
+    grant("stock:receive");
+    expect(await createSupplierReturn(input)).toMatchObject({ ok: true });
+  });
+
+  it("pullToWarehouse dan rejectRestockRequest: ditolak dengan stock:receive saja, lolos dengan stock:counter", async () => {
+    const { batchId } = await seedBatch(world, { invoiceNumber: "AS-X3", itemId: world.drugId, quantity: 4, counter: 2, expiryDate: null });
+    const { id } = await createRequest();
+    grant("stock:receive");
+    await expect(pullToWarehouse({ batchId, quantity: 1 })).rejects.toThrow("forbidden: stock:counter");
+    await expect(rejectRestockRequest({ requestId: id, version: 1, reason: "Stok kosong" })).rejects.toThrow("forbidden: stock:counter");
+    grant("stock:counter");
+    expect(await pullToWarehouse({ batchId, quantity: 1 })).toEqual({ ok: true, data: undefined });
+    expect(await rejectRestockRequest({ requestId: id, version: 1, reason: "Stok kosong" })).toEqual({ ok: true, data: undefined });
   });
 });

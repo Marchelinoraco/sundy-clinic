@@ -19,15 +19,20 @@ const items = [
 ];
 const TODAY = "2026-10-07";
 
-function renderForm(canSetPrice = true) {
+function renderForm(canSetPrice = true, canAddSupplier = true) {
   return renderAdmin(
-    <PurchaseForm items={items} suppliers={[{ id: "s1", name: "Kimia Farma" }]} branches={[{ id: "b1", name: "SunDY Mahakeret" }]} today={TODAY} canSetPrice={canSetPrice} />,
+    <PurchaseForm items={items} suppliers={[{ id: "s1", name: "Kimia Farma" }]} branches={[{ id: "b1", name: "SunDY Mahakeret" }]} today={TODAY} canSetPrice={canSetPrice} canAddSupplier={canAddSupplier} />,
   );
 }
 
 beforeEach(() => vi.clearAllMocks());
 
 describe("PurchaseForm", () => {
+  it("menyembunyikan + Supplier baru tanpa hak stock:supplier", () => {
+    renderForm(true, false);
+    expect(screen.queryByRole("button", { name: "+ Supplier baru" })).toBeNull();
+  });
+
   // Interaksi panjang (dua pilihan barang, banyak ketikan) pada formulir MUI: ±2 dtk sendirian, bisa melewati 5 dtk
   // saat berkas uji lain berjalan paralel di mesin yang sibuk.
   it("menghitung total, mengirim faktur, lalu membuka detailnya", async () => {
