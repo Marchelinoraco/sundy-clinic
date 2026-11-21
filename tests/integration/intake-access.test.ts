@@ -24,6 +24,7 @@ function actAs(role: "DOKTER" | "RESEPSIONIS") {
     name: `${role} Uji`,
     role,
     email: "uji@sundy.test",
+    extraCapabilities: [],
   });
 }
 

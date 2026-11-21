@@ -19,6 +19,7 @@ function actAs(role: StaffRole) {
     name: `${role} Uji`,
     role,
     email: "uji@sundy.test",
+    extraCapabilities: [],
   });
 }
 

@@ -36,7 +36,7 @@ describe("setujui isian ke data pasien", () => {
   function actAs(role: StaffRole) {
     vi.mocked(requireCapability).mockImplementation(async (capability) => {
       if (!can(role, capability)) throw new Error(`forbidden: ${capability}`);
-      return { userId: "u1", staffId: world.doctorId, name: `${role} Uji`, role, email: "uji@sundy.test" };
+      return { userId: "u1", staffId: world.doctorId, name: `${role} Uji`, role, email: "uji@sundy.test", extraCapabilities: [] };
     });
   }
 

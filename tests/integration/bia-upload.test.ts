@@ -28,7 +28,7 @@ const SLUG = "unggah-bia";
 const WA = "6281200009101";
 const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46, 0x49, 0x46, 0]);
 
-const staff = (role: CurrentStaff["role"], staffId = "s-" + role): CurrentStaff => ({ userId: "u-" + role, staffId, name: `Uji ${role}`, role, email: `${role}@uji.test` });
+const staff = (role: CurrentStaff["role"], staffId = "s-" + role): CurrentStaff => ({ userId: "u-" + role, staffId, name: `Uji ${role}`, role, email: `${role}@uji.test`, extraCapabilities: [] });
 const resepsionis = staff("RESEPSIONIS");
 const dokter = staff("DOKTER");
 

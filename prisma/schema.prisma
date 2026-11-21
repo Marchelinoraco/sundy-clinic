@@ -100,11 +100,25 @@ model Staff {
   reviewedIntakes    Intake[]
   employee           Employee?
   approvalPin        ApprovalPin?
+  capabilityGrants   StaffCapabilityGrant[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([role, isActive])
+}
+
+/// Hak tambahan per akun di luar bawaan perannya (spec akses tambahan bagian 5).
+/// `capability` disimpan sebagai teks; pemuat sesi hanya meloloskan nilai yang masih dikenal `isGrantable`.
+model StaffCapabilityGrant {
+  id          String   @id @default(cuid())
+  staffId     String
+  staff       Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  capability  String
+  grantedById String?
+  createdAt   DateTime @default(now())
+
+  @@unique([staffId, capability])
 }
 
 enum ExceptionKind {
