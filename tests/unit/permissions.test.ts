@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isNavItemVisible, NAV_GROUPS } from "@/components/admin/app-sidebar";
-import { can, CAPABILITIES_BY_ROLE, type Capability } from "@/lib/permissions";
+import { can, CAPABILITIES_BY_ROLE, CAPABILITY_LABEL, GRANTABLE_CAPABILITIES, isGrantable, type Capability } from "@/lib/permissions";
 
 describe("hak akses", () => {
   it("memberi super admin seluruh kemampuan, kecuali bunyi check-in milik perawat", () => {
@@ -206,5 +206,49 @@ describe("hak akses hasil BIA (spec hasil BIA 5)", () => {
     expect(can("SUPER_ADMIN", "payroll:manage")).toBe(true);
     expect(can("ADMIN_KEUANGAN", "payroll:manage")).toBe(true);
     for (const role of ["RESEPSIONIS", "APOTEKER", "DOKTER", "TERAPIS"] as const) expect(can(role, "payroll:manage")).toBe(false);
+  });
+});
+
+describe("akses tambahan per akun (spec akses tambahan 4, 5)", () => {
+  const NEW_STOCK = ["stock:item", "stock:supplier", "stock:receive", "stock:adjust", "stock:counter"] as const;
+  const ROLES = ["SUPER_ADMIN", "DOKTER", "TERAPIS", "RESEPSIONIS", "APOTEKER", "ADMIN_KEUANGAN"] as const;
+
+  it("Apoteker dan Super Admin punya kelima kemampuan stok baru; peran lain tidak", () => {
+    for (const c of NEW_STOCK) {
+      expect(can("APOTEKER", c)).toBe(true);
+      expect(can("SUPER_ADMIN", c)).toBe(true);
+      for (const role of ["RESEPSIONIS", "ADMIN_KEUANGAN", "DOKTER", "TERAPIS"] as const) expect(can(role, c)).toBe(false);
+    }
+  });
+
+  it("kelima kemampuan baru setara stock:manage untuk tiap peran", () => {
+    for (const role of ROLES) for (const c of NEW_STOCK) expect(can(role, c)).toBe(can(role, "stock:manage"));
+  });
+
+  it("kemampuan tambahan berlaku, beserta prasyaratnya", () => {
+    const a = { role: "RESEPSIONIS", extraCapabilities: ["stock:receive"] } as const;
+    expect(can(a, "stock:receive")).toBe(true);
+    expect(can(a, "stock:adjust")).toBe(false);
+    expect(can(a, "stock:read")).toBe(true);
+    expect(can(a, "counter:read")).toBe(true);
+    const b = { role: "ADMIN_KEUANGAN", extraCapabilities: ["stock:counter"] } as const;
+    expect(can(b, "counter:read")).toBe(true);
+    expect(can(b, "restock:request")).toBe(false);
+  });
+
+  it("aktor tanpa tambahan sama dengan peran saja", () => {
+    expect(can({ role: "RESEPSIONIS" }, "stock:item")).toBe(false);
+    for (const c of ["stock:item", "stock:read", "counter:read", "booking:manage"] as const) {
+      expect(can({ role: "RESEPSIONIS", extraCapabilities: [] }, c)).toBe(can("RESEPSIONIS", c));
+    }
+  });
+
+  it("isGrantable dan daftar yang bisa diberikan", () => {
+    expect(isGrantable("stock:counter")).toBe(true);
+    for (const v of ["staff:manage", "approval:give", "ngawur"]) expect(isGrantable(v)).toBe(false);
+    expect(GRANTABLE_CAPABILITIES).toEqual(["stock:read", "stock:item", "stock:supplier", "stock:receive", "stock:adjust", "stock:counter"]);
+    expect(GRANTABLE_CAPABILITIES).not.toContain("staff:manage");
+    expect(GRANTABLE_CAPABILITIES).not.toContain("approval:give");
+    for (const c of GRANTABLE_CAPABILITIES) expect(CAPABILITY_LABEL[c]).toBeTruthy();
   });
 });
