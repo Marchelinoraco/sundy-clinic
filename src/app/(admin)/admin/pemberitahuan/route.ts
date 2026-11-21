@@ -12,5 +12,5 @@ export async function GET(request: Request): Promise<Response> {
   const since = new Date(raw ?? "");
   if (!raw || Number.isNaN(since.getTime())) return Response.json({ error: "Parameter sejak tidak sah." }, { status: 400 });
 
-  return Response.json(await liveEventsFor(staff.role, since), { headers: { "Cache-Control": "no-store" } });
+  return Response.json(await liveEventsFor(staff, since), { headers: { "Cache-Control": "no-store" } });
 }

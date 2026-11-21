@@ -4,12 +4,10 @@ import NotificationsActiveOutlined from "@mui/icons-material/NotificationsActive
 import NotificationsOffOutlined from "@mui/icons-material/NotificationsOffOutlined";
 import IconButton from "@mui/material/IconButton";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { eventHref, eventMessage, freshEvents, LIVE_MAX_LOOKBACK_MS, LIVE_POLL_MS, nextSince, watchedKinds, type LiveEvent } from "@/lib/live-events";
-import type { can } from "@/lib/permissions";
-
-type Role = Parameters<typeof can>[0];
+import type { Actor } from "@/lib/permissions";
 const SOUND_KEY = "sundy-bunyi";
 
 /** Nada pendek dua langkah dengan WebAudio (tanpa berkas suara). */
@@ -35,9 +33,13 @@ function beep(context: AudioContext) {
  * memunculkan pop-up dan bunyi untuk peristiwa baru, lalu memuat ulang layar supaya antrean, lencana menu,
  * dan dasbor terbarui. Hanya jalan bila tab admin terbuka; tidak ada notifikasi saat peramban tertutup.
  */
-export function LiveNotifier({ initialSince, role }: { initialSince: string; role: Role }) {
+export function LiveNotifier({ initialSince, actor: incoming }: { initialSince: string; actor: Actor }) {
   const router = useRouter();
-  const enabled = watchedKinds(role).length > 0;
+  // Objek dari server berganti identitas tiap layout dirender ulang; kunci teks menjaga putaran pemeriksaan tidak diulang.
+  const actorKey = JSON.stringify([incoming.role, [...(incoming.extraCapabilities ?? [])].sort()]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const actor = useMemo<Actor>(() => incoming, [actorKey]);
+  const enabled = watchedKinds(actor).length > 0;
   const [watching, setWatching] = useState(enabled);
   const [soundOn, setSoundOn] = useState(true);
   const soundRef = useRef(true);
@@ -87,8 +89,8 @@ export function LiveNotifier({ initialSince, role }: { initialSince: string; rol
       const fresh = freshEvents(seenRef.current, body.events);
       if (fresh.length === 0) return;
       for (const event of fresh) {
-        const message = eventMessage(event, role);
-        toast(message.title, { description: message.description, action: { label: "Buka", onClick: () => router.push(eventHref(event, role)) } });
+        const message = eventMessage(event, actor);
+        toast(message.title, { description: message.description, action: { label: "Buka", onClick: () => router.push(eventHref(event, actor)) } });
       }
       if (soundRef.current && audioRef.current) {
         try {
@@ -103,7 +105,7 @@ export function LiveNotifier({ initialSince, role }: { initialSince: string; rol
     } finally {
       busyRef.current = false;
     }
-  }, [role, router]);
+  }, [actor, router]);
 
   useEffect(() => {
     if (!enabled || !watching) return;

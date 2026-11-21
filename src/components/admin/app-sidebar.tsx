@@ -33,7 +33,7 @@ import Typography from "@mui/material/Typography";
 import NextLink from "next/link";
 import { usePathname } from "next/navigation";
 import { CLINIC_NAME } from "@/lib/clinic";
-import { can, type Capability } from "@/lib/permissions";
+import { can, type Actor, type Capability } from "@/lib/permissions";
 import type { CurrentStaff } from "@/server/session";
 
 export type NavItem = {
@@ -84,10 +84,10 @@ export const NAV_GROUPS: { title: string; items: NavItem[] }[] = [
   },
 ];
 
-export function isNavItemVisible(role: CurrentStaff["role"], item: NavItem): boolean {
-  if (item.needs && !can(role, item.needs)) return false;
-  if (item.needsAny && !item.needsAny.some((capability) => can(role, capability))) return false;
-  if (item.hideWith && can(role, item.hideWith)) return false;
+export function isNavItemVisible(staff: Actor, item: NavItem): boolean {
+  if (item.needs && !can(staff, item.needs)) return false;
+  if (item.needsAny && !item.needsAny.some((capability) => can(staff, capability))) return false;
+  if (item.hideWith && can(staff, item.hideWith)) return false;
   return true;
 }
 
@@ -149,7 +149,7 @@ export function AppSidebar({
       <Box sx={{ flex: 1, overflowY: "auto" }}>
         {NAV_GROUPS.map((group) => {
           // Menu yang tidak berhak diakses tidak ditampilkan. Ini kenyamanan, bukan keamanan.
-          const visible = group.items.filter((item) => isNavItemVisible(staff.role, item));
+          const visible = group.items.filter((item) => isNavItemVisible(staff, item));
           if (visible.length === 0) return null;
           return (
             <List key={group.title} dense subheader={<ListSubheader component="div" sx={{ bgcolor: "transparent", lineHeight: "32px" }}>{group.title}</ListSubheader>}>

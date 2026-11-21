@@ -42,7 +42,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       </AdminShell>
       {/* Kanan atas: bar aksi halaman kunjungan menempel di bawah, dan toast di sana menutupi Finalisasi. */}
       <AdminToaster />
-      <LiveNotifier initialSince={new Date().toISOString()} role={staff.role} />
+      <LiveNotifier initialSince={new Date().toISOString()} actor={{ role: staff.role, extraCapabilities: staff.extraCapabilities }} />
     </>
   );
 }

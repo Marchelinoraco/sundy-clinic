@@ -59,7 +59,7 @@ describe("pemberitahuan langsung", () => {
     fetchMock
       .mockResolvedValueOnce(respond({ serverTime: "2026-10-08T01:00:20.000Z", events: [eventA] }))
       .mockResolvedValueOnce(respond({ serverTime: "2026-10-08T01:00:30.000Z", events: [eventA, eventB] }));
-    render(<LiveNotifier initialSince={SINCE} role="APOTEKER" />);
+    render(<LiveNotifier initialSince={SINCE} actor={{ role: "APOTEKER" }} />);
     expect(fetchMock).not.toHaveBeenCalled();
 
     await tick();
@@ -81,7 +81,7 @@ describe("pemberitahuan langsung", () => {
     fetchMock.mockResolvedValueOnce(respond({ serverTime: "2026-10-08T01:00:20.000Z", events: [] })).mockResolvedValueOnce(
       respond({ serverTime: "2026-10-08T01:00:30.000Z", events: [eventA] }),
     );
-    render(<LiveNotifier initialSince={SINCE} role="APOTEKER" />);
+    render(<LiveNotifier initialSince={SINCE} actor={{ role: "APOTEKER" }} />);
     await tick();
     expect(mocks.toast).not.toHaveBeenCalled();
     expect(mocks.refresh).not.toHaveBeenCalled();
@@ -94,7 +94,7 @@ describe("pemberitahuan langsung", () => {
 
   it("berhenti memeriksa bila server menyatakan tidak ada yang diawasi, dan peran tanpa pengawasan tidak memeriksa sama sekali", async () => {
     fetchMock.mockResolvedValue(respond({ watching: false, serverTime: "2026-10-08T01:00:20.000Z", events: [] }));
-    const { unmount } = render(<LiveNotifier initialSince={SINCE} role="APOTEKER" />);
+    const { unmount } = render(<LiveNotifier initialSince={SINCE} actor={{ role: "APOTEKER" }} />);
     await tick();
     await tick(30_000);
     expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -102,7 +102,7 @@ describe("pemberitahuan langsung", () => {
     unmount();
 
     fetchMock.mockClear();
-    render(<LiveNotifier initialSince={SINCE} role="DOKTER" />);
+    render(<LiveNotifier initialSince={SINCE} actor={{ role: "DOKTER" }} />);
     await tick(30_000);
     expect(fetchMock).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: /Bunyi notifikasi/ })).toBeNull();
@@ -111,7 +111,7 @@ describe("pemberitahuan langsung", () => {
   it("tab tersembunyi tidak memeriksa; kembali terlihat langsung memeriksa", async () => {
     fetchMock.mockResolvedValue(respond({ serverTime: "2026-10-08T01:00:20.000Z", events: [] }));
     Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
-    render(<LiveNotifier initialSince={SINCE} role="APOTEKER" />);
+    render(<LiveNotifier initialSince={SINCE} actor={{ role: "APOTEKER" }} />);
     await tick(30_000);
     expect(fetchMock).not.toHaveBeenCalled();
     Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
@@ -123,7 +123,7 @@ describe("pemberitahuan langsung", () => {
 
   it("galat jaringan tidak menghentikan pemeriksaan berikutnya", async () => {
     fetchMock.mockRejectedValueOnce(new Error("putus")).mockResolvedValueOnce(respond({ serverTime: "2026-10-08T01:00:30.000Z", events: [eventA] }));
-    render(<LiveNotifier initialSince={SINCE} role="APOTEKER" />);
+    render(<LiveNotifier initialSince={SINCE} actor={{ role: "APOTEKER" }} />);
     await tick();
     expect(mocks.toast).not.toHaveBeenCalled();
     await tick();
@@ -134,7 +134,7 @@ describe("pemberitahuan langsung", () => {
     fetchMock
       .mockResolvedValueOnce(respond({ serverTime: "2026-10-08T01:00:20.000Z", events: [eventA] }))
       .mockResolvedValueOnce(respond({ serverTime: "2026-10-08T01:00:30.000Z", events: [eventB] }));
-    render(<LiveNotifier initialSince={SINCE} role="APOTEKER" />);
+    render(<LiveNotifier initialSince={SINCE} actor={{ role: "APOTEKER" }} />);
     expect(screen.getByRole("button", { name: "Bunyi notifikasi hidup" })).toBeInTheDocument();
     fireEvent.pointerDown(document.body); // peramban baru mengizinkan bunyi setelah disentuh
     await tick();
@@ -151,13 +151,13 @@ describe("pemberitahuan langsung", () => {
 
   it("pilihan bunyi mati dari sesi sebelumnya dipulihkan", () => {
     localStorage.setItem("sundy-bunyi", "mati");
-    render(<LiveNotifier initialSince={SINCE} role="RESEPSIONIS" />);
+    render(<LiveNotifier initialSince={SINCE} actor={{ role: "RESEPSIONIS" }} />);
     expect(screen.getByRole("button", { name: "Bunyi notifikasi mati" })).toBeInTheDocument();
   });
 
   it("tersembunyi lebih dari 10 menit: kembali terlihat memuat ulang layar walau tanpa peristiwa baru (daftar perawat tidak basi)", async () => {
     fetchMock.mockResolvedValue(respond({ serverTime: "2026-10-08T01:00:20.000Z", events: [] }));
-    render(<LiveNotifier initialSince={SINCE} role="TERAPIS" />);
+    render(<LiveNotifier initialSince={SINCE} actor={{ role: "TERAPIS" }} />);
     Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
     await act(async () => {
       document.dispatchEvent(new Event("visibilitychange"));
@@ -172,7 +172,7 @@ describe("pemberitahuan langsung", () => {
 
   it("tersembunyi sebentar: kembali terlihat hanya memeriksa, tanpa memuat ulang layar", async () => {
     fetchMock.mockResolvedValue(respond({ serverTime: "2026-10-08T01:00:20.000Z", events: [] }));
-    render(<LiveNotifier initialSince={SINCE} role="TERAPIS" />);
+    render(<LiveNotifier initialSince={SINCE} actor={{ role: "TERAPIS" }} />);
     Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
     await act(async () => {
       document.dispatchEvent(new Event("visibilitychange"));

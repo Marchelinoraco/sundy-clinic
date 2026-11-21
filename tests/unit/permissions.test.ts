@@ -50,8 +50,14 @@ describe("hak akses", () => {
     expect(can("DOKTER", "nurse:work")).toBe(false);
   });
 
+  it("hibah stock:read memunculkan menu Stok untuk resepsionis; tanpa hibah tidak", () => {
+    const itemStok = NAV_GROUPS.flatMap((g) => g.items).find((item) => item.title === "Stok")!;
+    expect(isNavItemVisible({ role: "RESEPSIONIS", extraCapabilities: ["stock:read"] }, itemStok)).toBe(true);
+    expect(isNavItemVisible({ role: "RESEPSIONIS" }, itemStok)).toBe(false);
+  });
+
   it("menu Perawat hanya Dasbor", () => {
-    const visible = NAV_GROUPS.flatMap((g) => g.items).filter((item) => isNavItemVisible("TERAPIS", item)).map((i) => i.title);
+    const visible = NAV_GROUPS.flatMap((g) => g.items).filter((item) => isNavItemVisible({ role: "TERAPIS" }, item)).map((i) => i.title);
     expect(visible).toEqual(["Dasbor"]);
   });
 

@@ -4,8 +4,8 @@ import { isNavItemVisible, NAV_GROUPS } from "@/components/admin/app-sidebar";
 import { StockAvailabilityTable } from "@/components/admin/dispensing/stock-availability-table";
 import { renderAdmin } from "./helpers/render-admin";
 
-const titlesFor = (role: Parameters<typeof isNavItemVisible>[0]) =>
-  NAV_GROUPS.flatMap((group) => group.items).filter((item) => isNavItemVisible(role, item)).map((item) => item.title);
+const titlesFor = (role: Parameters<typeof isNavItemVisible>[0]["role"]) =>
+  NAV_GROUPS.flatMap((group) => group.items).filter((item) => isNavItemVisible({ role }, item)).map((item) => item.title);
 
 describe("tabel ketersediaan stok", () => {
   it("menampilkan nama, jenis, sisa, satuan; Habis ditandai; tanpa harga", () => {

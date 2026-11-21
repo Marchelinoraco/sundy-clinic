@@ -1,8 +1,8 @@
-import { can } from "./permissions";
+import { can, type Subject } from "./permissions";
 
 // Aturan murni pemberitahuan langsung (resep, siap ditagih, restock meja, check-in untuk perawat). Dipakai server dan browser.
 
-type Role = Parameters<typeof can>[0];
+type Role = Subject;
 
 /** Jeda antar pemeriksaan di layar admin yang terbuka. */
 export const LIVE_POLL_MS = 10_000;
