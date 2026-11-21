@@ -39,7 +39,7 @@ export function NavUser({ staff }: { staff: CurrentStaff }) {
           </Typography>
         </Box>
         <Divider />
-        {can(staff.role, "approval:give") && (
+        {can(staff, "approval:give") && (
           <MenuItem component={Link} href="/admin/pin-persetujuan" onClick={() => setAnchor(null)}>
             <ListItemIcon>
               <Password fontSize="small" />

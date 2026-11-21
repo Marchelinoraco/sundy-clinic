@@ -35,7 +35,7 @@ export default async function NewPurchasePage() {
             .
           </EmptyState>
         ) : (
-          <PurchaseForm items={items} suppliers={suppliers} branches={active} today={witaDateString(new Date())} canSetPrice={can(staff.role, "price:manage")} canAddSupplier={can(staff, "stock:supplier")} />
+          <PurchaseForm items={items} suppliers={suppliers} branches={active} today={witaDateString(new Date())} canSetPrice={can(staff, "price:manage")} canAddSupplier={can(staff, "stock:supplier")} />
         )}
       </PageBody>
     </>

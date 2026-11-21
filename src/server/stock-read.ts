@@ -46,7 +46,7 @@ const BATCH_STOCK_SELECT = { quantityRemaining: true, counterRemaining: true, ex
 /** Daftar barang satu cabang (spec stok 5.1). Bawaannya barang aktif; "NONAKTIF" menampilkan yang nonaktif. */
 export async function listStockItems(filter: StockListFilter): Promise<StockItemRow[]> {
   const actor = await requireCapability("stock:read");
-  const withCost = can(actor.role, "price:manage");
+  const withCost = can(actor, "price:manage");
   const today = witaDateString(new Date());
   const q = filter.q?.trim();
   const items = await prisma.stockItem.findMany({
@@ -139,7 +139,7 @@ export type StockItemDetail = {
 /** Detail barang (spec stok 5.3): batch bersisa di semua cabang, kedaluwarsa terdekat dulu, dan 100 jurnal terakhir. */
 export async function getStockItemDetail(id: string): Promise<StockItemDetail | null> {
   const actor = await requireCapability("stock:read");
-  const withCost = can(actor.role, "price:manage");
+  const withCost = can(actor, "price:manage");
   const today = witaDateString(new Date());
   const item = await prisma.stockItem.findUnique({
     where: { id: String(id ?? "") },
@@ -240,7 +240,7 @@ export type SupplierRow = {
 
 export async function listSuppliers(): Promise<SupplierRow[]> {
   const actor = await requireCapability("stock:read");
-  const withBalance = can(actor.role, "payable:manage");
+  const withBalance = can(actor, "payable:manage");
   const today = witaDateString(new Date());
   const suppliers = await prisma.supplier.findMany({
     orderBy: [{ isActive: "desc" }, { name: "asc" }],

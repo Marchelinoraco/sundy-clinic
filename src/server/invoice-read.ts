@@ -297,7 +297,7 @@ function marginSummary(lines: readonly InvoiceLineRow[], revenue: number, missin
 
 export async function getInvoiceDetail(id: string): Promise<InvoiceDetail | null> {
   const actor = await requireCapability("invoice:read");
-  const withCost = can(actor.role, "price:manage");
+  const withCost = can(actor, "price:manage");
   const invoice = await prisma.invoice.findUnique({
     where: { id: String(id ?? "") },
     select: {

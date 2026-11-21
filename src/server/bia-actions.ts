@@ -4,7 +4,7 @@ import { runAction, UserFacingError, type ActionResult } from "@/lib/action-resu
 import { biaAccess, parseBiaInput, type BiaInput } from "@/lib/bia";
 import { prisma } from "@/lib/db";
 import { NURSE_OUT_OF_SCOPE, nurseCanWork } from "@/lib/nurse";
-import { can } from "@/lib/permissions";
+import { can, type Actor } from "@/lib/permissions";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { validateReason } from "@/lib/stock";
 import { recordAudit } from "@/server/audit";
@@ -21,8 +21,8 @@ function revalidate(patientId: string) {
 }
 
 /** Perawat tanpa record:write hanya boleh untuk booking klinik hari ini yang Hadir (spec peran perawat 5). */
-function assertNurseScope(actor: { role: Parameters<typeof can>[0] }, appointment: { status: string; channel: "KLINIK" | "ONLINE"; startAt: Date }) {
-  if (!can(actor.role, "record:write") && !nurseCanWork(appointment, new Date())) throw new UserFacingError(NURSE_OUT_OF_SCOPE);
+function assertNurseScope(actor: Actor, appointment: { status: string; channel: "KLINIK" | "ONLINE"; startAt: Date }) {
+  if (!can(actor, "record:write") && !nurseCanWork(appointment, new Date())) throw new UserFacingError(NURSE_OUT_OF_SCOPE);
 }
 
 /** Memulai pengukuran untuk booking ini (atau mengembalikan yang aktif). Peran yang menulis catatan klinis, atau perawat. */

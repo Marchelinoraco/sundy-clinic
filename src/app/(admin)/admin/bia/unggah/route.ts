@@ -13,7 +13,7 @@ const json = (body: { ok: true; fileId: string } | { ok: false; error: string },
 export async function POST(request: Request): Promise<Response> {
   const staff = await getCurrentStaff();
   if (!staff) return json({ ok: false, error: "Masuk dulu." }, 401);
-  if (!can(staff.role, "bia:upload")) return json({ ok: false, error: "Anda tidak berhak mengunggah hasil BIA." }, 403);
+  if (!can(staff, "bia:upload")) return json({ ok: false, error: "Anda tidak berhak mengunggah hasil BIA." }, 403);
   if (!isSameOrigin(request)) return json({ ok: false, error: "Permintaan tidak sah." }, 403);
 
   // Tolak sebelum isinya dibaca ke memori: batas nginx 20 MB, sedangkan satu berkas paling besar 10 MB (+ sedikit ruang untuk bidang formulir).

@@ -42,28 +42,29 @@ export default async function AdminDashboardPage({
   const staff = await requireStaff();
   const now = new Date();
   const period = parsePeriod((await searchParams).periode);
-  const canBook = can(staff.role, "booking:manage");
+  const canBook = can(staff, "booking:manage");
 
   // Setiap bagian dimuat sendiri-sendiri dan hanya bila berhak (spec D 4.6–4.7).
   const [work, schedule, worklist, online, numbers, stock, payables, billable, unpaid, dispensing, profit, counter, restock, nurse] = await Promise.all([
     canBook ? settle(getTodayWork(now), "pekerjaan hari ini") : null,
     canBook ? settle(getTodaySchedule(now), "jadwal hari ini") : null,
-    can(staff.role, "record:read") ? settle(listDoctorWorklist(), "daftar dokter") : null,
-    can(staff.role, "record:write") ? settle(listOnlineWork(), "konsultasi online") : null,
-    can(staff.role, "report:read") ? settle(getDashboardNumbers(period, now), "angka") : null,
-    can(staff.role, "stock:read") ? settle(countStockAlerts(), "stok") : null,
-    can(staff.role, "payable:manage") ? settle(payablesOverview(), "hutang") : null,
-    can(staff.role, "invoice:manage") ? settle(countBillable(), "perlu ditagih") : null,
-    can(staff.role, "invoice:correct") ? settle(unpaidOverview(), "tagihan") : null,
-    can(staff.role, "dispense:read") ? settle(countPendingDispensings(), "resep") : null,
-    can(staff.role, "profit:read") ? settle(getMonthProfit(), "laporan") : null,
-    can(staff.role, "counter:read") && !can(staff.role, "stock:counter") ? settle(countCounterAlerts(), "stok meja") : null,
-    can(staff.role, "stock:counter") ? settle(countPendingRestock(), "permintaan restock") : null,
-    can(staff.role, "nurse:work") ? settle(listNurseWorklist(now), "pasien perawat") : null,
+    can(staff, "record:read") ? settle(listDoctorWorklist(), "daftar dokter") : null,
+    can(staff, "record:write") ? settle(listOnlineWork(), "konsultasi online") : null,
+    can(staff, "report:read") ? settle(getDashboardNumbers(period, now), "angka") : null,
+    can(staff, "stock:read") ? settle(countStockAlerts(), "stok") : null,
+    can(staff, "payable:manage") ? settle(payablesOverview(), "hutang") : null,
+    can(staff, "invoice:manage") ? settle(countBillable(), "perlu ditagih") : null,
+    can(staff, "invoice:correct") ? settle(unpaidOverview(), "tagihan") : null,
+    can(staff, "dispense:read") ? settle(countPendingDispensings(), "resep") : null,
+    can(staff, "profit:read") ? settle(getMonthProfit(), "laporan") : null,
+    // Pengecualian menurut peran, bukan hibah: akun yang diberi hak meja melihat kedua kotak.
+    can(staff, "counter:read") && !can(staff.role, "stock:counter") ? settle(countCounterAlerts(), "stok meja") : null,
+    can(staff, "stock:counter") ? settle(countPendingRestock(), "permintaan restock") : null,
+    can(staff, "nurse:work") ? settle(listNurseWorklist(now), "pasien perawat") : null,
   ]);
   // Peran yang juga melihat daftar dokter (Super Admin) mendapat judul yang tidak memuat "Pasien hari ini" sama sekali:
   // pembaca layar dan uji (yang mencocokkan nama sebagian) tidak boleh tertukar dengan kotak dokter.
-  const nurseTitle = can(staff.role, "record:read") ? "Recall & BIA hari ini" : "Pasien hari ini";
+  const nurseTitle = can(staff, "record:read") ? "Recall & BIA hari ini" : "Pasien hari ini";
 
   const dayLabel =
     schedule?.ok === true

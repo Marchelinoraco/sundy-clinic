@@ -19,15 +19,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   // Dijalankan untuk setiap halaman di bawah /admin. Satu tempat yang
   // memastikan tidak ada halaman admin yang lupa menuntut login.
   const staff = await requireStaff();
-  const [pendingBookings, reminderWork] = can(staff.role, "booking:manage")
+  const [pendingBookings, reminderWork] = can(staff, "booking:manage")
     ? await Promise.all([countPendingBookings(), countReminderWork()])
     : [0, 0];
   const [stockAlerts, overduePayables, billable, pendingDispensing, counterAlerts] = await Promise.all([
-    can(staff.role, "stock:read") ? countStockAlerts().then((alerts) => alerts.low + alerts.expired) : 0,
-    can(staff.role, "payable:manage") ? countOverduePayables() : 0,
-    can(staff.role, "invoice:manage") ? countBillable() : 0,
-    can(staff.role, "dispense:read") ? countPendingDispensings() : 0,
-    can(staff.role, "counter:read") ? countCounterAlerts() : 0,
+    can(staff, "stock:read") ? countStockAlerts().then((alerts) => alerts.low + alerts.expired) : 0,
+    can(staff, "payable:manage") ? countOverduePayables() : 0,
+    can(staff, "invoice:manage") ? countBillable() : 0,
+    can(staff, "dispense:read") ? countPendingDispensings() : 0,
+    can(staff, "counter:read") ? countCounterAlerts() : 0,
   ]);
 
   return (

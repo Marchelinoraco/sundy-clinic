@@ -20,7 +20,7 @@ type Tab = "internal" | "situs";
 export default async function AdminServicesPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   // Katalog internal dan situs dikelola Super Admin dan Admin Keuangan; kartu konsultasi tetap Super Admin (spec layanan situs 5).
   const staff = await requireCapability("catalog:manage");
-  const canContent = can(staff.role, "content:manage");
+  const canContent = can(staff, "content:manage");
   const tab: Tab = (await searchParams).tab === "situs" ? "situs" : "internal";
   const [internal, categoryOptions, categoryRows] = await Promise.all([getInternalCatalog(), listServiceCategories(), listServiceCategoryRows()]);
   // Pilihan tautan layanan situs: semua layanan internal (termasuk nonaktif) kecuali Konsultasi Online (spec layanan situs 5.2).

@@ -52,7 +52,7 @@ export async function createPurchase(input: PurchaseInput): Promise<ActionResult
     if (!branch || branch.status !== "AKTIF") throw new UserFacingError("Cabang ini belum bisa menerima barang.");
     const p = checked.value;
     // Harga beli hanya diisi Admin Keuangan dan Super Admin (spec harga modal M1, M5).
-    const canPrice = can(actor.role, "price:manage");
+    const canPrice = can(actor, "price:manage");
     if (!canPrice && p.lines.some((line) => line.unitCost !== null)) throw new UserFacingError(PRICE_BY_FINANCE);
     const pricedAt = p.total === null ? null : new Date();
 

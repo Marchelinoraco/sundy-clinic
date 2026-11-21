@@ -182,8 +182,8 @@ export async function finalizeInvoice(input: { invoiceId: string; version: numbe
 export async function cancelInvoice(input: { invoiceId: string; reason: string; approval?: ApprovalInput }): Promise<ActionResult<void>> {
   return runAction(async () => {
     const actor = await requireCapability("invoice:read");
-    const canCorrect = can(actor.role, "invoice:correct");
-    if (!can(actor.role, "invoice:manage") && !canCorrect) throw new UserFacingError("Anda tidak berhak membatalkan tagihan.");
+    const canCorrect = can(actor, "invoice:correct");
+    if (!can(actor, "invoice:manage") && !canCorrect) throw new UserFacingError("Anda tidak berhak membatalkan tagihan.");
     const reason = validateReason(input?.reason);
     if (!reason.ok) throw new UserFacingError(reason.message);
     const invoiceId = String(input?.invoiceId ?? "");

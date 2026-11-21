@@ -31,10 +31,10 @@ export default async function PatientPackagePage({ params }: { params: Promise<{
   if (!pkg) notFound();
   const legacy = pkg.source === "KLUTO";
   // Paket lama tanpa batas waktu tidak diperpanjang; ia dikoreksi atau dibatalkan (spec paket lama PL6, PL11).
-  const canExtend = can(staff.role, "invoice:correct") && pkg.state !== "DIBATALKAN" && !legacy;
-  const canFixLegacy = can(staff.role, "invoice:correct") && pkg.state !== "DIBATALKAN" && legacy;
+  const canExtend = can(staff, "invoice:correct") && pkg.state !== "DIBATALKAN" && !legacy;
+  const canFixLegacy = can(staff, "invoice:correct") && pkg.state !== "DIBATALKAN" && legacy;
   // Resepsionis dan Admin Keuangan boleh menggeser kunjungan berikutnya (spec jadwal paket JP9, 4.6); rencana kosong paket lama boleh diisi (PL13).
-  const canChangeVisit = (can(staff.role, "invoice:manage") || can(staff.role, "invoice:correct")) && pkg.state === "AKTIF";
+  const canChangeVisit = (can(staff, "invoice:manage") || can(staff, "invoice:correct")) && pkg.state === "AKTIF";
   const description = legacy
     ? `${pkg.patient.name} · ${pkg.patient.medicalRecordNumber} · dibeli di Kluto ${dateLabel(pkg.startsOn)} · Dibayar di Kluto · Tanpa batas waktu`
     : `${pkg.patient.name} · ${pkg.patient.medicalRecordNumber} · dibeli ${dateLabel(pkg.startsOn)} (${pkg.purchaseInvoice?.number ?? "draf"}) · ${formatRupiah(pkg.price)} · berlaku s.d. ${dateLabel(pkg.expiresOn)}`;

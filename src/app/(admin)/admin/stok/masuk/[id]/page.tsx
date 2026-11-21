@@ -28,7 +28,7 @@ export default async function PurchasePage({ params }: { params: Promise<{ id: s
   const detail = await getPurchaseDetail((await params).id);
   if (!detail) notFound();
   const canReceive = can(staff, "stock:receive");
-  const canPrice = can(staff.role, "price:manage");
+  const canPrice = can(staff, "price:manage");
   const canCancel = detail.canCancel && (canReceive || can(staff, "payable:manage"));
   const returnable =
     canReceive && detail.cancelledAt === null ? detail.lines.filter((line) => line.batchRemaining > 0) : [];

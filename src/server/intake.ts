@@ -270,9 +270,9 @@ export async function getIntakeForStaff(intakeId: string): Promise<IntakeDetail 
   });
   if (!row) return null;
 
-  const loaded = can(staff.role, "record:read") ? await loadIntakeClinical(row.id) : null;
+  const loaded = can(staff, "record:read") ? await loadIntakeClinical(row.id) : null;
   let approval: IntakeApproval | null = null;
-  if (loaded && can(staff.role, "record:write")) {
+  if (loaded && can(staff, "record:write")) {
     approval = row.patient
       ? await loadApproval(row.patient.id, loaded.proposal, row.status === "DIPERIKSA")
       : { state: "needs-match" };

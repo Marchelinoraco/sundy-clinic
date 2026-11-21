@@ -32,8 +32,8 @@ export default async function CounterStockPage({ searchParams }: { searchParams:
     );
   }
   const branch = branches.find((b) => b.id === params.cabang) ?? branches[0];
-  const canRequest = can(staff.role, "restock:request");
-  const canFill = can(staff.role, "stock:counter");
+  const canRequest = can(staff, "restock:request");
+  const canFill = can(staff, "stock:counter");
   const [items, pending, history] = await Promise.all([
     listCounterItems(branch.id),
     listRestockRequests({ branchId: branch.id, view: "MENUNGGU" }),

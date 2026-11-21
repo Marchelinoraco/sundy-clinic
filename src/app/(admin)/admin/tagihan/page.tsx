@@ -16,7 +16,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
   const params = await searchParams;
   const view: InvoiceView = isInvoiceView(params.lihat) ? params.lihat : "PERLU_DITAGIH";
   const q = params.q?.trim() || undefined;
-  const canManage = can(staff.role, "invoice:manage");
+  const canManage = can(staff, "invoice:manage");
   const rows = view === "PERLU_DITAGIH" ? null : await listInvoices({ view, q });
   const billable = view === "PERLU_DITAGIH" ? await listBillableVisits() : null;
 

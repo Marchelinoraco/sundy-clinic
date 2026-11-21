@@ -19,7 +19,7 @@ export default async function EncounterPage({ params }: { params: Promise<{ id: 
     <>
       <AdminHeader title="Kunjungan" heading />
       <PageBody wide>
-        <EncounterPageView encounter={encounter} bia={bia} canWrite={can(staff.role, "record:write")} />
+        <EncounterPageView encounter={encounter} bia={bia} canWrite={can(staff, "record:write")} />
       </PageBody>
     </>
   );

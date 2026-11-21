@@ -15,7 +15,7 @@ import { requireCapability } from "@/server/session";
 export async function updateInvoiceNotes(input: { invoiceId: string; notes: string }): Promise<ActionResult<void>> {
   return runAction(async () => {
     const actor = await requireCapability("invoice:read");
-    if (!can(actor.role, "invoice:manage") && !can(actor.role, "invoice:correct")) throw new UserFacingError("Anda tidak berhak mengubah catatan tagihan.");
+    if (!can(actor, "invoice:manage") && !can(actor, "invoice:correct")) throw new UserFacingError("Anda tidak berhak mengubah catatan tagihan.");
     const notes = typeof input?.notes === "string" ? input.notes.trim() : "";
     if (notes.length > INVOICE_NOTES_MAX) throw new UserFacingError(`Catatan paling banyak ${INVOICE_NOTES_MAX} karakter.`);
     const invoice = await prisma.invoice.findUnique({ where: { id: String(input?.invoiceId ?? "") }, select: { id: true, number: true } });

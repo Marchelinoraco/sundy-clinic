@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request): Promise<Response> {
   const staff = await getCurrentStaff();
   if (!staff) return new Response("Masuk dulu.", { status: 401 });
-  if (!can(staff.role, "profit:read")) return new Response("Anda tidak berhak mengunduh laporan.", { status: 403 });
+  if (!can(staff, "profit:read")) return new Response("Anda tidak berhak mengunduh laporan.", { status: 403 });
 
   const params = new URL(request.url).searchParams;
   try {

@@ -26,7 +26,7 @@ export default async function PackagesPage({
 }) {
   const staff = await requireCapability("invoice:read");
   const params = await searchParams;
-  const canCatalog = can(staff.role, "price:manage");
+  const canCatalog = can(staff, "price:manage");
   const tabs = [
     { id: "customer", label: "Paket customer", href: "/admin/paket" },
     ...(canCatalog ? [{ id: "katalog", label: "Katalog paket", href: "/admin/paket?tab=katalog" }] : []),
@@ -35,7 +35,7 @@ export default async function PackagesPage({
   const q = typeof params.cari === "string" ? params.cari : "";
   // Saringan "Paket lama (Kluto)" untuk pencocokan dengan Kluto (spec paket lama PL12); tombol memasukkan untuk invoice:manage (PL2).
   const legacyOnly = params.asal === "kluto";
-  const canEnterLegacy = can(staff.role, "invoice:manage");
+  const canEnterLegacy = can(staff, "invoice:manage");
   const filterHref = (kluto: boolean) => {
     const query = new URLSearchParams({ ...(q ? { cari: q } : {}), ...(kluto ? { asal: "kluto" } : {}) }).toString();
     return query ? `/admin/paket?${query}` : "/admin/paket";

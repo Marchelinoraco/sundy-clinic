@@ -37,8 +37,8 @@ export default async function StockItemPage({ params }: { params: Promise<{ id: 
   const canItem = can(staff, "stock:item");
   const canAdjust = can(staff, "stock:adjust");
   const canCounter = can(staff, "stock:counter");
-  const canPrice = can(staff.role, "price:manage");
-  const canSetPrice = can(staff.role, "price:manage");
+  const canPrice = can(staff, "price:manage");
+  const canSetPrice = can(staff, "price:manage");
 
   return (
     <>

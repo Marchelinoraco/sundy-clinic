@@ -14,7 +14,7 @@ const TOO_BIG = "Foto terlalu besar (maks. 8 MB).";
 export async function POST(request: Request): Promise<Response> {
   const staff = await getCurrentStaff();
   if (!staff) return json({ ok: false, error: "Masuk dulu." }, 401);
-  if (!can(staff.role, "catalog:manage")) return json({ ok: false, error: "Anda tidak berhak mengubah foto layanan." }, 403);
+  if (!can(staff, "catalog:manage")) return json({ ok: false, error: "Anda tidak berhak mengubah foto layanan." }, 403);
   if (!isSameOrigin(request)) return json({ ok: false, error: "Permintaan tidak sah." }, 403);
 
   // Tolak sebelum isinya dibaca ke memori (+ sedikit ruang untuk bidang formulir).

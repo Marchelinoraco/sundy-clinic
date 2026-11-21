@@ -33,7 +33,7 @@ export async function createStockItem(input: StockItemInput): Promise<ActionResu
     const checked = validateStockItem(input);
     if (!checked.ok) throw new UserFacingError(checked.message);
     const item = checked.value;
-    if (!can(actor.role, "price:manage") && item.sellPrice !== null) throw new UserFacingError(PRICE_BY_FINANCE);
+    if (!can(actor, "price:manage") && item.sellPrice !== null) throw new UserFacingError(PRICE_BY_FINANCE);
     let id: string;
     try {
       id = (await prisma.stockItem.create({ data: item, select: { id: true } })).id;
@@ -63,7 +63,7 @@ export async function updateStockItem(id: string, input: StockItemInput): Promis
     const item = checked.value;
     const existing = await prisma.stockItem.findUnique({ where: { id: String(id ?? "") }, select: { id: true, sellPrice: true } });
     if (!existing) throw new UserFacingError("Barang tidak ditemukan.");
-    const priceAllowed = can(actor.role, "price:manage");
+    const priceAllowed = can(actor, "price:manage");
     if (!priceAllowed && item.sellPrice !== existing.sellPrice) throw new UserFacingError(PRICE_BY_FINANCE);
     try {
       await prisma.stockItem.update({ where: { id: existing.id }, data: priceAllowed ? item : { ...item, sellPrice: existing.sellPrice } });

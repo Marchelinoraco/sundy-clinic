@@ -26,7 +26,7 @@ function sameOrigin(request: Request): boolean {
 export async function POST(request: Request): Promise<Response> {
   const staff = await getCurrentStaff();
   if (!staff) return text("Masuk dulu.", 401);
-  if (!can(staff.role, "invoice:manage")) return text("Anda tidak berhak mencetak struk.", 403);
+  if (!can(staff, "invoice:manage")) return text("Anda tidak berhak mencetak struk.", 403);
   if (!sameOrigin(request)) return text("Permintaan tidak sah.", 403);
   const body = await request.text();
   if (!body) return text("Permintaan kosong.", 400);

@@ -45,9 +45,9 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
   const canSupplier = can(staff, "stock:supplier");
   const canReceive = can(staff, "stock:receive");
   const canCounter = can(staff, "stock:counter");
-  const canPrice = can(staff.role, "price:manage");
+  const canPrice = can(staff, "price:manage");
   const pendingOnly = canPrice && params.harga === "menunggu";
-  const canSetPrice = can(staff.role, "price:manage");
+  const canSetPrice = can(staff, "price:manage");
   const tab: Tab =
     params.tab === "masuk" || params.tab === "supplier" ? params.tab : params.tab === "permintaan" && canCounter ? "permintaan" : "barang";
   const pendingRestock = canCounter ? await countPendingRestock() : 0;
@@ -100,7 +100,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
         {tab === "permintaan" && (
           <>
             <SectionCard title="Permintaan menunggu" description="Terlama di atas." flush>
-              <RestockRequestList rows={await listRestockRequests({ view: "MENUNGGU" })} canCancel={can(staff.role, "restock:request")} linkToDetail />
+              <RestockRequestList rows={await listRestockRequests({ view: "MENUNGGU" })} canCancel={can(staff, "restock:request")} linkToDetail />
             </SectionCard>
             <SectionCard title="Riwayat permintaan" description="50 terakhir." flush>
               <RestockRequestList rows={await listRestockRequests({ view: "RIWAYAT" })} canCancel={false} linkToDetail={false} />

@@ -24,7 +24,7 @@ export async function verifyApproval(input: unknown): Promise<Approver | null> {
     where: { id: approverId },
     select: { id: true, name: true, role: true, isActive: true, approvalPin: { select: { staffId: true } } },
   });
-  if (!staff || !staff.isActive || !can(staff.role, "approval:give") || !staff.approvalPin) throw new UserFacingError(APPROVER_INVALID);
+  if (!staff || !staff.isActive || !can(staff, "approval:give") || !staff.approvalPin) throw new UserFacingError(APPROVER_INVALID);
 
   const ctx = await auth.$context;
   // Satu percobaan per penyetuju pada satu waktu: permintaan serentak antre di kunci baris PIN, sehingga kunci 5 kali

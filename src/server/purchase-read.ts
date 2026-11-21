@@ -29,7 +29,7 @@ export type PurchaseRow = {
 /** Tab "Barang masuk": faktur terbaru di atas, paling banyak 200. */
 export async function listPurchases(filter: { pendingOnly?: boolean } = {}): Promise<PurchaseRow[]> {
   const actor = await requireCapability("stock:read");
-  const withCost = can(actor.role, "price:manage");
+  const withCost = can(actor, "price:manage");
   const today = witaDateString(new Date());
   const invoices = await prisma.purchaseInvoice.findMany({
     where: filter.pendingOnly ? { total: null, cancelledAt: null } : {},
@@ -128,8 +128,8 @@ export type PurchaseDetail = {
 
 export async function getPurchaseDetail(id: string): Promise<PurchaseDetail | null> {
   const actor = await requireCapability("stock:read");
-  const withPayments = can(actor.role, "payable:manage");
-  const withCost = can(actor.role, "price:manage");
+  const withPayments = can(actor, "payable:manage");
+  const withCost = can(actor, "price:manage");
   const today = witaDateString(new Date());
   const invoice = await prisma.purchaseInvoice.findUnique({
     where: { id: String(id ?? "") },

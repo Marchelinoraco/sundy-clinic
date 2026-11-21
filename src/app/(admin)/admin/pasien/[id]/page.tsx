@@ -23,7 +23,7 @@ export default async function PatientDetailPage({
   const { tab } = await searchParams;
   const patient = await getPatientDetail(id);
   if (!patient) notFound();
-  const bia = can(staff.role, "record:read") ? await getBiaHistory(patient.id) : null;
+  const bia = can(staff, "record:read") ? await getBiaHistory(patient.id) : null;
 
   const description = [
     patient.medicalRecordNumber,
@@ -51,13 +51,13 @@ export default async function PatientDetailPage({
         />
         <PatientDetailView
           patient={patient}
-          canReadRecords={can(staff.role, "record:read")}
-          canWriteRecords={can(staff.role, "record:write")}
+          canReadRecords={can(staff, "record:read")}
+          canWriteRecords={can(staff, "record:write")}
           tab={typeof tab === "string" ? tab : undefined}
           bia={bia}
-          packages={can(staff.role, "invoice:read") ? await listPatientPackages(patient.id) : null}
-          deposit={can(staff.role, "invoice:read") ? await getPatientDeposit(patient.id) : null}
-          canRefundDeposit={can(staff.role, "invoice:manage") || can(staff.role, "invoice:correct")}
+          packages={can(staff, "invoice:read") ? await listPatientPackages(patient.id) : null}
+          deposit={can(staff, "invoice:read") ? await getPatientDeposit(patient.id) : null}
+          canRefundDeposit={can(staff, "invoice:manage") || can(staff, "invoice:correct")}
         />
       </PageBody>
     </>
