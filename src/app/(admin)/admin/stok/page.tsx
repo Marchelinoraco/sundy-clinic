@@ -41,23 +41,27 @@ const KINDS = Object.keys(STOCK_ITEM_KIND_LABEL) as StockItemKindValue[];
 export default async function StockPage({ searchParams }: { searchParams: Promise<Search> }) {
   const staff = await requireCapability("stock:read");
   const params = await searchParams;
-  const canManage = can(staff.role, "stock:manage");
+  const canItem = can(staff, "stock:item");
+  const canSupplier = can(staff, "stock:supplier");
+  const canReceive = can(staff, "stock:receive");
+  const canCounter = can(staff, "stock:counter");
   const canPrice = can(staff.role, "price:manage");
   const pendingOnly = canPrice && params.harga === "menunggu";
   const canSetPrice = can(staff.role, "price:manage");
   const tab: Tab =
-    params.tab === "masuk" || params.tab === "supplier" ? params.tab : params.tab === "permintaan" && canManage ? "permintaan" : "barang";
-  const pendingRestock = canManage ? await countPendingRestock() : 0;
+    params.tab === "masuk" || params.tab === "supplier" ? params.tab : params.tab === "permintaan" && canCounter ? "permintaan" : "barang";
+  const pendingRestock = canCounter ? await countPendingRestock() : 0;
 
-  const actions = !canManage ? undefined : tab === "barang" ? (
-    <StockItemDialog triggerLabel="+ Barang" canSetPrice={canSetPrice} />
-  ) : tab === "masuk" ? (
-    <LinkButton href="/admin/stok/masuk/baru" variant="contained">
-      + Barang masuk
-    </LinkButton>
-  ) : tab === "supplier" ? (
-    <SupplierDialog triggerLabel="+ Supplier" />
-  ) : undefined;
+  const actions =
+    tab === "barang" && canItem ? (
+      <StockItemDialog triggerLabel="+ Barang" canSetPrice={canSetPrice} />
+    ) : tab === "masuk" && canReceive ? (
+      <LinkButton href="/admin/stok/masuk/baru" variant="contained">
+        + Barang masuk
+      </LinkButton>
+    ) : tab === "supplier" && canSupplier ? (
+      <SupplierDialog triggerLabel="+ Supplier" />
+    ) : undefined;
 
   return (
     <>
@@ -71,7 +75,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
             { id: "barang", label: "Barang", href: "/admin/stok" },
             { id: "masuk", label: "Barang masuk", href: "/admin/stok?tab=masuk" },
             { id: "supplier", label: "Supplier", href: "/admin/stok?tab=supplier" },
-            ...(canManage
+            ...(canCounter
               ? [{ id: "permintaan", label: pendingRestock > 0 ? `Permintaan (${pendingRestock})` : "Permintaan", href: "/admin/stok?tab=permintaan" }]
               : []),
           ]}
@@ -105,7 +109,7 @@ export default async function StockPage({ searchParams }: { searchParams: Promis
         )}
         {tab === "supplier" && (
           <SectionCard title="Supplier" flush>
-            <SupplierTable rows={await listSuppliers()} canManage={canManage} />
+            <SupplierTable rows={await listSuppliers()} canManage={canSupplier} />
           </SectionCard>
         )}
       </PageBody>

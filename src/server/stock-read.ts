@@ -262,7 +262,7 @@ export type SupplierOption = { id: string; name: string };
 
 /** Barang aktif untuk formulir barang masuk. */
 export async function listStockItemOptions(): Promise<StockItemOption[]> {
-  await requireCapability("stock:manage");
+  await requireCapability("stock:receive");
   return prisma.stockItem.findMany({
     where: { isActive: true },
     orderBy: { name: "asc" },
@@ -272,7 +272,7 @@ export async function listStockItemOptions(): Promise<StockItemOption[]> {
 
 /** Supplier aktif untuk formulir barang masuk. */
 export async function listSupplierOptions(): Promise<SupplierOption[]> {
-  await requireCapability("stock:manage");
+  await requireCapability("stock:receive");
   return prisma.supplier.findMany({ where: { isActive: true }, orderBy: { name: "asc" }, select: { id: true, name: true } });
 }
 

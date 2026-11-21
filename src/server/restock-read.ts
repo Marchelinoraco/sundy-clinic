@@ -66,7 +66,7 @@ export type RestockRequestDetail = Omit<RestockRequestRow, "lines"> & {
 
 /** Rincian untuk Apoteker (spec stok meja 4.2): tiap baris memuat sisa gudang tersedia cabang itu. */
 export async function getRestockRequest(id: string): Promise<RestockRequestDetail | null> {
-  await requireCapability("stock:manage");
+  await requireCapability("stock:counter");
   const row = await prisma.restockRequest.findUnique({ where: { id: String(id ?? "") }, select: ROW_SELECT });
   if (!row) return null;
   const base = toRow(row);
@@ -86,6 +86,6 @@ export async function getRestockRequest(id: string): Promise<RestockRequestDetai
 
 /** Lencana tab Permintaan dan kotak dasbor Apoteker (spec stok meja 4.2, 6). */
 export async function countPendingRestock(): Promise<number> {
-  await requireCapability("stock:manage");
+  await requireCapability("stock:counter");
   return prisma.restockRequest.count({ where: { status: "MENUNGGU" } });
 }

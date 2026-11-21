@@ -17,7 +17,6 @@ export type Capability =
   | "report:read"
   | "audit:read"
   | "stock:read"
-  | "stock:manage"
   | "stock:item"
   | "stock:supplier"
   | "stock:receive"
@@ -55,7 +54,6 @@ export const CAPABILITIES_BY_ROLE: Record<StaffRole, readonly Capability[]> = {
     "report:read",
     "audit:read",
     "stock:read",
-    "stock:manage",
     "stock:item",
     "stock:supplier",
     "stock:receive",
@@ -95,7 +93,7 @@ export const CAPABILITIES_BY_ROLE: Record<StaffRole, readonly Capability[]> = {
 
   // Apoteker mengelola barang, barang masuk, retur, dan penyesuaian stok (spec stok 7).
   // Ia mengisi harga beli dari faktur kertas, tetapi tidak mengurus pembayaran hutang.
-  APOTEKER: ["stock:read", "stock:manage", "stock:item", "stock:supplier", "stock:receive", "stock:adjust", "stock:counter", "dispense:read", "dispense:manage", "stock:availability", "counter:read"],
+  APOTEKER: ["stock:read", "stock:item", "stock:supplier", "stock:receive", "stock:adjust", "stock:counter", "dispense:read", "dispense:manage", "stock:availability", "counter:read"],
 
   // Admin Keuangan melihat stok, mengelola hutang ke supplier, dan melihat Angka dasbor.
   // Tidak mengubah stok, booking, jadwal, rekam medis, atau akun staf (spec stok 7.2).

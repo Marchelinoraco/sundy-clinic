@@ -11,7 +11,7 @@ import { listStockItemOptions, listSupplierOptions } from "@/server/stock-read";
 export const metadata = { title: "Barang masuk" };
 
 export default async function NewPurchasePage() {
-  const staff = await requireCapability("stock:manage");
+  const staff = await requireCapability("stock:receive");
   const [items, suppliers, branches] = await Promise.all([listStockItemOptions(), listSupplierOptions(), getBranches()]);
   const active = branches.filter((branch) => branch.status === "AKTIF").map((branch) => ({ id: branch.id, name: branch.name }));
 

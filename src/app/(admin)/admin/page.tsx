@@ -57,8 +57,8 @@ export default async function AdminDashboardPage({
     can(staff.role, "invoice:correct") ? settle(unpaidOverview(), "tagihan") : null,
     can(staff.role, "dispense:read") ? settle(countPendingDispensings(), "resep") : null,
     can(staff.role, "profit:read") ? settle(getMonthProfit(), "laporan") : null,
-    can(staff.role, "counter:read") && !can(staff.role, "stock:manage") ? settle(countCounterAlerts(), "stok meja") : null,
-    can(staff.role, "stock:manage") ? settle(countPendingRestock(), "permintaan restock") : null,
+    can(staff.role, "counter:read") && !can(staff.role, "stock:counter") ? settle(countCounterAlerts(), "stok meja") : null,
+    can(staff.role, "stock:counter") ? settle(countPendingRestock(), "permintaan restock") : null,
     can(staff.role, "nurse:work") ? settle(listNurseWorklist(now), "pasien perawat") : null,
   ]);
   // Peran yang juga melihat daftar dokter (Super Admin) mendapat judul yang tidak memuat "Pasien hari ini" sama sekali:

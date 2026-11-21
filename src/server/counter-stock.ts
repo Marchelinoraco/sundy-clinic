@@ -19,7 +19,7 @@ function revalidateCounter(itemId: string) {
 /** Isi meja tanpa permintaan (spec stok meja 4.2): FEFO dari gudang cabang itu. */
 export async function moveToCounter(input: { branchId: string; itemId: string; quantity: number }): Promise<ActionResult<void>> {
   return runAction(async () => {
-    const actor = await requireCapability("stock:manage");
+    const actor = await requireCapability("stock:counter");
     if (!isQuantity(input?.quantity)) throw new UserFacingError(QUANTITY);
     const [item, branch] = await Promise.all([
       prisma.stockItem.findUnique({ where: { id: String(input?.itemId ?? "") }, select: { id: true, name: true } }),
@@ -38,7 +38,7 @@ export async function moveToCounter(input: { branchId: string; itemId: string; q
 /** Tarik stok meja satu batch kembali ke gudang (spec stok meja 3). Batch kedaluwarsa boleh ditarik. */
 export async function pullToWarehouse(input: { batchId: string; quantity: number }): Promise<ActionResult<void>> {
   return runAction(async () => {
-    const actor = await requireCapability("stock:manage");
+    const actor = await requireCapability("stock:counter");
     if (!isQuantity(input?.quantity)) throw new UserFacingError(QUANTITY);
     const batch = await prisma.stockBatch.findUnique({
       where: { id: String(input?.batchId ?? "") },

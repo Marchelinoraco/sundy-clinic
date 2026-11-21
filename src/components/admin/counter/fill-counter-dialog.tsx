@@ -17,7 +17,7 @@ import { moveToCounter } from "@/server/counter-stock";
 import { DialogCloseButton } from "../mui/dialog-close-button";
 import { SelectField } from "../mui/select-field";
 
-/** Isi meja dari gudang tanpa permintaan (spec stok meja 4.2): FEFO di server. Hanya untuk stock:manage. */
+/** Isi meja dari gudang tanpa permintaan (spec stok meja 4.2): FEFO di server. Hanya untuk stock:counter. */
 export function FillCounterDialog({
   item,
   branches,

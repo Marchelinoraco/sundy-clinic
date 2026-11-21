@@ -155,10 +155,10 @@ describe("penyesuaian dan retur", () => {
     for (const role of ["ADMIN_KEUANGAN", "RESEPSIONIS"] as const) {
       actor.role = role;
       await expect(adjustStock({ batchId, direction: "KURANGI", quantity: 1, reason: "RUSAK", note: "" })).rejects.toThrow(
-        /forbidden: stock:manage/,
+        /forbidden: stock:adjust/,
       );
       await expect(createSupplierReturn({ invoiceId, lines: [{ batchId, quantity: 1 }], note: "" })).rejects.toThrow(
-        /forbidden: stock:manage/,
+        /forbidden: stock:receive/,
       );
     }
   });

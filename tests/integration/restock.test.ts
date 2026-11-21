@@ -75,7 +75,7 @@ describe("permintaan restock (spec stok meja 4)", () => {
     await expect(request([a.id])).rejects.toThrow("forbidden: restock:request");
     as("RESEPSIONIS");
     const { id } = await unwrap(request([a.id]));
-    await expect(sendRestockRequest({ requestId: id, version: 1, lines: [] })).rejects.toThrow("forbidden: stock:manage");
+    await expect(sendRestockRequest({ requestId: id, version: 1, lines: [] })).rejects.toThrow("forbidden: stock:counter");
   });
 
   it("dibatalkan peminta selama menunggu; sesudahnya tidak bisa dikirim", async () => {
@@ -149,7 +149,7 @@ describe("permintaan restock (spec stok meja 4)", () => {
     const pending = await listRestockRequests({ branchId: world.branchId, view: "MENUNGGU" });
     expect(pending.find((r) => r.id === id)).toMatchObject({ status: "MENUNGGU", lines: [{ itemName: a.name, unit: "pcs", requestedQuantity: 3, sentQuantity: null }] });
     expect(JSON.stringify(pending)).not.toMatch(/warehouseAvailable|unitCost/);
-    await expect(getRestockRequest(id)).rejects.toThrow("forbidden: stock:manage");
+    await expect(getRestockRequest(id)).rejects.toThrow("forbidden: stock:counter");
     as("APOTEKER");
     expect((await getRestockRequest(id))!.lines[0].warehouseAvailable).toBe(7);
     expect(await countPendingRestock()).toBeGreaterThanOrEqual(1);

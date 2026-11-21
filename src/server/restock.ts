@@ -100,7 +100,7 @@ export async function cancelRestockRequest(input: { requestId: string; version: 
  */
 export async function sendRestockRequest(input: { requestId: string; version: number; lines: { lineId: string; quantity: number }[] }): Promise<ActionResult<void>> {
   return runAction(async () => {
-    const actor = await requireCapability("stock:manage");
+    const actor = await requireCapability("stock:counter");
     const requestId = String(input?.requestId ?? "");
     const today = witaDateString(new Date());
 
@@ -132,7 +132,7 @@ export async function sendRestockRequest(input: { requestId: string; version: nu
 /** Apoteker menolak dengan alasan (spec stok meja 4.2); stok tidak berubah. */
 export async function rejectRestockRequest(input: { requestId: string; version: number; reason: string }): Promise<ActionResult<void>> {
   return runAction(async () => {
-    const actor = await requireCapability("stock:manage");
+    const actor = await requireCapability("stock:counter");
     const reason = validateRejectReason(input?.reason);
     if (!reason.ok) throw new UserFacingError(reason.message);
     const requestId = String(input?.requestId ?? "");

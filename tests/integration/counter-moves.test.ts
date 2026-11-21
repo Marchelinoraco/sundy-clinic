@@ -86,10 +86,10 @@ describe("pindah gudang ke meja (spec stok meja 3)", () => {
     expect(await sisa(fresh.batchId)).toEqual({ gudang: 2, meja: 0 });
   });
 
-  it("hanya pemegang stock:manage", async () => {
+  it("hanya pemegang stock:counter", async () => {
     const item = await newItem();
     actor.role = "RESEPSIONIS";
-    await expect(moveToCounter({ branchId: world.branchId, itemId: item.id, quantity: 1 })).rejects.toThrow("forbidden: stock:manage");
+    await expect(moveToCounter({ branchId: world.branchId, itemId: item.id, quantity: 1 })).rejects.toThrow("forbidden: stock:counter");
   });
 });
 

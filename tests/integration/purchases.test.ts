@@ -54,7 +54,7 @@ describe("barang masuk dari supplier", () => {
     world = await createStockWorld(SLUG);
   });
 
-  // Super Admin: barang masuk berharga butuh stock:manage dan price:manage (spec harga modal M1). Apoteker tanpa harga diuji di purchase-pricing.test.ts.
+  // Super Admin: barang masuk berharga butuh stock:receive dan price:manage (spec harga modal M1). Apoteker tanpa harga diuji di purchase-pricing.test.ts.
   beforeEach(() => {
     actor.role = "SUPER_ADMIN";
   });
@@ -164,7 +164,7 @@ describe("barang masuk dari supplier", () => {
   it("hak akses: Admin Keuangan tidak mencatat barang masuk tetapi boleh membatalkan dan melihat pembayaran; Resepsionis tidak keduanya", async () => {
     const { id } = await unwrap(createPurchase(purchase()));
     actor.role = "ADMIN_KEUANGAN";
-    await expect(createPurchase(purchase())).rejects.toThrow(/forbidden: stock:manage/);
+    await expect(createPurchase(purchase())).rejects.toThrow(/forbidden: stock:receive/);
     expect((await getPurchaseDetail(id))?.payments).toEqual([]);
     await unwrap(cancelPurchase({ invoiceId: id, reason: "Faktur ganda" }));
 

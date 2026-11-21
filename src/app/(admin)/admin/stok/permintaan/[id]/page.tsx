@@ -13,7 +13,7 @@ import { requireCapability } from "@/server/session";
 export const metadata = { title: "Permintaan restock" };
 
 export default async function RestockRequestPage({ params }: { params: Promise<{ id: string }> }) {
-  await requireCapability("stock:manage");
+  await requireCapability("stock:counter");
   const request = await getRestockRequest((await params).id);
   if (!request) notFound();
 

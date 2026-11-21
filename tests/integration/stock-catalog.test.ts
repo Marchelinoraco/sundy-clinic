@@ -152,8 +152,8 @@ describe("barang dan supplier", () => {
 
   it("hak akses: Admin Keuangan tidak mengubah barang; Resepsionis dan Dokter tidak membaca stok", async () => {
     actor.role = "ADMIN_KEUANGAN";
-    await expect(createStockItem(item({ code: `${CODE}-X` }))).rejects.toThrow(/forbidden: stock:manage/);
-    await expect(createSupplier({ name: `${SLUG} X`, phone: "", address: "", notes: "" })).rejects.toThrow(/forbidden: stock:manage/);
+    await expect(createStockItem(item({ code: `${CODE}-X` }))).rejects.toThrow(/forbidden: stock:item/);
+    await expect(createSupplier({ name: `${SLUG} X`, phone: "", address: "", notes: "" })).rejects.toThrow(/forbidden: stock:supplier/);
     for (const role of ["RESEPSIONIS", "DOKTER"] as const) {
       actor.role = role;
       await expect(listStockItems({ branchId: world.branchId })).rejects.toThrow(/forbidden: stock:read/);

@@ -29,7 +29,7 @@ function revalidatePurchase(invoiceId: string) {
  */
 export async function createPurchase(input: PurchaseInput): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
-    const actor = await requireCapability("stock:manage");
+    const actor = await requireCapability("stock:receive");
     const lines: unknown[] = Array.isArray(input?.lines) ? input.lines : [];
     const itemIds = lines.flatMap((line) =>
       typeof line === "object" && line !== null && typeof (line as { itemId?: unknown }).itemId === "string"
@@ -134,7 +134,7 @@ export async function createPurchase(input: PurchaseInput): Promise<ActionResult
 export async function cancelPurchase(input: { invoiceId: string; reason: string }): Promise<ActionResult<void>> {
   return runAction(async () => {
     const actor = await requireCapability("stock:read");
-    if (!can(actor.role, "stock:manage") && !can(actor.role, "payable:manage")) {
+    if (!can(actor, "stock:receive") && !can(actor, "payable:manage")) {
       throw new UserFacingError("Anda tidak berhak membatalkan faktur.");
     }
     const reason = validateReason(input?.reason);
