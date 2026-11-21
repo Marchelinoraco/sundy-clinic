@@ -35,6 +35,7 @@ const row = (patch: Partial<StaffRow>): StaffRow => ({
   bio: null,
   photoUrl: null,
   hasApprovalPin: false,
+  extraCapabilities: [],
   ...patch,
 });
 const OWNER = row({ id: "s-owner", name: "Pemilik SunDY", role: "SUPER_ADMIN", email: "admin@sundyclinic.com" });
