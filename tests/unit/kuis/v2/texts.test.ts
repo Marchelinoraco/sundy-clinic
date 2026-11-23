@@ -24,7 +24,7 @@ describe("teks kuis v2 untuk customer (spec V8)", () => {
   });
 
   it("menanyakan konsultasi atau treatment, dan memberi contoh porsi di layar makan", () => {
-    expect(stepText("U1", {}).title).toBe("Pernah konsultasi atau treatment di SunDY Clinic?");
+    expect(stepText("U1", {}).title).toBe("Pernah konsultasi atau treatment di SunDY Clinic Manhattan?");
     expect(stepText("F2", {}).hint).toContain("nasi 1 piring, paha ayam goreng 1 potong");
     expect(stepText("F5", {}).hint).toContain("martabak");
   });

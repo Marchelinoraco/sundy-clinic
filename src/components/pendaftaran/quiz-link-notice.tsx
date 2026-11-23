@@ -17,7 +17,7 @@ export function QuizLinkNotice({ state }: { state: "SUBMITTED" | "CLOSED" }) {
       <p className="text-brown-700">Hubungi kami lewat WhatsApp bila Anda masih ingin mengisi form.</p>
       <Button asChild size="lg" className="h-12 w-full rounded-full text-base">
         <a
-          href={buildWhatsAppLink("Halo SunDY Clinic, link form saya sudah tidak berlaku.")}
+          href={buildWhatsAppLink("Halo SunDY Clinic Manhattan, link form saya sudah tidak berlaku.")}
           target="_blank"
           rel="noopener noreferrer"
         >

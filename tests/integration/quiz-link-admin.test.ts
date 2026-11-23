@@ -87,7 +87,7 @@ describe("link kuis di panel admin", () => {
     const b = await booking();
     const info = (await unwrap(getQuizLink(b.id)))!;
     expect(info.url).toBe(`${SITE}/isi#${quizLinkCode(b.id, 0)}`);
-    expect(info.message.text).toContain("Halo Budi, ini SunDY Clinic.");
+    expect(info.message.text).toContain("Halo Budi, ini SunDY Clinic Manhattan.");
     expect(info.message.text).toContain(info.url);
     expect(info.message.link).toMatch(/^https:\/\/wa\.me\/6281277900001\?text=/);
     expect(info.scheduledFor).toEqual(b.startAt);

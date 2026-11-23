@@ -10,7 +10,7 @@ import { renderAdmin } from "../helpers/render-admin";
 vi.mock("@/server/receipt", () => ({ getReceiptMessage: vi.fn(), resetReceiptLink: vi.fn() }));
 vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 
-const TEXT = "Halo Budi, terima kasih sudah berkunjung ke SunDY Clinic.\nLihat struk lengkap: https://x/struk#k";
+const TEXT = "Halo Budi, terima kasih sudah berkunjung ke SunDY Clinic Manhattan.\nLihat struk lengkap: https://x/struk#k";
 
 beforeEach(() => vi.clearAllMocks());
 

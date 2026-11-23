@@ -155,14 +155,14 @@ describe("teks pesan WhatsApp", () => {
       bookingFee: 100000,
       servicePrice: 250000,
       deadline,
-      bankLine: "BCA 123 a.n. SunDY Clinic",
+      bankLine: "BCA 123 a.n. SunDY Clinic Manhattan",
       quizLink: "https://sundyclinic.com/isi#kode",
     });
-    expect(text).toContain("Halo Siti, konsultasi online Anda di SunDY Clinic sudah kami catat.");
+    expect(text).toContain("Halo Siti, konsultasi online Anda di SunDY Clinic Manhattan sudah kami catat.");
     expect(text).toContain("Kode: SDY-AB12");
     expect(text).toContain("• Rabu, 7 Oktober 2026, 19.00–21.00");
     expect(text).toContain("transfer Rp 350.000 (biaya booking Rp 100.000 + Konsultasi Online Rp 250.000)");
-    expect(text).toContain("BCA 123 a.n. SunDY Clinic");
+    expect(text).toContain("BCA 123 a.n. SunDY Clinic Manhattan");
     expect(text).toContain("https://sundyclinic.com/isi#kode");
     expect(text).not.toMatch(/pasien|berobat/i);
   });

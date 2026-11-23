@@ -14,7 +14,7 @@ import { getPackagesByGroup, getServiceCategoriesWithServices } from "@/server/c
 export const metadata: Metadata = {
   title: "Program Slimming",
   description:
-    "Paket program slimming bulanan SunDY Clinic Manado: MAX, LUX, dan ACTIVE. Termasuk konsultasi dokter, Timbang BIA, dan pendampingan nutrisi.",
+    "Paket program slimming bulanan SunDY Clinic Manhattan: MAX, LUX, dan ACTIVE. Termasuk konsultasi dokter, Timbang BIA, dan pendampingan nutrisi.",
 };
 
 const GROUP_DESCRIPTION: Record<string, string> = {

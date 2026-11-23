@@ -30,7 +30,7 @@ function createSeedClient(): PrismaClient {
 const branches = [
   {
     slug: "mahakeret",
-    name: "SunDY Mahakeret",
+    name: "SunDY Clinic Manhattan",
     address: "Jl. Garuda No. 10, Mahakeret Barat, Manado, Sulawesi Utara",
     whatsapp: "6285172228900",
     openingHours: "Senin–Sabtu, 11.00–19.00",
@@ -54,7 +54,7 @@ const staff = [
     name: "Dr. Diane Paparang, Sp.GK, AIFO-K",
     role: "DOKTER" as const,
     specialty: "Spesialis Gizi Klinik",
-    bio: "Dokter penanggung jawab SunDY Clinic Manado untuk program slimming, nutrisi, dan perawatan estetika.",
+    bio: "Dokter penanggung jawab SunDY Clinic Manhattan untuk program slimming, nutrisi, dan perawatan estetika.",
     showOnWebsite: true,
     isActive: true,
     sortOrder: 1,

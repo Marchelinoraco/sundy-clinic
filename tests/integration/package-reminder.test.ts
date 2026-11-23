@@ -91,7 +91,7 @@ describe("Sesi paket perlu dibooking (spec jadwal paket JP5, JP6, JP12, JP13)", 
     const isi = `${pkg.items[0].serviceName}, 7 kapsul ${SLUG} Amoxicillin`;
     expect(row!.contents).toBe(isi);
     expect(row!.message.text).toBe(
-      `Halo Pasien, ini SunDY Clinic. Sesuai program paket ${SLUG} Lux, jadwal kunjungan ke-1 Anda besok: ${isi}. Balas pesan ini untuk memilih jam ya. Terima kasih.`,
+      `Halo Pasien, ini SunDY Clinic Manhattan. Sesuai program paket ${SLUG} Lux, jadwal kunjungan ke-1 Anda besok: ${isi}. Balas pesan ini untuk memilih jam ya. Terima kasih.`,
     );
     expect(row!.message.link).toContain(`wa.me/${WA}`);
 

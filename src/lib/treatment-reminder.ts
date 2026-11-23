@@ -66,8 +66,8 @@ export function treatmentReminderMessage(input: { patientName: string; treatment
   const due = input.treatments.filter((treatment) => treatment.intervalDays === shortest).map((treatment) => treatment.name);
   const subject = due.length === input.treatments.length ? "treatment ini" : treatmentNamesLabel(due);
   return (
-    `Halo ${firstName(input.patientName)}, terima kasih sudah melakukan ${treatmentNamesLabel(input.treatments.map((treatment) => treatment.name))} di SunDY Clinic pada ${date}. ` +
+    `Halo ${firstName(input.patientName)}, terima kasih sudah melakukan ${treatmentNamesLabel(input.treatments.map((treatment) => treatment.name))} di SunDY Clinic Manhattan pada ${date}. ` +
     `Agar hasilnya maksimal, ${subject} sebaiknya dilakukan ${returnIntervalPhrase(shortest)}. ` +
-    "Yuk jadwalkan kunjungan berikutnya — balas pesan ini untuk memilih waktu. SunDY Clinic"
+    "Yuk jadwalkan kunjungan berikutnya — balas pesan ini untuk memilih waktu. SunDY Clinic Manhattan"
   );
 }

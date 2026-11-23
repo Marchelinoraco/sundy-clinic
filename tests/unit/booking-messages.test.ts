@@ -28,7 +28,7 @@ describe("confirmationText", () => {
   it("menyusun konfirmasi lengkap dengan alamat, peta, aturan pindah, dan tautan cek booking", () => {
     expect(confirmationText(confirmationInput)).toBe(
       [
-        "Halo Maria Wenas, booking Anda di SunDY Clinic sudah terkonfirmasi.",
+        "Halo Maria Wenas, booking Anda di SunDY Clinic Manhattan sudah terkonfirmasi.",
         "",
         "Kode booking: SDY-7KQ2",
         "Layanan: Konsultasi Dokter",
@@ -81,7 +81,7 @@ describe("reminderText", () => {
   it("menulis tanggal lengkap, bukan 'besok'", () => {
     expect(reminderText(reminderInput)).toBe(
       [
-        "Halo Maria Wenas, kami mengingatkan jadwal Anda di SunDY Clinic:",
+        "Halo Maria Wenas, kami mengingatkan jadwal Anda di SunDY Clinic Manhattan:",
         "Senin, 17 Februari 2031 pukul 11.00 WITA",
         "Konsultasi Dokter dengan dr. Diane",
         "SunDY Mahakeret — Jl. Mahakeret No. 1, Manado",
@@ -153,7 +153,7 @@ describe("quizLinkMessageText (spec C3 4.2)", () => {
         link: "https://sundyclinic.com/isi#abc",
       }),
     ).toBe(
-      "Halo Maria, ini SunDY Clinic. Sebelum Konsultasi Dokter Senin, 17 Februari 2031 pukul 11.00 WITA, mohon isi form singkat ini (±5 menit): https://sundyclinic.com/isi#abc\n" +
+      "Halo Maria, ini SunDY Clinic Manhattan. Sebelum Konsultasi Dokter Senin, 17 Februari 2031 pukul 11.00 WITA, mohon isi form singkat ini (±5 menit): https://sundyclinic.com/isi#abc\n" +
         "Jawaban Anda hanya dibaca dokter kami.",
     );
   });

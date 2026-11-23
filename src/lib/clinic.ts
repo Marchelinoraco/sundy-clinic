@@ -1,4 +1,4 @@
-export const CLINIC_NAME = "SunDY Clinic";
+export const CLINIC_NAME = "SunDY Clinic Manhattan";
 export const CLINIC_FULL_NAME = "SunDY — Nutrition, Slimming & Wellness Clinic";
 export const CLINIC_TAGLINE = "Happy weight, happy life";
 export const CLINIC_BEAUTY_TAGLINE = "Your Beauty, Our Priority";

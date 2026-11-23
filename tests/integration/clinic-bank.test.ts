@@ -39,11 +39,11 @@ describe("rekening klinik", () => {
   it("tambah, ubah, nonaktifkan, urutkan; audit tercatat", async () => {
     const a = (await unwrap(createClinicBankAccount({ bankName: `${MARK} A`, accountNumber: "1111111", accountHolder: "SunDY" }))).id;
     const b = (await unwrap(createClinicBankAccount({ bankName: `${MARK} B`, accountNumber: "2222222", accountHolder: "SunDY" }))).id;
-    await unwrap(updateClinicBankAccount(a, { bankName: `${MARK} A`, accountNumber: "1111112", accountHolder: "SunDY Clinic" }));
+    await unwrap(updateClinicBankAccount(a, { bankName: `${MARK} A`, accountNumber: "1111112", accountHolder: "SunDY Clinic Manhattan" }));
     await unwrap(moveClinicBankAccount(b, "UP"));
     const mine = (await listClinicBankAccounts()).filter((x) => x.bankName.startsWith(MARK));
     expect(mine.map((x) => x.id)).toEqual([b, a]);
-    expect(mine[1]).toMatchObject({ accountNumber: "1111112", label: `${MARK} A 1111112 a.n. SunDY Clinic` });
+    expect(mine[1]).toMatchObject({ accountNumber: "1111112", label: `${MARK} A 1111112 a.n. SunDY Clinic Manhattan` });
     await unwrap(setClinicBankAccountActive(a, false));
     expect((await listActiveClinicBankAccounts()).some((x) => x.id === a)).toBe(false);
     expect(await prisma.auditLog.count({ where: { entityId: a, action: { startsWith: "clinic-bank." } } })).toBe(3);

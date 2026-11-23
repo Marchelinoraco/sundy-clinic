@@ -117,7 +117,7 @@ await prisma.approvalPin.upsert({
 // Rekening uji: halaman sukses menampilkan instruksi transfer yang lengkap.
 await prisma.clinicSetting.update({
   where: { id: 1 },
-  data: { bookingFee: 100000, bankName: "BCA", bankAccountNumber: "1234567890", bankAccountHolder: "SunDY Clinic" },
+  data: { bookingFee: 100000, bankName: "BCA", bankAccountNumber: "1234567890", bankAccountHolder: "SunDY Clinic Manhattan" },
 });
 
 // Kunjungan e2e (tests/e2e/kunjungan.spec.ts): satu pasien hadir HARI INI per

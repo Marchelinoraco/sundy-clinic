@@ -10,7 +10,7 @@ import { getActiveProducts } from "@/server/catalog";
 export const metadata: Metadata = {
   title: "Produk",
   description:
-    "Produk pendukung program SunDY Clinic Manado. Pemesanan dilakukan lewat WhatsApp setelah konsultasi dokter.",
+    "Produk pendukung program SunDY Clinic Manhattan. Pemesanan dilakukan lewat WhatsApp setelah konsultasi dokter.",
 };
 
 export default async function ProductsPage() {
@@ -23,7 +23,7 @@ export default async function ProductsPage() {
         image={PRODUCT_IMAGE}
         description={
           <p>
-            Produk berikut digunakan dalam program SunDY Clinic. Pemesanan dilakukan lewat WhatsApp di{" "}
+            Produk berikut digunakan dalam program SunDY Clinic Manhattan. Pemesanan dilakukan lewat WhatsApp di{" "}
             {CLINIC_WHATSAPP_DISPLAY}.
           </p>
         }

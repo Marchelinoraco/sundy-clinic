@@ -11,7 +11,7 @@ import { getServiceCategoriesWithServices } from "@/server/catalog";
 export const metadata: Metadata = {
   title: "Layanan & Harga",
   description:
-    "Daftar lengkap treatment SunDY Clinic Manado: facial, peeling, RF, HIFU, botox, laser, dermapen, skin booster, dan vitamin C beserta harganya.",
+    "Daftar lengkap treatment SunDY Clinic Manhattan: facial, peeling, RF, HIFU, botox, laser, dermapen, skin booster, dan vitamin C beserta harganya.",
 };
 
 export default async function ServicesPage() {
@@ -27,7 +27,7 @@ export default async function ServicesPage() {
           <>
             <p className="font-medium text-brown-800">{treatmentCount} treatment · harga promo berlaku</p>
             <p className="mt-2">
-              Seluruh treatment yang tersedia di SunDY Clinic Manado. Harga yang tercantum adalah harga
+              Seluruh treatment yang tersedia di SunDY Clinic Manhattan. Harga yang tercantum adalah harga
               promo yang sedang berjalan.
             </p>
           </>

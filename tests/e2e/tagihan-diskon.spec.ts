@@ -21,7 +21,7 @@ test("promo barang, diskon baris dalam batas 20%, catatan, dan transfer ke reken
   const accountDialog = page.getByRole("dialog", { name: "Tambah rekening" });
   await accountDialog.getByLabel("Nama bank").fill(`Bank E2E ${t}`);
   await accountDialog.getByLabel("Nomor rekening").fill(`9${Date.now().toString().slice(-8)}`);
-  await accountDialog.getByLabel("Nama pemilik").fill("SunDY Clinic");
+  await accountDialog.getByLabel("Nama pemilik").fill("SunDY Clinic Manhattan");
   await accountDialog.getByRole("button", { name: "Simpan" }).click();
   await expect(accountDialog).toBeHidden({ timeout: 30_000 });
 

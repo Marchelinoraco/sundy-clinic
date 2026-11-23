@@ -24,7 +24,7 @@ const online: MessageBooking & TransferBooking = {
   contactWindows: windows,
   contactAttempts: [],
 };
-const bank = { bankName: "BCA", bankAccountNumber: "123", bankAccountHolder: "SunDY Clinic" };
+const bank = { bankName: "BCA", bankAccountNumber: "123", bankAccountHolder: "SunDY Clinic Manhattan" };
 
 describe("pesan booking online", () => {
   it("instruksi transfer memakai total dan rentang, bukan jam dan cabang", () => {

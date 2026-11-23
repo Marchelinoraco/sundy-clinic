@@ -35,7 +35,7 @@ function source(patch: Partial<ReceiptSource> = {}): ReceiptSource {
 describe("buildPublicReceipt", () => {
   it("tagihan final lunas: semua bagian struk", () => {
     expect(buildPublicReceipt(source())).toEqual({
-      clinicName: "SunDY Clinic",
+      clinicName: "SunDY Clinic Manhattan",
       branchName: "SunDY Mahakeret",
       branchAddress: "Jl. Mahakeret 1, Manado",
       number: "TG-2026-0123",
@@ -130,7 +130,7 @@ describe("receiptMessageText", () => {
   it("lunas: menyapa nama depan, nomor, total, dan tautan", () => {
     expect(receiptMessageText({ customerName: "Priscillya Jenitha", number: "TG-2026-0123", total: 3_100_000, balance: 0, url: "https://x/struk#k" })).toBe(
       [
-        "Halo Priscillya, terima kasih sudah berkunjung ke SunDY Clinic.",
+        "Halo Priscillya, terima kasih sudah berkunjung ke SunDY Clinic Manhattan.",
         "No. tagihan: TG-2026-0123",
         "Total: Rp 3.100.000 (LUNAS)",
         "Lihat struk lengkap: https://x/struk#k",

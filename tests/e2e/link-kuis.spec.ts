@@ -76,7 +76,7 @@ test("customer mengisi kuis lewat link dari instruksi transfer", async ({ page, 
   const customer = await customerContext.newPage();
   await customer.goto(link);
   await expect(customer.getByText("Halo Sinta")).toBeVisible({ timeout: 30_000 });
-  await expect(customer.getByText("Pernah konsultasi atau treatment di SunDY Clinic?")).toHaveCount(0);
+  await expect(customer.getByText("Pernah konsultasi atau treatment di SunDY Clinic Manhattan?")).toHaveCount(0);
 
   await choose(customer, /^Slimming/);
   await choose(customer, "Menurunkan berat badan");

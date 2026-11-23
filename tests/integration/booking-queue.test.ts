@@ -26,7 +26,7 @@ vi.mock("@/server/session", () => ({
 const SLUG = "antrian-booking-uji";
 const WA = "6281277300001";
 const HOUR = 60 * 60 * 1000;
-const BANK = { bankName: "BCA", bankAccountNumber: "1234567890", bankAccountHolder: "SunDY Clinic" };
+const BANK = { bankName: "BCA", bankAccountNumber: "1234567890", bankAccountHolder: "SunDY Clinic Manhattan" };
 
 async function cleanup() {
   await prisma.intake.deleteMany({ where: { appointment: { staff: { slug: SLUG } } } });
@@ -204,7 +204,7 @@ describe("antrean menunggu, pencarian booking, dan instruksi transfer", () => {
     const created = await booking({ source: "WHATSAPP", bookingFee: 150000 });
     const instruction = (await unwrap(getTransferInstruction(created.id)))!;
     expect(instruction.text).toContain("Rp 150.000");
-    expect(instruction.text).toContain("BCA 1234567890 a.n. SunDY Clinic");
+    expect(instruction.text).toContain("BCA 1234567890 a.n. SunDY Clinic Manhattan");
     expect(instruction.link).toMatch(/^https:\/\/wa\.me\/6281277300001\?text=/);
     expect(instruction.missingBankAccount).toBe(false);
   });

@@ -43,21 +43,21 @@ const textInput = {
   branchName: "SunDY Mahakeret",
   fee: 100000,
   deadline: wita(13, 12),
-  bankAccount: "BCA 1234567890 a.n. SunDY Clinic",
+  bankAccount: "BCA 1234567890 a.n. SunDY Clinic Manhattan",
 };
 
 describe("transferInstructionText", () => {
   it("menyusun pesan lengkap dengan rupiah dan tanggal WITA", () => {
     expect(transferInstructionText(textInput)).toBe(
       [
-        "Halo Maria Wenas, booking Anda di SunDY Clinic sudah kami catat.",
+        "Halo Maria Wenas, booking Anda di SunDY Clinic Manhattan sudah kami catat.",
         "Kode: SDY-7KQ2",
         "Layanan: Konsultasi Dokter",
         "Jadwal: Senin, 17 Februari 2031 pukul 11.00 WITA",
         "Tenaga: dr. Diane · SunDY Mahakeret",
         "",
         "Mohon transfer biaya booking Rp 100.000 paling lambat Kamis, 13 Februari 2031 pukul 12.00 WITA ke:",
-        "BCA 1234567890 a.n. SunDY Clinic",
+        "BCA 1234567890 a.n. SunDY Clinic Manhattan",
         "lalu kirim bukti transfer di chat ini.",
         "",
         "Biaya booking menjadi deposit yang dipotong dari tagihan saat Anda berkunjung. Deposit hangus bila booking dibatalkan atau Anda tidak hadir, tetapi tetap berlaku bila Anda pindah jadwal paling lambat 2 jam sebelumnya.",
@@ -92,7 +92,7 @@ const booking: TransferBooking = {
   branch: { name: "SunDY Mahakeret" },
   patient: { name: "Maria Wenas", whatsapp: "6281234567890" },
 };
-const BANK = { bankName: "BCA", bankAccountNumber: "1234567890", bankAccountHolder: "SunDY Clinic" };
+const BANK = { bankName: "BCA", bankAccountNumber: "1234567890", bankAccountHolder: "SunDY Clinic Manhattan" };
 
 describe("transferInstructionFor", () => {
   it("memakai biaya yang disalin ke booking dan menautkan WA ke nomor pasien", () => {

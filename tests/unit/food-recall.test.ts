@@ -187,7 +187,7 @@ describe("penawaran dan status link", () => {
 
   it("pesan WA memakai nama depan dan tanpa kata pasien", () => {
     const text = foodRecallMessageText({ patientName: "Siti Rahayu", link: "https://sundyclinic.com/food-recall#x" });
-    expect(text).toContain("Halo Siti, ini SunDY Clinic.");
+    expect(text).toContain("Halo Siti, ini SunDY Clinic Manhattan.");
     expect(text).toContain("https://sundyclinic.com/food-recall#x");
     expect(text).not.toMatch(/pasien|berobat/i);
     expect(text).toContain("termasuk jam bangun dan istirahat, sebelum konsultasi (±3 menit): ");

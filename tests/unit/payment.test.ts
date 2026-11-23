@@ -12,8 +12,8 @@ describe("aturan biaya booking (spec deposit D13)", () => {
 describe("formatBankAccount", () => {
   it("menulis bank, nomor, dan pemilik rekening", () => {
     expect(
-      formatBankAccount({ bankName: "BCA", bankAccountNumber: "1234567890", bankAccountHolder: "SunDY Clinic" }),
-    ).toBe("BCA 1234567890 a.n. SunDY Clinic");
+      formatBankAccount({ bankName: "BCA", bankAccountNumber: "1234567890", bankAccountHolder: "SunDY Clinic Manhattan" }),
+    ).toBe("BCA 1234567890 a.n. SunDY Clinic Manhattan");
   });
 
   it("mengembalikan null bila salah satu bagian belum diisi", () => {

@@ -54,19 +54,19 @@ describe("buildWhatsAppLink", () => {
 describe("pesan terisi otomatis", () => {
   it("menyebut nama produk", () => {
     expect(productInquiryMessage("Kapsul M")).toBe(
-      "Halo SunDY Clinic, saya ingin memesan produk Kapsul M. Mohon informasinya.",
+      "Halo SunDY Clinic Manhattan, saya ingin memesan produk Kapsul M. Mohon informasinya.",
     );
   });
 
   it("menyebut nama layanan", () => {
     expect(serviceInquiryMessage("HIFU Wajah")).toBe(
-      "Halo SunDY Clinic, saya ingin bertanya tentang treatment HIFU Wajah.",
+      "Halo SunDY Clinic Manhattan, saya ingin bertanya tentang treatment HIFU Wajah.",
     );
   });
 
   it("menyebut nama cabang yang ditunggu", () => {
     expect(branchNotifyMessage("SunDY Citraland")).toBe(
-      "Halo SunDY Clinic, mohon beri tahu saya saat cabang SunDY Citraland sudah buka.",
+      "Halo SunDY Clinic Manhattan, mohon beri tahu saya saat cabang SunDY Citraland sudah buka.",
     );
   });
 });
@@ -83,7 +83,7 @@ describe("appointmentConfirmationMessage", () => {
     });
 
     expect(message).toBe(
-      "Halo SunDY Clinic, saya sudah booking konsultasi. Kode: SDY-8F3K, atas nama Siti Rahayu, " +
+      "Halo SunDY Clinic Manhattan, saya sudah booking konsultasi. Kode: SDY-8F3K, atas nama Siti Rahayu, " +
         "dengan Dr. Diane Paparang, Sp.GK, AIFO-K di cabang Mahakeret, Kamis, 25 Sep 2026 pukul 15.00. " +
         "Berikut bukti transfernya.",
     );
@@ -104,6 +104,6 @@ describe("buildWhatsAppLinkTo", () => {
 
 describe("generalInquiryMessage", () => {
   it("menyapa klinik untuk pertanyaan umum", () => {
-    expect(generalInquiryMessage()).toBe("Halo SunDY Clinic, saya ingin bertanya.");
+    expect(generalInquiryMessage()).toBe("Halo SunDY Clinic Manhattan, saya ingin bertanya.");
   });
 });

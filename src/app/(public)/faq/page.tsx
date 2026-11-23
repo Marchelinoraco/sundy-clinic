@@ -5,7 +5,7 @@ import { CLINIC_WHATSAPP_DISPLAY, CLOSED_NOTE, OPENING_HOURS } from "@/lib/clini
 
 export const metadata: Metadata = {
   title: "Tanya Jawab",
-  description: "Pertanyaan yang sering diajukan tentang layanan dan program di SunDY Clinic Manado.",
+  description: "Pertanyaan yang sering diajukan tentang layanan dan program di SunDY Clinic Manhattan.",
 };
 
 // Isi FAQ masih ditulis di sini. Pengelolaan lewat panel admin dibangun pada Plan 2.
@@ -47,7 +47,7 @@ export default function FaqPage() {
         title="Tanya Jawab"
         description={
           <p>
-            Pertanyaan yang sering diajukan tentang layanan dan program SunDY Clinic. Belum menemukan
+            Pertanyaan yang sering diajukan tentang layanan dan program SunDY Clinic Manhattan. Belum menemukan
             jawabannya? Tanyakan lewat WhatsApp di {CLINIC_WHATSAPP_DISPLAY}.
           </p>
         }

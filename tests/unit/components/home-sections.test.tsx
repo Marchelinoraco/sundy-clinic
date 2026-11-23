@@ -10,7 +10,7 @@ import { CLINIC_GALLERY } from "@/lib/site-images";
 const DOCTOR = { name: "Dr. Diane Paparang, Sp.GK, AIFO-K", specialty: "Spesialis Gizi Klinik" };
 const PORTRAIT = {
   src: "/images/dokter/diane-1.jpg",
-  alt: "dr. Diane Paparang, Sp.GK, AIFO-K, dokter SunDY Clinic",
+  alt: "dr. Diane Paparang, Sp.GK, AIFO-K, dokter SunDY Clinic Manhattan",
 };
 
 describe("HomeHero", () => {

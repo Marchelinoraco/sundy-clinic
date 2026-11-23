@@ -39,7 +39,7 @@ describe("QuizLinkFlow", () => {
     expect(await screen.findByText("Halo Maria")).toBeInTheDocument();
     expect(screen.getByText("Konsultasi Dokter · Senin, 5 Oktober 2026 pukul 11.00 WITA")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Apa yang ingin Anda konsultasikan?" })).toBeInTheDocument();
-    expect(screen.queryByText("Pernah konsultasi atau treatment di SunDY Clinic?")).not.toBeInTheDocument();
+    expect(screen.queryByText("Pernah konsultasi atau treatment di SunDY Clinic Manhattan?")).not.toBeInTheDocument();
   });
 
   it("konsultasi online: rentang waktu luang menggantikan jam dan cabang", async () => {

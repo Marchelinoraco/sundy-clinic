@@ -211,8 +211,8 @@ describe("ringkasan, buka kembali, dan etiket", () => {
   });
 
   it("etiket memuat klinik, pasien, obat, jumlah, dan aturan pakai, tanpa harga", () => {
-    renderAdmin(<DispensingLabel detail={done} clinicName="SunDY Clinic" />);
-    expect(screen.getByText("SunDY Clinic")).toBeInTheDocument();
+    renderAdmin(<DispensingLabel detail={done} clinicName="SunDY Clinic Manhattan" />);
+    expect(screen.getByText("SunDY Clinic Manhattan")).toBeInTheDocument();
     expect(screen.getByText("Ani Uji")).toBeInTheDocument();
     expect(screen.getByText("Amoxicillin")).toBeInTheDocument();
     expect(screen.getByText(/15/)).toBeInTheDocument();
