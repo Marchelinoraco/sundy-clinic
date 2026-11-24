@@ -22,8 +22,8 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   const staff = await requireCapability("invoice:read");
   const detail = await getInvoiceDetail((await params).id);
   if (!detail) notFound();
-  const canManage = can(staff.role, "invoice:manage");
-  const canEditNotes = canManage || can(staff.role, "invoice:correct");
+  const canManage = can(staff, "invoice:manage");
+  const canEditNotes = canManage || can(staff, "invoice:correct");
   const receipt = detail.status === "DRAF" ? null : await getInvoiceReceipt(detail.id);
   const bankAccounts = detail.status === "FINAL" && canManage ? await listActiveClinicBankAccounts() : [];
 
@@ -44,14 +44,14 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             <InvoiceDraftEditor
               detail={detail}
               items={await listBillingItems(detail.branchId)}
-              canExceedDiscount={can(staff.role, "invoice:correct")}
+              canExceedDiscount={can(staff, "invoice:correct")}
               canEditNotes={canEditNotes}
               packages={await listSellablePackages()}
               packageOptions={await listPackageOptions(detail.patient.id, detail.id)}
               visitPlans={await listPackageVisitPlans(detail.patient.id)}
               performers={await listPerformers()}
               services={await listInternalServiceOptions()}
-              restock={can(staff.role, "restock:request") ? { branchId: detail.branchId, options: await listCounterItems(detail.branchId) } : null}
+              restock={can(staff, "restock:request") ? { branchId: detail.branchId, options: await listCounterItems(detail.branchId) } : null}
             />
           ) : (
             <InvoiceDraftReadOnly invoiceId={detail.id} notes={detail.notes} canEditNotes={canEditNotes} />
@@ -61,8 +61,8 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             detail={detail}
             today={witaDateString(new Date())}
             canManage={canManage}
-            canCorrect={can(staff.role, "invoice:correct")}
-            canSeeCost={can(staff.role, "price:manage")}
+            canCorrect={can(staff, "invoice:correct")}
+            canSeeCost={can(staff, "price:manage")}
             receipt={receipt}
             canEditNotes={canEditNotes}
             bankAccounts={bankAccounts}

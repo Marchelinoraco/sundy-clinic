@@ -35,8 +35,8 @@ export default async function DepositPage({ searchParams }: { searchParams: Prom
           <SectionCard title="Saldo yang masih berlaku" flush>
             <DepositBalanceTable
               rows={await listDepositBalances()}
-              canRefund={can(staff.role, "invoice:manage") || can(staff.role, "invoice:correct")}
-              patientLinks={can(staff.role, "booking:manage")}
+              canRefund={can(staff, "invoice:manage") || can(staff, "invoice:correct")}
+              patientLinks={can(staff, "booking:manage")}
             />
           </SectionCard>
         )}

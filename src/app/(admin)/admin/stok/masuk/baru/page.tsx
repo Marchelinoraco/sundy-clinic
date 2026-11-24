@@ -11,7 +11,7 @@ import { listStockItemOptions, listSupplierOptions } from "@/server/stock-read";
 export const metadata = { title: "Barang masuk" };
 
 export default async function NewPurchasePage() {
-  const staff = await requireCapability("stock:manage");
+  const staff = await requireCapability("stock:receive");
   const [items, suppliers, branches] = await Promise.all([listStockItemOptions(), listSupplierOptions(), getBranches()]);
   const active = branches.filter((branch) => branch.status === "AKTIF").map((branch) => ({ id: branch.id, name: branch.name }));
 
@@ -35,7 +35,7 @@ export default async function NewPurchasePage() {
             .
           </EmptyState>
         ) : (
-          <PurchaseForm items={items} suppliers={suppliers} branches={active} today={witaDateString(new Date())} canSetPrice={can(staff.role, "price:manage")} />
+          <PurchaseForm items={items} suppliers={suppliers} branches={active} today={witaDateString(new Date())} canSetPrice={can(staff, "price:manage")} canAddSupplier={can(staff, "stock:supplier")} />
         )}
       </PageBody>
     </>

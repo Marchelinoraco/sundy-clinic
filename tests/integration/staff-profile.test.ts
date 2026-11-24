@@ -12,7 +12,7 @@ import { findPublicDoctorPhoto, uploadStaffPhoto } from "@/server/staff-photo";
 import { unwrap } from "./unwrap";
 
 type Role = "SUPER_ADMIN" | "DOKTER" | "RESEPSIONIS";
-const { actor } = vi.hoisted(() => ({ actor: { userId: "u-aktor", staffId: "s-aktor", name: "Pemilik Profil", role: "SUPER_ADMIN" as Role, email: "profil@sundy.test" } }));
+const { actor } = vi.hoisted(() => ({ actor: { userId: "u-aktor", staffId: "s-aktor", name: "Pemilik Profil", role: "SUPER_ADMIN" as Role, email: "profil@sundy.test", extraCapabilities: [] } }));
 vi.mock("@/server/session", async () => {
   const { can } = await import("@/lib/permissions");
   return {

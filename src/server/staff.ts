@@ -4,6 +4,7 @@ import type { Prisma, StaffRole } from "@prisma/client";
 import { runAction, UserFacingError, type ActionResult } from "@/lib/action-result";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { isGrantable, type Capability } from "@/lib/permissions";
 import { validateBio, validateSpecialty } from "@/lib/doctor-profile";
 import { safeRevalidatePath } from "@/lib/revalidate";
 import { slugify } from "@/lib/slug";
@@ -28,6 +29,8 @@ export type StaffRow = {
   photoUrl: string | null;
   /** Penyetuju yang sudah membuat PIN persetujuan (spec PIN P10). */
   hasApprovalPin: boolean;
+  /** Akses tambahan di luar bawaan peran (spec akses tambahan). */
+  extraCapabilities: Capability[];
 };
 
 /** Kata sandi sementara hanya dikembalikan ke browser pemilik; tidak pernah disimpan, dicatat, atau dimasukkan ke audit. */
@@ -63,7 +66,7 @@ export async function listStaffAccounts(): Promise<StaffRow[]> {
   await requireCapability("staff:manage");
   const rows = await prisma.staff.findMany({
     orderBy: [{ isActive: "desc" }, { sortOrder: "asc" }, { name: "asc" }],
-    include: { user: { select: { email: true, mustChangePassword: true } }, approvalPin: { select: { staffId: true } } },
+    include: { user: { select: { email: true, mustChangePassword: true } }, approvalPin: { select: { staffId: true } }, capabilityGrants: { select: { capability: true } } },
   });
   return rows.map((row) => ({
     id: row.id,
@@ -77,6 +80,7 @@ export async function listStaffAccounts(): Promise<StaffRow[]> {
     bio: row.bio,
     photoUrl: row.photoUrl,
     hasApprovalPin: row.approvalPin !== null,
+    extraCapabilities: row.capabilityGrants.map((grant) => grant.capability).filter(isGrantable).sort(),
   }));
 }
 

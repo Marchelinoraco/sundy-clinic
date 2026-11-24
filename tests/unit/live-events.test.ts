@@ -90,4 +90,9 @@ describe("duplikat dan kursor", () => {
     expect(LIVE_OVERLAP_MS).toBe(30_000);
     expect(nextSince("2026-10-08T02:00:30.000Z")).toBe("2026-10-08T02:00:00.000Z");
   });
+
+  it("hibah stock:counter menambah RESTOCK_BARU untuk resepsionis; tanpa hibah tidak", () => {
+    expect(watchedKinds({ role: "RESEPSIONIS", extraCapabilities: ["stock:counter"] })).toContain("RESTOCK_BARU");
+    expect(watchedKinds({ role: "RESEPSIONIS", extraCapabilities: [] })).not.toContain("RESTOCK_BARU");
+  });
 });

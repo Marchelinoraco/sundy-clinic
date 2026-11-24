@@ -15,7 +15,7 @@ export default async function DispensingDetailPage({ params }: { params: Promise
   const staff = await requireCapability("dispense:read");
   const detail = await getDispensingDetail((await params).id);
   if (!detail) notFound();
-  const canManage = can(staff.role, "dispense:manage");
+  const canManage = can(staff, "dispense:manage");
 
   return (
     <>

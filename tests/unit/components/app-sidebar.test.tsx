@@ -7,7 +7,7 @@ const { pathname } = vi.hoisted(() => ({ pathname: { value: "/admin/booking/baru
 vi.mock("next/navigation", () => ({ usePathname: () => pathname.value, useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 vi.mock("@/lib/auth-client", () => ({ signOut: vi.fn() }));
 
-const staff = { userId: "u1", staffId: "s1", name: "Rina Resepsionis", role: "RESEPSIONIS" as const, email: "rina@sundy.test" };
+const staff = { userId: "u1", staffId: "s1", name: "Rina Resepsionis", role: "RESEPSIONIS" as const, email: "rina@sundy.test", extraCapabilities: [] };
 
 describe("menu samping", () => {
   it("Deposit untuk Resepsionis dan Admin Keuangan, tidak untuk Apoteker (spec deposit D18)", () => {

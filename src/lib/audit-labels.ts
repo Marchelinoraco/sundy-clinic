@@ -25,6 +25,8 @@ const ACTION_LABEL: Record<string, string> = {
   "deposit.refund": "mengembalikan deposit",
   "deposit.credit": "mencatat saldo deposit",
   "service.reminder": "mengubah jarak pengingat layanan",
+  "staff.access.add": "menambah akses staf",
+  "staff.access.remove": "mencabut akses staf",
   "staff.photo.update": "mengganti foto staf",
   "staff.photo.remove": "menghapus foto staf",
   "service.create": "menambah layanan internal",

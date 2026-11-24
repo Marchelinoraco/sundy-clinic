@@ -155,7 +155,7 @@ export default async function BookingListPage({
 }) {
   const staff = await requireCapability("booking:manage");
   const params = await searchParams;
-  const canReadRecords = can(staff.role, "record:read");
+  const canReadRecords = can(staff, "record:read");
 
   const now = new Date();
   const today = witaDateString(now);
@@ -183,7 +183,7 @@ export default async function BookingListPage({
     getClinicSetting(),
     listOnlineBookings(),
   ]);
-  const context: RowContext = { bank: setting, siteUrl: publicSiteUrl(), now, canUploadBia: can(staff.role, "bia:upload") };
+  const context: RowContext = { bank: setting, siteUrl: publicSiteUrl(), now, canUploadBia: can(staff, "bia:upload") };
 
   // Label tanggal dari tengah hari WITA, agar tidak bergeser ke hari lain.
   const dateLabel = formatIndonesianDate(combineWitaDateAndMinutes(date, 12 * 60));

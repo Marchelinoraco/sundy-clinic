@@ -353,7 +353,7 @@ export async function getPatientDetail(id: string): Promise<PatientDetail | null
   });
   if (!patient) return null;
 
-  const canRead = can(staff.role, "record:read");
+  const canRead = can(staff, "record:read");
   const record = canRead
     ? await prisma.patient.findUniqueOrThrow({
         where: { id },

@@ -1,8 +1,8 @@
-import { can } from "./permissions";
+import { can, type Subject } from "./permissions";
 
 // Aturan murni pemberitahuan langsung (resep, siap ditagih, restock meja, check-in untuk perawat). Dipakai server dan browser.
 
-type Role = Parameters<typeof can>[0];
+type Role = Subject;
 
 /** Jeda antar pemeriksaan di layar admin yang terbuka. */
 export const LIVE_POLL_MS = 10_000;
@@ -39,7 +39,7 @@ export function watchedKinds(role: Role): LiveEventKind[] {
   const kinds: LiveEventKind[] = [];
   if (can(role, "dispense:read") || can(role, "invoice:manage")) kinds.push("RESEP_BARU");
   if (can(role, "invoice:manage")) kinds.push("RESEP_SELESAI", "SIAP_DITAGIH");
-  if (can(role, "stock:manage")) kinds.push("RESTOCK_BARU");
+  if (can(role, "stock:counter")) kinds.push("RESTOCK_BARU");
   if (can(role, "restock:request")) kinds.push("RESTOCK_SELESAI", "RESTOCK_DITOLAK");
   if (can(role, "checkin:notify")) kinds.push("PASIEN_CHECKIN");
   return kinds;

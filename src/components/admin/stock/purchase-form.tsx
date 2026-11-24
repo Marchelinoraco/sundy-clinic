@@ -35,6 +35,7 @@ export function PurchaseForm({
   branches,
   today,
   canSetPrice = false,
+  canAddSupplier = false,
 }: {
   items: StockItemOption[];
   suppliers: SupplierOption[];
@@ -43,6 +44,8 @@ export function PurchaseForm({
   today: string;
   /** Harga beli hanya diisi Admin Keuangan dan Super Admin (spec harga modal M1). */
   canSetPrice?: boolean;
+  /** Tombol "+ Supplier baru" hanya untuk pemegang stock:supplier; createSupplier menolak yang lain. */
+  canAddSupplier?: boolean;
 }) {
   const router = useRouter();
   const [suppliers, setSuppliers] = useState(initialSuppliers);
@@ -139,13 +142,15 @@ export function PurchaseForm({
               </option>
             ))}
           </SelectField>
-          <SupplierDialog
-            triggerLabel="+ Supplier baru"
-            onSaved={(supplier) => {
-              setSuppliers((current) => [...current, supplier].sort((a, b) => a.name.localeCompare(b.name)));
-              setSupplierId(supplier.id);
-            }}
-          />
+          {canAddSupplier && (
+            <SupplierDialog
+              triggerLabel="+ Supplier baru"
+              onSaved={(supplier) => {
+                setSuppliers((current) => [...current, supplier].sort((a, b) => a.name.localeCompare(b.name)));
+                setSupplierId(supplier.id);
+              }}
+            />
+          )}
         </Stack>
         {branches.length > 1 ? (
           <SelectField id="purchase-branch" label="Cabang penerima" value={branchId} onChange={setBranchId}>

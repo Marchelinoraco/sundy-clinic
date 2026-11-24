@@ -29,7 +29,7 @@ function revalidatePurchase(invoiceId: string) {
  */
 export async function createPurchase(input: PurchaseInput): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
-    const actor = await requireCapability("stock:manage");
+    const actor = await requireCapability("stock:receive");
     const lines: unknown[] = Array.isArray(input?.lines) ? input.lines : [];
     const itemIds = lines.flatMap((line) =>
       typeof line === "object" && line !== null && typeof (line as { itemId?: unknown }).itemId === "string"
@@ -52,7 +52,7 @@ export async function createPurchase(input: PurchaseInput): Promise<ActionResult
     if (!branch || branch.status !== "AKTIF") throw new UserFacingError("Cabang ini belum bisa menerima barang.");
     const p = checked.value;
     // Harga beli hanya diisi Admin Keuangan dan Super Admin (spec harga modal M1, M5).
-    const canPrice = can(actor.role, "price:manage");
+    const canPrice = can(actor, "price:manage");
     if (!canPrice && p.lines.some((line) => line.unitCost !== null)) throw new UserFacingError(PRICE_BY_FINANCE);
     const pricedAt = p.total === null ? null : new Date();
 
@@ -134,7 +134,7 @@ export async function createPurchase(input: PurchaseInput): Promise<ActionResult
 export async function cancelPurchase(input: { invoiceId: string; reason: string }): Promise<ActionResult<void>> {
   return runAction(async () => {
     const actor = await requireCapability("stock:read");
-    if (!can(actor.role, "stock:manage") && !can(actor.role, "payable:manage")) {
+    if (!can(actor, "stock:receive") && !can(actor, "payable:manage")) {
       throw new UserFacingError("Anda tidak berhak membatalkan faktur.");
     }
     const reason = validateReason(input?.reason);

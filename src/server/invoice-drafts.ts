@@ -236,7 +236,7 @@ export async function addInvoiceItem(input: { invoiceId: string; version: number
       if (item.sellPrice === null) throw new UserFacingError("Barang ini belum punya harga jual.");
       // Promo barang terpasang otomatis (spec perbaikan tagihan 5.1); tidak dihitung dalam batas 20%.
       const promo = promoDiscount(item, { quantity: checked.value.quantity, unitPrice: item.sellPrice }, witaDateString(new Date()));
-      await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
+      await guardDiscount(tx, invoiceId, can(actor, "invoice:correct"), async () => {
         await tx.invoiceLine.create({
           data: {
             invoiceId,
@@ -272,7 +272,7 @@ export async function addFreeLine(input: { invoiceId: string; version: number; a
 
     const version = await prisma.$transaction(async (tx) => {
       const next = await touchDraft(tx, invoiceId, input.version);
-      await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
+      await guardDiscount(tx, invoiceId, can(actor, "invoice:correct"), async () => {
         await tx.invoiceLine.create({
           data: {
             invoiceId,
@@ -318,7 +318,7 @@ export async function addServiceLine(input: { invoiceId: string; version: number
 
     const version = await prisma.$transaction(async (tx) => {
       const next = await touchDraft(tx, invoiceId, input.version);
-      await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
+      await guardDiscount(tx, invoiceId, can(actor, "invoice:correct"), async () => {
         await tx.invoiceLine.create({
           // Konsultasi Dokter tetap baris LAYANAN, sama dengan baris dari kunjungan (visitLines), supaya laporan per jenis konsisten.
           data: {
@@ -352,7 +352,7 @@ export async function addPackageLine(input: { invoiceId: string; version: number
       const pkg = await tx.treatmentPackage.findUnique({ where: { id: String(input.packageId ?? "") }, select: { id: true, name: true, price: true, isActive: true } });
       if (!pkg) throw new UserFacingError("Paket tidak ditemukan.");
       if (!pkg.isActive) throw new UserFacingError(`Paket ${pkg.name} sudah tidak dijual.`);
-      await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
+      await guardDiscount(tx, invoiceId, can(actor, "invoice:correct"), async () => {
         await tx.invoiceLine.create({
           data: { invoiceId, kind: "PAKET", name: pkg.name, quantity: 1, unitPrice: pkg.price, treatmentPackageId: pkg.id, sortOrder: await nextSortOrder(tx, invoiceId) },
         });
@@ -447,7 +447,7 @@ export async function applyPackageSession(input: { invoiceId: string; version: n
         input,
         line.id,
       );
-      await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
+      await guardDiscount(tx, invoiceId, can(actor, "invoice:correct"), async () => {
         await tx.invoiceLine.update({
           where: { id: line.id },
           data: { unitPrice: 0, priceNote: null, ...NO_PRICE_APPROVAL, ...NO_DISCOUNT, patientPackageItemId: link.patientPackageItemId, packageSourceLineId: link.packageSourceLineId },
@@ -483,7 +483,7 @@ export async function takePackageItem(input: { invoiceId: string; version: numbe
       const stock = itemId ? await tx.stockItem.findUnique({ where: { id: itemId }, select: { id: true, name: true } }) : null;
       if (!stock) throw new UserFacingError("Paket tidak ditemukan.");
       const link = await packageLink(tx, invoice, { kind: "BARANG", serviceId: null, itemId: stock.id, name: stock.name, quantity }, input, null);
-      await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
+      await guardDiscount(tx, invoiceId, can(actor, "invoice:correct"), async () => {
         await tx.invoiceLine.create({
           data: {
             invoiceId,
@@ -544,7 +544,7 @@ export async function applyPackageVisit(input: { invoiceId: string; version: num
       if (todo.length === 0) throw new UserFacingError(`Isi kunjungan paket ${pkg.name} sudah ada di tagihan ini.`);
 
       const added: VisitContent[] = [];
-      await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
+      await guardDiscount(tx, invoiceId, can(actor, "invoice:correct"), async () => {
         for (const { item, quantity } of todo) {
           const source = { patientPackageItemId: item.id };
           if (item.serviceId) {
@@ -636,7 +636,7 @@ export async function releasePackageSession(input: { invoiceId: string; version:
       });
       if (!line) throw new UserFacingError("Baris tidak ditemukan.");
       if (!line.patientPackageItemId && !line.packageSourceLineId) throw new UserFacingError("Baris ini tidak memakai sesi paket.");
-      await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
+      await guardDiscount(tx, invoiceId, can(actor, "invoice:correct"), async () => {
         await releaseLines(tx, [line.id]);
       });
       return { version, summary: `Lepas paket dari ${line.name}` };
@@ -762,7 +762,7 @@ export async function updateInvoiceLine(input: {
           ? NO_PRICE_APPROVAL
           : {};
       const discountApproval = discount.discountSource === "MANUAL" ? {} : { discountApprovedById: null, discountApprovedByName: null };
-      await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
+      await guardDiscount(tx, invoiceId, can(actor, "invoice:correct"), async () => {
         await tx.invoiceLine.update({
           where: { id: line.id },
           data: { quantity: checked.value.quantity, unitPrice: checked.value.unitPrice, priceNote, ...discount, ...priceApproval, ...discountApproval },
@@ -801,7 +801,7 @@ export async function removeInvoiceLine(input: { invoiceId: string; version: num
       if (line.dispensingLineId) {
         throw new UserFacingError(line.dispensingLine?.dispensing.source === "DOKTER" ? PRESCRIPTION_REMOVE : DISPENSED_REMOVE);
       }
-      await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
+      await guardDiscount(tx, invoiceId, can(actor, "invoice:correct"), async () => {
         // Baris yang memakai jatah paket ini kembali ke harga katalog (spec paket barang 4).
         if (line.packageSourceUses.length > 0) await releaseLines(tx, line.packageSourceUses.map((use) => use.id));
         await tx.invoiceLine.delete({ where: { id: line.id } });
@@ -854,7 +854,7 @@ export async function reducePrescriptionLine(input: {
       if (!checked.ok) throw new UserFacingError(checked.message);
       const { quantity, reason } = checked.value;
 
-      await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
+      await guardDiscount(tx, invoiceId, can(actor, "invoice:correct"), async () => {
         if (quantity === 0) {
           await tx.invoiceLine.delete({ where: { id: line.id } });
           return;
@@ -914,7 +914,7 @@ export async function restorePrescriptionLine(input: { invoiceId: string; versio
       const handed = (await handedInvoiceLines(tx, dispensingLine.dispensingId)).find((line) => line.dispensingLineId === dispensingLine.id);
       if (!handed) throw new UserFacingError("Obat resep tidak ditemukan. Muat ulang halaman.");
       const last = await tx.invoiceLine.aggregate({ where: { invoiceId }, _max: { sortOrder: true } });
-      await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
+      await guardDiscount(tx, invoiceId, can(actor, "invoice:correct"), async () => {
         await tx.invoiceLine.create({ data: { ...handed, invoiceId, sortOrder: (last._max.sortOrder ?? -1) + 1 } });
       });
       await tx.dispensingLine.update({ where: { id: dispensingLine.id }, data: { billedQuantity: null, billingNote: null } });
@@ -946,7 +946,7 @@ export async function declineDoctorPackage(input: { invoiceId: string; version: 
       });
       if (!line?.encounterPackageId) throw new UserFacingError("Paket dari dokter tidak ditemukan. Muat ulang halaman.");
       if (line.packageSourceUses.length > 0) throw new UserFacingError("Lepas dulu sesi atau barang yang memakai paket ini.");
-      await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
+      await guardDiscount(tx, invoiceId, can(actor, "invoice:correct"), async () => {
         await tx.invoiceLine.delete({ where: { id: line.id } });
       });
       const decline = { reason, staffId: actor.staffId, staffName: actor.name };
@@ -977,7 +977,7 @@ export async function restoreDoctorPackage(input: { invoiceId: string; version: 
         : null;
       if (!suggested) throw new UserFacingError("Paket dari dokter tidak ditemukan. Muat ulang halaman.");
       if (suggested.invoiceLines.length > 0) throw new UserFacingError("Paket ini sudah ada di tagihan.");
-      await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
+      await guardDiscount(tx, invoiceId, can(actor, "invoice:correct"), async () => {
         await tx.invoiceLine.create({ data: { ...doctorPackageLine(suggested.id, suggested.packageId, suggested.package), invoiceId, sortOrder: await nextSortOrder(tx, invoiceId) } });
       });
       await tx.encounterPackageDecline.deleteMany({ where: { encounterPackageId: suggested.id } });
@@ -1004,7 +1004,7 @@ export async function refreshCatalogPrices(input: { invoiceId: string; version: 
       });
       const today = witaDateString(new Date());
       let updated = 0;
-      await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
+      await guardDiscount(tx, invoiceId, can(actor, "invoice:correct"), async () => {
         for (const line of lines) {
           const item = line.itemId ? await tx.stockItem.findUnique({ where: { id: line.itemId }, select: { sellPrice: true, ...PROMO_SELECT } }) : null;
           const price = line.itemId
@@ -1053,8 +1053,8 @@ export async function setInvoiceDiscount(input: {
 }): Promise<EditResult> {
   return runAction(async () => {
     const actor = await requireCapability("invoice:read");
-    const canExceed = can(actor.role, "invoice:correct");
-    if (!can(actor.role, "invoice:manage") && !canExceed) throw new UserFacingError("Anda tidak berhak mengubah diskon.");
+    const canExceed = can(actor, "invoice:correct");
+    if (!can(actor, "invoice:manage") && !canExceed) throw new UserFacingError("Anda tidak berhak mengubah diskon.");
     const invoiceId = String(input.invoiceId ?? "");
     const approver = await verifyApproval(input?.approval);
 
@@ -1096,7 +1096,7 @@ export async function setInvoiceDiscount(input: {
 /** Diskon draf boleh diberi resepsionis (dalam batas) dan Admin Keuangan (di atas batas), sama dengan setInvoiceDiscount. */
 async function discountActor() {
   const actor = await requireCapability("invoice:read");
-  if (!can(actor.role, "invoice:manage") && !can(actor.role, "invoice:correct")) throw new UserFacingError("Anda tidak berhak mengubah diskon.");
+  if (!can(actor, "invoice:manage") && !can(actor, "invoice:correct")) throw new UserFacingError("Anda tidak berhak mengubah diskon.");
   return actor;
 }
 
@@ -1128,7 +1128,7 @@ export async function setLineDiscount(input: {
       await guardDiscount(
         tx,
         invoiceId,
-        can(actor.role, "invoice:correct"),
+        can(actor, "invoice:correct"),
         async () => {
           await tx.invoiceLine.update({
             where: { id: line.id },
@@ -1161,7 +1161,7 @@ export async function clearLineDiscount(input: { invoiceId: string; version: num
       const version = await touchDraft(tx, invoiceId, input.version);
       const line = await tx.invoiceLine.findFirst({ where: { id: String(input.lineId ?? ""), invoiceId }, select: { id: true, name: true } });
       if (!line) throw new UserFacingError("Baris tidak ditemukan.");
-      await guardDiscount(tx, invoiceId, can(actor.role, "invoice:correct"), async () => {
+      await guardDiscount(tx, invoiceId, can(actor, "invoice:correct"), async () => {
         await tx.invoiceLine.update({ where: { id: line.id }, data: { ...NO_DISCOUNT } });
       });
       return { version, summary: `Hapus diskon baris ${line.name}` };

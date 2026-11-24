@@ -29,11 +29,11 @@ function revalidateStock(itemId?: string) {
 /** Barang baru (spec stok 5.1). Kode unik; pesan galat menyebut kodenya. */
 export async function createStockItem(input: StockItemInput): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
-    const actor = await requireCapability("stock:manage");
+    const actor = await requireCapability("stock:item");
     const checked = validateStockItem(input);
     if (!checked.ok) throw new UserFacingError(checked.message);
     const item = checked.value;
-    if (!can(actor.role, "price:manage") && item.sellPrice !== null) throw new UserFacingError(PRICE_BY_FINANCE);
+    if (!can(actor, "price:manage") && item.sellPrice !== null) throw new UserFacingError(PRICE_BY_FINANCE);
     let id: string;
     try {
       id = (await prisma.stockItem.create({ data: item, select: { id: true } })).id;
@@ -57,13 +57,13 @@ const priceText = (value: number | null) => (value === null ? "belum diisi" : fo
 
 export async function updateStockItem(id: string, input: StockItemInput): Promise<ActionResult<void>> {
   return runAction(async () => {
-    const actor = await requireCapability("stock:manage");
+    const actor = await requireCapability("stock:item");
     const checked = validateStockItem(input);
     if (!checked.ok) throw new UserFacingError(checked.message);
     const item = checked.value;
     const existing = await prisma.stockItem.findUnique({ where: { id: String(id ?? "") }, select: { id: true, sellPrice: true } });
     if (!existing) throw new UserFacingError("Barang tidak ditemukan.");
-    const priceAllowed = can(actor.role, "price:manage");
+    const priceAllowed = can(actor, "price:manage");
     if (!priceAllowed && item.sellPrice !== existing.sellPrice) throw new UserFacingError(PRICE_BY_FINANCE);
     try {
       await prisma.stockItem.update({ where: { id: existing.id }, data: priceAllowed ? item : { ...item, sellPrice: existing.sellPrice } });
@@ -89,7 +89,7 @@ export async function updateStockItem(id: string, input: StockItemInput): Promis
 /** Barang tidak pernah dihapus: riwayat stoknya harus tetap ada (spec stok 5.1). */
 export async function setStockItemActive(id: string, active: boolean): Promise<ActionResult<void>> {
   return runAction(async () => {
-    const actor = await requireCapability("stock:manage");
+    const actor = await requireCapability("stock:item");
     const existing = await prisma.stockItem.findUnique({ where: { id: String(id ?? "") }, select: { id: true, code: true } });
     if (!existing) throw new UserFacingError("Barang tidak ditemukan.");
     await prisma.stockItem.update({ where: { id: existing.id }, data: { isActive: active === true } });
@@ -106,7 +106,7 @@ export async function setStockItemActive(id: string, active: boolean): Promise<A
 
 export async function createSupplier(input: SupplierInput): Promise<ActionResult<{ id: string; name: string }>> {
   return runAction(async () => {
-    const actor = await requireCapability("stock:manage");
+    const actor = await requireCapability("stock:supplier");
     const checked = validateSupplier(input);
     if (!checked.ok) throw new UserFacingError(checked.message);
     const created = await prisma.supplier.create({ data: checked.value, select: { id: true, name: true } });
@@ -118,7 +118,7 @@ export async function createSupplier(input: SupplierInput): Promise<ActionResult
 
 export async function updateSupplier(id: string, input: SupplierInput): Promise<ActionResult<void>> {
   return runAction(async () => {
-    const actor = await requireCapability("stock:manage");
+    const actor = await requireCapability("stock:supplier");
     const checked = validateSupplier(input);
     if (!checked.ok) throw new UserFacingError(checked.message);
     const existing = await prisma.supplier.findUnique({ where: { id: String(id ?? "") }, select: { id: true } });
@@ -133,7 +133,7 @@ export async function updateSupplier(id: string, input: SupplierInput): Promise<
 /** Supplier nonaktif tidak bisa dipilih untuk barang masuk baru; faktur dan hutangnya tetap tampil. */
 export async function setSupplierActive(id: string, active: boolean): Promise<ActionResult<void>> {
   return runAction(async () => {
-    const actor = await requireCapability("stock:manage");
+    const actor = await requireCapability("stock:supplier");
     const existing = await prisma.supplier.findUnique({ where: { id: String(id ?? "") }, select: { id: true, name: true } });
     if (!existing) throw new UserFacingError("Supplier tidak ditemukan.");
     await prisma.supplier.update({ where: { id: existing.id }, data: { isActive: active === true } });

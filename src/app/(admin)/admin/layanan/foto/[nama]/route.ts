@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export async function GET(_request: Request, { params }: { params: Promise<{ nama: string }> }): Promise<Response> {
   const staff = await getCurrentStaff();
   if (!staff) return new Response("Masuk dulu.", { status: 401 });
-  if (!can(staff.role, "catalog:manage")) return new Response("Anda tidak berhak membuka foto layanan.", { status: 403 });
+  if (!can(staff, "catalog:manage")) return new Response("Anda tidak berhak membuka foto layanan.", { status: 403 });
 
   const { nama } = await params;
   const name = siteServicePhotoName(siteServicePhotoUrl(String(nama ?? "")));

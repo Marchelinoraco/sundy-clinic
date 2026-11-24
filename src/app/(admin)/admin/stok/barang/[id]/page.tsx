@@ -34,9 +34,11 @@ export default async function StockItemPage({ params }: { params: Promise<{ id: 
   const detail = await getStockItemDetail((await params).id);
   if (!detail) notFound();
   const { item, batches, movements } = detail;
-  const canManage = can(staff.role, "stock:manage");
-  const canPrice = can(staff.role, "price:manage");
-  const canSetPrice = can(staff.role, "price:manage");
+  const canItem = can(staff, "stock:item");
+  const canAdjust = can(staff, "stock:adjust");
+  const canCounter = can(staff, "stock:counter");
+  const canPrice = can(staff, "price:manage");
+  const canSetPrice = can(staff, "price:manage");
 
   return (
     <>
@@ -49,9 +51,9 @@ export default async function StockItemPage({ params }: { params: Promise<{ id: 
             item.sellPrice === null ? "belum diisi" : formatRupiah(item.sellPrice)
           } · promo ${promoLabel(item) ?? "—"} · batas menipis ${item.minStock} · batas meja ${item.counterMinStock}`}
           actions={
-            canManage || canSetPrice ? (
+            canItem || canCounter || canSetPrice ? (
               <>
-                {canManage && (
+                {canItem && (
                   <StockItemDialog
                     itemId={item.id}
                     triggerLabel="Ubah barang"
@@ -68,7 +70,7 @@ export default async function StockItemPage({ params }: { params: Promise<{ id: 
                     canSetPrice={canSetPrice}
                   />
                 )}
-                {canManage && detail.moveOptions.length > 0 && (
+                {canCounter && detail.moveOptions.length > 0 && (
                   <FillCounterDialog
                     triggerLabel="Pindah ke meja"
                     item={{ id: item.id, name: item.name, unit: item.unit }}
@@ -76,7 +78,7 @@ export default async function StockItemPage({ params }: { params: Promise<{ id: 
                   />
                 )}
                 {canSetPrice && <StockPriceDialog itemId={item.id} itemName={item.name} sellPrice={item.sellPrice} promo={item} />}
-                {canManage && <StockItemActiveButton itemId={item.id} active={item.isActive} />}
+                {canItem && <StockItemActiveButton itemId={item.id} active={item.isActive} />}
               </>
             ) : undefined
           }
@@ -102,7 +104,7 @@ export default async function StockItemPage({ params }: { params: Promise<{ id: 
                     <TableCell align="right">Meja</TableCell>
                     {canPrice && <TableCell align="right">Harga beli</TableCell>}
                     <TableCell>Faktur</TableCell>
-                    {canManage && <TableCell>Aksi</TableCell>}
+                    {(canAdjust || canCounter) && <TableCell>Aksi</TableCell>}
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -131,14 +133,16 @@ export default async function StockItemPage({ params }: { params: Promise<{ id: 
                           {batch.supplierName}
                         </Typography>
                       </TableCell>
-                      {canManage && (
+                      {(canAdjust || canCounter) && (
                         <TableCell>
                           {!batch.invoiceCancelled && (
                             <Stack direction="row" spacing={0.5} useFlexGap sx={{ flexWrap: "wrap" }}>
-                              <AdjustStockDialog
-                                batch={{ id: batch.id, label: `${item.name} batch ${batch.batchNumber ?? "-"}`, remaining: batch.quantityRemaining, counterRemaining: batch.counterRemaining, unit: item.unit }}
-                              />
-                              {batch.counterRemaining > 0 && (
+                              {canAdjust && (
+                                <AdjustStockDialog
+                                  batch={{ id: batch.id, label: `${item.name} batch ${batch.batchNumber ?? "-"}`, remaining: batch.quantityRemaining, counterRemaining: batch.counterRemaining, unit: item.unit }}
+                                />
+                              )}
+                              {canCounter && batch.counterRemaining > 0 && (
                                 <PullToWarehouseDialog batch={{ id: batch.id, label: `${item.name} batch ${batch.batchNumber ?? "-"}`, counterRemaining: batch.counterRemaining, unit: item.unit }} />
                               )}
                             </Stack>

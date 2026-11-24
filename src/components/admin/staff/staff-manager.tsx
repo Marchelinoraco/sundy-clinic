@@ -3,6 +3,7 @@
 import MoreHoriz from "@mui/icons-material/MoreHoriz";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
 import IconButton from "@mui/material/IconButton";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
@@ -18,6 +19,7 @@ import { resetStaffPassword, setStaffActive, type Credentials, type StaffRow } f
 import { AdminDataGrid } from "../mui/admin-data-grid";
 import { StatusChip } from "../mui/status-chip";
 import { SectionCard } from "../page-layout";
+import { StaffAccessDialog } from "./staff-access-dialog";
 import { StaffConfirmDialog } from "./staff-confirm-dialog";
 import { StaffEmailDialog } from "./staff-email-dialog";
 import { StaffFormDialog } from "./staff-form-dialog";
@@ -28,6 +30,7 @@ const MENU_ID = "menu-aksi-staf";
 type Dialog =
   | { kind: "add" }
   | { kind: "edit"; row: StaffRow }
+  | { kind: "access"; row: StaffRow }
   | { kind: "account"; row: StaffRow }
   | { kind: "email"; row: StaffRow }
   | { kind: "deactivate"; row: StaffRow }
@@ -73,7 +76,13 @@ export function StaffManager({ rows, currentStaffId }: { rows: StaffRow[]; curre
 
   const columns: GridColDef<StaffRow>[] = [
     { field: "name", headerName: "Nama", flex: 1, minWidth: 180, renderCell: ({ row }) => <Typography sx={{ fontWeight: 500, fontSize: "inherit" }}>{row.name}</Typography> },
-    { field: "role", headerName: "Peran", minWidth: 150, valueGetter: (_value, row) => STAFF_ROLE_LABEL[row.role], renderCell: ({ row }) => <StatusChip label={STAFF_ROLE_LABEL[row.role]} /> },
+    { field: "role", headerName: "Peran", minWidth: 150, valueGetter: (_value, row) => STAFF_ROLE_LABEL[row.role], renderCell: ({ row }) => (
+        <Box sx={{ py: 0.5, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 0.5 }}>
+          <StatusChip label={STAFF_ROLE_LABEL[row.role]} />
+          {row.extraCapabilities.length > 0 && <Chip size="small" variant="outlined" label={`+${row.extraCapabilities.length} akses`} />}
+        </Box>
+      ),
+    },
     {
       field: "email",
       headerName: "Akun",
@@ -136,6 +145,7 @@ export function StaffManager({ rows, currentStaffId }: { rows: StaffRow[]; curre
 
       <Menu id={MENU_ID} anchorEl={menu?.anchor ?? null} open={menu !== null} onClose={() => setMenu(null)} anchorOrigin={{ vertical: "bottom", horizontal: "right" }} transformOrigin={{ vertical: "top", horizontal: "right" }}>
         {target && <MenuItem onClick={() => open({ kind: "edit", row: target })}>Ubah</MenuItem>}
+        {target && target.role !== "SUPER_ADMIN" && <MenuItem onClick={() => open({ kind: "access", row: target })}>Akses tambahan</MenuItem>}
         {target && !target.email && target.isActive && <MenuItem onClick={() => open({ kind: "account", row: target })}>Buat akun</MenuItem>}
         {target?.email && <MenuItem onClick={() => open({ kind: "reset", row: target })}>Reset kata sandi</MenuItem>}
         {target?.hasApprovalPin && <MenuItem onClick={() => open({ kind: "reset-pin", row: target })}>Reset PIN</MenuItem>}
@@ -150,6 +160,7 @@ export function StaffManager({ rows, currentStaffId }: { rows: StaffRow[]; curre
 
       {dialog?.kind === "add" && <StaffFormDialog mode="add" onClose={() => setDialog(null)} onCredentials={showCredentials} />}
       {dialog?.kind === "edit" && <StaffFormDialog key={dialog.row.id} mode="edit" row={dialog.row} onClose={() => setDialog(null)} onCredentials={showCredentials} />}
+      {dialog?.kind === "access" && <StaffAccessDialog key={dialog.row.id} row={dialog.row} onClose={() => setDialog(null)} />}
       {dialog?.kind === "account" && <StaffEmailDialog key={dialog.row.id} mode="create" row={dialog.row} onClose={() => setDialog(null)} onCredentials={showCredentials} />}
       {dialog?.kind === "email" && <StaffEmailDialog key={dialog.row.id} mode="change" row={dialog.row} isSelf={dialog.row.id === currentStaffId} onClose={() => setDialog(null)} onCredentials={showCredentials} />}
       {dialog?.kind === "deactivate" && (

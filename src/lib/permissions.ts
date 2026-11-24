@@ -17,7 +17,11 @@ export type Capability =
   | "report:read"
   | "audit:read"
   | "stock:read"
-  | "stock:manage"
+  | "stock:item"
+  | "stock:supplier"
+  | "stock:receive"
+  | "stock:adjust"
+  | "stock:counter"
   | "payable:manage"
   | "invoice:read"
   | "invoice:manage"
@@ -50,7 +54,11 @@ export const CAPABILITIES_BY_ROLE: Record<StaffRole, readonly Capability[]> = {
     "report:read",
     "audit:read",
     "stock:read",
-    "stock:manage",
+    "stock:item",
+    "stock:supplier",
+    "stock:receive",
+    "stock:adjust",
+    "stock:counter",
     "payable:manage",
     "invoice:read",
     "invoice:manage",
@@ -85,7 +93,7 @@ export const CAPABILITIES_BY_ROLE: Record<StaffRole, readonly Capability[]> = {
 
   // Apoteker mengelola barang, barang masuk, retur, dan penyesuaian stok (spec stok 7).
   // Ia mengisi harga beli dari faktur kertas, tetapi tidak mengurus pembayaran hutang.
-  APOTEKER: ["stock:read", "stock:manage", "dispense:read", "dispense:manage", "stock:availability", "counter:read"],
+  APOTEKER: ["stock:read", "stock:item", "stock:supplier", "stock:receive", "stock:adjust", "stock:counter", "dispense:read", "dispense:manage", "stock:availability", "counter:read"],
 
   // Admin Keuangan melihat stok, mengelola hutang ke supplier, dan melihat Angka dasbor.
   // Tidak mengubah stok, booking, jadwal, rekam medis, atau akun staf (spec stok 7.2).
@@ -94,6 +102,44 @@ export const CAPABILITIES_BY_ROLE: Record<StaffRole, readonly Capability[]> = {
   ADMIN_KEUANGAN: ["stock:read", "payable:manage", "report:read", "invoice:read", "invoice:correct", "expense:manage", "profit:read", "price:manage", "catalog:manage", "payroll:manage", "approval:give"],
 };
 
-export function can(role: StaffRole, capability: Capability): boolean {
-  return CAPABILITIES_BY_ROLE[role]?.includes(capability) ?? false;
+/** Kemampuan yang otomatis ikut berlaku bila kemampuan di kiri diberikan sebagai akses tambahan (spec akses tambahan 5). */
+const IMPLIES: Partial<Record<Capability, readonly Capability[]>> = {
+  "stock:item": ["stock:read"],
+  "stock:supplier": ["stock:read"],
+  "stock:receive": ["stock:read"],
+  "stock:adjust": ["stock:read"],
+  "stock:counter": ["stock:read", "counter:read"],
+};
+
+export type Actor = { role: StaffRole; extraCapabilities?: readonly Capability[] };
+export type Subject = StaffRole | Actor;
+
+/** Kemampuan tahap 1 yang boleh diberikan Super Admin sebagai akses tambahan. */
+export const GRANTABLE_CAPABILITIES: readonly Capability[] = [
+  "stock:read",
+  "stock:item",
+  "stock:supplier",
+  "stock:receive",
+  "stock:adjust",
+  "stock:counter",
+];
+
+export const CAPABILITY_LABEL: Partial<Record<Capability, string>> = {
+  "stock:read": "Lihat stok",
+  "stock:item": "Kelola barang",
+  "stock:supplier": "Kelola supplier",
+  "stock:receive": "Catat barang masuk & retur",
+  "stock:adjust": "Penyesuaian stok",
+  "stock:counter": "Isi stok meja & permintaan",
+};
+
+export function isGrantable(value: string): value is Capability {
+  return (GRANTABLE_CAPABILITIES as readonly string[]).includes(value);
+}
+
+export function can(subject: Subject, capability: Capability): boolean {
+  const actor: Actor = typeof subject === "string" ? { role: subject } : subject;
+  if (CAPABILITIES_BY_ROLE[actor.role]?.includes(capability)) return true;
+  const extra = actor.extraCapabilities ?? [];
+  return extra.some((granted) => granted === capability || (IMPLIES[granted]?.includes(capability) ?? false));
 }

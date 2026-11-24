@@ -24,7 +24,7 @@ function revalidateMovement(itemIds: string[], invoiceId?: string) {
 /** Penyesuaian stok (spec stok 5.4): rusak, hilang, kedaluwarsa dibuang, lainnya, atau selisih hitung. */
 export async function adjustStock(input: AdjustmentInput): Promise<ActionResult<void>> {
   return runAction(async () => {
-    const actor = await requireCapability("stock:manage");
+    const actor = await requireCapability("stock:adjust");
     const checked = validateAdjustment(input);
     if (!checked.ok) throw new UserFacingError(checked.message);
     const adjustment = checked.value;
@@ -81,7 +81,7 @@ export async function adjustStock(input: AdjustmentInput): Promise<ActionResult<
  */
 export async function createSupplierReturn(input: ReturnInput): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
-    const actor = await requireCapability("stock:manage");
+    const actor = await requireCapability("stock:receive");
     const checked = validateReturn(input);
     if (!checked.ok) throw new UserFacingError(checked.message);
     const request = checked.value;

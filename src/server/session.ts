@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import type { StaffRole } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { can, type Capability } from "@/lib/permissions";
+import { can, isGrantable, type Capability } from "@/lib/permissions";
 
 export type CurrentStaff = {
   userId: string;
@@ -11,6 +11,8 @@ export type CurrentStaff = {
   name: string;
   role: StaffRole;
   email: string;
+  /** Hak tambahan di luar bawaan perannya; selalu array, kosong bila tidak ada. */
+  extraCapabilities: Capability[];
 };
 
 /** Akun yang wajib membuat kata sandi sendiri; membawa id sesi yang sedang dipakai (spec kelola staf 4). */
@@ -28,7 +30,7 @@ async function loadStaff(): Promise<LoadedStaff | null> {
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { id: true, email: true, mustChangePassword: true, staff: true },
+    select: { id: true, email: true, mustChangePassword: true, staff: { include: { capabilityGrants: { select: { capability: true } } } } },
   });
 
   if (!user?.staff || !user.staff.isActive) return null;
@@ -39,12 +41,21 @@ async function loadStaff(): Promise<LoadedStaff | null> {
     name: user.staff.name,
     role: user.staff.role,
     email: user.email,
+    // Nilai asing di basis data (mis. kemampuan yang sudah dihapus) diabaikan; pemuat ini penjaga gerbangnya.
+    extraCapabilities: user.staff.capabilityGrants.map((g) => g.capability).filter(isGrantable),
     sessionId: session.session.id,
     mustChangePassword: user.mustChangePassword,
   };
 }
 
-const toCurrent = ({ userId, staffId, name, role, email }: LoadedStaff): CurrentStaff => ({ userId, staffId, name, role, email });
+const toCurrent = ({ userId, staffId, name, role, email, extraCapabilities }: LoadedStaff): CurrentStaff => ({
+  userId,
+  staffId,
+  name,
+  role,
+  email,
+  extraCapabilities,
+});
 
 /**
  * Mengambil staf yang sedang login, atau null. Akun yang wajib mengganti kata sandi TIDAK dianggap login di sini,
@@ -77,13 +88,13 @@ export async function requireStaff(): Promise<CurrentStaff> {
  */
 export async function requireCapability(capability: Capability): Promise<CurrentStaff> {
   const staff = await requireStaff();
-  if (!can(staff.role, capability)) forbidden();
+  if (!can(staff, capability)) forbidden();
   return staff;
 }
 
 /** Seperti requireCapability, tetapi cukup salah satu kemampuan (mis. angka BIA: dokter atau perawat). */
 export async function requireAnyCapability(...capabilities: Capability[]): Promise<CurrentStaff> {
   const staff = await requireStaff();
-  if (!capabilities.some((capability) => can(staff.role, capability))) forbidden();
+  if (!capabilities.some((capability) => can(staff, capability))) forbidden();
   return staff;
 }

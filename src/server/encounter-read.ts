@@ -359,7 +359,7 @@ export async function getEncounterForStaff(encounterId: string): Promise<Encount
   const [{ intake, pregnancy, proposal }, options, trail, historyRows, medicines] = await Promise.all([
     loadEncounterIntake(appointment.intake),
     loadOptions({ serviceIds: row.treatments.map((t) => t.serviceId), packageIds: row.packages.map((p) => p.packageId) }, { serviceId: appointment.serviceId }),
-    can(staff.role, "audit:read") ? listAuditTrail("Encounter", row.id) : Promise.resolve(null),
+    can(staff, "audit:read") ? listAuditTrail("Encounter", row.id) : Promise.resolve(null),
     findHistory(patient.id, appointment.startAt, row.id),
     listPrescribableItems(
       appointment.branchId,
@@ -368,7 +368,7 @@ export async function getEncounterForStaff(encounterId: string): Promise<Encount
   ]);
 
   const approval =
-    proposal && appointment.intake && can(staff.role, "record:write")
+    proposal && appointment.intake && can(staff, "record:write")
       ? await loadApproval(patient.id, proposal, appointment.intake.status === "DIPERIKSA")
       : null;
 

@@ -12,13 +12,13 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }): Promise<Response> {
   const staff = await getCurrentStaff();
   if (!staff) return new Response("Masuk dulu.", { status: 401 });
-  if (!can(staff.role, "record:read") && !can(staff.role, "nurse:work")) return new Response("Anda tidak berhak membuka hasil BIA.", { status: 403 });
+  if (!can(staff, "record:read") && !can(staff, "nurse:work")) return new Response("Anda tidak berhak membuka hasil BIA.", { status: 403 });
 
   const { id } = await params;
   const file = await findBiaFileForViewer(id);
   if (!file) return new Response("Berkas tidak ditemukan.", { status: 404 });
   // Perawat hanya membuka berkas pasien yang sedang ditangani hari ini (spec peran perawat 7).
-  if (!can(staff.role, "record:read") && !nurseCanWork(file.appointment, new Date())) return new Response("Anda tidak berhak membuka hasil BIA.", { status: 403 });
+  if (!can(staff, "record:read") && !nurseCanWork(file.appointment, new Date())) return new Response("Anda tidak berhak membuka hasil BIA.", { status: 403 });
 
   let bytes: Buffer;
   try {

@@ -11,7 +11,7 @@ const { pathname } = vi.hoisted(() => ({ pathname: { value: "/admin" } }));
 vi.mock("next/navigation", () => ({ usePathname: () => pathname.value, useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 vi.mock("@/lib/auth-client", () => ({ signOut: vi.fn() }));
 
-const staff = { userId: "u1", staffId: "s1", name: "Rina Resepsionis", role: "RESEPSIONIS" as const, email: "rina@sundy.test" };
+const staff = { userId: "u1", staffId: "s1", name: "Rina Resepsionis", role: "RESEPSIONIS" as const, email: "rina@sundy.test", extraCapabilities: [] };
 
 describe("kerangka admin", () => {
   it("tombol Buka menu membuka laci menu; berpindah halaman menutupnya", async () => {

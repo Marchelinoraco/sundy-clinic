@@ -1,12 +1,12 @@
 import { prisma } from "@/lib/db";
-import type { can } from "@/lib/permissions";
+import type { Subject } from "@/lib/permissions";
 import { LIVE_MAX_LOOKBACK_MS, watchedKinds, type LiveEvent } from "@/lib/live-events";
 import { minutesToTimeLabel, witaMinutesOfDay } from "@/lib/time";
 
 // Tanpa "use server": dipanggil rute pemberitahuan, bukan browser. Hanya nama pasien yang dibawa; isi Catatan
 // untuk Apoteker dan data klinis tidak pernah ikut.
 
-type Role = Parameters<typeof can>[0];
+type Role = Subject;
 
 const LIMIT = 20;
 
