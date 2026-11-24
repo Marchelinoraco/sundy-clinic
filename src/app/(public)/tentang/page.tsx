@@ -17,7 +17,7 @@ import { getPublicStaff } from "@/server/catalog";
 export const metadata: Metadata = {
   title: "Tentang Kami",
   description:
-    "SunDY — Nutrition, Slimming & Wellness Clinic Manado. Program penurunan berat badan dan perawatan estetika yang ditangani dokter.",
+    "SunDY — Nutrition, Slimming & Wellness Clinic Manhattan. Program penurunan berat badan dan perawatan estetika yang ditangani dokter.",
 };
 
 export default async function AboutPage() {
