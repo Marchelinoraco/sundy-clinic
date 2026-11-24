@@ -38,9 +38,9 @@ describe("ClinicBankAccounts", () => {
     const dialog = await screen.findByRole("dialog", { name: "Tambah rekening" });
     await user.type(within(dialog).getByLabelText("Nama bank"), "BRI");
     await user.type(within(dialog).getByLabelText("Nomor rekening"), "555666777");
-    await user.type(within(dialog).getByLabelText("Nama pemilik"), "SunDY Clinic");
+    await user.type(within(dialog).getByLabelText("Nama pemilik"), "SunDY Clinic Manhattan");
     await user.click(within(dialog).getByRole("button", { name: "Simpan" }));
-    await waitFor(() => expect(createClinicBankAccount).toHaveBeenCalledWith({ bankName: "BRI", accountNumber: "555666777", accountHolder: "SunDY Clinic" }));
+    await waitFor(() => expect(createClinicBankAccount).toHaveBeenCalledWith({ bankName: "BRI", accountNumber: "555666777", accountHolder: "SunDY Clinic Manhattan" }));
   });
 
   it("menonaktifkan rekening aktif", async () => {

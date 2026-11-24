@@ -141,7 +141,7 @@ export function InvoiceA4Paper({ invoice }: { invoice: InvoiceA4 }) {
       <div className="invoice-a4-penutup">
         <span>Terima kasih atas kepercayaan Anda.</span>
         <span>
-          SunDY Clinic · {CLINIC_TAGLINE}
+          SunDY Clinic Manhattan · {CLINIC_TAGLINE}
         </span>
       </div>
     </section>

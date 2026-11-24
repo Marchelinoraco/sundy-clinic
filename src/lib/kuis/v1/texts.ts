@@ -7,7 +7,7 @@ const MULTI = "Boleh pilih lebih dari satu.";
 export function stepText(step: StepId, a: QuizAnswers): { title: string; hint?: string } {
   switch (step) {
     case "U1":
-      return { title: "Pernah berobat di SunDY Clinic?" };
+      return { title: "Pernah berobat di SunDY Clinic Manhattan?" };
     case "U2":
       return { title: "Apa yang ingin Anda konsultasikan?" };
     case "S1":

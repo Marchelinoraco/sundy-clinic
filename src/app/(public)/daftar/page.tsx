@@ -7,7 +7,7 @@ import { registrationAccess } from "@/server/registration-access";
 
 export const metadata: Metadata = {
   title: "Daftar Konsultasi",
-  description: "Daftar konsultasi Slimming atau Aesthetic di SunDY Clinic secara online.",
+  description: "Daftar konsultasi Slimming atau Aesthetic di SunDY Clinic Manhattan secara online.",
 };
 
 // Biaya booking dan layanan dibaca langsung dari basis data setiap kali.
@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic";
 export default async function RegistrationPage() {
   const access = await registrationAccess();
   if (access === "closed") {
-    const link = buildWhatsAppLink("Halo, saya ingin mendaftar konsultasi di SunDY Clinic.");
+    const link = buildWhatsAppLink("Halo, saya ingin mendaftar konsultasi di SunDY Clinic Manhattan.");
     return (
       <div className="mx-auto max-w-md space-y-4 px-4 py-16 text-center">
         <h1 className="font-display text-3xl text-brown-900">Pendaftaran online sedang diperbaiki</h1>

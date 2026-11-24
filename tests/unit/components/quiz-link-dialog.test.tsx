@@ -13,7 +13,7 @@ vi.mock("@/server/appointment-message", () => ({ recordAppointmentMessage: vi.fn
 const SCHEDULE = new Date("2026-10-05T03:00:00Z");
 const INFO = {
   url: "https://sundyclinic.com/isi#kode-lama",
-  message: { text: "Halo Budi, ini SunDY Clinic.", link: "https://wa.me/6281234567001?text=Halo" },
+  message: { text: "Halo Budi, ini SunDY Clinic Manhattan.", link: "https://wa.me/6281234567001?text=Halo" },
   scheduledFor: SCHEDULE,
 };
 const TARGET = { appointmentId: "a1", code: "SDY-WALK", patientName: "Budi Walkin" };

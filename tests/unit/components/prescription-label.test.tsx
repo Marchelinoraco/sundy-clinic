@@ -6,12 +6,12 @@ describe("PrescriptionLabel (spec resep dokter 5)", () => {
   it("etiket berisi obat, jumlah, dan aturan pakai tanpa harga", () => {
     render(
       <PrescriptionLabel
-        clinicName="SunDY Clinic"
+        clinicName="SunDY Clinic Manhattan"
         data={{ patientName: "Ani", startAt: new Date("2026-10-13T03:00:00Z"), doctorName: "dr. Diane", lines: [{ name: "Amoxicillin", quantity: 6, usage: "2 x 1" }] }}
       />,
     );
     const label = screen.getByRole("article", { name: "Etiket obat" });
-    expect(label).toHaveTextContent("SunDY Clinic");
+    expect(label).toHaveTextContent("SunDY Clinic Manhattan");
     expect(label).toHaveTextContent("Ani");
     expect(label).toHaveTextContent("dr. Diane");
     expect(label).toHaveTextContent("Amoxicillin");

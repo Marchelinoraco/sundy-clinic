@@ -7,7 +7,7 @@ const DIANE = {
   slug: "diane-paparang",
   name: "Dr. Diane Paparang, Sp.GK, AIFO-K",
   specialty: "Spesialis Gizi Klinik",
-  bio: "Dokter penanggung jawab SunDY Clinic Manado.",
+  bio: "Dokter penanggung jawab SunDY Clinic Manhattan.",
   role: "DOKTER",
   photoUrl: null,
 };

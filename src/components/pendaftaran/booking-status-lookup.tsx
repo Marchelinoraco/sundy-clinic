@@ -167,7 +167,7 @@ export function BookingStatusLookup({ initialCode = "" }: { initialCode?: string
             <p className="text-sm text-brown-700">
               Kurang dari 2 jam sebelum jadwal. Untuk batal atau pindah jadwal, hubungi kami lewat{" "}
               <a
-                href={buildWhatsAppLink(`Halo SunDY Clinic, saya ingin mengubah booking ${status.code}.`)}
+                href={buildWhatsAppLink(`Halo SunDY Clinic Manhattan, saya ingin mengubah booking ${status.code}.`)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline underline-offset-4"

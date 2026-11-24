@@ -9,5 +9,5 @@ test("draf kuis versi lama dibuang dengan pesan yang terlihat customer", async (
   await page.goto("/daftar");
 
   await expect(page.getByText("Kuis kami baru saja diperbarui. Silakan isi dari awal.")).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByRole("heading", { name: "Pernah konsultasi atau treatment di SunDY Clinic?" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Pernah konsultasi atau treatment di SunDY Clinic Manhattan?" })).toBeVisible();
 });

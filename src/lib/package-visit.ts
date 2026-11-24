@@ -48,7 +48,7 @@ export function defaultPerVisit(goodsTotal: number, maxTreatmentSessions: number
  * memilih hari dan jam baru.
  */
 export function packageVisitMessage(input: { patientName: string; packageName: string; visitNumber: number; visitOn: string; today: string; contents: readonly VisitContent[] }): string {
-  const greeting = `Halo ${firstName(input.patientName)}, ini SunDY Clinic. Sesuai program paket ${input.packageName},`;
+  const greeting = `Halo ${firstName(input.patientName)}, ini SunDY Clinic Manhattan. Sesuai program paket ${input.packageName},`;
   const date = formatIndonesianDate(new Date(`${input.visitOn}T00:00:00Z`));
   const isi = visitContentsLabel(input.contents);
   if (input.visitOn < input.today) {

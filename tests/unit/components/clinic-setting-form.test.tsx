@@ -11,7 +11,7 @@ vi.mock("@/server/clinic-setting", () => ({ updateClinicSetting: vi.fn() }));
 // Kartu "Biaya booking" dan kotak isiannya bernama sama, jadi kotaknya dicari di dalam kartu.
 const feeInput = () => within(screen.getByRole("region", { name: "Biaya booking" })).getByLabelText("Biaya booking");
 
-const SETTING = { bookingFee: 100000, bankName: "BCA", bankAccountNumber: "1234567890", bankAccountHolder: "SunDY Clinic" };
+const SETTING = { bookingFee: 100000, bankName: "BCA", bankAccountNumber: "1234567890", bankAccountHolder: "SunDY Clinic Manhattan" };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -30,7 +30,7 @@ describe("ClinicSettingForm (spec D 5.5)", () => {
     renderAdmin(<ClinicSettingForm setting={SETTING} />);
     expect(screen.getByRole("heading", { level: 1, name: "Pengaturan" })).toBeInTheDocument();
     expect(within(screen.getByRole("region", { name: "Biaya booking" })).getByLabelText("Biaya booking")).toHaveValue("Rp 100.000");
-    expect(screen.getByRole("region", { name: "Rekening transfer" })).toHaveTextContent("Tampil ke pasien: BCA 1234567890 a.n. SunDY Clinic");
+    expect(screen.getByRole("region", { name: "Rekening transfer" })).toHaveTextContent("Tampil ke pasien: BCA 1234567890 a.n. SunDY Clinic Manhattan");
   });
 
   it("pratinjau mengikuti ketikan; rekening belum lengkap memakai kalimat pengganti", async () => {
@@ -54,7 +54,7 @@ describe("ClinicSettingForm (spec D 5.5)", () => {
         bookingFee: 150000,
         bankName: "BCA",
         bankAccountNumber: "1234567890",
-        bankAccountHolder: "SunDY Clinic",
+        bankAccountHolder: "SunDY Clinic Manhattan",
       }),
     );
   });

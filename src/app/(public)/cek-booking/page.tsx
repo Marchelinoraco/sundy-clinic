@@ -4,7 +4,7 @@ import { bookingCodeFromParam } from "@/lib/booking-code";
 
 export const metadata: Metadata = {
   title: "Cek Status Booking",
-  description: "Cek status booking SunDY Clinic dengan kode booking dan 4 digit terakhir nomor WhatsApp.",
+  description: "Cek status booking SunDY Clinic Manhattan dengan kode booking dan 4 digit terakhir nomor WhatsApp.",
 };
 
 export default async function BookingStatusPage({

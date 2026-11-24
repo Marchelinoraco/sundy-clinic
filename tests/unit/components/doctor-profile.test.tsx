@@ -5,10 +5,10 @@ import { DoctorProfile, doctorCallName } from "@/components/public/doctor-profil
 const DIANE = {
   name: "Dr. Diane Paparang, Sp.GK, AIFO-K",
   specialty: "Spesialis Gizi Klinik",
-  bio: "Dokter penanggung jawab SunDY Clinic Manado untuk program slimming, nutrisi, dan perawatan estetika.",
+  bio: "Dokter penanggung jawab SunDY Clinic Manhattan untuk program slimming, nutrisi, dan perawatan estetika.",
   role: "DOKTER",
 };
-const PHOTO = { src: "/images/dokter/diane-2.jpg", alt: "dr. Diane Paparang, Sp.GK, AIFO-K, dokter SunDY Clinic" };
+const PHOTO = { src: "/images/dokter/diane-2.jpg", alt: "dr. Diane Paparang, Sp.GK, AIFO-K, dokter SunDY Clinic Manhattan" };
 
 describe("doctorCallName", () => {
   it("memendekkan nama bergelar menjadi sapaan untuk tombol", () => {

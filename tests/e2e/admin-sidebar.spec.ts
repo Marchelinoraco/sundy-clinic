@@ -14,7 +14,7 @@ test("menu samping: desktop selalu tampil; ponsel lewat tombol Buka menu, tertut
   }
   const booking = page.getByRole("link", { name: "Booking", exact: true });
   await expect(booking).toBeVisible();
-  await expect(page.getByRole("link", { name: "SunDY Clinic" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "SunDY Clinic Manhattan" }).first()).toBeVisible();
   await booking.click();
   await expect(page).toHaveURL(/\/admin\/booking$/, { timeout: 30_000 });
   if (isMobile) {

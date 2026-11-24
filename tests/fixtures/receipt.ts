@@ -2,7 +2,7 @@ import type { PublicReceipt } from "@/lib/receipt";
 
 /** Struk contoh untuk uji komponen (Task 5, 6, 9). */
 export const RECEIPT: PublicReceipt = {
-  clinicName: "SunDY Clinic",
+  clinicName: "SunDY Clinic Manhattan",
   branchName: "SunDY Mahakeret",
   branchAddress: "Jl. Mahakeret 1, Manado",
   number: "TG-2026-0123",

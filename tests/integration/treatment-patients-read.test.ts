@@ -59,7 +59,7 @@ describe("tab Pasien treatment", () => {
     const all = await listTreatmentPatients({ q: "tabzz" });
     expect(all.rows.map((row) => row.patientName)).toEqual(["Tabzz Ani", "Tabzz Budi", "Tabzz Cici"]);
     expect(all.rows[0]).toMatchObject({ treatments: "Facial Tabzz", treatmentOn: ago(3), intervalDays: 7, lastReminder: null, markers: [] });
-    expect(all.rows[0].message.text).toContain("melakukan Facial Tabzz di SunDY Clinic");
+    expect(all.rows[0].message.text).toContain("melakukan Facial Tabzz di SunDY Clinic Manhattan");
     expect((await listTreatmentPatients({ q: "BUDI tabzz" })).rows).toHaveLength(0);
     expect((await listTreatmentPatients({ q: "Tabzz Budi" })).rows.map((row) => row.patientId)).toEqual([middle]);
     expect((await listTreatmentPatients({ q: "tabzz", olderThanWeeks: 2 })).rows.map((row) => row.patientId)).toEqual([middle, old]);

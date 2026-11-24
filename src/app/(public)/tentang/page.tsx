@@ -43,7 +43,7 @@ export default async function AboutPage() {
         </h2>
         <Reveal>
           <p className="mt-6 leading-relaxed text-brown-700">
-            SunDY Clinic adalah klinik nutrisi, slimming, dan wellness di Manado. Kami memadukan
+            SunDY Clinic Manhattan adalah klinik nutrisi, slimming, dan wellness di Manado. Kami memadukan
             program penurunan berat badan yang diawasi dokter dengan perawatan estetika, sehingga
             perubahan yang Anda capai terlihat sekaligus terasa. {CLINIC_TAGLINE}. {CLINIC_BEAUTY_TAGLINE}.
           </p>

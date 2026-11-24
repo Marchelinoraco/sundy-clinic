@@ -23,7 +23,7 @@ describe("menu samping", () => {
 
   it("menu sesuai peran, menu aktif bertanda, lencana di luar tautan dengan label lengkap", () => {
     renderAdmin(<AppSidebar staff={staff} pendingBookings={3} billable={2} />);
-    expect(screen.getByRole("link", { name: "SunDY Clinic" })).toHaveAttribute("href", "/admin");
+    expect(screen.getByRole("link", { name: "SunDY Clinic Manhattan" })).toHaveAttribute("href", "/admin");
     const booking = screen.getByRole("link", { name: "Booking" });
     expect(booking).toHaveAttribute("href", "/admin/booking");
     expect(booking).toHaveAttribute("aria-current", "page");

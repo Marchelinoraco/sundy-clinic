@@ -140,7 +140,7 @@ export function LinkIdentityStep({
           onChange={(e) => set("consentData", e.target.checked)}
         />
         <span>
-          Saya setuju data saya, termasuk jawaban kesehatan, dipakai untuk pelayanan di SunDY Clinic sesuai{" "}
+          Saya setuju data saya, termasuk jawaban kesehatan, dipakai untuk pelayanan di SunDY Clinic Manhattan sesuai{" "}
           <Link href="/kebijakan-privasi" target="_blank" className="underline underline-offset-4">
             Kebijakan Privasi
           </Link>

@@ -14,7 +14,7 @@ const PORTION_EXAMPLE =
 export function stepText(step: StepId, a: QuizAnswers): { title: string; hint?: string } {
   switch (step) {
     case "U1":
-      return { title: "Pernah konsultasi atau treatment di SunDY Clinic?" };
+      return { title: "Pernah konsultasi atau treatment di SunDY Clinic Manhattan?" };
     case "U2":
       return { title: "Apa yang ingin Anda konsultasikan?" };
     case "S1":

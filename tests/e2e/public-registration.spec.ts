@@ -80,7 +80,7 @@ test("pasien baru Slimming mendaftar sampai mendapat kode booking", async ({ pag
   await page.getByRole("button", { name: "Kirim pendaftaran" }).click();
 
   await expect(page.getByRole("heading", { name: "Pendaftaran diterima" })).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByText(/BCA 1234567890 a\.n\. SunDY Clinic/)).toBeVisible();
+  await expect(page.getByText(/BCA 1234567890 a\.n\. SunDY Clinic Manhattan/)).toBeVisible();
   await expect(page.getByRole("link", { name: "Konfirmasi via WhatsApp" })).toHaveAttribute("href", /wa\.me/);
   const code = (await page.getByText(/^SDY-[A-Z0-9]{4}$/).textContent())?.trim();
   expect(code).toMatch(/^SDY-[A-Z0-9]{4}$/);

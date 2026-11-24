@@ -20,7 +20,7 @@ describe("InvoiceA4Paper (spec invoice A4)", () => {
       "RM SDY-2026-0007",
       "7 kapsul",
       "Jatah paket Glowing 3 Bulan",
-      "22 Okt 2026 · Transfer bank ke BCA 1234567890 a.n. SunDY Clinic",
+      "22 Okt 2026 · Transfer bank ke BCA 1234567890 a.n. SunDY Clinic Manhattan",
       "SisaRp 700.000",
     ]) {
       expect(paper).toHaveTextContent(text);

@@ -8,7 +8,7 @@ describe("ReceiptPaper", () => {
   it("memuat semua bagian struk", () => {
     render(<ReceiptPaper receipt={RECEIPT} />);
     const paper = screen.getByRole("region", { name: "Struk TG-2026-0123" });
-    for (const text of ["SunDY Clinic", "SunDY Mahakeret", "Jl. Mahakeret 1, Manado", "12 Okt 2026 pukul 18.46", "Mey", "Priscillya Jenitha", "Paket Lux", "2 x Rp 750.000", "Rp 1.500.000", "-Rp 100.000", "Rp 1.400.000", "QRIS", "Rp 400.000", "DEPOSIT"]) {
+    for (const text of ["SunDY Clinic Manhattan", "SunDY Mahakeret", "Jl. Mahakeret 1, Manado", "12 Okt 2026 pukul 18.46", "Mey", "Priscillya Jenitha", "Paket Lux", "2 x Rp 750.000", "Rp 1.500.000", "-Rp 100.000", "Rp 1.400.000", "QRIS", "Rp 400.000", "DEPOSIT"]) {
       expect(paper, text).toHaveTextContent(text);
     }
     expect(within(paper).getByRole("list", { name: "Item" }).children).toHaveLength(1);

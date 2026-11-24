@@ -37,7 +37,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   return {
     title: `${service.name} — ${price}`,
-    description: service.description ?? `${service.name} di SunDY Clinic Manado. ${price}.`,
+    description: service.description ?? `${service.name} di SunDY Clinic Manhattan. ${price}.`,
   };
 }
 

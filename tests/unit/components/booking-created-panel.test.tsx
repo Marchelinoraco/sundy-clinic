@@ -9,7 +9,7 @@ vi.mock("@/server/appointment-message", () => ({
   recordAppointmentMessage: vi.fn().mockResolvedValue({ ok: true, data: { id: "m1" } }),
 }));
 
-const TEXT = "Halo Maria Wenas, booking Anda di SunDY Clinic sudah kami catat.\nKode: SDY-7KQ2";
+const TEXT = "Halo Maria Wenas, booking Anda di SunDY Clinic Manhattan sudah kami catat.\nKode: SDY-7KQ2";
 const created: CreatedBooking = {
   id: "a1",
   code: "SDY-7KQ2",

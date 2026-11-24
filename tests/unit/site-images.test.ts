@@ -119,7 +119,7 @@ describe("peta foto situs publik", () => {
     const photos = doctorPhotos(DIANE);
     expect(photos?.portrait.src).toBe("/images/dokter/diane-1.jpg");
     expect(photos?.feature.src).toBe("/images/dokter/diane-2.jpg");
-    expect(photos?.portrait.alt).toBe("dr. Diane Paparang, Sp.GK, AIFO-K, dokter SunDY Clinic");
+    expect(photos?.portrait.alt).toBe("dr. Diane Paparang, Sp.GK, AIFO-K, dokter SunDY Clinic Manhattan");
   });
 
   it("mendahulukan foto staf yang diisi lewat data, dan kosong bila tidak ada foto", () => {

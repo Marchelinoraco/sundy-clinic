@@ -38,7 +38,7 @@ describe("pengaturan klinik", () => {
         bookingFee: 150000,
         bankName: " BCA ",
         bankAccountNumber: "1234567890",
-        bankAccountHolder: "SunDY Clinic",
+        bankAccountHolder: "SunDY Clinic Manhattan",
       }),
     );
 
@@ -46,7 +46,7 @@ describe("pengaturan klinik", () => {
       bookingFee: 150000,
       bankName: "BCA",
       bankAccountNumber: "1234567890",
-      bankAccountHolder: "SunDY Clinic",
+      bankAccountHolder: "SunDY Clinic Manhattan",
     });
     const audit = await prisma.auditLog.findFirstOrThrow({ where: { action: "clinic-setting.update" } });
     expect(audit.actorName).toBe("Pemilik Uji");

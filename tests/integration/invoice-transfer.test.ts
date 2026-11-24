@@ -27,7 +27,7 @@ let accountId: string;
 beforeAll(async () => {
   await cleanupBillingWorld(SLUG, [WA]);
   world = await createBillingWorld(SLUG, WA);
-  accountId = (await prisma.clinicBankAccount.create({ data: { bankName: "BCA Transfer Uji", accountNumber: "1234567890", accountHolder: "SunDY Clinic" } })).id;
+  accountId = (await prisma.clinicBankAccount.create({ data: { bankName: "BCA Transfer Uji", accountNumber: "1234567890", accountHolder: "SunDY Clinic Manhattan" } })).id;
   invoiceId = (await unwrap(createDirectSale({ patientId: world.patientId, branchId: world.branchId }))).id;
   const { version } = await unwrap(addFreeLine({ approval: await testApproval(), invoiceId, version: 1, kind: "LAYANAN", name: "Layanan Transfer", quantity: 1, unitPrice: 300_000 }));
   await unwrap(finalizeInvoice({ invoiceId, version }));
@@ -45,13 +45,13 @@ describe("transfer bank", () => {
       recordInvoicePayment({ invoiceId, amount: 100_000, method: "TRANSFER", paidAt: today, reference: "REF-1", clinicBankAccountId: accountId, senderBank: "BRI", senderAccountName: "Budi", senderAccountNumber: "****1234" }),
     );
     const payment = await prisma.invoicePayment.findFirstOrThrow({ where: { invoiceId, reference: "REF-1" } });
-    expect(payment).toMatchObject({ clinicBankAccountId: accountId, destinationLabel: "BCA Transfer Uji 1234567890 a.n. SunDY Clinic", senderBank: "BRI", senderAccountName: "Budi", senderAccountNumber: "****1234" });
-    expect((await getInvoiceDetail(invoiceId))!.payments[0]).toMatchObject({ destinationLabel: "BCA Transfer Uji 1234567890 a.n. SunDY Clinic", senderBank: "BRI" });
+    expect(payment).toMatchObject({ clinicBankAccountId: accountId, destinationLabel: "BCA Transfer Uji 1234567890 a.n. SunDY Clinic Manhattan", senderBank: "BRI", senderAccountName: "Budi", senderAccountNumber: "****1234" });
+    expect((await getInvoiceDetail(invoiceId))!.payments[0]).toMatchObject({ destinationLabel: "BCA Transfer Uji 1234567890 a.n. SunDY Clinic Manhattan", senderBank: "BRI" });
   });
 
   it("salinan tidak berubah setelah rekening diedit (Review Focus 3)", async () => {
     await prisma.clinicBankAccount.update({ where: { id: accountId }, data: { accountHolder: "Nama Baru" } });
-    expect((await prisma.invoicePayment.findFirstOrThrow({ where: { invoiceId, reference: "REF-1" } })).destinationLabel).toContain("SunDY Clinic");
+    expect((await prisma.invoicePayment.findFirstOrThrow({ where: { invoiceId, reference: "REF-1" } })).destinationLabel).toContain("SunDY Clinic Manhattan");
   });
 
   it("tanpa rekening tujuan, rekening nonaktif, atau tidak ada ditolak", async () => {

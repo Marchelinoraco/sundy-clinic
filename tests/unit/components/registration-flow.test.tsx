@@ -102,7 +102,7 @@ describe("RegistrationFlow", () => {
           branchName: "SunDY Mahakeret",
           startAt: new Date("2026-10-01T07:00:00Z"),
           bookingFee: 100000,
-          bankAccount: "BCA 1234567890 a.n. SunDY Clinic",
+          bankAccount: "BCA 1234567890 a.n. SunDY Clinic Manhattan",
           confirmationLink: "https://wa.me/6285172228900?text=x",
           online: null,
         },
@@ -113,7 +113,7 @@ describe("RegistrationFlow", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Kirim pendaftaran" }));
 
     expect(await screen.findByText("SDY-8F3K")).toBeInTheDocument();
-    expect(screen.getByText(/BCA 1234567890 a.n. SunDY Clinic/)).toBeInTheDocument();
+    expect(screen.getByText(/BCA 1234567890 a.n. SunDY Clinic Manhattan/)).toBeInTheDocument();
     expect(window.sessionStorage.getItem(DRAFT_STORAGE_KEY)).toBeNull();
     expect(actions.submitSiteBooking).toHaveBeenCalledWith(
       expect.objectContaining({ holdToken: "token-hold-uji-000000", serviceId: "konsul", branchId: "b1" }),
@@ -123,24 +123,24 @@ describe("RegistrationFlow", () => {
     // Muat ulang: kuitansi tampil lagi, bukan kuis dari awal.
     const reloaded = render(<RegistrationFlow options={options} />);
     expect(await screen.findByText("SDY-8F3K")).toBeInTheDocument();
-    expect(screen.getByText(/BCA 1234567890 a.n. SunDY Clinic/)).toBeInTheDocument();
+    expect(screen.getByText(/BCA 1234567890 a.n. SunDY Clinic Manhattan/)).toBeInTheDocument();
     expect(screen.getByText(/pukul 15.00 WITA/)).toBeInTheDocument();
     // Tidak ada data klinis di kuitansi yang tersimpan.
     expect(window.sessionStorage.getItem(RECEIPT_STORAGE_KEY)).not.toMatch(/answers|Amlodipine|weight/i);
 
     await userEvent.click(screen.getByRole("button", { name: "Daftar lagi" }));
-    expect(await screen.findByRole("heading", { name: "Pernah konsultasi atau treatment di SunDY Clinic?" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Pernah konsultasi atau treatment di SunDY Clinic Manhattan?" })).toBeInTheDocument();
     expect(window.sessionStorage.getItem(RECEIPT_STORAGE_KEY)).toBeNull();
     reloaded.unmount();
 
     render(<RegistrationFlow options={options} />);
-    expect(await screen.findByRole("heading", { name: "Pernah konsultasi atau treatment di SunDY Clinic?" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Pernah konsultasi atau treatment di SunDY Clinic Manhattan?" })).toBeInTheDocument();
   });
 
   it("mengabaikan kuitansi tersimpan yang bentuknya rusak", async () => {
     window.sessionStorage.setItem(RECEIPT_STORAGE_KEY, JSON.stringify({ code: 42, startAt: "bukan tanggal" }));
     render(<RegistrationFlow options={options} />);
-    expect(await screen.findByRole("heading", { name: "Pernah konsultasi atau treatment di SunDY Clinic?" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Pernah konsultasi atau treatment di SunDY Clinic Manhattan?" })).toBeInTheDocument();
   });
 
   it("slot yang terisi mengembalikan pasien ke langkah jadwal tanpa kehilangan jawaban", async () => {
@@ -160,7 +160,7 @@ describe("RegistrationFlow", () => {
     window.sessionStorage.setItem("sundy-daftar-v1", JSON.stringify({ answers: { purpose: "BELUM_YAKIN" }, screen: "B1" }));
     render(<RegistrationFlow options={options} />);
 
-    expect(await screen.findByRole("heading", { name: "Pernah konsultasi atau treatment di SunDY Clinic?" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Pernah konsultasi atau treatment di SunDY Clinic Manhattan?" })).toBeInTheDocument();
     expect(toasts.info).toHaveBeenCalledWith("Kuis kami baru saja diperbarui. Silakan isi dari awal.");
     expect(window.sessionStorage.getItem("sundy-daftar-v1")).toBeNull();
   });
@@ -206,7 +206,7 @@ describe("RegistrationFlow", () => {
           branchName: "Online (WhatsApp)",
           startAt: new Date("2026-10-08T11:00:00Z"),
           bookingFee: 100000,
-          bankAccount: "BCA 1234567890 a.n. SunDY Clinic",
+          bankAccount: "BCA 1234567890 a.n. SunDY Clinic Manhattan",
           confirmationLink: "https://wa.me/6285172228900?text=x",
           online: {
             windowLines: ["• Kamis, 8 Oktober 2026, 19.00–21.00"],

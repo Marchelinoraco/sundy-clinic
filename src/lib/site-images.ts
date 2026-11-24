@@ -69,11 +69,11 @@ const DOCTOR_PHOTOS: Record<string, DoctorPhotos> = {
   "diane-paparang": {
     portrait: {
       src: "/images/dokter/diane-1.jpg",
-      alt: "dr. Diane Paparang, Sp.GK, AIFO-K, dokter SunDY Clinic",
+      alt: "dr. Diane Paparang, Sp.GK, AIFO-K, dokter SunDY Clinic Manhattan",
     },
     feature: {
       src: "/images/dokter/diane-2.jpg",
-      alt: "dr. Diane Paparang, Sp.GK, AIFO-K, dokter SunDY Clinic",
+      alt: "dr. Diane Paparang, Sp.GK, AIFO-K, dokter SunDY Clinic Manhattan",
     },
   },
 };

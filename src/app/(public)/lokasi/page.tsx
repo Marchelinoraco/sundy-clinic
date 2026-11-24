@@ -10,7 +10,7 @@ import { getBranches } from "@/server/catalog";
 export const metadata: Metadata = {
   title: "Lokasi Klinik",
   description:
-    "Lokasi SunDY Clinic Manado: cabang Mahakeret Barat (Jl. Garuda No. 10) dan cabang Citraland Cluster The Manhattan yang segera hadir.",
+    "Lokasi SunDY Clinic Manhattan: cabang Mahakeret Barat (Jl. Garuda No. 10) dan cabang Citraland Cluster The Manhattan yang segera hadir.",
 };
 
 export default async function LocationsPage() {
@@ -21,7 +21,7 @@ export default async function LocationsPage() {
       <PageHero
         title="Lokasi Klinik"
         image={CLINIC_GALLERY[0]}
-        description={<p>SunDY Clinic hadir di dua lokasi di Manado.</p>}
+        description={<p>SunDY Clinic Manhattan hadir di dua lokasi di Manado.</p>}
       />
 
       <div className="mx-auto grid max-w-5xl gap-8 px-4 py-14">

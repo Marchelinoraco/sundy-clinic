@@ -75,10 +75,10 @@ describe("invoice A4 (spec invoice A4)", () => {
     const at = "2026-10-22";
     expect(paymentText({ paidAt: at, method: "TUNAI", destinationLabel: null })).toBe("22 Okt 2026 · Tunai");
     expect(paymentText({ paidAt: at, method: "QRIS", destinationLabel: null })).toBe("22 Okt 2026 · QRIS");
-    expect(paymentText({ paidAt: at, method: "TRANSFER", destinationLabel: "BCA 1234567890 a.n. SunDY Clinic" })).toBe("22 Okt 2026 · Transfer bank ke BCA 1234567890 a.n. SunDY Clinic");
-    expect(paymentText({ paidAt: at, method: "EDC", destinationLabel: "BCA 1234567890 a.n. SunDY Clinic" })).toBe("22 Okt 2026 · EDC BCA 1234567890 a.n. SunDY Clinic");
-    const invoice = buildInvoiceA4(source({ payments: [paid(500_000, { method: "EDC", destinationLabel: "BCA 1234567890 a.n. SunDY Clinic" })] }), [])!;
-    expect(invoice.payments).toEqual([{ paidAt: at, text: "22 Okt 2026 · EDC BCA 1234567890 a.n. SunDY Clinic", amount: 500_000 }]);
+    expect(paymentText({ paidAt: at, method: "TRANSFER", destinationLabel: "BCA 1234567890 a.n. SunDY Clinic Manhattan" })).toBe("22 Okt 2026 · Transfer bank ke BCA 1234567890 a.n. SunDY Clinic Manhattan");
+    expect(paymentText({ paidAt: at, method: "EDC", destinationLabel: "BCA 1234567890 a.n. SunDY Clinic Manhattan" })).toBe("22 Okt 2026 · EDC BCA 1234567890 a.n. SunDY Clinic Manhattan");
+    const invoice = buildInvoiceA4(source({ payments: [paid(500_000, { method: "EDC", destinationLabel: "BCA 1234567890 a.n. SunDY Clinic Manhattan" })] }), [])!;
+    expect(invoice.payments).toEqual([{ paidAt: at, text: "22 Okt 2026 · EDC BCA 1234567890 a.n. SunDY Clinic Manhattan", amount: 500_000 }]);
   });
 
   it("progres paket: sesi terpakai dan barang diterima (IA5)", () => {
