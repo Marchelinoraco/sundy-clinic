@@ -247,9 +247,12 @@ export function packageCostSummary(price: number, lines: readonly PackageCostLin
   return { normalValue, saving: normalValue - price, cost, complete: missing.length === 0, margin: price - cost, missing };
 }
 
-/** Penyimpanan paket ditolak bila ada barang tanpa harga beli (PI4), lalu bila harga di bawah total biaya (PI3); sama dengan boleh. */
+/**
+ * Penyimpanan paket ditolak bila harga di bawah total biaya isi yang SUDAH diketahui (PI3; sama dengan boleh). Barang tanpa
+ * harga beli tidak lagi memblokir (PI4 dilonggarkan 24 Nov 2026): biaya yang diketahui adalah batas bawah, jadi bila itu
+ * sudah melebihi harga, paket pasti rugi.
+ */
 export function packagePriceError(price: number, summary: PackageCostSummary): string | null {
-  if (summary.missing.length > 0) return `Harga beli ${summary.missing[0]} belum diisi. Isi di Stok → Barang masuk.`;
   if (summary.cost > price) return `Harga paket ${formatRupiah(price)} di bawah total biaya isi ${formatRupiah(summary.cost)}. Naikkan harga paket atau kurangi isinya.`;
   return null;
 }

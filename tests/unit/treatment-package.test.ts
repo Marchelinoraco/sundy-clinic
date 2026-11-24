@@ -184,11 +184,18 @@ describe("biaya dan selisih paket (spec paket informatif PI1–PI4)", () => {
     );
   });
 
-  it("barang tanpa harga beli: biaya belum lengkap dan ditolak lebih dulu (PI4)", () => {
+  it("barang tanpa harga beli: biaya belum lengkap tetapi tidak memblokir (PI4 dilonggarkan 24 Nov 2026)", () => {
     const missing = [...lines, { name: "Serum Vitamin C", unitPrice: 185_000, unitCost: null, quantity: 1 }];
-    const summary = packageCostSummary(600_000, missing);
+    const summary = packageCostSummary(600_000 + 100_000, missing);
     expect(summary).toMatchObject({ normalValue: 2_031_000, cost: 640_000, complete: false, missing: ["Serum Vitamin C"] });
-    expect(packagePriceError(600_000, summary)).toBe("Harga beli Serum Vitamin C belum diisi. Isi di Stok → Barang masuk.");
+    expect(packagePriceError(700_000, summary)).toBeNull();
+  });
+
+  it("biaya yang sudah diketahui melebihi harga tetap ditolak walau ada harga beli yang belum diisi (PI3)", () => {
+    const missing = [...lines, { name: "Serum Vitamin C", unitPrice: 185_000, unitCost: null, quantity: 1 }];
+    expect(packagePriceError(600_000, packageCostSummary(600_000, missing))).toBe(
+      "Harga paket Rp 600.000 di bawah total biaya isi Rp 640.000. Naikkan harga paket atau kurangi isinya.",
+    );
   });
 
   it("barang tanpa harga jual dihitung Rp 0 pada nilai normal", () => {

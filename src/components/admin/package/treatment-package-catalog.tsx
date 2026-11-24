@@ -184,8 +184,8 @@ function PackageDialog({
   });
   const price = draft.price ?? 0;
   const summary = packageCostSummary(price, lines);
-  // Harga belum diisi: hanya barang tanpa harga beli yang sudah perlu ditandai (PI3, PI4).
-  const costError = draft.price === null && summary.missing.length === 0 ? null : packagePriceError(price, summary);
+  // Harga belum diisi: belum ada yang perlu ditolak (PI3). Harga beli kosong hanya peringatan (PI4 dilonggarkan).
+  const costError = draft.price === null ? null : packagePriceError(price, summary);
   const percentOf = (part: number, whole: number) => {
     const value = marginPercent(part, whole);
     return value === null ? "" : ` (${value.toLocaleString("id-ID")}%)`;
@@ -216,7 +216,7 @@ function PackageDialog({
                 value={draft.price}
                 onChange={(price) => setDraft((d) => ({ ...d, price }))}
                 helperText="Dibayar customer sekali untuk seluruh isi paket."
-                error={draft.price !== null && summary.complete && summary.cost > price}
+                error={draft.price !== null && summary.cost > price}
                 fullWidth
               />
               <TextField
@@ -271,7 +271,7 @@ function PackageDialog({
                 ? `Harga jual ${formatRupiah(service.price)}/sesi · biaya ${formatRupiah(service.costPerSession)}/sesi`
                 : stock
                   ? missingCost
-                    ? "Harga beli belum diisi. Isi di Stok → Barang masuk."
+                    ? "Harga beli belum diisi."
                     : `Harga jual ${stock.sellPrice === null ? "belum diisi" : `${formatRupiah(stock.sellPrice)}/${stock.unit}`} · harga beli terakhir ${formatRupiah(stock.lastUnitCost ?? 0)}/${stock.unit}`
                   : item.goods
                     ? "Pilih obat atau produk dari stok."
@@ -283,7 +283,7 @@ function PackageDialog({
                   key={index}
                   role="group"
                   aria-label={`Isi paket ${n}`}
-                  sx={{ border: 1, borderColor: missingCost ? "error.light" : "divider", borderRadius: 1.5, p: 1.5, bgcolor: missingCost ? "action.hover" : undefined }}
+                  sx={{ border: 1, borderColor: missingCost ? "warning.light" : "divider", borderRadius: 1.5, p: 1.5, bgcolor: missingCost ? "action.hover" : undefined }}
                 >
                   <Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 1 }}>
                     <Typography variant="overline" sx={{ color: "primary.main", lineHeight: 1.5 }}>
@@ -384,7 +384,7 @@ function PackageDialog({
               <SummaryRow
                 label="Selisih harga paket − biaya"
                 value={summary.complete && draft.price !== null ? `${formatRupiah(summary.margin)}${percentOf(summary.margin, price)}` : "belum bisa dihitung"}
-                tone={summary.complete && draft.price !== null ? (summary.margin < 0 ? "error.main" : "success.main") : "error.main"}
+                tone={summary.complete && draft.price !== null ? (summary.margin < 0 ? "error.main" : "success.main") : "warning.main"}
                 strong
               />
               {visits.length > 0 && <SummaryRow label="Rencana kunjungan" value={`${visits.length} kunjungan, ±${planDays} hari`} />}
@@ -392,6 +392,11 @@ function PackageDialog({
             {daysValid && visits.length > 0 && planDays >= days && (
               <Alert severity="warning" role="status">
                 Rencana kunjungan melewati masa berlaku paket.
+              </Alert>
+            )}
+            {summary.missing.length > 0 && (
+              <Alert severity="warning">
+                {`Harga beli belum lengkap: ${summary.missing.join(", ")}. Margin belum bisa dihitung; lengkapi di Stok → Barang masuk.`}
               </Alert>
             )}
             {(costError ?? error) && <Alert severity="error">{costError ?? error}</Alert>}
