@@ -34,3 +34,14 @@ Server memeriksa ulang keduanya dengan data dari basis data, tidak dari browser.
 
 - Perubahan basis data: tidak ada.
 - Memblokir perubahan biaya treatment atau harga beli yang membuat paket lama menjadi rugi.
+
+## Perubahan 24 Nov 2026
+
+PI4 dilonggarkan atas permintaan pemilik. Sebelumnya paket tidak bisa disimpan bila ada obat/produk di dalamnya yang belum punya harga beli. Alasannya: harga beli baru terisi lewat Stok → Barang masuk, sehingga pemilik tidak bisa menyusun paket lebih dulu sebelum barangnya dibeli.
+
+Aturan baru:
+
+- Harga beli yang kosong **tidak lagi memblokir** penyimpanan, baik di dialog maupun di server. Dialog menampilkan catatan peringatan (kuning, bukan kesalahan): "Harga beli belum lengkap: <nama>. Margin belum bisa dihitung; lengkapi di Stok → Barang masuk." Tombol Simpan tetap aktif.
+- PI3 tetap, tetapi hanya atas biaya yang **sudah diketahui**: ditolak bila jumlah biaya isi yang punya harga lebih besar dari harga paket (biaya yang diketahui adalah batas bawah, jadi paket pasti rugi). Sama dengan boleh.
+- Selama ada harga beli kosong, total biaya dan selisih ditampilkan "belum lengkap"/"belum bisa dihitung", dan tabel katalog menandai "Harga beli belum lengkap" (PI6 tidak berubah).
+

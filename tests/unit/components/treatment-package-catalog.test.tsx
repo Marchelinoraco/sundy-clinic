@@ -145,7 +145,7 @@ describe("TreatmentPackageCatalog", () => {
     expect(within(dialog).getByRole("button", { name: "Simpan" })).toBeDisabled();
   });
 
-  it("barang tanpa harga beli: ditandai di barisnya dan Simpan nonaktif (PI4)", async () => {
+  it("barang tanpa harga beli: ditandai peringatan di barisnya dan Simpan tetap aktif (PI4 dilonggarkan)", async () => {
     const user = userEvent.setup();
     renderAdmin(<TreatmentPackageCatalog packages={[]} services={services} stockItems={[{ ...slimming, lastUnitCost: null }]} />);
     await user.click(screen.getByRole("button", { name: "+ Paket" }));
@@ -154,10 +154,12 @@ describe("TreatmentPackageCatalog", () => {
     await user.selectOptions(within(dialog).getByLabelText("Layanan 1"), "s1");
     await user.click(within(dialog).getByRole("button", { name: "+ Obat / produk" }));
     await user.selectOptions(within(dialog).getByLabelText("Obat / produk 2"), "it9");
-    expect(within(dialog).getByRole("group", { name: "Isi paket 2" })).toHaveTextContent("Harga beli belum diisi. Isi di Stok → Barang masuk.");
-    expect(within(dialog).getByRole("alert")).toHaveTextContent("Harga beli Slimming belum diisi. Isi di Stok → Barang masuk.");
+    expect(within(dialog).getByRole("group", { name: "Isi paket 2" })).toHaveTextContent("Harga beli belum diisi.");
+    expect(within(dialog).getByText("Harga beli belum lengkap: Slimming. Margin belum bisa dihitung; lengkapi di Stok → Barang masuk.")).toBeInTheDocument();
+    expect(within(dialog).getAllByRole("alert")).toHaveLength(1);
     expect(within(dialog).getByRole("region", { name: "Ringkasan paket" })).toHaveTextContent("Total biaya isi paketbiaya layanan + harga beli barangbelum lengkap");
-    expect(within(dialog).getByRole("button", { name: "Simpan" })).toBeDisabled();
+    expect(within(dialog).getByRole("region", { name: "Ringkasan paket" })).toHaveTextContent("Selisih harga paket − biayabelum bisa dihitung");
+    expect(within(dialog).getByRole("button", { name: "Simpan" })).toBeEnabled();
   });
 
   it("menambah paket campuran", async () => {

@@ -162,7 +162,7 @@ async function checkCatalog(value: ValidTreatmentPackage, exceptId?: string) {
   const goods = await prisma.stockItem.findMany({ where: { id: { in: itemIds }, isActive: true }, select: { id: true } });
   if (goods.length !== itemIds.length) throw new UserFacingError("Barang tidak ditemukan atau nonaktif.");
   await assertNameFree(value.name, exceptId);
-  // Tidak boleh ada barang tanpa harga beli, dan harga paket tidak boleh di bawah total biaya isi (spec paket informatif PI3, PI4).
+  // Harga paket tidak boleh di bawah total biaya isi yang sudah diketahui; harga beli kosong tidak memblokir (spec paket informatif PI3, PI4 dilonggarkan).
   const lines = costLinesOf(value.items, await costFacts(serviceIds, itemIds));
   const error = packagePriceError(value.price, packageCostSummary(value.price, lines));
   if (error) throw new UserFacingError(error);

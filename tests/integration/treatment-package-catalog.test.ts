@@ -125,11 +125,8 @@ describe("katalog paket treatment", () => {
     expect((await listPackageStockItems()).find((item) => item.id === world.productId)).toMatchObject({ sellPrice: 150_000, lastUnitCost: null });
   });
 
-  it("server menolak barang tanpa harga beli dan harga paket di bawah biaya; sama dengan biaya boleh (PI3, PI4)", async () => {
-    expect(await createTreatmentPackage({ ...input(), name: `${SLUG} Serum`, items: [{ itemId: world.productId, sessions: 1 }] })).toEqual({
-      ok: false,
-      error: `Harga beli ${SLUG} Serum C belum diisi. Isi di Stok → Barang masuk.`,
-    });
+  it("server menerima barang tanpa harga beli, tetapi menolak harga paket di bawah biaya yang diketahui; sama dengan biaya boleh (PI3, PI4 dilonggarkan)", async () => {
+    await unwrap(createTreatmentPackage({ ...input(), name: `${SLUG} Serum`, items: [{ itemId: world.productId, sessions: 1 }] }));
     await prisma.service.update({ where: { id: world.treatmentId }, data: { materialCost: 100_000 } });
     try {
       expect(await createTreatmentPackage({ ...input(), name: `${SLUG} Murah`, price: 399_999, items: [{ serviceId: world.treatmentId, sessions: 4 }] })).toEqual({
